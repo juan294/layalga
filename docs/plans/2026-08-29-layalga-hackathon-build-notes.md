@@ -126,6 +126,7 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 
 - A fresh read-only audit found and fixed stale locale return paths, guest options shown during a new search, household time-zone rendering, undersized utility text, CI test partitioning, missing coverage floors, global demo-job isolation, unbounded guest searches, expired-hold precedence, notification-recipient authority, incomplete same-home constraints, and cross-instance demo mutation races.
 - Global cron and hold expiry now exclude demo homes unless the caller supplies a home. Demo reset and clock changes use a durable per-home mutation lease and durable per-session plus global rate buckets.
+- The final exact-candidate run exposed an order-dependent demo-cron test assumption: unrelated due jobs can legitimately be processed by the global runner. The test now proves that the demo home stays excluded without assuming an otherwise empty database.
 - Migrations `20260831000900_relationship_tenants.sql` and `20260831001000_demo_mutation_control.sql` applied from a clean reset. The full four-beat demo and all eight release probes passed again after these changes.
 - The final simplify review removed app-clock skew from scheduler leases, normalized safe host and guest action errors, moved shared dependencies into leaf ports, and reused pure validation and time helpers.
 

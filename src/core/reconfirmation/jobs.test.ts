@@ -103,7 +103,14 @@ describe("reconfirmation jobs", () => {
     const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
     const invoker = scriptedInvoker(clock);
 
-    expect(await runDueJobs(sql, clock, invoker)).toEqual([]);
+    const globalResults = await runDueJobs(sql, clock, invoker);
+    expect(globalResults).not.toContainEqual(
+      expect.objectContaining({ homeId }),
+    );
+    const [demoJob] = await sql<{ status: string }[]>`
+      select status from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(demoJob?.status).toBe("scheduled");
     expect(await runDueJobs(sql, clock, invoker, homeId)).toHaveLength(1);
   });
 
