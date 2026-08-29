@@ -4,16 +4,61 @@ on:
   pull_request:
   push:
     branches:
+      - develop
       - main
 
 permissions:
   contents: read
 
 jobs:
-  bootstrap-contract:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Verify cc-rpi bootstrap
         run: bash scripts/verify-bootstrap.sh
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Lint
+        run: pnpm run lint
+      - name: Run unit tests
+        run: pnpm run test:unit
+      - name: Build
+        run: pnpm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Start Supabase
+        run: supabase start
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54622/postgres
+        run: pnpm run test:integration

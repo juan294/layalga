@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/juan294/layalga/actions/workflows/ci.yml/badge.svg)](https://github.com/juan294/layalga/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-planned-3178C6.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6.svg)](https://www.typescriptlang.org/)
 [![Strands Agents](https://img.shields.io/badge/Strands_Agents-planned-232F3E.svg)](https://strandsagents.com/)
 
 L’Ayalga is an AI hospitality coordinator for shared homes. It captures informal invitations, converts flexible plans into confirmed visits, checks partial overlaps, follows up before arrival, and asks hosts only when a social exception needs a decision.
@@ -11,7 +11,7 @@ L’Ayalga is an AI hospitality coordinator for shared homes. It captures inform
 
 ## Status
 
-The repository contains the verified cc-rpi project scaffold and the approved hackathon assessment. Application code has not been created yet.
+The repository contains the application scaffold for Phase 1, including the Next.js skeleton, pinned dependencies, health route, and CI verification.
 
 ## Product identity
 
@@ -37,7 +37,7 @@ Run the scaffold verification with:
 bash scripts/verify-bootstrap.sh
 ```
 
-The next workflow is `/brainstorm`, followed by `/plan` with the four-beat demo as the acceptance criterion.
+The active workflow is Phase 1 of the approved hackathon build plan.
 
 ## Blueprint disclosure
 

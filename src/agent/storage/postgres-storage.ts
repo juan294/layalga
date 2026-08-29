@@ -1,30 +1,30 @@
-import type { Storage } from '@strands-agents/sdk';
+import type { Storage } from "@strands-agents/sdk";
 
-import type { Database } from './database.js';
+import type { SqlClient } from "@/core/db/client";
 
 function normalizePath(value: string, allowEmpty: boolean): string {
-  const segments = value.split('/').filter(Boolean);
+  const segments = value.split("/").filter(Boolean);
 
-  if (segments.includes('..')) {
+  if (segments.includes("..")) {
     throw new Error(`Invalid storage path: ${value}`);
   }
 
   if (!allowEmpty && segments.length === 0) {
-    throw new Error('Storage key must not be empty');
+    throw new Error("Storage key must not be empty");
   }
 
-  return segments.join('/');
+  return segments.join("/");
 }
 
 function escapeLike(value: string): string {
-  return value.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_');
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 }
 
 export class PostgresStorage implements Storage {
   constructor(
-    private readonly sql: Database,
+    private readonly sql: SqlClient,
     private readonly sessionId: string,
-    private readonly prefix = '',
+    private readonly prefix = "",
   ) {}
 
   async write(key: string, data: Uint8Array): Promise<void> {
@@ -61,8 +61,8 @@ export class PostgresStorage implements Storage {
   async list(prefix: string): Promise<string[]> {
     const normalizedPrefix = normalizePath(prefix, true);
     const requestedPrefix =
-      normalizedPrefix && prefix.endsWith('/') ? `${normalizedPrefix}/` : normalizedPrefix;
-    const namespacePrefix = this.prefix ? `${this.prefix}/` : '';
+      normalizedPrefix && prefix.endsWith("/") ? `${normalizedPrefix}/` : normalizedPrefix;
+    const namespacePrefix = this.prefix ? `${this.prefix}/` : "";
     const fullPrefix = `${namespacePrefix}${requestedPrefix}`;
     const rows = await this.sql<{ key: string }[]>`
       select key
@@ -76,12 +76,12 @@ export class PostgresStorage implements Storage {
 
   namespace(prefix: string): Storage {
     const normalizedPrefix = normalizePath(prefix, true);
-    const joined = [this.prefix, normalizedPrefix].filter(Boolean).join('/');
+    const joined = [this.prefix, normalizedPrefix].filter(Boolean).join("/");
     return new PostgresStorage(this.sql, this.sessionId, joined);
   }
 
   private key(key: string): string {
     const normalizedKey = normalizePath(key, false);
-    return [this.prefix, normalizedKey].filter(Boolean).join('/');
+    return [this.prefix, normalizedKey].filter(Boolean).join("/");
   }
 }

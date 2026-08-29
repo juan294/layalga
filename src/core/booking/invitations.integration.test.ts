@@ -1,0 +1,67 @@
+import { randomUUID } from "node:crypto";
+
+import postgres from "postgres";
+import { afterAll, describe, expect, it } from "vitest";
+
+import { captureInvitation, findInvitationByToken } from "./invitations";
+
+const connectionUrl =
+  process.env.DATABASE_URL ??
+  "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
+const db = postgres(connectionUrl, { max: 2, prepare: false });
+
+describe("invitation persistence", () => {
+  afterAll(async () => {
+    await db.end({ timeout: 5 });
+  });
+
+  it("stores only the token HMAC and resolves the raw guest token", async () => {
+    const suffix = randomUUID();
+    const [home] = await db<{ id: string }[]>`
+      insert into public.homes (name, timezone)
+      values (${`Invitation ${suffix}`}, 'Europe/Madrid')
+      returning id
+    `;
+    if (!home) throw new Error("Failed to seed invitation home");
+    const [host] = await db<{ id: string }[]>`
+      insert into public.hosts (home_id, display_name, locale)
+      values (${home.id}, 'Host', 'en')
+      returning id
+    `;
+    if (!host) throw new Error("Failed to seed invitation host");
+
+    const secret = "integration-token-secret";
+    try {
+      const captured = await captureInvitation(db, {
+        homeId: home.id,
+        hostId: host.id,
+        partyName: "Test family",
+        partyLocale: "en",
+        rawMessage: "Come for a weekend",
+        structured: { adults: 2 },
+        tokenSecret: secret,
+        appUrl: "https://example.test",
+      });
+
+      const token = new URL(captured.guestLink).pathname.split("/").at(-1);
+      expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(captured.guestLink).toBe(`https://example.test/en/g/${token}`);
+      const [stored] = await db<{ link_token: string }[]>`
+        select link_token from public.parties where id = ${captured.partyId}
+      `;
+      expect(stored?.link_token).not.toBe(token);
+
+      if (!token) throw new Error("Guest link token is missing");
+      const found = await findInvitationByToken(db, token, secret);
+      expect(found).toMatchObject({
+        id: captured.invitationId,
+        partyId: captured.partyId,
+        partyName: "Test family",
+        structured: { adults: 2 },
+      });
+      expect(await findInvitationByToken(db, token, "wrong-secret")).toBeNull();
+    } finally {
+      await db`delete from public.homes where id = ${home.id}`;
+    }
+  });
+});

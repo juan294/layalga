@@ -10,6 +10,18 @@ required_files=(
   CLAUDE.md
   LICENSE
   README.md
+  package.json
+  pnpm-lock.yaml
+  tsconfig.json
+  next.config.ts
+  eslint.config.mjs
+  vitest.config.ts
+  playwright.config.ts
+  .env.example
+  vercel.json
+  src/app/layout.tsx
+  src/app/page.tsx
+  src/app/api/health/route.ts
   .claude/settings.json
   .claude/cc-rpi-sync.json
   .claude/hooks/guard-bash.sh
@@ -31,6 +43,7 @@ done
 
 jq -e '.lastSyncCommit == "2229ac2c3e0830e333dfec5b25033311b7d4dd0a" and .blueprintVersion == "v1.28.2"' .claude/cc-rpi-sync.json >/dev/null
 jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .permissions.allow' .claude/settings.json >/dev/null
+jq -e '.engines.node == "24.x" and .scripts.typecheck == "tsc --noEmit" and .scripts.lint == "eslint ." and .scripts.test == "vitest run"' package.json >/dev/null
 
 bash -n .claude/hooks/guard-bash.sh
 bash -n .claude/hooks/verify-edit.sh
