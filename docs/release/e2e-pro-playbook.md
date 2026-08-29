@@ -12,8 +12,8 @@ Bootstrap baseline. No application, remote repository, CI run, deployment, or pr
 | Intended repository visibility | Public |
 | Product type | Web application with an agent runtime |
 | Package and build system | pnpm and Next.js, planned but not installed |
-| Integration branch | `main` |
-| Production branch | `main` after deployment configuration |
+| Integration branch | `develop` |
+| Production branch | `main`; promoted from `develop` by pull request |
 | Merge strategy | Squash pull requests |
 | Release artifact | Exact Git commit plus matching web and agent deployments |
 | Web deployment | Not selected; release blocked |
