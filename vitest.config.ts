@@ -9,6 +9,14 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      thresholds: {
+        branches: 25,
+        functions: 30,
+        lines: 30,
+        statements: 30,
+      },
+    },
     environment: "node",
     exclude: [...configDefaults.exclude, "dist/**", "tests/e2e/**"],
   },
