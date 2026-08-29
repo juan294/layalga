@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 
-import type { AgentDeps } from "../deps";
+import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
 import { audit, homeIdForInvitation, loadHouseState } from "./shared";
 

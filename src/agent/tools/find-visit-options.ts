@@ -4,7 +4,7 @@ import { z } from "zod";
 import { sqlClient } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 
-import type { AgentDeps } from "../deps";
+import type { AgentDeps } from "../ports";
 import { isoDateSchema } from "../schemas";
 import { audit, homeIdForInvitation, loadHouseState } from "./shared";
 

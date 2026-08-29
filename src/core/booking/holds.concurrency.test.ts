@@ -4,10 +4,12 @@ import postgres, { type Sql } from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { FakeClock } from "../clock";
+import type { JobScheduler } from "../reconfirmation/jobs";
 import {
   cancelVisit,
   confirmVisit,
   createTemporaryHold,
+  expireTemporaryHolds,
   rescheduleVisit,
   RoomUnavailableError,
 } from "./holds";
@@ -141,6 +143,17 @@ describe("createTemporaryHold concurrency", () => {
   it("confirms, reschedules, and cancels a held visit atomically", async () => {
     const fixture = await seedFixture(db);
     const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    const scheduled: string[] = [];
+    const cancelledRefs: string[] = [];
+    const scheduler: JobScheduler = {
+      async schedule(job) {
+        scheduled.push(job.id);
+        return `external-${job.id}`;
+      },
+      async cancel(externalRef) {
+        cancelledRefs.push(externalRef);
+      },
+    };
 
     try {
       const hold = await createTemporaryHold(db, clock, {
@@ -148,14 +161,27 @@ describe("createTemporaryHold concurrency", () => {
         stay: ["2026-10-02", "2026-10-04"],
         adults: 2,
       });
-      const confirmed = await confirmVisit(db, clock, hold.visitId);
+      const confirmed = await confirmVisit(
+        db,
+        clock,
+        hold.visitId,
+        undefined,
+        scheduler,
+      );
       expect(confirmed.status).toBe("confirmed");
 
-      const rescheduled = await rescheduleVisit(db, clock, {
-        visitId: hold.visitId,
-        stay: ["2026-10-09", "2026-10-11"],
-      });
+      const rescheduled = await rescheduleVisit(
+        db,
+        clock,
+        {
+          visitId: hold.visitId,
+          stay: ["2026-10-09", "2026-10-11"],
+        },
+        scheduler,
+      );
       expect(rescheduled.status).toBe("confirmed");
+      expect(scheduled).toHaveLength(2);
+      expect(cancelledRefs).toEqual([`external-${scheduled[0]}`]);
 
       const activeJobs = await db<{ count: number }[]>`
         select count(*)::integer as count
@@ -181,6 +207,125 @@ describe("createTemporaryHold concurrency", () => {
         where v.id = ${hold.visitId}
       `;
       expect(cancelled).toEqual({ status: "cancelled", rooms: 0, jobs: 0 });
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("expires a stale hold and releases its room", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const hold = await createTemporaryHold(db, clock, {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2026-10-02", "2026-10-04"],
+        adults: 2,
+      });
+      clock.advance(48 * 60 * 60 * 1_000 + 1);
+
+      await expect(confirmVisit(db, clock, hold.visitId)).rejects.toThrow(
+        "expired",
+      );
+      expect(await expireTemporaryHolds(db, clock)).toBe(1);
+      expect(await expireTemporaryHolds(db, clock)).toBe(0);
+
+      const [row] = await db<{ status: string; rooms: number }[]>`
+        select v.status,
+          (select count(*)::integer from public.visit_rooms where visit_id = v.id) as rooms
+        from public.visits v where v.id = ${hold.visitId}
+      `;
+      expect(row).toEqual({ status: "cancelled", rooms: 0 });
+
+      await expect(
+        createTemporaryHold(db, clock, {
+          invitationId: fixture.invitationIds[1],
+          stay: ["2026-10-02", "2026-10-04"],
+          adults: 2,
+        }),
+      ).resolves.toMatchObject({ status: "hold" });
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("resets reconfirmation state when a visit is rescheduled", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const hold = await createTemporaryHold(db, clock, {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2026-10-02", "2026-10-04"],
+        adults: 2,
+      });
+      await confirmVisit(db, clock, hold.visitId);
+      await db`
+        update public.visits
+        set status = 'escalated',
+          reconfirm_requested_at = '2026-09-29T10:00:00Z',
+          reconfirmed_at = '2026-09-29T11:00:00Z',
+          escalated_at = '2026-09-30T10:00:00Z'
+        where id = ${hold.visitId}
+      `;
+
+      const moved = await rescheduleVisit(db, clock, {
+        visitId: hold.visitId,
+        stay: ["2026-10-09", "2026-10-11"],
+      });
+      expect(moved.status).toBe("confirmed");
+      const [row] = await db<
+        {
+          status: string;
+          reconfirm_requested_at: Date | null;
+          reconfirmed_at: Date | null;
+          escalated_at: Date | null;
+        }[]
+      >`
+        select status, reconfirm_requested_at, reconfirmed_at, escalated_at
+        from public.visits where id = ${hold.visitId}
+      `;
+      expect(row).toEqual({
+        status: "confirmed",
+        reconfirm_requested_at: null,
+        reconfirmed_at: null,
+        escalated_at: null,
+      });
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("expires other stale holds inside a confirmation transaction", async () => {
+    const fixture = await seedFixture(db);
+    const firstClock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+
+    try {
+      const stale = await createTemporaryHold(db, firstClock, {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2026-10-02", "2026-10-04"],
+        adults: 1,
+      });
+      await db`
+        insert into public.rooms (home_id, name, beds)
+        values (${fixture.homeId}, 'Second room', 2)
+      `;
+      const activeClock = new FakeClock(
+        new Date(firstClock.now().getTime() + 47 * 60 * 60 * 1_000),
+      );
+      const active = await createTemporaryHold(db, activeClock, {
+        invitationId: fixture.invitationIds[1],
+        stay: ["2026-10-02", "2026-10-04"],
+        adults: 1,
+      });
+      activeClock.set(
+        new Date(firstClock.now().getTime() + 49 * 60 * 60 * 1_000),
+      );
+
+      await confirmVisit(db, activeClock, active.visitId);
+
+      const [expired] = await db<{ status: string }[]>`
+        select status from public.visits where id = ${stale.visitId}
+      `;
+      expect(expired?.status).toBe("cancelled");
     } finally {
       await db`delete from public.homes where id = ${fixture.homeId}`;
     }

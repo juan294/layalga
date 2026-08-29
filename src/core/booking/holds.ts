@@ -12,6 +12,13 @@ import {
   type VisitDraft,
   type VisitStatus,
 } from "../policy/evaluate-overlap";
+import { reconfirmationChaseTime } from "../reconfirmation/state-machine";
+import {
+  noopJobScheduler,
+  scheduleJobs,
+  type JobScheduler,
+  type ScheduledJobRequest,
+} from "../reconfirmation/jobs";
 
 type DateStay = readonly [start: string, end: string];
 
@@ -87,6 +94,7 @@ interface VisitRow {
   pets: number;
   special_requests: string[];
   status: VisitStatus;
+  hold_expires_at: Date | string | null;
 }
 
 export async function createTemporaryHold(
@@ -116,7 +124,9 @@ export async function createTemporaryHold(
         invitation.home_id,
         options.lockHome !== false,
       );
+      await expireHomeHolds(transaction, invitation.home_id, clock.now());
       const draft = toDraft(input);
+      await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
       const state = await loadHouseState(transaction, home, draft.stay);
       const verdict = evaluateOverlap(draft, state);
       assertBookable(verdict);
@@ -148,7 +158,7 @@ export async function createTemporaryHold(
           ${input.pets ?? 0},
           ${transaction.array([...(input.specialRequests ?? [])])},
           'hold',
-          ${holdExpiresAt},
+          ${holdExpiresAt.toISOString()},
           ${approvalHash}
         )
         returning id
@@ -159,6 +169,7 @@ export async function createTemporaryHold(
       await insertVisitRooms(
         transaction,
         visitId,
+        invitation.home_id,
         input.stay,
         verdict.allocation,
       );
@@ -174,17 +185,25 @@ export async function confirmVisit(
   clock: Clock,
   visitId: string,
   approvedBy?: string,
+  scheduler: JobScheduler = noopJobScheduler,
 ): Promise<VisitResult> {
   const client = sqlClient(database);
 
   try {
-    return await client.begin(async (transaction) => {
+    const { result, scheduling } = await client.begin(async (transaction) => {
       const visit = await loadVisitWithHomeLock(transaction, visitId);
       if (visit.status === "cancelled")
         throw new Error("A cancelled visit cannot be confirmed");
+      assertActiveHold(visit, clock.now());
 
       const home = await loadHome(transaction, visit.home_id, false);
+      const expired = await expireHomeHolds(
+        transaction,
+        visit.home_id,
+        clock.now(),
+      );
       const draft = visitDraft(visit);
+      await assertHostInHome(transaction, approvedBy, visit.home_id);
       const verdict = evaluateOverlap(
         draft,
         await loadHouseState(transaction, home, draft.stay),
@@ -196,15 +215,30 @@ export async function confirmVisit(
       await transaction`
         update public.visits
         set status = 'confirmed',
-            confirmed_at = ${now},
+            confirmed_at = ${now.toISOString()},
             hold_expires_at = null,
             approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash)
         where id = ${visitId}
       `;
-      await replaceChaseJob(transaction, visit, home.timezone, now);
+      const scheduling = await replaceChaseJob(
+        transaction,
+        visit,
+        home.timezone,
+        now,
+      );
+      scheduling.cancelledExternalRefs.push(...expired.externalRefs);
 
-      return { visitId, allocation: verdict.allocation, status: "confirmed" };
+      return {
+        result: {
+          visitId,
+          allocation: verdict.allocation,
+          status: "confirmed" as const,
+        },
+        scheduling,
+      };
     });
+    await syncChaseJob(database, scheduler, scheduling);
+    return result;
   } catch (error) {
     throw mapRoomConflict(error);
   }
@@ -213,37 +247,87 @@ export async function confirmVisit(
 export async function cancelVisit(
   database: DatabaseClient,
   visitId: string,
+  scheduler: JobScheduler = noopJobScheduler,
 ): Promise<void> {
   const client = sqlClient(database);
-  await client.begin(async (transaction) => {
+  const cancelledExternalRefs = await client.begin(async (transaction) => {
     const visit = await loadVisitWithHomeLock(transaction, visitId);
-    if (visit.status === "cancelled") return;
+    if (visit.status === "cancelled") return [];
 
     await transaction`delete from public.visit_rooms where visit_id = ${visitId}`;
-    await cancelOpenVisitJobs(transaction, visitId);
+    const externalRefs = await cancelOpenVisitJobs(transaction, visitId);
     await transaction`
       update public.visits
       set status = 'cancelled', hold_expires_at = null
       where id = ${visitId}
     `;
+    return externalRefs;
   });
+  for (const externalRef of cancelledExternalRefs) {
+    await scheduler.cancel(externalRef);
+  }
+}
+
+export async function expireTemporaryHolds(
+  database: DatabaseClient,
+  clock: Clock,
+  scheduler: JobScheduler = noopJobScheduler,
+  homeId?: string,
+): Promise<number> {
+  const client = sqlClient(database);
+  const homes = await client<{ home_id: string }[]>`
+    select distinct home_id
+    from public.visits
+    where status = 'hold'
+      and hold_expires_at <= ${clock.now().toISOString()}
+      and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
+      and (
+        ${homeId ?? null}::uuid is not null
+        or exists (
+          select 1 from public.homes
+          where homes.id = visits.home_id and homes.demo = false
+        )
+      )
+    order by home_id
+  `;
+  let expired = 0;
+  const cancelledExternalRefs: string[] = [];
+  for (const home of homes) {
+    const result = await client.begin(async (transaction) => {
+      await loadHome(transaction, home.home_id, true);
+      return expireHomeHolds(transaction, home.home_id, clock.now());
+    });
+    expired += result.count;
+    cancelledExternalRefs.push(...result.externalRefs);
+  }
+  for (const externalRef of cancelledExternalRefs) {
+    await scheduler.cancel(externalRef);
+  }
+  return expired;
 }
 
 export async function rescheduleVisit(
   database: DatabaseClient,
   clock: Clock,
   input: RescheduleVisitInput,
+  scheduler: JobScheduler = noopJobScheduler,
 ): Promise<VisitResult> {
   validateStay(input.stay);
   const client = sqlClient(database);
 
   try {
-    return await client.begin(async (transaction) => {
+    const { result, scheduling } = await client.begin(async (transaction) => {
       const current = await loadVisitWithHomeLock(transaction, input.visitId);
       if (current.status === "cancelled")
         throw new Error("A cancelled visit cannot be rescheduled");
+      assertActiveHold(current, clock.now());
 
       const home = await loadHome(transaction, current.home_id, false);
+      const expired = await expireHomeHolds(
+        transaction,
+        current.home_id,
+        clock.now(),
+      );
       const draft: VisitDraft = {
         visitId: current.id,
         stay: input.stay,
@@ -253,6 +337,7 @@ export async function rescheduleVisit(
         specialRequests: input.specialRequests ?? current.special_requests,
       };
       validateParty(draft);
+      await assertHostInHome(transaction, input.approvedBy, current.home_id);
       const verdict = evaluateOverlap(
         draft,
         await loadHouseState(transaction, home, draft.stay),
@@ -267,18 +352,28 @@ export async function rescheduleVisit(
             children = ${draft.children},
             pets = ${draft.pets},
             special_requests = ${transaction.array([...draft.specialRequests])},
-            approval_stay_hash = ${input.approvedBy ? stayApprovalHash(draft) : null}
+            approval_stay_hash = ${input.approvedBy ? stayApprovalHash(draft) : null},
+            status = 'confirmed',
+            confirmed_at = coalesce(confirmed_at, ${clock.now().toISOString()}),
+            hold_expires_at = null,
+            reconfirm_requested_at = null,
+            reconfirmed_at = null,
+            escalated_at = null
         where id = ${current.id}
       `;
       await insertVisitRooms(
         transaction,
         current.id,
+        current.home_id,
         input.stay,
         verdict.allocation,
       );
 
-      await cancelOpenVisitJobs(transaction, current.id);
-      await replaceChaseJob(
+      const cancelledExternalRefs = await cancelOpenVisitJobs(
+        transaction,
+        current.id,
+      );
+      const scheduling = await replaceChaseJob(
         transaction,
         {
           id: current.id,
@@ -288,13 +383,20 @@ export async function rescheduleVisit(
         home.timezone,
         clock.now(),
       );
+      scheduling.cancelledExternalRefs.push(...cancelledExternalRefs);
+      scheduling.cancelledExternalRefs.push(...expired.externalRefs);
 
       return {
-        visitId: current.id,
-        allocation: verdict.allocation,
-        status: current.status,
+        result: {
+          visitId: current.id,
+          allocation: verdict.allocation,
+          status: "confirmed" as const,
+        },
+        scheduling,
       };
     });
+    await syncChaseJob(database, scheduler, scheduling);
+    return result;
   } catch (error) {
     throw mapRoomConflict(error);
   }
@@ -338,6 +440,56 @@ async function loadHome(
   return home;
 }
 
+async function expireHomeHolds(
+  transaction: TransactionSql,
+  homeId: string,
+  now: Date,
+): Promise<{ count: number; externalRefs: string[] }> {
+  const expired = await transaction<{ id: string }[]>`
+    select id
+    from public.visits
+    where home_id = ${homeId}
+      and status = 'hold'
+      and hold_expires_at <= ${now.toISOString()}
+    order by id
+    for update
+  `;
+  const externalRefs: string[] = [];
+  for (const visit of expired) {
+    await transaction`delete from public.visit_rooms where visit_id = ${visit.id}`;
+    externalRefs.push(...(await cancelOpenVisitJobs(transaction, visit.id)));
+    await transaction`
+      update public.visits
+      set status = 'cancelled', hold_expires_at = null
+      where id = ${visit.id} and status = 'hold'
+    `;
+  }
+  return { count: expired.length, externalRefs };
+}
+
+function assertActiveHold(visit: VisitRow, now: Date): void {
+  if (
+    visit.status === "hold" &&
+    visit.hold_expires_at !== null &&
+    new Date(visit.hold_expires_at).getTime() <= now.getTime()
+  ) {
+    throw new Error("An expired hold cannot be confirmed or rescheduled");
+  }
+}
+
+async function assertHostInHome(
+  transaction: TransactionSql,
+  hostId: string | undefined,
+  homeId: string,
+): Promise<void> {
+  if (!hostId) return;
+  const [host] = await transaction<{ id: string }[]>`
+    select id from public.hosts where id = ${hostId} and home_id = ${homeId}
+  `;
+  if (!host)
+    throw new Error("Approving host does not belong to the visit home");
+}
+
 async function loadVisitWithHomeLock(
   transaction: TransactionSql,
   visitId: string,
@@ -371,7 +523,8 @@ function loadVisit(
           children,
           pets,
           special_requests,
-          status
+          status,
+          hold_expires_at
         from public.visits
         where id = ${visitId}
         for update
@@ -388,7 +541,8 @@ function loadVisit(
           children,
           pets,
           special_requests,
-          status
+          status,
+          hold_expires_at
         from public.visits
         where id = ${visitId}
       `;
@@ -458,15 +612,17 @@ async function loadHouseState(
 async function insertVisitRooms(
   transaction: TransactionSql,
   visitId: string,
+  homeId: string,
   stay: DateStay,
   allocation: readonly { id: string }[],
 ): Promise<void> {
   for (const room of allocation) {
     await transaction`
-      insert into public.visit_rooms (visit_id, room_id, stay)
+      insert into public.visit_rooms (visit_id, room_id, home_id, stay)
       values (
         ${visitId},
         ${room.id},
+        ${homeId},
         daterange(${stay[0]}::date, ${stay[1]}::date, '[)')
       )
     `;
@@ -476,13 +632,15 @@ async function insertVisitRooms(
 async function cancelOpenVisitJobs(
   transaction: TransactionSql,
   visitId: string,
-): Promise<void> {
-  await transaction`
+): Promise<string[]> {
+  const cancelled = await transaction<{ external_ref: string | null }[]>`
     update public.scheduled_jobs
-    set status = 'cancelled'
+    set status = 'cancelled', claim_token = null, claimed_at = null
     where visit_id = ${visitId}
       and status in ('scheduled', 'running')
+    returning external_ref
   `;
+  return cancelled.flatMap(({ external_ref: ref }) => (ref ? [ref] : []));
 }
 
 async function replaceChaseJob(
@@ -490,65 +648,64 @@ async function replaceChaseJob(
   visit: Pick<VisitRow, "id" | "home_id" | "stay_start">,
   timezone: string,
   now: Date,
-): Promise<void> {
-  await transaction`
+): Promise<{
+  cancelledExternalRefs: string[];
+  request: ScheduledJobRequest;
+  visitId: string;
+}> {
+  const cancelled = await transaction<{ external_ref: string | null }[]>`
     update public.scheduled_jobs
-    set status = 'cancelled'
+    set status = 'cancelled', claim_token = null, claimed_at = null
     where visit_id = ${visit.id}
       and kind = 'reconfirm_chase'
       and status in ('scheduled', 'running')
+    returning external_ref
   `;
-  const chaseAt = reconfirmationTime(visit.stay_start, timezone);
-  await transaction`
+  const chaseAt = reconfirmationChaseTime(visit.stay_start, timezone);
+  const dueAt = chaseAt > now ? chaseAt : now;
+  const [job] = await transaction<{ id: string }[]>`
     insert into public.scheduled_jobs (home_id, visit_id, kind, due_at, status)
     values (
       ${visit.home_id},
       ${visit.id},
       'reconfirm_chase',
-      ${chaseAt > now ? chaseAt : now},
+      ${dueAt.toISOString()},
       'scheduled'
     )
+    returning id
   `;
+  if (!job) throw new Error("Failed to persist reconfirmation chase job");
+  return {
+    cancelledExternalRefs: cancelled.flatMap(({ external_ref: ref }) =>
+      ref ? [ref] : [],
+    ),
+    request: {
+      id: job.id,
+      homeId: visit.home_id,
+      kind: "reconfirm_chase",
+      dueAt,
+    },
+    visitId: visit.id,
+  };
 }
 
-function reconfirmationTime(stayStart: string, timezone: string): Date {
-  const [year, month, day] = stayStart.split("-").map(Number);
-  if (!year || !month || !day)
-    throw new RangeError(`Invalid stay start: ${stayStart}`);
-
-  const localDay = new Date(Date.UTC(year, month - 1, day - 3, 9));
-  const desiredUtc = localDay.getTime();
-  let candidate = desiredUtc;
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
-
-  for (let iteration = 0; iteration < 2; iteration += 1) {
-    const values = Object.fromEntries(
-      formatter
-        .formatToParts(new Date(candidate))
-        .filter((part) => part.type !== "literal")
-        .map((part) => [part.type, Number(part.value)]),
-    );
-    const represented = Date.UTC(
-      values.year,
-      values.month - 1,
-      values.day,
-      values.hour,
-      values.minute,
-      values.second,
-    );
-    candidate -= represented - desiredUtc;
+async function syncChaseJob(
+  database: DatabaseClient,
+  scheduler: JobScheduler,
+  scheduling: Awaited<ReturnType<typeof replaceChaseJob>>,
+): Promise<void> {
+  for (const externalRef of scheduling.cancelledExternalRefs) {
+    await scheduler.cancel(externalRef);
   }
-
-  return new Date(candidate);
+  await scheduleJobs(database, scheduler, [
+    {
+      type: "create",
+      homeId: scheduling.request.homeId,
+      visitId: scheduling.visitId,
+      kind: scheduling.request.kind,
+      dueAt: scheduling.request.dueAt,
+    },
+  ]);
 }
 
 function toDraft(input: CreateTemporaryHoldInput): VisitDraft {

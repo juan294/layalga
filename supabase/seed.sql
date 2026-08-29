@@ -1,3 +1,11 @@
+delete from public.agent_sessions
+where session_id in (
+  'capture_00000000-0000-4000-8000-000000000201',
+  'capture_00000000-0000-4000-8000-000000000202',
+  'inv_00000000-0000-4000-8000-000000000401',
+  'inv_00000000-0000-4000-8000-000000000402'
+);
+
 delete from public.homes where name = 'Casa Ayalga';
 
 insert into public.homes (

@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { captureInvitation, findInvitationByToken } from "./invitations";
+import {
+  captureInvitation,
+  findInvitationByToken,
+  reissueInvitationLink,
+} from "./invitations";
 
 const connectionUrl =
   process.env.DATABASE_URL ??
@@ -41,15 +45,22 @@ describe("invitation persistence", () => {
         structured: { adults: 2 },
         tokenSecret: secret,
         appUrl: "https://example.test",
+        now: new Date("2026-08-31T10:00:00.000Z"),
       });
 
       const token = new URL(captured.guestLink).pathname.split("/").at(-1);
       expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(captured.guestLink).toBe(`https://example.test/en/g/${token}`);
-      const [stored] = await db<{ link_token: string }[]>`
-        select link_token from public.parties where id = ${captured.partyId}
+      const [stored] = await db<
+        { link_token: string; link_token_expires_at: Date }[]
+      >`
+        select link_token, link_token_expires_at
+        from public.parties where id = ${captured.partyId}
       `;
       expect(stored?.link_token).not.toBe(token);
+      expect(stored?.link_token_expires_at.toISOString()).toBe(
+        "2026-09-30T10:00:00.000Z",
+      );
 
       if (!token) throw new Error("Guest link token is missing");
       const found = await findInvitationByToken(db, token, secret);
@@ -60,6 +71,20 @@ describe("invitation persistence", () => {
         structured: { adults: 2 },
       });
       expect(await findInvitationByToken(db, token, "wrong-secret")).toBeNull();
+
+      const reissued = await reissueInvitationLink(db, captured.invitationId, {
+        now: new Date("2026-09-02T10:00:00.000Z"),
+        tokenSecret: secret,
+        appUrl: "https://example.test",
+      });
+      const replacement = new URL(reissued).pathname.split("/").at(-1);
+      expect(replacement).not.toBe(token);
+      expect(await findInvitationByToken(db, token!, secret)).toBeNull();
+      expect(
+        await findInvitationByToken(db, replacement!, secret),
+      ).toMatchObject({
+        id: captured.invitationId,
+      });
     } finally {
       await db`delete from public.homes where id = ${home.id}`;
     }

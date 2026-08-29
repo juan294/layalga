@@ -40,7 +40,7 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
       draft,
       await loadHouseState(deps, homeId, draft),
     );
-    await audit(deps, homeId, undefined, "policy_verdict", {
+    await audit(deps, homeId, event, "policy_verdict", {
       tool: event.toolUse.name,
       decision: verdict.decision,
       reason: verdict.reason ?? null,

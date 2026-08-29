@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { rescheduleVisit } from "@/core/booking/holds";
 
-import type { AgentDeps } from "../deps";
+import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
 import { audit, homeIdForVisit } from "./shared";
 
@@ -22,7 +22,12 @@ export function rescheduleVisitTool(deps: AgentDeps) {
       approvedBy: z.uuid().optional(),
     }),
     callback: async (input, context) => {
-      const visit = await rescheduleVisit(deps.db, deps.clock, input);
+      const visit = await rescheduleVisit(
+        deps.db,
+        deps.clock,
+        input,
+        deps.scheduler,
+      );
       await audit(
         deps,
         await homeIdForVisit(deps, input.visitId),

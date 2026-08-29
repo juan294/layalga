@@ -19,6 +19,7 @@ export interface CaptureInvitationInput {
   linkTokenExpiresAt?: Date | null;
   tokenSecret?: string;
   appUrl?: string;
+  now?: Date;
 }
 
 export interface CapturedInvitation {
@@ -37,8 +38,16 @@ export interface InvitationByToken {
   rawMessage: string;
   structured: unknown;
   status: "tentative" | "sent" | "converted" | "cancelled";
-  linkTokenExpiresAt: Date | null;
+  linkTokenExpiresAt: Date;
 }
+
+export interface ReissueInvitationLinkOptions {
+  tokenSecret?: string;
+  appUrl?: string;
+  now?: Date;
+}
+
+const LINK_LIFETIME_MS = 30 * 24 * 60 * 60 * 1_000;
 
 export function hashLinkToken(token: string, secret: string): string {
   if (!token) throw new Error("Link token is required");
@@ -65,8 +74,17 @@ export async function captureInvitation(
   );
   const link = issueLinkToken(secret);
   const structured = input.structured ?? {};
+  const expiresAt =
+    input.linkTokenExpiresAt ??
+    new Date((input.now ?? new Date()).getTime() + LINK_LIFETIME_MS);
 
   return client.begin(async (transaction) => {
+    const [host] = await transaction<{ id: string }[]>`
+      select id from public.hosts
+      where id = ${input.hostId} and home_id = ${input.homeId}
+    `;
+    if (!host) throw new Error("Host does not belong to the invitation home");
+
     const existingParties = await transaction<{ id: string }[]>`
       select id
       from public.parties
@@ -81,7 +99,7 @@ export async function captureInvitation(
         update public.parties
         set locale = ${input.partyLocale},
             link_token = ${link.hash},
-            link_token_expires_at = ${input.linkTokenExpiresAt ?? null}
+            link_token_expires_at = ${expiresAt.toISOString()}
         where id = ${partyId}
       `;
     } else {
@@ -98,7 +116,7 @@ export async function captureInvitation(
           ${input.partyName},
           ${input.partyLocale},
           ${link.hash},
-          ${input.linkTokenExpiresAt ?? null}
+          ${expiresAt.toISOString()}
         )
         returning id
       `;
@@ -121,7 +139,7 @@ export async function captureInvitation(
         ${input.hostId},
         ${partyId},
         ${input.rawMessage},
-        ${transaction.json(structured)},
+        ${JSON.stringify(structured)}::text::jsonb,
         'tentative'
       )
       returning id
@@ -134,6 +152,43 @@ export async function captureInvitation(
       partyId,
       guestLink: `${appUrl}/${input.partyLocale}/g/${link.token}`,
     };
+  });
+}
+
+export async function reissueInvitationLink(
+  database: DatabaseClient,
+  invitationId: string,
+  options: ReissueInvitationLinkOptions = {},
+): Promise<string> {
+  const client = sqlClient(database);
+  const secret = options.tokenSecret ?? requiredSetting("LINK_TOKEN_SECRET");
+  const appUrl = (options.appUrl ?? requiredSetting("APP_URL")).replace(
+    /\/$/,
+    "",
+  );
+  const now = options.now ?? new Date();
+  const expiresAt = new Date(now.getTime() + LINK_LIFETIME_MS);
+  const link = issueLinkToken(secret);
+
+  return client.begin(async (transaction) => {
+    const [invitation] = await transaction<
+      { party_id: string; locale: "en" | "es" }[]
+    >`
+      select i.party_id, p.locale
+      from public.invitations i
+      join public.parties p on p.id = i.party_id and p.home_id = i.home_id
+      where i.id = ${invitationId} and i.status <> 'cancelled'
+      for update of p
+    `;
+    if (!invitation) throw new Error(`Invitation not found: ${invitationId}`);
+
+    await transaction`
+      update public.parties
+      set link_token = ${link.hash},
+        link_token_expires_at = ${expiresAt.toISOString()}
+      where id = ${invitation.party_id}
+    `;
+    return `${appUrl}/${invitation.locale}/g/${link.token}`;
   });
 }
 
@@ -155,7 +210,7 @@ export async function findInvitationByToken(
       raw_message: string;
       structured: unknown;
       status: InvitationByToken["status"];
-      link_token_expires_at: Date | null;
+      link_token_expires_at: Date;
     }[]
   >`
     select
@@ -173,7 +228,7 @@ export async function findInvitationByToken(
     join public.parties p on p.id = i.party_id
     where p.link_token = ${tokenHash}
       and i.status <> 'cancelled'
-      and (p.link_token_expires_at is null or p.link_token_expires_at > now())
+      and p.link_token_expires_at > now()
     order by i.created_at desc
     limit 1
   `;

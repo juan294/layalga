@@ -7,7 +7,9 @@ import {
   uuid,
   boolean,
   integer,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export type Locale = "en" | "es";
 export type InvitationStatus = "tentative" | "sent" | "converted" | "cancelled";
@@ -110,7 +112,9 @@ export const parties = pgTable("parties", {
   linkTokenExpiresAt: timestamp("link_token_expires_at", {
     withTimezone: true,
     mode: "date",
-  }),
+  })
+    .notNull()
+    .default(sql`now() + interval '30 days'`),
   authUserId: uuid("auth_user_id"),
   createdAt: createdAt(),
 });
@@ -181,6 +185,9 @@ export const visitRooms = pgTable("visit_rooms", {
   roomId: uuid("room_id")
     .notNull()
     .references(() => rooms.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
   stay: dateRange("stay").notNull(),
   createdAt: createdAt(),
 });
@@ -211,6 +218,8 @@ export const runs = pgTable("runs", {
     .notNull()
     .defaultNow(),
   finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+  heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: "date" }),
+  deadlineAt: timestamp("deadline_at", { withTimezone: true, mode: "date" }),
 });
 
 export const pendingDecisions = pgTable("pending_decisions", {
@@ -234,6 +243,10 @@ export const pendingDecisions = pgTable("pending_decisions", {
   }),
   decidedAt: timestamp("decided_at", { withTimezone: true, mode: "date" }),
   note: text("note"),
+  applicationError: text("application_error"),
+  appliedRunId: uuid("applied_run_id").references(() => runs.id, {
+    onDelete: "set null",
+  }),
   createdAt: createdAt(),
 });
 
@@ -252,40 +265,76 @@ export const auditEvents = pgTable("audit_events", {
   createdAt: createdAt(),
 });
 
-export const scheduledJobs = pgTable("scheduled_jobs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  homeId: uuid("home_id")
-    .notNull()
-    .references(() => homes.id, { onDelete: "cascade" }),
-  visitId: uuid("visit_id")
-    .notNull()
-    .references(() => visits.id, { onDelete: "cascade" }),
-  kind: text("kind").$type<ScheduledJobKind>().notNull(),
-  dueAt: timestamp("due_at", { withTimezone: true, mode: "date" }).notNull(),
-  status: text("status")
-    .$type<ScheduledJobStatus>()
-    .notNull()
-    .default("scheduled"),
-  externalRef: text("external_ref"),
-  createdAt: createdAt(),
-});
+export const scheduledJobs = pgTable(
+  "scheduled_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    visitId: uuid("visit_id")
+      .notNull()
+      .references(() => visits.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<ScheduledJobKind>().notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true, mode: "date" }).notNull(),
+    status: text("status")
+      .$type<ScheduledJobStatus>()
+      .notNull()
+      .default("scheduled"),
+    externalRef: text("external_ref"),
+    scheduleClaimedAt: timestamp("schedule_claimed_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    scheduleClaimToken: uuid("schedule_claim_token"),
+    claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
+    claimToken: uuid("claim_token"),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("scheduled_jobs_one_open_kind_per_visit_idx")
+      .on(table.visitId, table.kind)
+      .where(sql`${table.status} in ('scheduled', 'running')`),
+  ],
+);
 
-export const notifications = pgTable("notifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  homeId: uuid("home_id")
-    .notNull()
-    .references(() => homes.id, { onDelete: "cascade" }),
-  recipientKind: text("recipient_kind").$type<RecipientKind>().notNull(),
-  recipientId: uuid("recipient_id").notNull(),
-  visitId: uuid("visit_id").references(() => visits.id, {
-    onDelete: "cascade",
-  }),
-  kind: text("kind").notNull(),
-  bodyEn: text("body_en").notNull(),
-  bodyEs: text("body_es").notNull(),
-  readAt: timestamp("read_at", { withTimezone: true, mode: "date" }),
-  createdAt: createdAt(),
-});
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    recipientKind: text("recipient_kind").$type<RecipientKind>().notNull(),
+    recipientId: uuid("recipient_id").notNull(),
+    visitId: uuid("visit_id").references(() => visits.id, {
+      onDelete: "cascade",
+    }),
+    scheduledJobId: uuid("scheduled_job_id").references(
+      () => scheduledJobs.id,
+      { onDelete: "set null" },
+    ),
+    kind: text("kind").notNull(),
+    bodyEn: text("body_en").notNull(),
+    bodyEs: text("body_es").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true, mode: "date" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("notifications_reconfirmation_delivery_idx")
+      .on(
+        table.scheduledJobId,
+        table.recipientKind,
+        table.recipientId,
+        table.kind,
+      )
+      .where(
+        sql`${table.scheduledJobId} is not null and ${table.kind} in ('reconfirm_chase', 'reconfirm_escalation')`,
+      ),
+  ],
+);
 
 export const demoClock = pgTable("demo_clock", {
   homeId: uuid("home_id")

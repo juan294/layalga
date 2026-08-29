@@ -3,8 +3,8 @@ import { z } from "zod";
 
 import { captureInvitation } from "@/core/booking/invitations";
 
-import type { AgentDeps } from "../deps";
-import { audit } from "./shared";
+import type { AgentDeps } from "../ports";
+import { audit, requireAuthority } from "./shared";
 
 export function captureInvitationTool(deps: AgentDeps) {
   return tool({
@@ -12,8 +12,6 @@ export function captureInvitationTool(deps: AgentDeps) {
     description:
       "Structure a host's invitation, create or reuse the invited party, and return the private guest link.",
     inputSchema: z.object({
-      homeId: z.uuid(),
-      hostId: z.uuid(),
       partyName: z.string().min(1),
       partyLocale: z.enum(["en", "es"]),
       adults: z.int().min(1),
@@ -29,9 +27,13 @@ export function captureInvitationTool(deps: AgentDeps) {
       rawMessage: z.string().min(1),
     }),
     callback: async (input, context) => {
+      const authority = requireAuthority(deps);
+      if (!authority.hostId) {
+        throw new Error("Host capture authority is required");
+      }
       const invitation = await captureInvitation(deps.db, {
-        homeId: input.homeId,
-        hostId: input.hostId,
+        homeId: authority.homeId,
+        hostId: authority.hostId,
         partyName: input.partyName,
         partyLocale: input.partyLocale,
         rawMessage: input.rawMessage,
@@ -44,12 +46,16 @@ export function captureInvitationTool(deps: AgentDeps) {
           specialRequests: input.specialRequests,
         },
         appUrl: deps.appUrl,
+        now: deps.clock.now(),
       });
-      await audit(deps, input.homeId, context, "tool_call", {
+      await audit(deps, authority.homeId, context, "tool_call", {
         name: "capture_invitation",
         invitationId: invitation.invitationId,
       });
-      return invitation;
+      return {
+        invitationId: invitation.invitationId,
+        partyId: invitation.partyId,
+      };
     },
   });
 }

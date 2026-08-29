@@ -1,16 +1,27 @@
 import { DbDemoClock } from "@/core/clock";
-import { getDatabaseConnection } from "@/core/db/client";
+import { getDatabaseConnection, sqlClient } from "@/core/db/client";
 
-import { NoopScheduler, type AgentDeps } from "../deps";
+import type { RunAgentDeps } from "../run-task";
+import { schedulerForHome } from "../scheduler";
+import { scriptedModelForTask } from "../scripted-model-selection";
 import type { AgentTask } from "../task";
 
-export async function runtimeDeps(task: AgentTask): Promise<AgentDeps> {
+export async function runtimeDeps(task: AgentTask): Promise<RunAgentDeps> {
   const connection = getDatabaseConnection();
-  return {
+  const sql = sqlClient(connection.db);
+  const [home] = await sql<{ demo: boolean }[]>`
+    select demo from public.homes where id = ${task.homeId}
+  `;
+  if (!home) throw new Error(`Home not found: ${task.homeId}`);
+  const deps: RunAgentDeps = {
     db: connection.db,
     clock: await DbDemoClock.load(task.homeId, connection.db),
-    scheduler: new NoopScheduler(),
+    scheduler: schedulerForHome({ homeDemo: home.demo }),
     appUrl: process.env.APP_URL ?? "http://localhost:3000",
     locale: "locale" in task ? task.locale : "en",
   };
+  if (process.env.MODEL === "scripted") {
+    deps.model = scriptedModelForTask(task, deps);
+  }
+  return deps;
 }

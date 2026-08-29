@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { createTemporaryHold } from "@/core/booking/holds";
 
-import type { AgentDeps } from "../deps";
+import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
 import { audit, homeIdForInvitation } from "./shared";
 

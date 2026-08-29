@@ -110,7 +110,28 @@ export async function seedDemo(
 
   try {
     await sql.begin(async (transaction) => {
-      await transaction`delete from public.homes where name = ${DEMO_SEED.home.name}`;
+      const demoSessionIds = [
+        ...DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
+        ...DEMO_SEED.parties.map((party) => `inv_${party.invitation.id}`),
+      ];
+      await transaction`
+        delete from public.agent_sessions
+        where session_id in (
+          select session_id
+          from public.runs
+          where home_id = ${DEMO_SEED.home.id}
+        )
+      `;
+      await transaction`
+        delete from public.agent_sessions
+        where session_id = any(${transaction.array(demoSessionIds)})
+      `;
+      await transaction`
+        delete from public.homes
+        where id = ${DEMO_SEED.home.id}
+          and name = ${DEMO_SEED.home.name}
+          and demo = true
+      `;
 
       await transaction`
         insert into public.homes (

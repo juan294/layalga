@@ -1,18 +1,19 @@
-import type { ToolContext } from "@strands-agents/sdk";
 import type { JSONValue } from "postgres";
 
 import { sqlClient } from "@/core/db/client";
+import { loadHouseState as loadCoreHouseState } from "@/core/booking/house-state";
 import type { HouseState, VisitDraft } from "@/core/policy/evaluate-overlap";
 
-import type { AgentDeps } from "../deps";
+import type { AgentDeps } from "../ports";
 
 export async function audit(
   deps: AgentDeps,
   homeId: string,
-  context: ToolContext | undefined,
+  context: { invocationState: Record<string, unknown> } | undefined,
   kind: string,
   payload: Record<string, JSONValue>,
 ): Promise<void> {
+  assertHomeAuthority(deps, homeId);
   const sql = sqlClient(deps.db);
   const runId =
     typeof context?.invocationState.runId === "string"
@@ -33,6 +34,13 @@ export async function homeIdForInvitation(
     select home_id from public.invitations where id = ${invitationId}
   `;
   if (!row) throw new Error(`Invitation not found: ${invitationId}`);
+  assertHomeAuthority(deps, row.home_id);
+  if (
+    deps.authority?.invitationId &&
+    deps.authority.invitationId !== invitationId
+  ) {
+    throw new Error("Invitation is outside the agent task scope");
+  }
   return row.home_id;
 }
 
@@ -45,7 +53,24 @@ export async function homeIdForVisit(
     select home_id from public.visits where id = ${visitId}
   `;
   if (!row) throw new Error(`Visit not found: ${visitId}`);
+  assertHomeAuthority(deps, row.home_id);
+  if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
+    throw new Error("Visit is outside the agent task scope");
+  }
   return row.home_id;
+}
+
+export function requireAuthority(
+  deps: AgentDeps,
+): NonNullable<AgentDeps["authority"]> {
+  if (!deps.authority) throw new Error("Agent task authority is required");
+  return deps.authority;
+}
+
+export function assertHomeAuthority(deps: AgentDeps, homeId: string): void {
+  if (deps.authority && deps.authority.homeId !== homeId) {
+    throw new Error("Record is outside the agent task home");
+  }
 }
 
 export async function loadDraftForTool(
@@ -91,6 +116,10 @@ export async function loadDraftForTool(
     from public.visits where id = ${visitId}
   `;
   if (!visit) throw new Error(`Visit not found: ${visitId}`);
+  assertHomeAuthority(deps, visit.home_id);
+  if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
+    throw new Error("Visit is outside the agent task scope");
+  }
   return {
     homeId: visit.home_id,
     draft: {
@@ -115,53 +144,5 @@ export async function loadHouseState(
   homeId: string,
   draft: VisitDraft,
 ): Promise<HouseState> {
-  const sql = sqlClient(deps.db);
-  const [home] = await sql<
-    { pets_together_allowed: boolean; max_families_with_children: number }[]
-  >`
-    select pets_together_allowed, max_families_with_children
-    from public.homes where id = ${homeId}
-  `;
-  if (!home) throw new Error(`Home not found: ${homeId}`);
-  const rooms = await sql<{ id: string; name: string; beds: number }[]>`
-    select id, name, beds from public.rooms where home_id = ${homeId} order by name
-  `;
-  const visits = await sql<
-    {
-      id: string;
-      stay_start: string;
-      stay_end: string;
-      adults: number;
-      children: number;
-      pets: number;
-      status: HouseState["visits"][number]["status"];
-      room_ids: string[];
-    }[]
-  >`
-    select v.id, lower(v.stay)::text as stay_start, upper(v.stay)::text as stay_end,
-      v.adults, v.children, v.pets, v.status,
-      coalesce(array_agg(vr.room_id) filter (where vr.room_id is not null), '{}') as room_ids
-    from public.visits v
-    left join public.visit_rooms vr on vr.visit_id = v.id
-    where v.home_id = ${homeId}
-      and v.status <> 'cancelled'
-      and v.stay && daterange(${String(draft.stay[0])}::date, ${String(draft.stay[1])}::date, '[)')
-    group by v.id
-  `;
-  return {
-    home: {
-      petsTogetherAllowed: home.pets_together_allowed,
-      maxFamiliesWithChildren: home.max_families_with_children,
-    },
-    rooms,
-    visits: visits.map((visit) => ({
-      id: visit.id,
-      stay: [visit.stay_start, visit.stay_end],
-      adults: visit.adults,
-      children: visit.children,
-      pets: visit.pets,
-      status: visit.status,
-      roomIds: visit.room_ids,
-    })),
-  };
+  return loadCoreHouseState(deps.db, deps.clock, homeId, draft);
 }
