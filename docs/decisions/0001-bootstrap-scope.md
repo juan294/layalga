@@ -10,7 +10,7 @@ L’Ayalga is a greenfield entry for the AWS Agents for Humans hackathon. The de
 
 ## Decision
 
-- Use a main-only repository with implementation branches or worktrees and squash merges.
+- Use a `develop` (integration, GitHub default) and `main` (production) topology with implementation branches or worktrees and squash merges. Amended 2026-08-29: the repository started main-only; `develop` was created the same day, before any application code.
 - Use the cc-rpi blueprint for workflow scaffolding and disclose it as pre-existing tooling.
 - Keep the workflow lightweight: targeted tests replace a blanket coverage threshold.
 - Use one Strands coordinator agent with deterministic booking tools and approval interrupts.

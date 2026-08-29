@@ -50,10 +50,10 @@ Add `pnpm run typecheck`, `pnpm run lint`, `pnpm run test`, and `pnpm run build`
 
 ## Git Workflow
 
-- Integration branch: `main`
-- Production branch: `main` once deployment is configured
-- Merge strategy: squash through pull requests
-- Implementation happens in temporary branches or isolated worktrees, not directly on `main`
+- Integration branch: `develop` (GitHub default branch)
+- Production branch: `main`; Vercel deploys production from `main`
+- Merge strategy: squash through pull requests; feature branches open PRs against `develop`; `develop` is promoted to `main` through a PR at release time
+- Implementation happens in temporary branches or isolated worktrees, never directly on `develop` or `main`
 - Commit before pulling; verify the current branch before every commit
 - Push, GitHub publication, deployment, DNS changes, tags, and releases require separate authorization
 
