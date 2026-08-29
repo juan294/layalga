@@ -1,0 +1,30 @@
+# Dependencies and builds
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+test-results/
+playwright-report/
+
+# Local environment and providers
+.env
+.env.*
+!.env.example
+.vercel/
+.supabase/
+
+# Local Claude configuration
+.claude/settings.local.json
+CLAUDE.local.md
+.claude/metrics/
+
+# Public-repository operational output
+docs/agents/
+logs/
+scripts/agents/
+
+# Editor and operating system
+.DS_Store
+*.swp
