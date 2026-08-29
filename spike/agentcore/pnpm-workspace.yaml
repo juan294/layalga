@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@aws-sdk/client-bedrock-agentcore@3.1121.0'
+  - zod@4.5.2
