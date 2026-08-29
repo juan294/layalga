@@ -457,15 +457,22 @@ Both are needed only for filing.
 | `DATABASE_URL` | all | Supabase session-mode pooler URL (`postgres` client, `prepare: false`) |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | web | Supabase Auth client |
 | `SUPABASE_SECRET_KEY` | web server | Auth admin operations |
+| `GOOGLE_OAUTH_CLIENT_ID` | local Supabase | Google OAuth Web client ID |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET` | local Supabase | Google OAuth client secret; never committed |
 | `AWS_REGION=us-east-1` | web, runtime | |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Vercel only | `layalga-web` user, `InvokeAgentRuntime` on one ARN |
 | `BEDROCK_MODEL_ID` | runtime, local | default `us.anthropic.claude-sonnet-4-5-20250929-v1:0` |
 | `AGENT_RUNTIME` | web | `agentcore` or `local` |
+| `MODEL` | web, local | `bedrock` or deterministic `scripted` demo/test model |
 | `AGENTCORE_RUNTIME_ARN` | web | |
 | `SCHEDULER` | runtime, local | `eventbridge` or `none` |
 | `SCHEDULER_ROLE_ARN`, `SCHEDULER_DLQ_ARN` | runtime, local | |
 | `DEMO_MODE` | web | enables the clock panel and host switch |
-| `DEMO_SESSION_SECRET`, `LINK_TOKEN_SECRET`, `TICK_SECRET` | web | cookie signing, token hashing, `/api/ticks` auth |
+| `DEMO_SESSION_SECRET`, `LINK_TOKEN_SECRET` | web | demo cookie signing and private-link token hashing |
+| `TICK_SECRET` | web | explicit internal tick authentication for `/api/ticks` |
+| `CRON_SECRET` | web | Vercel Cron bearer authentication for `/api/ticks` |
+| `AGENT_ROUTE_SECRET` | web | separate release-probe authority for `/api/agent/run` |
+| `HOST_EMAILS` | web | ordered allow-list for the first Google host claims |
 | `APP_URL` | all | absolute guest links |
 
 `.env.example` lists every name with a placeholder; `.env.local` is

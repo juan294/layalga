@@ -66,8 +66,70 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - Chose: add `@aws-sdk/client-s3` at the same pinned AWS SDK version, `3.1121.0`.
 - Why: the explicit dependency makes both the web build and the external-package AgentCore bundle deterministic without changing runtime behavior.
 
+### Phase 3: Google OAuth local callback ports
+
+- Plan said: register `http://localhost:54321/auth/v1/callback` for the local Supabase OAuth callback.
+- Found: this repository configures the local Supabase API on port `54621`; the documented default port and the active project port differ.
+- Chose: register both `http://localhost:54321/auth/v1/callback` and `http://localhost:54621/auth/v1/callback`, and keep the application callbacks for localhost and the intended hosted domain in the Supabase redirect allow-list.
+- Why: both approved local configurations can complete the provider round trip without weakening the exact redirect allow-list.
+
+### Phase 5: Notification acceptance count
+
+- Plan said: the final demo state contains four notifications to hosts.
+- Found: the reconfirmation protocol produces two party chase notifications plus one escalation notification for each of the two hosts.
+- Chose: assert four notifications total, including exactly two host escalations.
+- Why: this matches the state-machine protocol and keeps recipient-specific idempotency observable.
+
+### Phase 5: Vercel Cron environment contract
+
+- Plan said: `TICK_SECRET` covered `/api/ticks`, and the environment table did not list Vercel's reserved `CRON_SECRET`, `AGENT_ROUTE_SECRET`, `MODEL`, or `HOST_EMAILS` names.
+- Found: Vercel Cron sends `Authorization: Bearer $CRON_SECRET`; the broader release-probe agent route needs separate authority; the runtime also selects the demo model and claims first-time Google hosts from the other omitted variables.
+- Chose: keep `TICK_SECRET` for explicit internal ticks, add a distinct `AGENT_ROUTE_SECRET`, and add `CRON_SECRET`, `MODEL`, and `HOST_EMAILS` to the explicit contract. Configure them for Preview and Production without deploying.
+- Why: separate credentials reduce blast radius, and the documented environment now matches the selected executable runtime.
+
 ### Phase 2 verification
 
 - Plan-compliance review approved all tasks after the approve, decline, process-restart, reschedule, scheduling, denial, and audit assertions were added.
 - Three simplify passes removed schema and type duplication, bounded option searches to 90 days, reduced each search to one house-state load, and made bundle replacement clean and isolated.
 - Sequential checks passed: local database reset, typecheck, lint, 48 tests, production build, AgentCore bundle build, root development-dependency preservation, JavaScript syntax check, ZIP integrity, bootstrap verification, actionlint, and `git diff --check`.
+
+### Phase 4 verification
+
+- The Phase 0 `local` verdict made tasks 4.4 and 4.10 conditional skips. The idempotent Scheduler script and IAM policy documents remain ready for an AgentCore retry.
+- The local HTTP proof reset the demo twice with byte-identical responses, confirmed Vega, ran the T-3 chase, then ran the 24-hour escalation. It produced one party notification and exactly one host notification for each host.
+- A Bedrock-backed local proof was attempted with AWS profile `archy` and region `us-east-1`. It failed at the existing account-level Anthropic use-case gate before the first model response, with the same `ResourceNotFoundException` recorded in Phases 0 and 2. The scripted-model HTTP proof passed.
+- Plan-compliance review found and then approved fixes for scheduler synchronization, concurrent open-job creation, partial-delivery retries, reconfirmation-cycle scoping, and complete demo session cleanup.
+- Three simplify passes reused the core scheduler port in the EventBridge adapter, checked the retry and reschedule failure boundaries, and kept the external scheduling lock to one network call per persisted job.
+- Sequential checks passed: local database reset through the job-idempotency migration, typecheck, lint, 75 tests, production build, and `git diff --check`.
+
+### Phase 3 verification
+
+- English and Spanish routing, host and guest surfaces, demo host sessions, Supabase PKCE callback code, bounded run polling, time-zone rendering, and the Paper Ink responsive UI are implemented.
+- The dedicated Google Cloud project `layalga` contains the `L’Ayalga` Web OAuth client. Its hosted and two local Supabase callback URIs are exact. The hosted Supabase Google provider is enabled, the application callback allow-list is exact, and the ignored local environment stores the client values through `supabase/config.toml` indirection.
+- The real Google flow for `juan294@gmail.com` reached the localhost PKCE callback and the host allow-list rejected it before the local process was restarted with that address. This verifies the provider, consent, exchange, callback, sign-out, and negative authorization boundary. A positive host-login retry is ready and needs browser action-time approval because it transmits the account name and email to Supabase again.
+- All four Playwright journeys passed: guest hold, host capture and private link, interrupt approval and resume, and the Spanish host view.
+
+### Phase 4 recovery hardening
+
+- Scheduler network calls now run outside database transactions. A short database claim ensures only one worker creates the deterministic external schedule, releases failed claims for retry, and cancels an external schedule if the job was concurrently cancelled.
+- House-state loading moved into the booking core, agent dependency ports moved into a leaf module, and AgentCore requests are parsed at an explicit unknown-input boundary without a cross-version Zod cast.
+- Health now reports stale runs, stale scheduled-job leases, and retrying jobs in one bounded database query and returns a degraded result when operator action is needed.
+
+### Phase 5 local acceptance
+
+- Preview and Production Vercel environment values are configured, including distinct `CRON_SECRET`, `TICK_SECRET`, and `AGENT_ROUTE_SECRET` credentials. No deployment was performed.
+- The deterministic four-beat driver passed with two invitations, two visits, one escalated visit, four total notifications, exactly two host escalations, and one approved decision.
+- All eight release probes passed against localhost. Probe cleanup deleted only its tagged synthetic records and verified their absence.
+- Sequential verification passed after the recovery migrations: database reset, typecheck, lint, 121 tests, 97 covered unit tests, production build, and four Playwright tests. Coverage passed explicit 30% statement/line, 30% function, and 25% branch floors.
+
+### Final pre-launch remediation
+
+- A fresh read-only audit found and fixed stale locale return paths, guest options shown during a new search, household time-zone rendering, undersized utility text, CI test partitioning, missing coverage floors, global demo-job isolation, unbounded guest searches, expired-hold precedence, notification-recipient authority, incomplete same-home constraints, and cross-instance demo mutation races.
+- Global cron and hold expiry now exclude demo homes unless the caller supplies a home. Demo reset and clock changes use a durable per-home mutation lease and durable per-session plus global rate buckets.
+- Migrations `20260831000900_relationship_tenants.sql` and `20260831001000_demo_mutation_control.sql` applied from a clean reset. The full four-beat demo and all eight release probes passed again after these changes.
+- The final simplify review removed app-clock skew from scheduler leases, normalized safe host and guest action errors, moved shared dependencies into leaf ports, and reused pure validation and time helpers.
+
+### Phase 6 deliverables
+
+- The README, Mermaid source, rendered SVG and PNG architecture diagram, video script, Devpost draft, and three builder.aws drafts are complete locally.
+- Recording, upload, Devpost filing, production deployment, tag, publication, and GitHub mutations remain separate owner-authorized actions.
