@@ -278,18 +278,16 @@ export async function rescheduleVisit(
       );
 
       await cancelOpenVisitJobs(transaction, current.id);
-      if (current.status !== "hold") {
-        await replaceChaseJob(
-          transaction,
-          {
-            id: current.id,
-            home_id: current.home_id,
-            stay_start: input.stay[0],
-          },
-          home.timezone,
-          clock.now(),
-        );
-      }
+      await replaceChaseJob(
+        transaction,
+        {
+          id: current.id,
+          home_id: current.home_id,
+          stay_start: input.stay[0],
+        },
+        home.timezone,
+        clock.now(),
+      );
 
       return {
         visitId: current.id,

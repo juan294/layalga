@@ -28,6 +28,7 @@
     "@aws-sdk/client-bedrock-agentcore-control": "3.1121.0",
     "@aws-sdk/client-bedrock-runtime": "3.1121.0",
     "@aws-sdk/client-scheduler": "3.1121.0",
+    "@aws-sdk/client-s3": "3.1121.0",
     "@strands-agents/sdk": "1.15.0",
     "@supabase/ssr": "0.12.5",
     "@supabase/supabase-js": "2.112.4",

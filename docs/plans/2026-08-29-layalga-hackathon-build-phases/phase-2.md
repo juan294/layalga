@@ -13,28 +13,28 @@ and success criteria 3 and 4 green.
 
 Slice 2A, test support and storage (09-01):
 
-- [ ] 2.1 `src/agent/scripted-model.ts`: `class ScriptedModel extends Model` whose constructor takes `steps: ScriptStep[]`; each step is either `{ text }` (yields message start, one text delta, message stop with `stopReason 'endTurn'`) or `{ toolUse: { name, input } }` (yields `contentBlockStart { toolUseStart }`, a `toolUseInputDelta` with the JSON, block stop, message stop with `stopReason 'toolUse'`). `getConfig` returns `{ modelId: 'scripted' }`. Verified against `dist/src/models/streaming.d.ts` event classes.
-- [ ] 2.2 `src/agent/storage/postgres-storage.test.ts`: write, read, list by prefix, delete, namespace round trip.
+- [x] 2.1 `src/agent/scripted-model.ts`: `class ScriptedModel extends Model` whose constructor takes `steps: ScriptStep[]`; each step is either `{ text }` (yields message start, one text delta, message stop with `stopReason 'endTurn'`) or `{ toolUse: { name, input } }` (yields `contentBlockStart { toolUseStart }`, a `toolUseInputDelta` with the JSON, block stop, message stop with `stopReason 'toolUse'`). `getConfig` returns `{ modelId: 'scripted' }`. Verified against `dist/src/models/streaming.d.ts` event classes.
+- [x] 2.2 `src/agent/storage/postgres-storage.test.ts`: write, read, list by prefix, delete, namespace round trip.
 
 Slice 2B, tools (09-02 to 09-03):
 
-- [ ] 2.3 `src/agent/tools/*.ts`, one file per tool, each `tool({ name, description, inputSchema, callback })` with callbacks delegating to `src/core` and writing `audit_events`. Tool descriptions are the only prompt-like text in the codebase besides the system prompt; write them in English.
-- [ ] 2.4 `src/agent/deps.ts`: `AgentDeps = { db, clock, scheduler, appUrl, locale }` injected into tools through a factory `buildTools(deps)` so tests pass a `FakeClock` and a `NoopScheduler`.
+- [x] 2.3 `src/agent/tools/*.ts`, one file per tool, each `tool({ name, description, inputSchema, callback })` with callbacks delegating to `src/core` and writing `audit_events`. Tool descriptions are the only prompt-like text in the codebase besides the system prompt; write them in English.
+- [x] 2.4 `src/agent/deps.ts`: `AgentDeps = { db, clock, scheduler, appUrl, locale }` injected into tools through a factory `buildTools(deps)` so tests pass a `FakeClock` and a `NoopScheduler`.
 
 Slice 2C, agent and hook (09-04):
 
-- [ ] 2.5 `src/agent/policy-hook.ts` exactly as the plan's section 8, including `approvalCovers` (compares `visits.approval_stay_hash` with `hash(stay, adults, children, pets, specialRequests)`).
-- [ ] 2.6 `src/agent/agent.ts`: `buildAgent({ sessionId, deps, model? })` with `BedrockModel` by default, `SessionManager({ sessionId, storage: new PostgresStorage(sql).namespace('session'), saveLatestOn: 'message' })`, `systemPrompt` from `src/agent/system-prompt.ts` (en and es variants), `printer: false`.
-- [ ] 2.7 `src/agent/run-task.ts`: `runAgentTask(payload: AgentTask, deps): Promise<RunResult>` per the plan's section 8: validates with zod, inserts `runs`, builds the prompt for each task kind, invokes, on `stopReason === 'interrupt'` inserts `pending_decisions` and sets `runs.status = 'interrupted'`, on `resume` marks the decision rows `applied`, always finalizes `runs`.
-- [ ] 2.8 `src/agent/runtime/local.ts` (`LocalAgentClient.run = runAgentTask`) and `src/agent/runtime/agentcore.ts` (`BedrockAgentCoreApp`, request schema `AgentTask`, `tick` tasks acknowledged immediately with `addAsyncTask`, other tasks awaited), `src/agent/client.ts` (`AgentCoreClient` using `InvokeAgentRuntimeCommand` with `runtimeSessionId = randomUUID()`, `contentType application/json`, parses JSON or SSE), `getAgentClient()` by `AGENT_RUNTIME`.
-- [ ] 2.9 `scripts/build-agent-bundle.sh`: esbuild bundle of `src/agent/runtime/agentcore.ts` to `dist/agent/app.js` (format chosen in Phase 0), zip with a `package.json` declaring `engines.node ">=22"`.
-- [ ] 2.10 `src/app/api/agent/run/route.ts`: `export const maxDuration = 300`; POST validates a shared secret header `x-layalga-internal` (`TICK_SECRET`) and calls `runAgentTask`. Used when `AGENT_RUNTIME=local`.
+- [x] 2.5 `src/agent/policy-hook.ts` exactly as the plan's section 8, including `approvalCovers` (compares `visits.approval_stay_hash` with `hash(stay, adults, children, pets, specialRequests)`).
+- [x] 2.6 `src/agent/agent.ts`: `buildAgent({ sessionId, deps, model? })` with `BedrockModel` by default, `SessionManager({ sessionId, storage: new PostgresStorage(sql).namespace('session'), saveLatestOn: 'message' })`, `systemPrompt` from `src/agent/system-prompt.ts` (en and es variants), `printer: false`.
+- [x] 2.7 `src/agent/run-task.ts`: `runAgentTask(payload: AgentTask, deps): Promise<RunResult>` per the plan's section 8: validates with zod, inserts `runs`, builds the prompt for each task kind, invokes, on `stopReason === 'interrupt'` inserts `pending_decisions` and sets `runs.status = 'interrupted'`, on `resume` marks the decision rows `applied`, always finalizes `runs`.
+- [x] 2.8 `src/agent/runtime/local.ts` (`LocalAgentClient.run = runAgentTask`) and `src/agent/runtime/agentcore.ts` (`BedrockAgentCoreApp`, request schema `AgentTask`, `tick` tasks acknowledged immediately with `addAsyncTask`, other tasks awaited), `src/agent/client.ts` (`AgentCoreClient` using `InvokeAgentRuntimeCommand` with `runtimeSessionId = randomUUID()`, `contentType application/json`, parses JSON or SSE), `getAgentClient()` by `AGENT_RUNTIME`.
+- [x] 2.9 `scripts/build-agent-bundle.sh`: esbuild bundle of `src/agent/runtime/agentcore.ts` to `dist/agent/app.js` (format chosen in Phase 0), zip with a `package.json` declaring `engines.node ">=22"`.
+- [x] 2.10 `src/app/api/agent/run/route.ts`: `export const maxDuration = 300`; POST validates a shared secret header `x-layalga-internal` (`TICK_SECRET`) and calls `runAgentTask`. Used when `AGENT_RUNTIME=local`.
 
 Slice 2D, criteria 3 and 4 (09-05):
 
-- [ ] 2.11 `src/agent/interrupt-resume.test.ts` (criterion 3), protocol below.
-- [ ] 2.12 `src/agent/reschedule.test.ts` (criterion 4), protocol below.
-- [ ] 2.13 `scripts/agent-smoke.ts`: one real Bedrock run of `host_capture` with the Vega message, printing the structured invitation; run once locally and paste the output into the phase notes.
+- [x] 2.11 `src/agent/interrupt-resume.test.ts` (criterion 3), protocol below.
+- [x] 2.12 `src/agent/reschedule.test.ts` (criterion 4), protocol below.
+- [x] 2.13 `scripts/agent-smoke.ts`: one real Bedrock run of `host_capture` with the Vega message, printing the structured invitation; run once locally and paste the output into the phase notes.
 
 ## Criterion 3 protocol (`interrupt-resume.test.ts`)
 

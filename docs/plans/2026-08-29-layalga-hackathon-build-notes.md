@@ -38,3 +38,36 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - The remote project `hyyrnpyidipkuhakeiyb` accepted the four Phase 1 migrations and the demo seed. The verified counts were one home, three rooms, two hosts, two parties, and two invitations.
 - Sequential checks passed: typecheck, lint, 44 tests, production build, AgentCore bundle scaffold, bootstrap verification, actionlint, and `git diff --check`.
 - The concurrency protocol passed its required runs and five extra stress runs after the constraint-only probe normalized PostgreSQL deadlock code `40P01` to `RoomUnavailableError`. Production booking paths still normalize only exclusion code `23P01`.
+
+### Phase 2: Applied decision state
+
+- Plan said: a resume marks its `pending_decisions` rows `applied`.
+- Found: the Phase 1 schema permits only `pending`, `approved`, and `declined`; there is no `applied` state.
+- Chose: set the decision to `approved` or `declined` before resume, then write a `decision_applied` audit event with the pending decision ID, consuming run ID, and interrupt ID after Strands consumes the response.
+- Why: this preserves the schema contract, separates the host's decision from successful application, and gives each resume attempt traceable evidence.
+
+### Phase 2: Scripted model stream completeness
+
+- Plan said: the scripted tool-use stream starts with a content block, and the text stream omits a content-block stop.
+- Found: Strands 1.15.0 rejects a tool-use stream without `modelMessageStartEvent` and does not add text to the final message without `modelContentBlockStopEvent`.
+- Chose: emit the required message start for tool use and the required content-block stop for text.
+- Why: these are the minimum additional SDK events needed for the planned deterministic streams to produce valid messages.
+
+### Phase 2: Bedrock smoke
+
+- Attempted on 2026-08-29 with AWS profile `archy`, region `us-east-1`, and model `us.anthropic.claude-sonnet-4-5-20250929-v1:0`.
+- Result: failed before the model could call `capture_invitation`. Bedrock returned HTTP 404 `ResourceNotFoundException`: `Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model. If you have already filled out the form, try again in 15 minutes.`
+- No structured invitation was produced. This is the same account-level Anthropic gate recorded in Phase 0; the local scripted-model path remains the selected fallback.
+
+### Phase 2: Strands optional S3 dependency
+
+- Plan said: install the packages pinned in section 6.
+- Found: the Next.js production build statically resolves Strands' optional context-offloader import of `@aws-sdk/client-s3`, even though L'Ayalga does not enable that plugin.
+- Chose: add `@aws-sdk/client-s3` at the same pinned AWS SDK version, `3.1121.0`.
+- Why: the explicit dependency makes both the web build and the external-package AgentCore bundle deterministic without changing runtime behavior.
+
+### Phase 2 verification
+
+- Plan-compliance review approved all tasks after the approve, decline, process-restart, reschedule, scheduling, denial, and audit assertions were added.
+- Three simplify passes removed schema and type duplication, bounded option searches to 90 days, reduced each search to one house-state load, and made bundle replacement clean and isolated.
+- Sequential checks passed: local database reset, typecheck, lint, 48 tests, production build, AgentCore bundle build, root development-dependency preservation, JavaScript syntax check, ZIP integrity, bootstrap verification, actionlint, and `git diff --check`.
