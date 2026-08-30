@@ -16,7 +16,7 @@ try {
       db: connection.db,
       clock: new SystemClock(),
       scheduler: new NoopScheduler(),
-      appUrl: process.env.APP_URL ?? "http://localhost:3000",
+      appUrl: process.env.APP_URL ?? "http://localhost:3008",
       locale: "es",
     },
   );

@@ -23,7 +23,7 @@ describe("OAuth next-path preparation", () => {
 
   it("rejects cross-origin preparation", async () => {
     const response = await POST(
-      new NextRequest("http://localhost:3000/auth/prepare", {
+      new NextRequest("http://localhost:3008/auth/prepare", {
         body: JSON.stringify({ next: "/en" }),
         headers: {
           "content-type": "application/json",
@@ -38,11 +38,11 @@ describe("OAuth next-path preparation", () => {
 });
 
 function request(next: string): NextRequest {
-  return new NextRequest("http://localhost:3000/auth/prepare", {
+  return new NextRequest("http://localhost:3008/auth/prepare", {
     body: JSON.stringify({ next }),
     headers: {
       "content-type": "application/json",
-      origin: "http://localhost:3000",
+      origin: "http://localhost:3008",
     },
     method: "POST",
   });

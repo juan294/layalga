@@ -70,7 +70,7 @@ export function parseReleaseCliOptions(
   argv: string[],
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ReleaseCliOptions {
-  let baseUrl = env.APP_URL ?? "http://127.0.0.1:3000";
+  let baseUrl = env.APP_URL ?? "http://127.0.0.1:3008";
   let expectedCommit = env.EXPECTED_COMMIT_SHA;
   let headed = false;
 

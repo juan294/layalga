@@ -51,8 +51,8 @@ describe("assertDemoSnapshot", () => {
 
 describe("normalizeBaseUrl", () => {
   it("removes trailing slashes from an HTTP origin", () => {
-    expect(normalizeBaseUrl("http://127.0.0.1:3000///")).toBe(
-      "http://127.0.0.1:3000",
+    expect(normalizeBaseUrl("http://127.0.0.1:3008///")).toBe(
+      "http://127.0.0.1:3008",
     );
   });
 
@@ -65,9 +65,9 @@ describe("normalizeBaseUrl", () => {
 describe("parseReleaseCliOptions", () => {
   it("accepts the pnpm argument separator", () => {
     expect(
-      parseReleaseCliOptions(["--", "--base", "http://localhost:3000"], {}),
+      parseReleaseCliOptions(["--", "--base", "http://localhost:3008"], {}),
     ).toEqual({
-      baseUrl: "http://localhost:3000",
+      baseUrl: "http://localhost:3008",
       expectedCommit: undefined,
       headed: false,
     });

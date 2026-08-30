@@ -9,7 +9,7 @@ const e2eEnv = {
   DEMO_SESSION_SECRET:
     process.env.DEMO_SESSION_SECRET ?? "abcdef0123456789abcdef0123456789",
   TICK_SECRET: process.env.TICK_SECRET ?? "fedcba9876543210fedcba9876543210",
-  APP_URL: process.env.APP_URL ?? "http://127.0.0.1:3000",
+  APP_URL: process.env.APP_URL ?? "http://127.0.0.1:3008",
   DEMO_MODE: "true",
   AGENT_RUNTIME: "local",
   MODEL: "scripted",
@@ -26,7 +26,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://127.0.0.1:3008",
     trace: "on-first-retry",
   },
   projects: [
@@ -38,7 +38,7 @@ export default defineConfig({
   webServer: {
     command: "pnpm run dev",
     env: e2eEnv,
-    url: "http://127.0.0.1:3000",
+    url: "http://127.0.0.1:3008",
     reuseExistingServer: false,
   },
 });

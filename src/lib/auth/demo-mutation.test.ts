@@ -13,7 +13,7 @@ function request(options: { cookie?: string; origin?: string } = {}): Request {
   const headers = new Headers();
   if (options.cookie) headers.set("cookie", options.cookie);
   if (options.origin) headers.set("origin", options.origin);
-  return new Request("http://localhost:3000/api/demo/clock", {
+  return new Request("http://localhost:3008/api/demo/clock", {
     method: "POST",
     headers,
   });
@@ -29,7 +29,7 @@ describe("authorizeDemoMutation", () => {
     const result = await authorizeDemoMutation(
       request({
         cookie: `${DEMO_HOST_COOKIE}=${cookie}`,
-        origin: "http://localhost:3000",
+        origin: "http://localhost:3008",
       }),
       homeId,
       "clock",
@@ -77,7 +77,7 @@ describe("authorizeDemoMutation", () => {
       authorizeDemoMutation(
         request({
           cookie: `${DEMO_HOST_COOKIE}=${cookie}`,
-          origin: "http://localhost:3000",
+          origin: "http://localhost:3008",
         }),
         "00000000-0000-4000-8000-000000000099",
         "reset",
@@ -94,7 +94,7 @@ describe("authorizeDemoMutation", () => {
     });
     const demoRequest = request({
       cookie: `${DEMO_HOST_COOKIE}=${cookie}`,
-      origin: "http://localhost:3000",
+      origin: "http://localhost:3008",
     });
     let count = 0;
     const options = {

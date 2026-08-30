@@ -59,7 +59,7 @@ export async function captureInvitationAction(
       : [];
     const guestLink = invitationId
       ? await reissueInvitationLink(getDatabaseConnection().db, invitationId, {
-          appUrl: process.env.APP_URL ?? "http://localhost:3000",
+          appUrl: process.env.APP_URL ?? "http://localhost:3008",
         })
       : undefined;
 

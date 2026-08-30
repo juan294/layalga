@@ -17,7 +17,7 @@ export async function runtimeDeps(task: AgentTask): Promise<RunAgentDeps> {
     db: connection.db,
     clock: await DbDemoClock.load(task.homeId, connection.db),
     scheduler: schedulerForHome({ homeDemo: home.demo }),
-    appUrl: process.env.APP_URL ?? "http://localhost:3000",
+    appUrl: process.env.APP_URL ?? "http://localhost:3008",
     locale: "locale" in task ? task.locale : "en",
   };
   if (process.env.MODEL === "scripted") {

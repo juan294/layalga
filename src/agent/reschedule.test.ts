@@ -85,7 +85,7 @@ describe("agent reschedule policy", () => {
   }, 30_000);
 });
 
-function deps(model: ScriptedModel) { return { db: sql, clock, scheduler: new NoopScheduler(), appUrl: "http://localhost:3000", locale: "en" as const, model }; }
+function deps(model: ScriptedModel) { return { db: sql, clock, scheduler: new NoopScheduler(), appUrl: "http://localhost:3008", locale: "en" as const, model }; }
 async function stay(visitId: string) { const [row] = await sql<{ start: string; end: string }[]>`select lower(stay)::text as start, upper(stay)::text as end from public.visits where id = ${visitId}`; return [row!.start, row!.end]; }
 async function recordApproval(id: string) {
   await sql`

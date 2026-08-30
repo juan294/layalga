@@ -21,7 +21,7 @@ describe("OAuth callback paths", () => {
 
   it("prefers the prepared HttpOnly-cookie path", () => {
     const request = new NextRequest(
-      "http://localhost:3000/auth/callback?next=%2Fen",
+      "http://localhost:3008/auth/callback?next=%2Fen",
       {
         headers: { cookie: `${OAUTH_NEXT_COOKIE}=%2Fes` },
       },

@@ -381,7 +381,7 @@ function agentDeps(clock: FakeClock, model: ScriptedModel) {
     db: sql,
     clock,
     scheduler: new NoopScheduler(),
-    appUrl: "http://localhost:3000",
+    appUrl: "http://localhost:3008",
     locale: "en" as const,
     model,
   };

@@ -76,7 +76,7 @@ jobs:
       DEMO_SESSION_SECRET: abcdef0123456789abcdef0123456789
       TICK_SECRET: fedcba9876543210fedcba9876543210
       AGENT_ROUTE_SECRET: 1234567890abcdef1234567890abcdef
-      APP_URL: http://127.0.0.1:3000
+      APP_URL: http://127.0.0.1:3008
       DEMO_MODE: "true"
       AGENT_RUNTIME: local
       MODEL: scripted
@@ -120,7 +120,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true' EXIT
           for attempt in {1..60}; do
-            if curl --fail --silent http://127.0.0.1:3000/api/health > /dev/null; then
+            if curl --fail --silent http://127.0.0.1:3008/api/health > /dev/null; then
               break
             fi
             if ! kill -0 "$app_pid" 2>/dev/null; then
@@ -133,5 +133,5 @@ jobs:
             fi
             sleep 1
           done
-          pnpm run demo:e2e -- --base http://127.0.0.1:3000
-          pnpm run release:probes -- --base http://127.0.0.1:3000
+          pnpm run demo:e2e -- --base http://127.0.0.1:3008
+          pnpm run release:probes -- --base http://127.0.0.1:3008

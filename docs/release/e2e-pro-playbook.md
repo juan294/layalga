@@ -86,7 +86,7 @@ export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
 export LINK_TOKEN_SECRET=e2e-link-token-secret-at-least-32-bytes
 export DEMO_SESSION_SECRET=e2e-demo-session-secret-at-least-32-bytes
 export TICK_SECRET=e2e-tick-secret-at-least-32-bytes
-export APP_URL=http://localhost:3000
+export APP_URL=http://localhost:3008
 export AGENT_RUNTIME=local
 export MODEL=scripted
 export DEMO_MODE=true
@@ -103,8 +103,8 @@ set +a
 export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
 export LINK_TOKEN_SECRET=e2e-link-token-secret-at-least-32-bytes
 export TICK_SECRET=e2e-tick-secret-at-least-32-bytes
-pnpm run demo:e2e -- --base http://localhost:3000
-pnpm run release:probes -- --base http://localhost:3000
+pnpm run demo:e2e -- --base http://localhost:3008
+pnpm run release:probes -- --base http://localhost:3008
 ```
 
 For a non-local target, bind the probes to one exact candidate commit:

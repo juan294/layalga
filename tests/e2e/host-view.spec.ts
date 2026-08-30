@@ -11,7 +11,7 @@ test.beforeEach(async ({ context, page }) => {
       httpOnly: true,
       name: "layalga_demo_host",
       sameSite: "Lax",
-      url: "http://127.0.0.1:3000",
+      url: "http://127.0.0.1:3008",
       value: createDemoHostCookie(nelHostId),
     },
   ]);

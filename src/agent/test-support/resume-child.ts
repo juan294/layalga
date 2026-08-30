@@ -26,7 +26,7 @@ try {
       db: sql,
       clock: new FakeClock(new Date("2026-09-07T08:00:00Z")),
       scheduler: new NoopScheduler(),
-      appUrl: "http://localhost:3000",
+      appUrl: "http://localhost:3008",
       locale: "en",
       model: new ScriptedModel([{ text: "Hold placed and awaiting confirmation." }]),
     },

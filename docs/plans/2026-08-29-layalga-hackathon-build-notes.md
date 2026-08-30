@@ -80,6 +80,13 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - Chose: prepare the validated internal return path in a ten-minute HttpOnly, same-site cookie, send OAuth to the exact `/auth/callback` URL, clear the cookie after every callback result, and override the local Google provider callback to `http://localhost:54621/auth/v1/callback`.
 - Why: this keeps the allow-list exact, avoids wildcard callbacks, keeps guest-link tokens out of the provider redirect, and aligns local Auth with the registered Google client.
 
+### Follow-up: Fixed local web port
+
+- Plan said: use the framework default at `http://localhost:3000` for the local application callback and test base URL.
+- Found: the established local project ports are 3001 through 3007 for Chapa, Coach, Archy, Portfolio, Clarity, Paisaxe, and Spoken Letter; port 3008 was unassigned and not listening.
+- Chose: fix L’Ayalga on port 3008 and align the dev command, application URL defaults, local Supabase Auth redirects, CI, Playwright, release probes, and documentation.
+- Why: a unique fixed port prevents cross-project collisions and keeps every local callback and test runner on the same origin.
+
 ### Phase 5: Notification acceptance count
 
 - Plan said: the final demo state contains four notifications to hosts.

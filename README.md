@@ -81,7 +81,7 @@ For a fully local deterministic run, set these values in `.env.local`:
 
 ```dotenv
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
-APP_URL=http://localhost:3000
+APP_URL=http://localhost:3008
 AGENT_RUNTIME=local
 MODEL=scripted
 SCHEDULER=none
@@ -96,9 +96,9 @@ GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
-Open `http://localhost:3000/en` or `/es`. Use the synthetic-host buttons to enter the demo without Google OAuth.
+Open `http://localhost:3008/en` or `/es`. Use the synthetic-host buttons to enter the demo without Google OAuth.
 
-For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only.
+For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Local Supabase allows the exact application return URL `http://localhost:3008/auth/callback` through `supabase/config.toml`. A hosted Supabase project used for local sign-in must allow that same exact application return URL. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only.
 
 Run the complete local checks in this order:
 
@@ -109,8 +109,8 @@ pnpm run test
 pnpm run test:coverage
 pnpm run build
 pnpm run test:e2e
-pnpm run demo:e2e -- --base http://localhost:3000
-pnpm run release:probes -- --base http://localhost:3000
+pnpm run demo:e2e -- --base http://localhost:3008
+pnpm run release:probes -- --base http://localhost:3008
 ```
 
 The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract.
