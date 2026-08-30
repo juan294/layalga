@@ -1,52 +1,52 @@
 flowchart LR
   host["Nel + Covadonga<br/>host view"]
   guest["Invited family<br/>private link"]
+  guestAccount["Optional guest account<br/>claim • /visits • sign out"]
 
-  subgraph vercel["Vercel • selected hackathon runtime"]
-    web["Next.js 16<br/>English + Spanish UI"]
-    agent["runAgentTask<br/>Strands agent • 7 typed tools"]
-    policy["BeforeToolCall policy hook<br/>beds → children → pets → human exception"]
-    cron["Vercel Cron<br/>due-job trigger"]
+  subgraph vercel["Vercel • selected runtime"]
+    web["Next.js 16<br/>English + Spanish<br/>layalga_web role"]
+    cron["Cron /api/ticks<br/>recover • drain 2 • due jobs"]
+    dispatch["after() dispatch"]
+    worker["runAgentTask worker<br/>Strands • 7 typed tools"]
+    policy["Policy hook<br/>beds → children → pets<br/>→ human exception"]
   end
 
-  subgraph data["Supabase Postgres • system of record"]
-    booking["Invitations • visits • room allocations"]
-    durable["Runs • session snapshots<br/>pending decisions • audit events"]
-    jobs["Scheduled jobs • notifications<br/>synthetic demo clock"]
+  subgraph data["Supabase Postgres • authority"]
+    identity["Identity claims<br/>hosts + guests"]
+    queue["Runs queue<br/>leases • attempts • idempotency"]
+    state["Invitations • visits • rooms<br/>sessions • decisions • audit"]
+    jobs["Jobs • notifications<br/>retry 1m / 5m • quarantine after 3"]
   end
 
-  bedrock["Amazon Bedrock<br/>Sonnet 4.5 when account access is active"]
-  scripted["TaskScriptedModel<br/>deterministic demo + tests"]
-  agentcore["AgentCore Runtime<br/>packaged + startup proven<br/>future retry"]
-  eventbridge["EventBridge Scheduler<br/>future AgentCore trigger"]
+  models["Configured model<br/>scripted demo or Bedrock Sonnet 4.5"]
+  agentcore["AgentCore execute_run<br/>existing run ID • async task<br/>future layalga_agent role"]
+  eventbridge["EventBridge Scheduler<br/>future trigger"]
 
   host --> web
   guest --> web
-  web --> agent
-  agent --> policy
-  policy -- "allow • deny • interrupt" --> agent
-  agent -- "authorized tools" --> booking
-  policy -- "interrupt + snapshot" --> durable
-  durable -- "host response + restored run" --> agent
-  agent -. "configured model" .-> bedrock
-  agent --> scripted
+  guest --> guestAccount --> web
+  web --> identity
+  web -- "enqueue + acknowledge" --> queue
+  web --> dispatch --> worker
+  cron --> queue
   cron --> jobs
-  jobs --> agent
-  agent --> durable
-  agent --> jobs
-  web --> booking
-  agent -. "same runAgentTask interface" .-> agentcore
-  eventbridge -. "invoke tick" .-> agentcore
-  agentcore -. "blocked by account model gate" .-> bedrock
+  jobs -- "enqueue tick" --> queue
+  queue -- "claim exact run" --> worker
+  worker --> policy
+  policy -- "authorized state change<br/>or interrupt snapshot" --> state
+  worker --> jobs
+  worker -.-> models
+  queue -. "execute_run" .-> agentcore
+  eventbridge -.-> agentcore
+  agentcore -.-> models
 
   classDef person fill:#f6f0e4,stroke:#143f3b,color:#15201f,stroke-width:2px;
   classDef app fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px;
   classDef core fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px;
   classDef store fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px;
   classDef future fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
-  class host,guest person;
-  class web,agent,cron app;
-  class policy core;
-  class booking,durable,jobs store;
-  class bedrock,agentcore,eventbridge future;
-  class scripted core;
+  class host,guest,guestAccount person;
+  class web,dispatch,worker,cron app;
+  class policy,models core;
+  class identity,queue,state,jobs store;
+  class agentcore,eventbridge future;

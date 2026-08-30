@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -8,7 +10,9 @@ import type { AgentTask } from "@/agent/task";
 import { FakeClock } from "@/core/clock";
 
 import {
+  dispatchDueJobs,
   reconcileStaleRuns,
+  replayQuarantinedJob,
   runDueJobs,
   scheduleJobs,
   type AgentInvoker,
@@ -154,6 +158,7 @@ describe("reconfirmation jobs", () => {
     ).rejects.toThrow("One or more reconfirmation jobs failed");
     expect(await notificationCount("host")).toBe(1);
 
+    clock.advance(60_000);
     const [result] = await runDueJobs(sql, clock, retryingInvoker, homeId);
     expect(result?.action).toBe("escalate");
     expect(attempts).toBe(2);
@@ -199,6 +204,144 @@ describe("reconfirmation jobs", () => {
       where visit_id = ${visitId} and kind = 'reconfirm_escalate'
     `;
     expect(job?.status).toBe("scheduled");
+  });
+
+  it("backs off persistent faults, quarantines them, and supports explicit replay", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const failingInvoker: AgentInvoker = {
+      async run() {
+        throw new Error("provider request contained secret details");
+      },
+    };
+
+    await expect(
+      runDueJobs(sql, clock, failingInvoker, homeId),
+    ).rejects.toThrow("One or more reconfirmation jobs failed");
+    let [job] = await sql<
+      {
+        status: string;
+        attempt_count: number;
+        available_at: Date;
+        last_error: string;
+      }[]
+    >`
+      select status, attempt_count, available_at, last_error
+      from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(job).toMatchObject({ status: "scheduled", attempt_count: 1 });
+    expect(job!.available_at.toISOString()).toBe("2026-09-15T07:01:00.000Z");
+    expect(job!.last_error).toBe("Scheduled job execution failed");
+    expect(await runDueJobs(sql, clock, failingInvoker, homeId)).toEqual([]);
+
+    clock.advance(60_000);
+    await expect(
+      runDueJobs(sql, clock, failingInvoker, homeId),
+    ).rejects.toThrow("One or more reconfirmation jobs failed");
+    clock.advance(5 * 60_000);
+    await expect(
+      runDueJobs(sql, clock, failingInvoker, homeId),
+    ).rejects.toThrow("One or more reconfirmation jobs failed");
+    [job] = await sql`
+      select status, attempt_count, available_at, last_error
+      from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(job).toMatchObject({
+      status: "quarantined",
+      attempt_count: 3,
+      last_error: "Scheduled job execution failed",
+    });
+    const [quarantineAudit] = await sql<
+      { actor: string; payload: { jobId: string } }[]
+    >`
+      select actor, payload from public.audit_events
+      where home_id = ${homeId} and kind = 'scheduled_job_quarantined'
+    `;
+    expect(quarantineAudit).toEqual({
+      actor: "system",
+      payload: expect.objectContaining({ jobId: chaseJobId }),
+    });
+
+    await replayQuarantinedJob(sql, chaseJobId, clock.now());
+    const [replayed] = await sql<
+      { status: string; attempt_count: number; available_at: Date }[]
+    >`
+      select status, attempt_count, available_at
+      from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(replayed).toEqual({
+      status: "scheduled",
+      attempt_count: 0,
+      available_at: clock.now(),
+    });
+  });
+
+  it("dispatches the due batch to durable runs without waiting for model work", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const enqueued: AgentTask[] = [];
+
+    const dispatched = await dispatchDueJobs(
+      sql,
+      clock,
+      {
+        async enqueue(task) {
+          enqueued.push(task as AgentTask);
+          const runId = randomUUID();
+          await sql`
+            insert into public.runs (
+              id, home_id, session_id, task, status, payload,
+              queue_available_at
+            ) values (
+              ${runId}, ${task.homeId}, ${`tick_${task.jobId}`}, 'tick',
+              'queued', ${JSON.stringify(task)}::text::jsonb, now()
+            )
+          `;
+          return {
+            runId,
+            status: "queued",
+            sessionId: `tick_${task.jobId}`,
+            pendingDecisionIds: [],
+            summary: "Your request is queued.",
+          };
+        },
+      },
+      homeId,
+    );
+
+    expect(dispatched).toEqual([
+      expect.objectContaining({ jobId: chaseJobId, status: "queued" }),
+    ]);
+    expect(enqueued).toEqual([{ task: "tick", homeId, jobId: chaseJobId }]);
+    const [job] = await sql<{ status: string; run_id: string | null }[]>`
+      select status, run_id from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(job).toEqual({ status: "running", run_id: dispatched[0]!.runId });
+
+    clock.advance(11 * 60_000);
+    expect(
+      await dispatchDueJobs(
+        sql,
+        clock,
+        {
+          async enqueue(task) {
+            enqueued.push(task as AgentTask);
+            throw new Error("linked jobs must not be redispatched");
+          },
+        },
+        homeId,
+      ),
+    ).toEqual([]);
+    const [stillLinked] = await sql<
+      { status: string; attempt_count: number; run_id: string }[]
+    >`
+      select status, attempt_count, run_id
+      from public.scheduled_jobs where id = ${chaseJobId}
+    `;
+    expect(stillLinked).toEqual({
+      status: "running",
+      attempt_count: 1,
+      run_id: dispatched[0]!.runId,
+    });
+    expect(enqueued).toHaveLength(1);
   });
 
   it("delivers a new chase for a later reconfirmation cycle", async () => {

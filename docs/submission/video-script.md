@@ -24,11 +24,11 @@ L’Ayalga turns an informal invitation into a private guest flow. It finds room
 
 ## 0:45–1:30 — Beat 1: capture an informal invitation
 
-**On screen:** Nel’s Spanish host tab. Paste the prepared Familia Vega invitation and submit it. Show the structured party, flexible dates, and generated guest link. Do not expose the full token for longer than needed.
+**On screen:** Nel’s Spanish host tab. Paste the prepared Familia Vega invitation and submit it. Briefly show the queued run state, then the structured party, flexible dates, and generated guest link. Do not expose the full token for longer than needed.
 
 **Narration:**
 
-“Nel receives this Spanish message from Familia Vega. She pastes it as-is. A Strands agent calls a typed capture tool, keeps the original message for audit, and structures the party: two adults, two children, Spanish locale, and flexible dates.
+“Nel receives this Spanish message from Familia Vega. She pastes it as-is. The request enters a durable Postgres queue, and this page follows that exact run to completion. A Strands agent calls a typed capture tool, keeps the original message for audit, and structures the party: two adults, two children, Spanish locale, and flexible dates.
 
 The result is tentative, not booked. L’Ayalga creates a high-entropy guest link and stores only its hash. Vega can now choose from dates that the deterministic booking engine says are possible.”
 
@@ -70,7 +70,7 @@ At three days before arrival, the same production state machine asks both partie
 
 **Narration:**
 
-“The selected build runs Next.js and the local Strands runtime on Vercel, with Supabase Postgres as the system of record and Vercel Cron for due jobs. Strands handles natural language and typed tool use. A pure TypeScript policy and database constraints remain authoritative.
+“The selected build runs Next.js and a durable Strands work queue on Vercel, with Supabase Postgres as the system of record. Next.js starts work after the response, and Vercel Cron recovers leases, drains queued runs, and handles due jobs. Strands handles natural language and typed tool use. A pure TypeScript policy and database constraints remain authoritative.
 
 We also packaged and started the same agent in Bedrock AgentCore Runtime. An account-level Anthropic access gate blocked the model call, so the plan’s tested local fallback is active. The shared run interface and Postgres session store preserve that future path.”
 

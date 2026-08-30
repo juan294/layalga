@@ -1,4 +1,8 @@
 import { getDatabaseConnection } from "@/core/db/client";
+import {
+  serverEnvironmentReadiness,
+  type EnvironmentReadiness,
+} from "@/lib/server/env";
 
 export const dynamic = "force-dynamic";
 
@@ -10,31 +14,46 @@ export interface OperationsHealth {
   retryingJobs: number;
 }
 
-function healthResponse(status: HealthStatus, operations?: OperationsHealth) {
+function healthResponse(
+  status: HealthStatus,
+  operations?: OperationsHealth,
+  configuration?: EnvironmentReadiness,
+) {
   return Response.json(
     {
       status,
       commit: process.env.VERCEL_GIT_COMMIT_SHA,
       operations,
+      configuration,
     },
     { status: status === "ok" ? 200 : 503 },
   );
 }
 
 export async function GET() {
+  const configuration = serverEnvironmentReadiness();
   try {
     const operations = await checkDatabaseHealth();
-    const status = hasOperationalFailures(operations) ? "degraded" : "ok";
+    const status = healthStatus(configuration, operations);
     if (status === "degraded") {
       console.error("[HEALTH_OPERATIONS_DEGRADED]", operations);
     }
-    return healthResponse(status, operations);
+    return healthResponse(status, operations, configuration);
   } catch (error) {
     console.error("[HEALTH_DATABASE_FAILED]", {
       errorName: error instanceof Error ? error.name : "UnknownError",
     });
-    return healthResponse("degraded");
+    return healthResponse("degraded", undefined, configuration);
   }
+}
+
+export function healthStatus(
+  configuration: EnvironmentReadiness,
+  operations: OperationsHealth,
+): HealthStatus {
+  return configuration.ready && !hasOperationalFailures(operations)
+    ? "ok"
+    : "degraded";
 }
 
 interface CancellablePromise<T> extends Promise<T> {

@@ -21,9 +21,11 @@ export type VisitStatus =
   | "escalated"
   | "cancelled";
 export type DecisionStatus = "pending" | "approved" | "declined";
-export type RunStatus = "running" | "completed" | "interrupted" | "failed";
+export type RunStatus =
+  "queued" | "running" | "completed" | "interrupted" | "failed";
 export type ScheduledJobKind = "reconfirm_chase" | "reconfirm_escalate";
-export type ScheduledJobStatus = "scheduled" | "running" | "done" | "cancelled";
+export type ScheduledJobStatus =
+  "scheduled" | "running" | "done" | "cancelled" | "quarantined";
 export type RecipientKind = "host" | "party";
 export type StayRange = readonly [start: string, end: string];
 
@@ -108,13 +110,11 @@ export const parties = pgTable("parties", {
     .references(() => homes.id, { onDelete: "cascade" }),
   familyName: text("family_name").notNull(),
   locale: text("locale").$type<Locale>().notNull(),
-  linkToken: text("link_token").notNull().unique(),
+  linkToken: text("link_token").unique(),
   linkTokenExpiresAt: timestamp("link_token_expires_at", {
     withTimezone: true,
     mode: "date",
-  })
-    .notNull()
-    .default(sql`now() + interval '30 days'`),
+  }),
   authUserId: uuid("auth_user_id"),
   createdAt: createdAt(),
 });
@@ -139,7 +139,29 @@ export const invitations = pgTable("invitations", {
     .$type<InvitationStatus>()
     .notNull()
     .default("tentative"),
+  linkToken: text("link_token").unique(),
+  linkTokenExpiresAt: timestamp("link_token_expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }).default(sql`now() + interval '30 days'`),
+  linkTokenRevokedAt: timestamp("link_token_revoked_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
   createdAt: createdAt(),
+});
+
+export const hostIdentityClaims = pgTable("host_identity_claims", {
+  normalizedEmail: text("normalized_email").primaryKey(),
+  hostId: uuid("host_id")
+    .notNull()
+    .references(() => hosts.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  authUserId: uuid("auth_user_id").unique(),
+  createdAt: createdAt(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
 });
 
 export const visits = pgTable("visits", {
@@ -220,6 +242,19 @@ export const runs = pgTable("runs", {
   finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
   heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: "date" }),
   deadlineAt: timestamp("deadline_at", { withTimezone: true, mode: "date" }),
+  queueAvailableAt: timestamp("queue_available_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  queueClaimedAt: timestamp("queue_claimed_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  queueClaimToken: uuid("queue_claim_token"),
+  executionAttemptCount: integer("execution_attempt_count")
+    .notNull()
+    .default(0),
+  lastError: text("last_error"),
 });
 
 export const pendingDecisions = pgTable("pending_decisions", {
@@ -290,6 +325,19 @@ export const scheduledJobs = pgTable(
     claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
     claimToken: uuid("claim_token"),
     attemptCount: integer("attempt_count").notNull().default(0),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    quarantinedAt: timestamp("quarantined_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    runId: uuid("run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
     lastError: text("last_error"),
     createdAt: createdAt(),
   },

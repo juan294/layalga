@@ -35,10 +35,16 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      grepInvert: /@mobile/,
+    },
+    {
+      name: "mobile-webkit",
+      use: { ...devices["iPhone 13"] },
+      grep: /@mobile/,
     },
   ],
   webServer: {
-    command: `pnpm exec next dev --port ${e2ePort}`,
+    command: `./node_modules/.bin/next dev --webpack --port ${e2ePort}`,
     env: e2eEnv,
     url: e2eBaseUrl,
     reuseExistingServer: false,

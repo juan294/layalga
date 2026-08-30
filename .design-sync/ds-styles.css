@@ -1,0 +1,10 @@
+/* design-sync only: the app sets these three family variables through
+   next/font/google in src/app/[locale]/layout.tsx, which never runs in a
+   design-system bundle. The @font-face rules ship via cfg.extraFonts
+   (.design-sync/fonts/layalga-fonts.css); these variables are what
+   globals.css and host-styles.ts actually read. */
+:root {
+  --font-fraunces: "Fraunces";
+  --font-inter: "Inter";
+  --font-jetbrains-mono: "JetBrains Mono";
+}

@@ -20,7 +20,7 @@ All names, messages, visits, and notifications in the demo are synthetic.
 
 ## How it works
 
-[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected hackathon path. Next.js runs the web UI and the local Strands runtime on Vercel. Supabase Postgres is authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events. A Vercel Cron trigger claims due jobs. Strands can use Amazon Bedrock Sonnet 4.5 when the AWS account has model access; tests and the deterministic demo driver use a scripted model.
+[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected hackathon path. Next.js runs the web UI and accepts work into a durable Postgres run queue. A local worker started with Next.js `after()` can claim that work without holding the request open. The per-minute Vercel Cron route also recovers expired leases, drains at most two runs at a time, and claims due scheduled jobs. Supabase Postgres is authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events. Strands can use Amazon Bedrock Sonnet 4.5 when the AWS account has model access; tests and the deterministic demo driver use a scripted model.
 
 Amazon Bedrock AgentCore Runtime was packaged and started successfully during the Phase 0 spike. The account-level Anthropic use-case gate blocked the first model call, so the approved fallback is `AGENT_RUNTIME=local`. The same `runAgentTask` interface and Postgres session storage keep a future AgentCore retry possible without changing the product flow. See [ADR 0002](docs/decisions/0002-agent-runtime.md).
 
@@ -32,6 +32,8 @@ The model structures informal text, selects typed tools, and writes bilingual me
 - PostgreSQL range and exclusion constraints stop two concurrent requests from assigning the same room.
 - A Strands `BeforeToolCallEvent` hook checks the policy before hold, confirm, or reschedule tools.
 - Postgres stores the full Strands session snapshot and the separate host decision record.
+- Queued runs use bounded attempts and leases, so a failed web process does not lose accepted work.
+- Scheduled jobs retry after one and five minutes, then enter operator-visible quarantine after a third failure.
 - Scheduled jobs and notification idempotency keys make retries safe.
 
 The central hook is small because the policy is not hidden in a prompt:
@@ -91,14 +93,15 @@ LINK_TOKEN_SECRET=replace-with-at-least-32-random-bytes
 TICK_SECRET=replace-with-at-least-32-random-bytes
 AGENT_ROUTE_SECRET=replace-with-a-different-at-least-32-random-byte-secret
 CRON_SECRET=replace-with-at-least-32-random-bytes
-HOST_EMAILS=your-google-account@example.com
 GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
 Open `http://localhost:3008/en` or `/es`. Use the synthetic-host buttons to enter the demo without Google OAuth.
 
-For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Local Supabase allows the exact application return URL `http://localhost:3008/auth/callback` through `supabase/config.toml`. A hosted Supabase project used for local sign-in must allow that same exact application return URL. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only.
+An invited guest can use the private link without an account. They can also sign in with Google, claim the matching invitation, and review their visits at `/<locale>/visits`. Signing out does not invalidate the invitation-specific private link.
+
+For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Local Supabase allows the exact application return URL `http://localhost:3008/auth/callback` through `supabase/config.toml`. A hosted Supabase project used for local sign-in must allow that same exact application return URL. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only. Before sign-in, provision the normalized email to one explicit host and home in `host_identity_claims`; an unmatched or conflicting identity fails closed. See the [runtime database and identity runbook](docs/release/runtime-database-and-identity.md).
 
 Run the complete local checks in this order:
 
@@ -113,22 +116,23 @@ pnpm run demo:e2e -- --base http://localhost:3008
 pnpm run release:probes -- --base http://localhost:3008
 ```
 
-The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract.
+The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
 
 ## Deployment shape
 
-The selected configuration uses Vercel for Next.js, the local `runAgentTask` adapter, and a per-minute Vercel Cron trigger. Supabase Postgres remains the system of record. The repository also contains the tested AgentCore direct-code bundle and EventBridge Scheduler adapters for a later retry after Bedrock model access is active.
+The selected configuration uses Vercel for Next.js, a durable Postgres queue for local `runAgentTask` execution, and a per-minute Vercel Cron recovery trigger. The web process uses the non-owner `layalga_web` database login. A future AgentCore worker uses the separately granted `layalga_agent` login. Supabase Postgres remains the system of record. The repository also contains the tested AgentCore direct-code bundle and EventBridge Scheduler adapters for a later retry after Bedrock model access is active.
 
 Deployment, DNS changes, publication, and release tags require explicit owner authorization. A successful local build does not authorize any of those actions.
 
 ## Safety contracts
 
-- Guest URLs contain high-entropy tokens; only token hashes are stored.
+- Each guest URL is scoped to one invitation. URLs contain high-entropy tokens; only invitation-scoped HMACs are stored.
 - Guest views never reveal another party name or room name.
-- Host access uses Supabase Google Auth, with an explicit email allow-list for the first claim. Synthetic demo cookies work only for demo homes when `DEMO_MODE=true`.
-- Public tables have RLS enabled and no direct client policies. Server code uses the service connection.
+- Host access uses Supabase Google Auth, with a normalized email mapped to one explicit host and home. Synthetic demo cookies work only for demo homes when `DEMO_MODE=true`.
+- Public tables have RLS enabled and no direct client policies. Hosted web and agent processes use separate non-owner PostgreSQL roles with explicit object grants; migration and release operations use a separate administrative connection.
 - Policy runs before consequential tools, and the database independently enforces room exclusivity.
 - Run, decision, tool, scheduler, and notification actions are auditable.
+- A daily state-aware retention job minimizes terminal prompt/session data without deleting active interrupts, pending decisions, open jobs, audit metadata, or demo fixtures.
 - Synthetic release probes tag and delete only their own data.
 
 ## Hackathon disclosure

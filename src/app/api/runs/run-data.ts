@@ -2,7 +2,8 @@ import { getDatabaseConnection, sqlClient } from "@/core/db/client";
 import { findInvitationByToken } from "@/core/booking/invitations";
 import { getCurrentHost } from "@/lib/auth/current-host";
 
-export type RunStatus = "running" | "completed" | "interrupted" | "failed";
+export type RunStatus =
+  "queued" | "running" | "completed" | "interrupted" | "failed";
 
 export interface RunSnapshot {
   id: string;

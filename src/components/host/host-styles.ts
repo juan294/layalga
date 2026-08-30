@@ -54,11 +54,25 @@ export const buttonStyle: CSSProperties = {
   fontSize: "0.8rem",
   fontWeight: 750,
   letterSpacing: "0.04em",
+  lineHeight: 1.2,
+  minHeight: "var(--interactive-target)",
+  overflowWrap: "anywhere",
   padding: "0.7rem 1rem",
+  whiteSpace: "normal",
 };
 
 export const quietButtonStyle: CSSProperties = {
   ...buttonStyle,
   background: "transparent",
   color: ink,
+};
+
+export const visuallyHiddenStyle: CSSProperties = {
+  height: 1,
+  margin: -1,
+  overflow: "hidden",
+  padding: 0,
+  position: "absolute",
+  whiteSpace: "nowrap",
+  width: 1,
 };

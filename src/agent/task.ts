@@ -1,12 +1,22 @@
 import { z } from "zod";
 
 import { staySchema } from "./schemas";
+import {
+  MAX_ADULTS,
+  MAX_ARRIVAL_TIME_LENGTH,
+  MAX_CHILDREN,
+  MAX_DECISION_NOTE_LENGTH,
+  MAX_GUEST_MESSAGE_LENGTH,
+  MAX_GUEST_NOTES_LENGTH,
+  MAX_HOST_MESSAGE_LENGTH,
+  MAX_PETS,
+} from "./task-limits";
 
 const locale = z.enum(["en", "es"]);
 export const hostDecisionSchema = z.object({
   approved: z.boolean(),
   hostId: z.uuid(),
-  note: z.string().optional(),
+  note: z.string().max(MAX_DECISION_NOTE_LENGTH).optional(),
 });
 
 export const agentTaskSchema = z.discriminatedUnion("task", [
@@ -14,7 +24,7 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     task: z.literal("host_capture"),
     homeId: z.uuid(),
     hostId: z.uuid(),
-    rawMessage: z.string().min(1),
+    rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
     locale,
   }),
   z.object({
@@ -22,18 +32,18 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     homeId: z.uuid(),
     invitationId: z.uuid(),
     stay: staySchema,
-    adults: z.int().min(1),
-    children: z.int().min(0),
-    pets: z.int().min(0),
-    arrivalTime: z.string().optional(),
-    notes: z.string().optional(),
+    adults: z.int().min(1).max(MAX_ADULTS),
+    children: z.int().min(0).max(MAX_CHILDREN),
+    pets: z.int().min(0).max(MAX_PETS),
+    arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
+    notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
     locale,
   }),
   z.object({
     task: z.literal("guest_change"),
     homeId: z.uuid(),
     visitId: z.uuid(),
-    message: z.string().min(1),
+    message: z.string().min(1).max(MAX_GUEST_MESSAGE_LENGTH),
     locale,
   }),
   z.object({
@@ -41,7 +51,7 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     homeId: z.uuid(),
     visitId: z.uuid(),
     answer: z.enum(["yes", "change"]),
-    message: z.string().optional(),
+    message: z.string().max(MAX_GUEST_MESSAGE_LENGTH).optional(),
   }),
   z.object({
     task: z.literal("resume"),
@@ -68,7 +78,7 @@ export type HostDecision = z.infer<typeof hostDecisionSchema>;
 
 export interface RunResult {
   runId: string;
-  status: "completed" | "interrupted" | "failed";
+  status: "queued" | "completed" | "interrupted" | "failed";
   sessionId: string;
   pendingDecisionIds: string[];
   summary: string;

@@ -90,6 +90,13 @@ describe("frontend remediation contracts", () => {
         emptyLabel="No visits"
         locale="en"
         month={new Date("2026-09-01T00:00:00Z")}
+        navigation={{
+          previousHref: "/en?month=2026-08",
+          previousLabel: "Previous month",
+          nextHref: "/en?month=2026-10",
+          nextLabel: "Next month",
+          visitCountLabel: "1 visit this month",
+        }}
         roomsLabel="Rooms"
         statusLabels={{ confirmed: "Confirmed" }}
         visits={[

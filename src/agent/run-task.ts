@@ -1,12 +1,19 @@
+import { createHash, randomUUID } from "node:crypto";
+
 import {
   InterruptResponseContent,
   type BaseModelConfig,
   type Model,
 } from "@strands-agents/sdk";
+import type { TransactionSql } from "postgres";
 
 import { sqlClient } from "@/core/db/client";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
-import { reconcileStaleRuns } from "@/core/reconfirmation/jobs";
+import {
+  completeDispatchedJob,
+  failDispatchedJob,
+  reconcileStaleRuns,
+} from "@/core/reconfirmation/jobs";
 
 import { buildAgent } from "./agent";
 import type { AgentAuthority, AgentDeps } from "./deps";
@@ -16,18 +23,31 @@ export interface RunAgentDeps extends AgentDeps {
   model?: Model<BaseModelConfig>;
 }
 
+const AGENT_EXECUTION_FAILURE = {
+  code: "agent_execution_failed",
+  summary: "The agent could not complete this request.",
+} as const;
+
 export async function runAgentTask(
+  payload: AgentTask,
+  deps: RunAgentDeps,
+): Promise<RunResult> {
+  const queued = await enqueueAgentTask(payload, deps);
+  return queued.status === "queued"
+    ? executeQueuedAgentRun(queued.runId, deps)
+    : queued;
+}
+
+export async function enqueueAgentTask(
   payload: AgentTask,
   deps: RunAgentDeps,
 ): Promise<RunResult> {
   const task = agentTaskSchema.parse(payload);
   const sql = sqlClient(deps.db);
   const authority = await authorityForTask(task, deps);
-  const scopedDeps: RunAgentDeps = { ...deps, authority };
-  const sessionId = await resolveSessionId(task, scopedDeps);
+  const sessionId = await resolveSessionId(task, { ...deps, authority });
   await reconcileStaleRuns(deps.db, deps.clock.now(), task.homeId);
-  const startedAt = deps.clock.now();
-  const deadlineAt = new Date(startedAt.getTime() + 6 * 60 * 1_000);
+  const queuedAt = deps.clock.now();
   const runPayload =
     task.task === "guest_submit"
       ? {
@@ -35,17 +55,83 @@ export async function runAgentTask(
           trustedSpecialRequests: authority.guestSubmission!.specialRequests,
         }
       : task;
-  const [run] = await sql<{ id: string }[]>`
-    insert into public.runs (
-      home_id, session_id, task, payload, heartbeat_at, deadline_at
-    ) values (
-      ${task.homeId}, ${sessionId}, ${task.task},
-      ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
-      ${deadlineAt.toISOString()}
-    )
-    returning id
-  `;
-  if (!run) throw new Error("Failed to start agent run");
+  const runStart = await startRun({
+    sql,
+    task,
+    sessionId,
+    runPayload,
+    startedAt: queuedAt,
+    actorKey: actorKeyForTask(task),
+    intentKey: await intentKeyForTask(task, sql, queuedAt),
+  });
+  if (runStart.replay) return runStart.result;
+  return queuedRunResult(runStart.runId, sessionId);
+}
+
+export async function executeQueuedAgentRun(
+  runId: string,
+  deps: RunAgentDeps,
+): Promise<RunResult> {
+  const sql = sqlClient(deps.db);
+  const claimed = await claimQueuedRun(sql, runId, deps.clock.now());
+  if (!claimed) {
+    const [existing] = await sql<
+      {
+        status: "queued" | "running" | "completed" | "interrupted" | "failed";
+        session_id: string;
+        result: unknown;
+      }[]
+    >`
+      select status, session_id, result from public.runs where id = ${runId}
+    `;
+    if (!existing) throw new Error(`Agent run not found: ${runId}`);
+    if (existing.status === "completed" || existing.status === "interrupted") {
+      return storedRunResult(
+        sql as unknown as TransactionSql,
+        runId,
+        existing.session_id,
+        existing.status,
+        existing.result,
+      );
+    }
+    if (existing.status === "failed") {
+      throw new Error("Agent run is in a terminal failed state");
+    }
+    throw new Error("Agent run is already being executed");
+  }
+
+  const parsed = agentTaskSchema.safeParse(claimed.payload);
+  if (!parsed.success) {
+    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    throw new Error("Persisted agent task is invalid");
+  }
+  const task = parsed.data;
+  if (task.homeId !== claimed.home_id) {
+    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    throw new Error("Persisted agent task is outside its run home");
+  }
+
+  try {
+    const authority = await authorityForTask(task, deps);
+    return await executeClaimedAgentTask(
+      task,
+      { ...deps, authority },
+      { id: runId, claimToken: claimed.queue_claim_token },
+      claimed.session_id,
+    );
+  } catch (error) {
+    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    throw error;
+  }
+}
+
+async function executeClaimedAgentTask(
+  task: AgentTask,
+  deps: RunAgentDeps,
+  run: { id: string; claimToken: string },
+  sessionId: string,
+): Promise<RunResult> {
+  const sql = sqlClient(deps.db);
 
   try {
     if (task.task === "guest_reconfirm" && task.answer === "yes") {
@@ -63,6 +149,7 @@ export async function runAgentTask(
         sessionId,
         "Reconfirmed",
         deps.clock.now(),
+        run.claimToken,
       );
     }
 
@@ -113,7 +200,7 @@ export async function runAgentTask(
 
     const agent = buildAgent({
       sessionId,
-      deps: scopedDeps,
+      deps,
       model: deps.model,
     });
     const invokeArgs =
@@ -122,14 +209,14 @@ export async function runAgentTask(
             ({ interruptId, response }) =>
               new InterruptResponseContent({ interruptId, response }),
           )
-        : await buildPrompt(task, scopedDeps);
+        : await buildPrompt(task, deps);
     await sql`
       update public.runs set heartbeat_at = ${deps.clock.now().toISOString()}
       where id = ${run.id} and status = 'running'
     `;
     const result = await agent.invoke(invokeArgs, {
       invocationState: { runId: run.id },
-      cancelSignal: AbortSignal.timeout(290_000),
+      cancelSignal: AbortSignal.timeout(240_000),
     });
     if (result.stopReason === "cancelled") {
       throw new Error("Agent execution budget exceeded");
@@ -156,8 +243,10 @@ export async function runAgentTask(
           {
             summary: result.toString(),
           },
-        )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()}
+        )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()},
+          queue_claim_token = null, queue_claimed_at = null, last_error = null
         where id = ${run.id} and status = 'running'
+          and queue_claim_token = ${run.claimToken}
       `;
       return {
         runId: run.id,
@@ -197,19 +286,28 @@ export async function runAgentTask(
         });
       }
     }
+    if (task.task === "tick") {
+      await completeDispatchedJob(deps.db, task.jobId, run.id);
+    }
     return await finish(
       sql,
       run.id,
       sessionId,
       result.toString(),
       deps.clock.now(),
+      run.claimToken,
     );
   } catch (error) {
     const summary = error instanceof Error ? error.message : String(error);
     await sql`
-      update public.runs set status = 'failed', result = ${JSON.stringify({ summary })}::text::jsonb,
-        finished_at = ${deps.clock.now().toISOString()}
+      update public.runs set status = 'failed', result = ${JSON.stringify(
+        AGENT_EXECUTION_FAILURE,
+      )}::text::jsonb,
+        finished_at = ${deps.clock.now().toISOString()},
+        queue_claim_token = null, queue_claimed_at = null,
+        last_error = 'Agent execution failed'
         where id = ${run.id} and status = 'running'
+          and queue_claim_token = ${run.claimToken}
     `;
     if (task.task === "resume") {
       await sql`
@@ -230,8 +328,329 @@ export async function runAgentTask(
           and (applied_run_id is null or applied_run_id = ${run.id})
       `;
     }
+    if (task.task === "tick") {
+      await failDispatchedJob(deps.db, deps.clock.now(), task.jobId, run.id);
+    }
     throw error;
   }
+}
+
+interface StartRunInput {
+  sql: ReturnType<typeof sqlClient>;
+  task: AgentTask;
+  sessionId: string;
+  runPayload: AgentTask | (AgentTask & { trustedSpecialRequests: string[] });
+  startedAt: Date;
+  actorKey: string;
+  intentKey: string;
+}
+
+type StartRunResult =
+  { replay: false; runId: string } | { replay: true; result: RunResult };
+
+interface ClaimedRunRow {
+  id: string;
+  home_id: string;
+  session_id: string;
+  payload: unknown;
+  queue_claim_token: string;
+}
+
+async function claimQueuedRun(
+  sql: ReturnType<typeof sqlClient>,
+  runId: string,
+  now: Date,
+): Promise<ClaimedRunRow | undefined> {
+  const claimToken = randomUUID();
+  const staleBefore = new Date(now.getTime() - 6 * 60 * 1_000);
+  const deadlineAt = new Date(now.getTime() + 4 * 60 * 1_000);
+  const rows = await sql.begin(
+    (transaction) => transaction<ClaimedRunRow[]>`
+      with claimable as (
+        select id from public.runs
+        where id = ${runId}
+          and execution_attempt_count < 3
+          and (
+            (status = 'queued' and queue_available_at <= ${now.toISOString()})
+            or (
+              status = 'running'
+              and queue_claimed_at <= ${staleBefore.toISOString()}
+            )
+          )
+        for update skip locked
+      )
+      update public.runs as run
+      set status = 'running', queue_claimed_at = ${now.toISOString()},
+        queue_claim_token = ${claimToken},
+        execution_attempt_count = run.execution_attempt_count + 1,
+        heartbeat_at = ${now.toISOString()},
+        deadline_at = ${deadlineAt.toISOString()}, last_error = null
+      from claimable
+      where run.id = claimable.id
+      returning run.id, run.home_id, run.session_id, run.payload,
+        run.queue_claim_token
+    `,
+  );
+  return rows[0];
+}
+
+async function failClaimedRun(
+  sql: ReturnType<typeof sqlClient>,
+  runId: string,
+  claimToken: string,
+): Promise<void> {
+  await sql`
+    update public.runs
+    set status = 'failed', finished_at = now(),
+      result = ${JSON.stringify(AGENT_EXECUTION_FAILURE)}::text::jsonb,
+      queue_claimed_at = null, queue_claim_token = null,
+      last_error = 'Agent execution failed'
+    where id = ${runId} and status = 'running'
+      and queue_claim_token = ${claimToken}
+  `;
+}
+
+function queuedRunResult(runId: string, sessionId: string): RunResult {
+  return {
+    runId,
+    status: "queued",
+    sessionId,
+    pendingDecisionIds: [],
+    summary: "Your request is queued.",
+  };
+}
+
+async function startRun(input: StartRunInput): Promise<StartRunResult> {
+  const { sql, task, sessionId, runPayload, startedAt, actorKey, intentKey } =
+    input;
+  return sql.begin(async (transaction) => {
+    await transaction`
+      select id from public.homes where id = ${task.homeId} for update
+    `;
+    const [existing] = await transaction<
+      {
+        id: string;
+        status: "queued" | "running" | "completed" | "interrupted" | "failed";
+        result: unknown;
+        request_attempt_count: number;
+      }[]
+    >`
+      select id, status, result, request_attempt_count
+      from public.runs
+      where home_id = ${task.homeId} and intent_key = ${intentKey}
+    `;
+    if (existing) {
+      if (existing.status === "queued" || existing.status === "running") {
+        return {
+          replay: true,
+          result: queuedRunResult(existing.id, sessionId),
+        };
+      }
+      if (task.task === "tick" || existing.status === "failed") {
+        const interactiveRetry = task.task !== "tick";
+        if (interactiveRetry) {
+          if (existing.request_attempt_count >= 3) {
+            throw new Error("Agent request retry limit reached");
+          }
+          assertRequestLimit(
+            task,
+            await loadRequestUsage(transaction, task, actorKey, startedAt),
+          );
+        }
+        const [restarted] = await transaction<{ id: string }[]>`
+          update public.runs
+          set status = 'queued', result = null,
+            started_at = ${startedAt.toISOString()}, finished_at = null,
+            heartbeat_at = null, deadline_at = null,
+            queue_available_at = ${startedAt.toISOString()},
+            queue_claimed_at = null, queue_claim_token = null,
+            execution_attempt_count = 0,
+            last_error = null,
+            payload = ${JSON.stringify(runPayload)}::text::jsonb,
+            request_attempt_count = request_attempt_count + ${interactiveRetry ? 1 : 0}
+          where id = ${existing.id} and status = ${existing.status}
+          returning id
+        `;
+        if (!restarted) throw new Error("Failed to retry the agent request");
+        return { replay: false, runId: restarted.id };
+      }
+      return {
+        replay: true,
+        result: await storedRunResult(
+          transaction,
+          existing.id,
+          sessionId,
+          existing.status,
+          existing.result,
+        ),
+      };
+    }
+
+    assertRequestLimit(
+      task,
+      await loadRequestUsage(transaction, task, actorKey, startedAt),
+    );
+
+    const [created] = await transaction<{ id: string }[]>`
+      insert into public.runs (
+        home_id, session_id, task, status, payload, queue_available_at,
+        actor_key, intent_key, started_at
+      ) values (
+        ${task.homeId}, ${sessionId}, ${task.task}, 'queued',
+        ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
+        ${actorKey}, ${intentKey},
+        ${startedAt.toISOString()}
+      )
+      returning id
+    `;
+    if (!created) throw new Error("Failed to start agent run");
+    return { replay: false, runId: created.id };
+  });
+}
+
+interface RequestUsage {
+  actor_requests: number;
+  actor_active: number;
+  home_requests: number;
+  home_active: number;
+}
+
+async function loadRequestUsage(
+  transaction: TransactionSql,
+  task: AgentTask,
+  actorKey: string,
+  startedAt: Date,
+): Promise<RequestUsage> {
+  const windowStart = new Date(startedAt.getTime() - 10 * 60 * 1_000);
+  const hourStart = new Date(startedAt.getTime() - 60 * 60 * 1_000);
+  const [usage] = await transaction<RequestUsage[]>`
+    select
+      coalesce(sum(request_attempt_count) filter (
+        where actor_key = ${actorKey}
+          and task = ${task.task}
+          and started_at >= ${windowStart.toISOString()}
+      ), 0)::int as actor_requests,
+      count(*) filter (
+        where actor_key = ${actorKey} and status = 'running'
+      )::int as actor_active,
+      coalesce(sum(request_attempt_count) filter (
+        where started_at >= ${hourStart.toISOString()}
+          and task <> 'tick'
+      ), 0)::int as home_requests,
+      count(*) filter (
+        where status = 'running' and task <> 'tick'
+      )::int as home_active
+    from public.runs
+    where home_id = ${task.homeId}
+  `;
+  if (!usage) throw new Error("Failed to read agent request usage");
+  return usage;
+}
+
+function assertRequestLimit(task: AgentTask, usage: RequestUsage): void {
+  if (
+    task.task !== "tick" &&
+    (usage.actor_requests >= 5 ||
+      usage.actor_active >= 2 ||
+      usage.home_requests >= 30 ||
+      usage.home_active >= 4)
+  ) {
+    throw new Error("Agent request limit reached; try again later");
+  }
+}
+
+async function storedRunResult(
+  transaction: TransactionSql,
+  runId: string,
+  sessionId: string,
+  status: "completed" | "interrupted" | "failed",
+  storedResult: unknown,
+): Promise<RunResult> {
+  const summary = objectString(storedResult, "summary") ?? "Agent run finished";
+  const pendingDecisionIds =
+    status === "interrupted"
+      ? (
+          await transaction<{ id: string }[]>`
+            select id from public.pending_decisions
+            where run_id = ${runId} and status = 'pending'
+            order by created_at, id
+          `
+        ).map(({ id }) => id)
+      : [];
+  return { runId, sessionId, status, pendingDecisionIds, summary };
+}
+
+function objectString(value: unknown, key: string): string | undefined {
+  if (typeof value === "string") {
+    try {
+      return objectString(JSON.parse(value), key);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "string" ? candidate : undefined;
+}
+
+function actorKeyForTask(task: AgentTask): string {
+  const actor =
+    task.task === "host_capture"
+      ? `host:${task.hostId}`
+      : task.task === "resume"
+        ? `host:${task.responses
+            .map(({ response }) => response.hostId)
+            .sort()
+            .join(",")}`
+        : task.task === "tick"
+          ? `job:${task.jobId}`
+          : task.task === "guest_submit"
+            ? `invitation:${task.invitationId}`
+            : `visit:${task.visitId}`;
+  return digest(actor);
+}
+
+async function intentKeyForTask(
+  task: AgentTask,
+  sql: ReturnType<typeof sqlClient>,
+  startedAt: Date,
+): Promise<string> {
+  let state: unknown = null;
+  if (task.task === "guest_change" || task.task === "guest_reconfirm") {
+    const [visit] = await sql<
+      {
+        stay: string;
+        status: string;
+        adults: number;
+        children: number;
+        pets: number;
+        special_requests: string[];
+        reconfirm_requested_at: Date | null;
+        reconfirmed_at: Date | null;
+        escalated_at: Date | null;
+      }[]
+    >`
+      select stay::text, status, adults, children, pets, special_requests,
+        reconfirm_requested_at, reconfirmed_at, escalated_at
+      from public.visits
+      where id = ${task.visitId} and home_id = ${task.homeId}
+    `;
+    state = visit ?? null;
+  }
+  // Public submissions use a bounded retry window because this Server Action
+  // path has no caller-generated submission ID. Retries inside the window are
+  // one intent; identical input in a later window is a legitimate new intent.
+  const retryWindow =
+    task.task === "host_capture" || task.task === "guest_submit"
+      ? Math.floor(startedAt.getTime() / (10 * 60 * 1_000))
+      : null;
+  return digest(JSON.stringify({ task, state, retryWindow }));
+}
+
+function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 async function finish(
@@ -240,11 +659,14 @@ async function finish(
   sessionId: string,
   summary: string,
   now: Date,
+  claimToken: string,
 ): Promise<RunResult> {
   const [completed] = await sql<{ id: string }[]>`
     update public.runs set status = 'completed', result = ${JSON.stringify({ summary })}::text::jsonb,
-      finished_at = ${now.toISOString()}, heartbeat_at = ${now.toISOString()}
+      finished_at = ${now.toISOString()}, heartbeat_at = ${now.toISOString()},
+      queue_claimed_at = null, queue_claim_token = null, last_error = null
       where id = ${runId} and status = 'running'
+        and queue_claim_token = ${claimToken}
       returning id
   `;
   if (!completed) throw new Error(`Agent run is no longer active: ${runId}`);

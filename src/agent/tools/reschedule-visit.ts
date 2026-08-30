@@ -5,6 +5,13 @@ import { rescheduleVisit } from "@/core/booking/holds";
 
 import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
+import {
+  MAX_ADULTS,
+  MAX_CHILDREN,
+  MAX_PETS,
+  MAX_SPECIAL_REQUEST_LENGTH,
+  MAX_SPECIAL_REQUESTS,
+} from "../task-limits";
 import { audit, homeIdForVisit } from "./shared";
 
 export function rescheduleVisitTool(deps: AgentDeps) {
@@ -15,10 +22,13 @@ export function rescheduleVisitTool(deps: AgentDeps) {
     inputSchema: z.object({
       visitId: z.uuid(),
       stay: staySchema,
-      adults: z.int().min(1).optional(),
-      children: z.int().min(0).optional(),
-      pets: z.int().min(0).optional(),
-      specialRequests: z.array(z.string()).optional(),
+      adults: z.int().min(1).max(MAX_ADULTS).optional(),
+      children: z.int().min(0).max(MAX_CHILDREN).optional(),
+      pets: z.int().min(0).max(MAX_PETS).optional(),
+      specialRequests: z
+        .array(z.string().max(MAX_SPECIAL_REQUEST_LENGTH))
+        .max(MAX_SPECIAL_REQUESTS)
+        .optional(),
       approvedBy: z.uuid().optional(),
     }),
     callback: async (input, context) => {

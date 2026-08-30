@@ -1,5 +1,6 @@
 const POLL_BASE_DELAY_MS = 1_500;
 const POLL_MAX_DELAY_MS = 30_000;
+const STEADY_POLL_DELAYS_MS = [1_500, 3_000, 5_000, 8_000, 12_000, 15_000];
 
 export function localeSwitchHref(
   pathname: string,
@@ -36,6 +37,43 @@ export function pollDelay(
   return Math.min(POLL_MAX_DELAY_MS, Math.round(bounded * jitter));
 }
 
+export function steadyPollDelay(successCount: number): number {
+  const index = Math.min(
+    STEADY_POLL_DELAYS_MS.length - 1,
+    Math.max(0, Math.floor(successCount)),
+  );
+  return STEADY_POLL_DELAYS_MS[index] ?? 15_000;
+}
+
+export function calendarMonthFromSearch(
+  value: string | undefined,
+  fallback: Date,
+): Date {
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(value ?? "");
+  if (!match) return fallback;
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1));
+}
+
+export function calendarMonthWindow(month: Date): {
+  from: string;
+  to: string;
+} {
+  const from = new Date(
+    Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1),
+  );
+  const to = new Date(
+    Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1),
+  );
+  return { from: isoDate(from), to: isoDate(to) };
+}
+
+export function calendarMonthValue(month: Date, offset = 0): string {
+  const shifted = new Date(
+    Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + offset, 1),
+  );
+  return isoDate(shifted).slice(0, 7);
+}
+
 export function formatHouseholdDateTime(
   value: string,
   locale: string,
@@ -46,6 +84,19 @@ export function formatHouseholdDateTime(
     timeStyle: "short",
     timeZone,
   }).format(new Date(value));
+}
+
+export function formatDateStay(
+  stay: readonly [string, string],
+  locale: string,
+): string {
+  const formatter = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  });
+  return `${formatter.format(new Date(`${stay[0]}T00:00:00Z`))} – ${formatter.format(
+    new Date(`${stay[1]}T00:00:00Z`),
+  )}`;
 }
 
 export function householdMonth(
@@ -114,6 +165,10 @@ function timeZoneOffset(value: Date, timeZone: string): number {
     Number(parts.second),
   );
   return representedAsUtc - Math.floor(value.getTime() / 1_000) * 1_000;
+}
+
+function isoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
 }
 
 function dateTimeParts(value: Date, timeZone: string) {

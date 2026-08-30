@@ -72,6 +72,7 @@
   width: 0.72rem;
 }
 
+.card[data-status="queued"] .pulse,
 .card[data-status="running"] .pulse {
   animation: ledger-pulse 1.5s steps(2, end) infinite;
 }
@@ -126,6 +127,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .card[data-status="queued"] .pulse,
   .card[data-status="running"] .pulse {
     animation: none;
   }

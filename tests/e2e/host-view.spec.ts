@@ -29,6 +29,8 @@ test("captures an invitation and exposes its private guest link", async ({
     );
   await page.getByTestId("host-capture-submit").click();
 
+  await expect(page.getByTestId("capture-queued")).toBeVisible();
+  await page.getByTestId("capture-reveal").click();
   await expect(page.getByTestId("structured-invitation")).toBeVisible();
   await expect(page.getByTestId("guest-link")).toHaveAttribute(
     "href",
@@ -51,6 +53,12 @@ test("a special request waits for a host and resumes after approval", async ({
   await page.goto("/en");
   await expect(page.getByTestId("pending-decision")).toBeVisible();
   await page.getByTestId("approve-decision").click();
+  await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
+  await expect(page.getByTestId("run-status")).toHaveAttribute(
+    "data-status",
+    "completed",
+  );
+  await page.getByTestId("run-return").click();
   await expect(page.getByTestId("pending-decision")).toHaveCount(0);
 });
 

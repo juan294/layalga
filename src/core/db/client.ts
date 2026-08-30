@@ -34,6 +34,39 @@ function getDatabaseUrl(): string {
     throw new Error("DATABASE_URL is required");
   }
 
+  return validateRuntimeDatabaseUrl(connectionString);
+}
+
+export function validateRuntimeDatabaseUrl(connectionString: string): string {
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    throw new Error("DATABASE_URL must be a valid PostgreSQL URL");
+  }
+
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    throw new Error("DATABASE_URL must be a PostgreSQL URL");
+  }
+
+  const localHost =
+    url.hostname === "localhost" ||
+    url.hostname === "127.0.0.1" ||
+    url.hostname === "::1" ||
+    url.hostname === "[::1]";
+  let username: string;
+  try {
+    username = decodeURIComponent(url.username).toLowerCase();
+  } catch {
+    throw new Error("DATABASE_URL must contain a valid PostgreSQL username");
+  }
+  const ownerRole = username === "postgres" || username.startsWith("postgres.");
+  if (!localHost && ownerRole) {
+    throw new Error(
+      "DATABASE_URL must use a dedicated non-owner role for remote runtime access",
+    );
+  }
+
   return connectionString;
 }
 

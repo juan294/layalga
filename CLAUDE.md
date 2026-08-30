@@ -14,11 +14,11 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
-- Strands Agents SDK with a local `runAgentTask` adapter
+- Strands Agents SDK with durable queued runs and a local `runAgentTask` worker
 - Amazon Bedrock Sonnet 4.5 when the account model gate is active; a scripted model for deterministic demo and test runs
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
-- Vercel Cron for the selected local runtime; an EventBridge Scheduler adapter for a future AgentCore retry
-- Supabase Auth with Google OAuth plus signed synthetic-demo sessions
+- Vercel `after()` for opportunistic local dispatch and Vercel Cron for lease recovery, bounded queue draining, and due jobs; an EventBridge Scheduler adapter for a future AgentCore retry
+- Supabase Auth with Google OAuth, optional guest invitation claims, and signed synthetic-demo sessions
 
 ADR 0002 records why the AgentCore package reached `READY` but the selected hackathon runtime remains local: the AWS account rejected the first Anthropic model request before any tool call.
 
@@ -28,6 +28,8 @@ ADR 0002 records why the AgentCore package reached `READY` but the selected hack
 - A deterministic policy or hook must interrupt sensitive actions for host approval.
 - The demo uses synthetic guests and an explicitly labeled injectable clock.
 - Do not expose another guest's identity without approval.
+- Treat a queued acknowledgement as accepted work, not as a completed agent result. Poll the exact run to a terminal state.
+- Keep Vercel and AgentCore on separate non-owner database roles. Do not use the database owner URL at runtime.
 - Do not add WhatsApp or Twilio integration for the hackathon submission.
 
 ## RPI Workflow
@@ -77,11 +79,11 @@ Exhaust CLI and browser automation before asking the user to perform operations.
 
 ## Project File Locations
 
-| Topic | Path | Notes |
-|---|---|---|
-| Hackathon assessment | `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md` | Product and delivery source |
-| Research | `docs/research/YYYY-MM-DD-*.md` | Read-only phase output |
-| Plans | `docs/plans/YYYY-MM-DD-*.md` | Phase files use `-phases/` |
-| ADRs | `docs/decisions/` | Architecture decisions |
-| Release procedure | `docs/release/e2e-pro-playbook.md` | Exact-candidate release gate |
-| Agent reports | `docs/agents/*-report.md` | Gitignored because the intended repository is public |
+| Topic                | Path                                                                 | Notes                                                |
+| -------------------- | -------------------------------------------------------------------- | ---------------------------------------------------- |
+| Hackathon assessment | `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md` | Product and delivery source                          |
+| Research             | `docs/research/YYYY-MM-DD-*.md`                                      | Read-only phase output                               |
+| Plans                | `docs/plans/YYYY-MM-DD-*.md`                                         | Phase files use `-phases/`                           |
+| ADRs                 | `docs/decisions/`                                                    | Architecture decisions                               |
+| Release procedure    | `docs/release/e2e-pro-playbook.md`                                   | Exact-candidate release gate                         |
+| Agent reports        | `docs/agents/*-report.md`                                            | Gitignored because the intended repository is public |

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { runAgentTask } from "@/agent/run-task";
+import { enqueueAgentTask } from "@/agent/queue";
 import { runtimeDeps } from "@/agent/runtime/deps";
 import { agentTaskSchema } from "@/agent/task";
 
@@ -26,7 +26,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     return Response.json(
-      await runAgentTask(parsed.data, await runtimeDeps(parsed.data)),
+      await enqueueAgentTask(parsed.data, await runtimeDeps(parsed.data)),
       { headers: { "x-request-id": requestId } },
     );
   } catch (error) {

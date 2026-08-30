@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  runAgentTask: vi.fn(),
+  enqueueAgentTask: vi.fn(),
   runtimeDeps: vi.fn(),
 }));
 
-vi.mock("@/agent/run-task", () => ({ runAgentTask: mocks.runAgentTask }));
+vi.mock("@/agent/queue", () => ({
+  enqueueAgentTask: mocks.enqueueAgentTask,
+}));
 vi.mock("@/agent/runtime/deps", () => ({ runtimeDeps: mocks.runtimeDeps }));
 
 import { POST } from "./route";

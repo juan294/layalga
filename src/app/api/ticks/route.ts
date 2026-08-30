@@ -1,7 +1,8 @@
 import { getAgentClient } from "@/agent/client";
+import { drainAgentQueue } from "@/agent/queue";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
-import { runDueJobs } from "@/core/reconfirmation/jobs";
+import { dispatchDueJobs } from "@/core/reconfirmation/jobs";
 
 import { matchesInternalSecret } from "../agent/internal-auth";
 
@@ -14,12 +15,18 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const connection = getDatabaseConnection();
-  const jobs = await runDueJobs(
+  const clock = new SystemClock();
+  const agentClient = getAgentClient();
+  const jobs = await dispatchDueJobs(connection.db, clock, {
+    enqueue: (task) => agentClient.enqueue(task, { opportunistic: false }),
+  });
+  const queue = await drainAgentQueue(
     connection.db,
-    new SystemClock(),
-    getAgentClient(),
+    clock,
+    (runId, task) => agentClient.executeQueued(runId, task),
+    { concurrency: 2 },
   );
-  return Response.json({ jobs, count: jobs.length });
+  return Response.json({ jobs, count: jobs.length, queue });
 }
 
 export function isTickRequestAuthorized(

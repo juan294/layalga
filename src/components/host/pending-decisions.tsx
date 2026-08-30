@@ -10,6 +10,10 @@ import {
   rule,
   teal,
 } from "./host-styles";
+import {
+  PendingDecisionButton,
+  PendingDecisionRetryButton,
+} from "./pending-decision-button";
 
 export interface PendingDecisionItem {
   id: string;
@@ -17,9 +21,12 @@ export interface PendingDecisionItem {
   partyName: string;
   partySummary: string;
   reason: string;
+  requestDetail: string | null;
+  overlapSummary: string | null;
   note: string | null;
   applicationFailed: boolean;
-  requestedAt: string;
+  requestedStay: string;
+  createdAt: string;
 }
 
 interface PendingDecisionsProps {
@@ -28,14 +35,22 @@ interface PendingDecisionsProps {
   labels: {
     empty: string;
     reason: string;
-    requested: string;
+    requestedStay: string;
+    createdAt: string;
+    requestDetail: string;
+    overlap: string;
     note: string;
     notePlaceholder: string;
     approve: string;
+    approving: string;
     decline: string;
+    declining: string;
     retryApproved: string;
+    retryApproving: string;
     retryDeclined: string;
+    retryDeclining: string;
     retryHelp: string;
+    applying: string;
   };
 }
 
@@ -96,14 +111,35 @@ export function PendingDecisions({
           >
             <dt style={labelStyle}>{labels.reason}</dt>
             <dd style={{ margin: 0 }}>{decision.reason}</dd>
-            <dt style={labelStyle}>{labels.requested}</dt>
+            <dt style={labelStyle}>{labels.requestedStay}</dt>
             <dd style={{ color: graphite, margin: 0 }}>
-              {decision.requestedAt}
+              {decision.requestedStay}
             </dd>
+            <dt style={labelStyle}>{labels.createdAt}</dt>
+            <dd style={{ color: graphite, margin: 0 }}>{decision.createdAt}</dd>
+            {decision.requestDetail ? (
+              <>
+                <dt style={labelStyle}>{labels.requestDetail}</dt>
+                <dd style={{ color: graphite, margin: 0 }}>
+                  {decision.requestDetail}
+                </dd>
+              </>
+            ) : null}
+            {decision.overlapSummary ? (
+              <>
+                <dt style={labelStyle}>{labels.overlap}</dt>
+                <dd style={{ color: graphite, margin: 0 }}>
+                  {decision.overlapSummary}
+                </dd>
+              </>
+            ) : null}
           </dl>
           {decision.status === "pending" ? (
             <>
-              <label htmlFor={`decision-note-${decision.id}`} style={labelStyle}>
+              <label
+                htmlFor={`decision-note-${decision.id}`}
+                style={labelStyle}
+              >
                 {labels.note}
               </label>
               <input
@@ -113,41 +149,47 @@ export function PendingDecisions({
                 style={{ ...fieldStyle, margin: "0.4rem 0 0.65rem" }}
               />
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                <button
-                  data-testid="approve-decision"
-                  name="decision"
+                <PendingDecisionButton
+                  idleLabel={labels.approve}
+                  pendingLabel={labels.approving}
                   style={buttonStyle}
-                  type="submit"
+                  testId="approve-decision"
                   value="approve"
-                >
-                  {labels.approve}
-                </button>
-                <button
-                  name="decision"
+                />
+                <PendingDecisionButton
+                  idleLabel={labels.decline}
+                  pendingLabel={labels.declining}
                   style={quietButtonStyle}
-                  type="submit"
                   value="decline"
-                >
-                  {labels.decline}
-                </button>
+                />
               </div>
             </>
           ) : (
             <div>
               {decision.applicationFailed ? (
-                <p style={{ color: graphite, lineHeight: 1.5 }}>
-                  {labels.retryHelp}
+                <>
+                  <p style={{ color: graphite, lineHeight: 1.5 }}>
+                    {labels.retryHelp}
+                  </p>
+                  <PendingDecisionRetryButton
+                    idleLabel={
+                      decision.status === "approved"
+                        ? labels.retryApproved
+                        : labels.retryDeclined
+                    }
+                    pendingLabel={
+                      decision.status === "approved"
+                        ? labels.retryApproving
+                        : labels.retryDeclining
+                    }
+                    style={buttonStyle}
+                  />
+                </>
+              ) : (
+                <p aria-live="polite" role="status" style={{ color: graphite }}>
+                  {labels.applying}
                 </p>
-              ) : null}
-              <button
-                data-testid="retry-decision"
-                style={buttonStyle}
-                type="submit"
-              >
-                {decision.status === "approved"
-                  ? labels.retryApproved
-                  : labels.retryDeclined}
-              </button>
+              )}
             </div>
           )}
         </form>

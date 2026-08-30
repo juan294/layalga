@@ -24,7 +24,7 @@ L’Ayalga started from that lived pattern and generalizes it to any home with m
 
 ## What it does
 
-L’Ayalga turns an informal English or Spanish invitation into a structured party and a private guest link. The guest chooses possible dates, and the system allocates rooms for the whole stay. It supports partial overlap instead of treating the whole home as simply free or busy.
+L’Ayalga turns an informal English or Spanish invitation into a structured party and a private guest link. Agent requests enter a durable queue, so the browser gets a quick acknowledgement and can follow the exact run without depending on one web request staying alive. The guest chooses possible dates, and the system allocates rooms for the whole stay. Guests can stay account-free or claim their invitation with Google and review their visits. The system supports partial overlap instead of treating the whole home as simply free or busy.
 
 Three deterministic rules protect the house:
 
@@ -38,13 +38,13 @@ After confirmation, L’Ayalga schedules a reconfirmation request for three days
 
 ## How we built it
 
-The application uses Next.js 16 and TypeScript 6, with `next-intl` for English and Spanish. Supabase Postgres is the authoritative store for homes, rooms, invitations, visits, room allocations, agent runs, session snapshots, pending decisions, scheduled jobs, notifications, and audit events.
+The application uses Next.js 16 and TypeScript 6, with `next-intl` for English and Spanish. Supabase Postgres is the authoritative store for homes, rooms, invitations, visits, room allocations, queued agent runs, session snapshots, pending decisions, scheduled jobs, notifications, identity claims, and audit events.
 
 The agent uses the Strands Agents TypeScript SDK with seven typed tools. Natural language helps structure invitations, choose tools, and compose bilingual follow-up. A `BeforeToolCallEvent` hook runs a pure deterministic policy before hold, confirm, and reschedule tools. PostgreSQL `daterange` and an exclusion constraint provide an independent concurrency boundary at the room level.
 
 Strands session snapshots live in Postgres. When the hook calls `event.interrupt`, the SDK preserves the pending tool execution. A host decision is stored separately. A new process restores the session, supplies an `InterruptResponseContent`, and records which run consumed the response.
 
-The selected hackathon deployment path uses the local `runAgentTask` adapter in Next.js on Vercel, with a per-minute Vercel Cron trigger claiming jobs from Postgres. We also built and deployed a Node 22 direct-code package to Amazon Bedrock AgentCore Runtime, and proved that the runtime reached `READY` and started the application. The first model request was blocked by an AWS account-level Anthropic use-case gate, so we followed our written fallback decision and retained the same run interface locally. The agent is configured for Amazon Bedrock Sonnet 4.5 when that account access is active. The test and demo paths use a deterministic scripted model.
+The selected hackathon deployment path uses a durable Postgres run queue and the local `runAgentTask` worker in Next.js on Vercel. Next.js `after()` starts work opportunistically. A per-minute Vercel Cron route recovers expired leases, drains at most two runs, and claims due scheduled jobs. We also built and deployed a Node 22 direct-code package to Amazon Bedrock AgentCore Runtime, and proved that the runtime reached `READY` and started the application. The first model request was blocked by an AWS account-level Anthropic use-case gate, so we followed our written fallback decision and retained the same run interface locally. The AgentCore adapter now accepts an `execute_run` envelope for an existing queued run and uses AgentCore asynchronous-task accounting. The agent is configured for Amazon Bedrock Sonnet 4.5 when that account access is active. The test and demo paths use a deterministic scripted model.
 
 ## Challenges
 
@@ -60,6 +60,8 @@ Beds, children, and pets are product rules, not suggestions to a model. We made 
 
 Scheduled delivery can fail after a job is claimed or after only one recipient is notified. We made Postgres the job authority, added claim leases, scoped notification idempotency to each scheduled job, and tested retry after partial delivery. The demo clock invokes the same tick handler as the real scheduler path.
 
+The same recovery rule now applies to interactive agent work. Accepted requests are stored as queued runs with idempotency keys, bounded attempts, and expiring leases. Scheduled work retries after one and five minutes, then enters quarantine after a third failure so it cannot loop silently.
+
 ### Cloud runtime gates
 
 The AgentCore package reached a healthy runtime, but the AWS account rejected the first Anthropic model request before any tool call. A direct Bedrock control call returned the same error. Because the build plan defined a fail-closed local verdict, we did not claim a successful AgentCore model run. We kept the package, IAM shape, adapter, and evidence for a later retry.
@@ -72,6 +74,8 @@ The AgentCore package reached a healthy runtime, but the AWS account rejected th
 - English and Spanish are present from the first screen, including agent-driven notifications.
 - Synthetic demo reset is idempotent, and release probes clean only run-owned data.
 - Eight executable release probes cover identity, capture, confirmation, concurrency, interrupt/resume, proactive follow-through, guest isolation, and cleanup.
+- Host and guest requests survive web-request termination through exact-run polling and lease recovery.
+- Runtime database access is split between non-owner web and agent roles with explicit grants.
 
 ## What we learned
 
@@ -83,7 +87,7 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 
 ## What is next
 
-- Complete real Google sign-in verification for hosts and optional guest claims.
+- Verify Google host and optional guest sign-in against the deployed production candidate.
 - Retry Bedrock and AgentCore after the AWS account’s Anthropic use-case access is active.
 - Add real notification channels only after consent, delivery, and privacy contracts are defined.
 - Let hosts tune house rules while retaining a deterministic, versioned policy.

@@ -5,6 +5,14 @@ import { z } from "zod";
 
 import { getAgentClient } from "@/agent/client";
 import { schedulerForHome } from "@/agent/scheduler";
+import {
+  MAX_ADULTS,
+  MAX_ARRIVAL_TIME_LENGTH,
+  MAX_CHILDREN,
+  MAX_GUEST_MESSAGE_LENGTH,
+  MAX_GUEST_NOTES_LENGTH,
+  MAX_PETS,
+} from "@/agent/task-limits";
 import { DbDemoClock, SystemClock } from "@/core/clock";
 import { loadHouseState } from "@/core/booking/house-state";
 import {
@@ -38,11 +46,11 @@ const submitInput = z.object({
   token: z.string().min(1),
   locale: z.enum(["en", "es"]),
   stay: z.string().regex(/^\d{4}-\d{2}-\d{2}\|\d{4}-\d{2}-\d{2}$/),
-  adults: z.coerce.number().int().min(1),
-  children: z.coerce.number().int().min(0),
-  pets: z.coerce.number().int().min(0),
-  arrivalTime: z.string().optional(),
-  notes: z.string().optional(),
+  adults: z.coerce.number().int().min(1).max(MAX_ADULTS),
+  children: z.coerce.number().int().min(0).max(MAX_CHILDREN),
+  pets: z.coerce.number().int().min(0).max(MAX_PETS),
+  arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
+  notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
 });
 
 export interface GuestOption {
@@ -144,7 +152,7 @@ export async function submitGuestVisit(
 
   const [start, end] = parsed.data.stay.split("|") as [string, string];
   try {
-    const result = await getAgentClient().run({
+    const result = await getAgentClient().enqueue({
       task: "guest_submit",
       homeId: invitation.homeId,
       invitationId: invitation.id,
@@ -172,20 +180,21 @@ export async function requestGuestChange(formData: FormData): Promise<void> {
   const token = String(formData.get("token") ?? "");
   const locale = formData.get("locale") === "es" ? "es" : "en";
   const message = String(formData.get("message") ?? "").trim();
+  if (message.length > MAX_GUEST_MESSAGE_LENGTH) return;
   try {
     const invitation = await loadGuestInvitation(token, locale);
     if (!invitation?.visit || !message) return;
 
     const result =
       invitation.visit.status === "reconfirm_pending"
-        ? await getAgentClient().run({
+        ? await getAgentClient().enqueue({
             task: "guest_reconfirm",
             homeId: invitation.homeId,
             visitId: invitation.visit.id,
             answer: "change",
             message,
           })
-        : await getAgentClient().run({
+        : await getAgentClient().enqueue({
             task: "guest_change",
             homeId: invitation.homeId,
             visitId: invitation.visit.id,

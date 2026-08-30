@@ -21,10 +21,10 @@ Two local compatibility facts have been observed:
 
 ## Deviations
 
-| Plan said | Found | Chose | Why |
-|---|---|---|---|
+| Plan said                                                                | Found                                                                            | Chose                                                                                          | Why                                                                                    |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Bundle every dependency into one ESM file, with CommonJS as the fallback | Fully bundled ESM fails at startup on Fastify's dynamic `require("node:events")` | Bundle local TypeScript with `--packages=external`; vendor production `node_modules`; keep ESM | This is the supported zip packaging form and does not include development dependencies |
-| Use `spike:<uuid>` session identifiers | Strands 1.15.0 accepts only lowercase letters, digits, underscores, and hyphens | Use `spike_<uuid>` and reserve `inv_` and `tick_` for later phases | Invalid identifiers fail before session restore can run |
+| Use `spike:<uuid>` session identifiers                                   | Strands 1.15.0 accepts only lowercase letters, digits, underscores, and hyphens  | Use `spike_<uuid>` and reserve `inv_` and `tick_` for later phases                             | Invalid identifiers fail before session restore can run                                |
 
 ## Executed command sequence
 
@@ -114,23 +114,31 @@ Secrets were not written to repository files.
 
 ## Observations
 
-| Measurement | Observed value |
-|---|---|
-| Bundle format | ESM local-source bundle with external packages and vendored production dependencies |
-| Bundle size | 17,023,530 bytes, S3 version `pOUJC0dv0hROobBFhbzBpvcDoyLl4Mx3` |
-| Runtime ARN | `arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-h3IZEMHONS` (deleted after verdict) |
-| Initial create to first process start | 66 seconds, from `15:10:19` to `15:11:25` UTC |
-| Hoisted-package update to listening | 33 seconds, from `15:13:50` to `15:14:23` UTC |
-| Failed model request | 298 milliseconds in the diagnostic runtime log |
-| Runtime deletion | `DELETING` to not found within the next 5-second poll |
-| Start invocation | Failed before the agent could call a tool: Anthropic use-case details not active |
-| Approved resume | Not reached |
-| Declined resume | Not reached |
-| Four-invocation wall time | Not reached |
-| Snapshot interrupt state | Not reached |
-| Direct Bedrock control | Same `ResourceNotFoundException` as AgentCore |
-| CloudWatch logs | Read successfully from `/aws/bedrock-agentcore/runtimes/layalga_agent-h3IZEMHONS-DEFAULT` |
+| Measurement                           | Observed value                                                                                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Bundle format                         | ESM local-source bundle with external packages and vendored production dependencies                         |
+| Bundle size                           | 17,023,530 bytes, S3 version `pOUJC0dv0hROobBFhbzBpvcDoyLl4Mx3`                                             |
+| Runtime ARN                           | `arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-h3IZEMHONS` (deleted after verdict) |
+| Initial create to first process start | 66 seconds, from `15:10:19` to `15:11:25` UTC                                                               |
+| Hoisted-package update to listening   | 33 seconds, from `15:13:50` to `15:14:23` UTC                                                               |
+| Failed model request                  | 298 milliseconds in the diagnostic runtime log                                                              |
+| Runtime deletion                      | `DELETING` to not found within the next 5-second poll                                                       |
+| Start invocation                      | Failed before the agent could call a tool: Anthropic use-case details not active                            |
+| Approved resume                       | Not reached                                                                                                 |
+| Declined resume                       | Not reached                                                                                                 |
+| Four-invocation wall time             | Not reached                                                                                                 |
+| Snapshot interrupt state              | Not reached                                                                                                 |
+| Direct Bedrock control                | Same `ResourceNotFoundException` as AgentCore                                                               |
+| CloudWatch logs                       | Read successfully from `/aws/bedrock-agentcore/runtimes/layalga_agent-h3IZEMHONS-DEFAULT`                   |
 
 ## Consequences
 
 Phase 1 removes `spike/agentcore/` and keeps the `agent_sessions` table. The web application and tests use the shared `runAgentTask` interface with the local runtime. Phase 4 uses the Vercel Cron fallback and skips the real EventBridge-to-AgentCore schedule proof. A later retry can reuse `layalga-agent-bundles-106403001709` and `layalga-agentcore-runtime` after the Anthropic use-case form becomes active.
+
+## Implementation addendum: 2026-08-30
+
+The selected runtime remains `AGENT_RUNTIME=local`, but HTTP requests no longer wait for model execution. Each accepted task creates or reuses an idempotent `runs` row with status `queued`. Next.js `after()` can claim the run opportunistically. The authorized `/api/ticks` route recovers expired leases and drains at most two runs per invocation. A terminal result belongs to the exact run ID returned in the queued acknowledgement.
+
+This queue is also the compatibility boundary for a later AgentCore retry. The direct-code handler accepts an `execute_run` envelope containing an existing run ID, claims that row, and brackets execution with AgentCore asynchronous-task accounting. It does not create a second logical run or keep the caller waiting for model completion.
+
+Runtime database authority is split. Vercel uses the `layalga_web` login and its explicit grant role. A future AgentCore worker uses `layalga_agent`. Migration and retention operations stay on an administrative connection. This refinement does not change the local runtime verdict or the conditions for retrying Bedrock.

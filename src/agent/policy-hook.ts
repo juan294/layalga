@@ -9,6 +9,7 @@ import {
 } from "@/core/policy/evaluate-overlap";
 
 import type { AgentDeps } from "./deps";
+import { hostDecisionReason } from "./host-decision-context";
 import type { HostDecision } from "./task";
 import { audit, loadDraftForTool, loadHouseState } from "./tools/shared";
 
@@ -53,10 +54,18 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
 
     const response = event.interrupt<HostDecision>({
       name: "host_decision",
-      reason: verdict as unknown as JSONValue,
+      reason: hostDecisionReason(draft, verdict) as unknown as JSONValue,
     });
     if (!response.approved) {
       event.cancel = `Declined by host${response.note ? `: ${response.note}` : ""}`;
+      return;
+    }
+    const refreshedVerdict = evaluateOverlap(
+      draft,
+      await loadHouseState(deps, homeId, draft),
+    );
+    if (refreshedVerdict.decision === "deny") {
+      event.cancel = denyMessage(refreshedVerdict);
       return;
     }
     event.toolUse.input = { ...sanitizedInput, approvedBy: response.hostId };

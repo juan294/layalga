@@ -34,6 +34,9 @@
     "localeEnglish": "English",
     "localeSpanish": "Español",
     "unknownParty": "Unknown guest",
+    "account": {
+      "signOut": "Sign out"
+    },
     "status": {
       "hold": "On hold",
       "confirmed": "Confirmed",
@@ -59,7 +62,10 @@
       "eyebrow": "Month at a glance",
       "title": "Visit calendar",
       "empty": "No visits are recorded for this month.",
-      "rooms": "Rooms"
+      "rooms": "Rooms",
+      "previous": "Previous month",
+      "next": "Next month",
+      "visitCount": "{count, plural, =0 {No visits this month} one {# visit this month} other {# visits this month}}"
     },
     "capture": {
       "eyebrow": "New invitation",
@@ -75,22 +81,38 @@
       "copied": "Copied",
       "copyFailed": "Copy failed. Select and copy the link.",
       "emptyError": "Enter an invitation message.",
-      "failedError": "The invitation could not be captured."
+      "failedError": "The invitation could not be captured.",
+      "queued": "Invitation queued",
+      "statusLink": "Open run status",
+      "reveal": "Prepare private guest link",
+      "revealing": "Preparing private link…",
+      "completionFailed": "The completed invitation could not be loaded. Try again."
     },
     "decisions": {
       "eyebrow": "Host review",
       "title": "Pending decisions",
       "empty": "No decisions need your review.",
-      "requested": "Requested stay",
+      "requestedStay": "Requested stay",
+      "createdAt": "Requested at",
+      "requestDetail": "Request detail",
+      "overlap": "Shared dates",
+      "overlapSummary": "{count, plural, one {# other stay overlaps; guest names stay private} other {# other stays overlap; guest names stay private}}",
+      "stayUnavailable": "The older review record does not contain a verified proposed stay.",
       "reason": "Reason for review",
       "partySummary": "{adults} adults · {children} children · {pets} pets",
+      "contextUnavailable": "The older review record does not contain verified guest counts.",
       "note": "Note",
       "notePlaceholder": "Add an optional note for the guest.",
       "approve": "Approve",
+      "approving": "Approving…",
       "decline": "Decline",
+      "declining": "Declining…",
       "retryApproved": "Retry approval",
+      "retryApproving": "Retrying approval…",
       "retryDeclined": "Retry decline",
-      "retryHelp": "Your decision was saved, but the booking run did not finish. Retry the recorded decision."
+      "retryDeclining": "Retrying decline…",
+      "retryHelp": "Your decision was saved, but the booking run did not finish. Retry the recorded decision.",
+      "applying": "Your decision was saved and is being applied."
     },
     "decisionReasons": {
       "children": "Children need host approval",
@@ -114,6 +136,22 @@
       "reconfirmChase": "Reconfirmation reminder sent",
       "reconfirmEscalation": "Reconfirmation escalated",
       "other": "Household activity"
+    },
+    "activityTools": {
+      "captureInvitation": "Capture invitation",
+      "confirmVisit": "Confirm visit",
+      "createTemporaryHold": "Place temporary hold",
+      "evaluateOverlap": "Check household availability",
+      "findVisitOptions": "Find visit options",
+      "notify": "Send household notice",
+      "rescheduleVisit": "Reschedule visit",
+      "other": "Household action"
+    },
+    "activityPolicies": {
+      "allow": "Allowed",
+      "deny": "Not allowed",
+      "interrupt": "Host review required",
+      "other": "Policy checked"
     }
   },
   "Guest": {
@@ -124,8 +162,12 @@
     "claimOptional": "Optional account",
     "claimBenefit": "Sign in after you respond if you want to keep this visit with your account.",
     "claimFailed": "This guest record is already linked to another account.",
+    "claimComplete": "Saved to your account",
+    "claimCompleteBody": "You can open this visit again from your guest account without the invitation link.",
+    "openAccount": "Open my visits",
     "invitedTitle": "Choose your stay",
     "holdTitle": "Your rooms are on hold",
+    "holdExpiredTitle": "This room hold has expired",
     "confirmedTitle": "Your stay is confirmed",
     "reconfirm_pendingTitle": "Please confirm that you are coming",
     "reconfirmedTitle": "Your visit is reconfirmed",
@@ -164,6 +206,9 @@
     "roomCount": "{count, plural, one {# room} other {# rooms}}",
     "sharedStayNote": "Another party will also be at the house during part of this stay.",
     "chaseMessageFallback": "Please confirm whether you are still coming.",
+    "holdActiveBody": "The household is keeping these rooms until {expiry} while confirmation finishes. You can wait or request a change below.",
+    "holdExpiredBody": "The room hold expired at {expiry}. It is not a confirmation. Request a change below or ask your host to review the visit.",
+    "holdExpiryUnavailable": "the recorded deadline",
     "reconfirmYes": "Yes, we are coming",
     "reconfirming": "Confirming…",
     "requestChangeTitle": "Request a change",
@@ -172,6 +217,24 @@
     "requestingChange": "Sending request…",
     "status": {
       "invited": "Invited",
+      "hold": "On hold",
+      "holdExpired": "Hold expired",
+      "confirmed": "Confirmed",
+      "reconfirm_pending": "Confirmation needed",
+      "reconfirmed": "Reconfirmed",
+      "escalated": "Under review",
+      "cancelled": "Cancelled"
+    }
+  },
+  "GuestAccount": {
+    "eyebrow": "Optional guest account",
+    "title": "My visits",
+    "signInBody": "Sign in with the same Google account that you linked from an invitation.",
+    "signIn": "Sign in with Google",
+    "notFound": "This Google account is not linked to a guest visit. Open an invitation link first to connect it.",
+    "empty": "No guest visits are linked to this account.",
+    "signOut": "Sign out",
+    "status": {
       "hold": "On hold",
       "confirmed": "Confirmed",
       "reconfirm_pending": "Confirmation needed",
@@ -184,6 +247,7 @@
     "eyebrow": "Agent run",
     "title": "Updating the household ledger",
     "working": "The request is still being processed.",
+    "queuedBody": "The request is queued and will start shortly.",
     "pollFailed": "The latest status could not be loaded. Retrying…",
     "pollStopped": "Automatic updates paused. Check the latest status when you are ready.",
     "retryStatus": "Check status",
@@ -195,10 +259,19 @@
     "returnToVisit": "Return to visit",
     "notFound": "This run could not be found.",
     "status": {
+      "queued": "Queued",
       "running": "Working",
       "completed": "Completed",
       "interrupted": "Waiting for a host",
       "failed": "Failed"
+    },
+    "outcomes": {
+      "invitationReady": "The private guest link is ready.",
+      "visitConfirmed": "The visit is confirmed.",
+      "ledgerUpdated": "The household ledger is up to date.",
+      "followUpUnavailable": "The scheduled follow-up is no longer available.",
+      "guestReconfirmationSent": "The guest received the reconfirmation request.",
+      "escalationSent": "Both hosts received the escalation."
     }
   },
   "RouteStates": {

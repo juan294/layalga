@@ -58,6 +58,22 @@ insert into public.hosts (id, home_id, display_name, locale) values
     'en'
   );
 
+insert into public.host_identity_claims (
+  normalized_email,
+  host_id,
+  home_id
+) values
+  (
+    'nel@example.com',
+    '00000000-0000-4000-8000-000000000201',
+    '00000000-0000-4000-8000-000000000001'
+  ),
+  (
+    'covadonga@example.com',
+    '00000000-0000-4000-8000-000000000202',
+    '00000000-0000-4000-8000-000000000001'
+  );
+
 insert into public.parties (
   id,
   home_id,
@@ -90,7 +106,9 @@ insert into public.invitations (
   party_id,
   raw_message,
   structured,
-  status
+  status,
+  link_token,
+  link_token_expires_at
 ) values
   (
     '00000000-0000-4000-8000-000000000401',
@@ -106,7 +124,9 @@ insert into public.invitations (
       'preferredStay', jsonb_build_array('2026-09-18', '2026-09-21'),
       'roomAllocation', jsonb_build_array('Cuartu del Teixu', 'Cuartu del Horreu')
     ),
-    'tentative'
+    'tentative',
+    'a604963ba84cd3d54ed02d284ed2adf8c81aed6273a401cd4ae2edd8c9c0a639',
+    '2026-10-01T00:00:00+02:00'
   ),
   (
     '00000000-0000-4000-8000-000000000402',
@@ -124,7 +144,9 @@ insert into public.invitations (
       'preferredStay', jsonb_build_array('2026-09-19', '2026-09-21'),
       'roomAllocation', jsonb_build_array('Cuartu de la Fonte')
     ),
-    'tentative'
+    'tentative',
+    'c4d65b4dc4a6da10c484c54ad1f550b803916ce5a9a7669e0ebce9c12a49c25e',
+    '2026-10-01T00:00:00+02:00'
   );
 
 insert into public.demo_clock (home_id, now, enabled) values (

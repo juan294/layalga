@@ -197,8 +197,12 @@
   cursor: pointer;
   font: 700 0.78rem/1 var(--font-jetbrains-mono, ui-monospace, monospace);
   letter-spacing: 0.06em;
+  line-height: 1.2;
+  min-height: var(--interactive-target);
+  overflow-wrap: anywhere;
   padding: 0.82rem 1rem;
   text-transform: uppercase;
+  white-space: normal;
 }
 
 .primaryButton {
@@ -246,12 +250,31 @@
 }
 
 .sharedNote,
-.chase {
+.chase,
+.holdNotice {
   border: 1px solid var(--guest-teal);
   color: var(--guest-muted);
   line-height: 1.55;
   margin: 0 0 1.4rem;
   padding: 0.9rem 1rem;
+}
+
+.accountVisits {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.accountVisits li {
+  border-bottom: 1px solid var(--guest-rule);
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+}
+
+.accountVisits span,
+.accountVisits small {
+  color: var(--guest-muted);
 }
 
 @media (max-width: 36rem) {

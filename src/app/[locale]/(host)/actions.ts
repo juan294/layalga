@@ -1,24 +1,36 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { getAgentClient } from "@/agent/client";
+import {
+  MAX_DECISION_NOTE_LENGTH,
+  MAX_HOST_MESSAGE_LENGTH,
+} from "@/agent/task-limits";
 import { reissueInvitationLink } from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { requireHost } from "@/lib/auth/current-host";
+import { parseServerEnvironment } from "@/lib/server/env";
 import {
   reportActionError,
   reportedActionError,
 } from "@/lib/server/action-errors";
 
-export interface CaptureState {
-  status: "idle" | "success" | "error";
-  summary?: string;
-  guestLink?: string;
-  structured?: unknown;
-  error?: "empty" | "failed";
-}
+export type CaptureState =
+  | { status: "idle" }
+  | { status: "queued"; runId: string }
+  | { status: "error"; error: "empty" | "failed" };
+
+export type CaptureResultState =
+  | { status: "idle" }
+  | {
+      status: "success";
+      guestLink: string;
+      structured: unknown;
+    }
+  | { status: "error" };
 
 export async function captureInvitationAction(
   _previous: CaptureState,
@@ -28,51 +40,79 @@ export async function captureInvitationAction(
   const host = await requireHost(locale);
   const rawMessage = String(formData.get("rawMessage") ?? "").trim();
   if (!rawMessage) return { status: "error", error: "empty" };
+  if (rawMessage.length > MAX_HOST_MESSAGE_LENGTH) {
+    return { status: "error", error: "failed" };
+  }
 
   try {
-    const result = await getAgentClient().run({
+    const result = await getAgentClient().enqueue({
       task: "host_capture",
       homeId: host.homeId,
       hostId: host.id,
       rawMessage,
       locale,
     });
-    const sql = sqlClient(getDatabaseConnection().db);
-    const [audit] = await sql<{ payload: unknown }[]>`
-      select payload
-      from public.audit_events
-      where run_id = ${result.runId}
-        and kind = 'tool_call'
-        and payload->>'name' = 'capture_invitation'
-      order by created_at desc
-      limit 1
-    `;
-    const payload = objectValue(audit?.payload);
-    const invitationId =
-      typeof payload?.invitationId === "string" ? payload.invitationId : null;
-    const [invitation] = invitationId
-      ? await sql<{ structured: unknown }[]>`
-          select structured
-          from public.invitations
-          where id = ${invitationId} and home_id = ${host.homeId}
-        `
-      : [];
-    const guestLink = invitationId
-      ? await reissueInvitationLink(getDatabaseConnection().db, invitationId, {
-          appUrl: process.env.APP_URL ?? "http://localhost:3008",
-        })
-      : undefined;
-
-    revalidatePath(`/${locale}`);
     return {
-      status: "success",
-      summary: result.summary,
-      guestLink,
-      structured: invitation?.structured,
+      status: "queued",
+      runId: result.runId,
     };
   } catch (error) {
     reportActionError("host_capture_failed", error);
     return { status: "error", error: "failed" };
+  }
+}
+
+export async function revealCapturedInvitationAction(
+  _previous: CaptureResultState,
+  formData: FormData,
+): Promise<CaptureResultState> {
+  const locale = localeValue(formData);
+  const host = await requireHost(locale);
+  const parsedRunId = z.uuid().safeParse(formData.get("runId"));
+  if (!parsedRunId.success) return { status: "error" };
+
+  try {
+    const connection = getDatabaseConnection();
+    const sql = sqlClient(connection.db);
+    const [capture] = await sql<
+      { invitation_id: string; structured: unknown }[]
+    >`
+      select i.id as invitation_id, i.structured
+      from public.runs r
+      join public.audit_events ae
+        on ae.run_id = r.id
+       and ae.home_id = r.home_id
+       and ae.kind = 'tool_call'
+       and ae.payload->>'name' = 'capture_invitation'
+      join public.invitations i
+        on i.id::text = ae.payload->>'invitationId'
+       and i.home_id = r.home_id
+       and i.host_id = ${host.id}
+      where r.id = ${parsedRunId.data}
+        and r.home_id = ${host.homeId}
+        and r.task = 'host_capture'
+        and r.status = 'completed'
+        and r.payload->>'task' = 'host_capture'
+        and r.payload->>'hostId' = ${host.id}
+        and r.session_id = ${`capture_${host.id}`}
+      order by ae.created_at desc
+      limit 1
+    `;
+    if (!capture) return { status: "error" };
+
+    const guestLink = await reissueInvitationLink(
+      connection.db,
+      capture.invitation_id,
+      { appUrl: parseServerEnvironment().appUrl },
+    );
+    return {
+      status: "success",
+      guestLink,
+      structured: capture.structured,
+    };
+  } catch (error) {
+    reportActionError("host_capture_failed", error);
+    return { status: "error" };
   }
 }
 
@@ -82,8 +122,15 @@ export async function decideAction(formData: FormData): Promise<void> {
   const decisionId = String(formData.get("decisionId") ?? "");
   const approved = formData.get("decision") === "approve";
   const noteValue = String(formData.get("note") ?? "").trim();
+  if (noteValue.length > MAX_DECISION_NOTE_LENGTH) {
+    throw reportedActionError(
+      "host_decision_failed",
+      new Error("Decision note exceeds the supported length"),
+    );
+  }
   const note = noteValue || undefined;
   const sql = sqlClient(getDatabaseConnection().db);
+  let runId: string | null = null;
 
   try {
     const [decision] = await sql<
@@ -110,7 +157,7 @@ export async function decideAction(formData: FormData): Promise<void> {
     `;
     if (!decision) return;
 
-    await getAgentClient().run({
+    const run = await getAgentClient().enqueue({
       task: "resume",
       homeId: host.homeId,
       sessionId: decision.agent_session_id,
@@ -121,25 +168,17 @@ export async function decideAction(formData: FormData): Promise<void> {
         },
       ],
     });
-    revalidatePath(`/${locale}`);
+    runId = run.runId;
   } catch (error) {
     throw reportedActionError("host_decision_failed", error);
+  }
+  if (runId) {
+    redirect(
+      `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}`)}`,
+    );
   }
 }
 
 function localeValue(formData: FormData): "en" | "es" {
   return formData.get("locale") === "es" ? "es" : "en";
-}
-
-function objectValue(value: unknown): Record<string, unknown> | null {
-  if (typeof value === "string") {
-    try {
-      return objectValue(JSON.parse(value));
-    } catch {
-      return null;
-    }
-  }
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }

@@ -2,7 +2,7 @@
 
 ## Status
 
-Local release automation is implemented. Preview and production environment values are configured in Vercel, but no candidate deployment or real Google authentication has been verified. Production verification remains blocked until the owner authorizes deployment. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority.
+Local release automation is implemented. Real Google authentication has passed against local Supabase. Preview and production environment values are configured in Vercel, but no candidate deployment has been verified. Production verification remains blocked until the owner authorizes deployment. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority.
 
 ## Project adaptation profile
 
@@ -24,8 +24,8 @@ Local release automation is implemented. Preview and production environment valu
 | Production target              | `https://layalga.thecreativetoken.com`; environment configured, no candidate deployment verified |
 | Tests                          | Vitest, local Supabase integration tests, and Playwright                                         |
 | Primary datastore              | PostgreSQL through Supabase                                                                      |
-| Queue and scheduler            | PostgreSQL jobs plus configured Vercel Cron fallback                                             |
-| Authentication                 | Link tokens and synthetic demo hosts; real Google auth blocked                                   |
+| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery              |
+| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                  |
 | Notifications                  | In-app bilingual notifications; no WhatsApp or Twilio                                            |
 | Other vendors                  | Strands scripted locally; real Bedrock use remains unverified                                    |
 | Release approver               | Product owner                                                                                    |
@@ -35,7 +35,7 @@ Local release automation is implemented. Preview and production environment valu
 
 | Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                              |
 | ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------- |
-| Local       |              No |         No |             Yes |            No |          Yes | Working tree uses demo hosts and `MODEL=scripted`; exact candidate not fixed            |
+| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`       |
 | CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                    |
 | Preview     |              No |         No |             Yes |            No | Not verified | Vercel values configured; no candidate deployment or Google auth verified               |
 | Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                          |
@@ -61,10 +61,10 @@ Wave B exploratory charters become applicable after the first deployed candidate
 The first implementation plan must make these probes executable:
 
 1. Public application health and deployed identity.
-2. Host capture creates one synthetic tentative invitation.
+2. Host capture queues one run, reaches a terminal result, and creates one synthetic tentative invitation.
 3. Guest confirmation creates one hold and one confirmed visit.
 4. A concurrent conflicting confirmation is rejected safely.
-5. A social exception pauses for host approval and resumes exactly once.
+5. A social exception pauses for host approval and resumes through a new queued run exactly once.
 6. Clock-driven reconfirmation follows policy and escalates a non-response.
 7. Unauthorized guest access is denied without exposing another guest.
 8. All run-owned synthetic records are removed.
@@ -86,6 +86,8 @@ export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
 export LINK_TOKEN_SECRET=e2e-link-token-secret-at-least-32-bytes
 export DEMO_SESSION_SECRET=e2e-demo-session-secret-at-least-32-bytes
 export TICK_SECRET=e2e-tick-secret-at-least-32-bytes
+export AGENT_ROUTE_SECRET=e2e-agent-route-secret-at-least-32-bytes
+export CRON_SECRET=e2e-cron-secret-at-least-32-bytes
 export APP_URL=http://localhost:3008
 export AGENT_RUNTIME=local
 export MODEL=scripted
@@ -116,7 +118,13 @@ pnpm run release:probes -- \
   --commit <candidate-sha>
 ```
 
-The release probe refuses a non-local target without `--commit`. Both scripts require `DATABASE_URL` for authoritative final-state checks. The demo script does not print private guest-link tokens.
+The release probe refuses a non-local target without `--commit`. Both scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent probe calls must receive distinct queued acknowledgements. The probe performs one authorized queue drain, polls those exact run IDs to terminal states, and then verifies the database result. The demo script does not print private guest-link tokens.
+
+## Database runtime readiness
+
+Apply all migrations through `20260831001500_durable_agent_queue.sql` before the web candidate starts. Follow [the runtime database and identity runbook](runtime-database-and-identity.md) to set unique passwords for `layalga_web` and `layalga_agent`, configure each deployment with its service-specific non-owner `DATABASE_URL`, and verify grants with `current_user`. A production URL that starts with the database owner is a release blocker.
+
+The queue recovers expired run leases and permits bounded attempts. Scheduled jobs retry after one minute and five minutes. A third failure changes the job to `quarantined`; inspect and replay it with the same runbook. Do not replay queued or running work.
 
 ## Release procedure
 
@@ -125,18 +133,18 @@ The release probe refuses a non-local target without `--commit`. Both scripts re
 3. Fix one candidate commit and record it in the release evidence.
 4. Run typecheck, lint, targeted tests, full tests, and build sequentially.
 5. Stop if no required check passed or any required check failed or skipped.
-6. Deploy the exact candidate to the authorized preview or production targets.
-7. Verify both deployed identities against the candidate.
-8. Run all required probes with synthetic, run-scoped data.
-9. Verify datastore state, interrupt behavior, notification outcome, and cleanup.
-10. Run a fresh-context exploratory charter for the four-beat demo path. This is Wave B and applies starting with the *second* release attempt onward — the adopted scope defers Wave B until after the first deployed candidate exists (see "Adopted scope" above), so the first release skips this step.
+6. Apply the candidate migrations and verify the separate runtime database roles.
+7. Deploy the exact candidate to the authorized production target.
+8. Verify the deployed identity against the candidate.
+9. Run all required probes with synthetic, run-scoped data.
+10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
 13. Create and push the named tag last through `/release`.
 
 ## Current release decision
 
-BLOCKED. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET` and the separate `AGENT_ROUTE_SECRET`. The exact candidate, terminal CI evidence, deployment authorization, deployed identity, and two consecutive production demo runs are not yet available.
+BLOCKED before publication. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET` and the separate `AGENT_ROUTE_SECRET`. Release still requires terminal candidate CI, production migration and database-role proof, deployed identity, one complete production demo and probe run, and verified cleanup.
 
 ## Rollback
 
@@ -190,13 +198,13 @@ evidence artifact, or wave promotion — not only to `/release` itself.
 
 Classify every existing or proposed gate before it can block a release:
 
-| Class | Meaning | Default authority |
-|---|---|---|
-| A | Stops a known bad candidate from reaching production | Mandatory release critical path |
-| B | Proves exact identity, rollback readiness, or safe recovery | Mandatory release critical path |
-| C | Monitoring or operational-readiness signal | Asynchronous or a separate readiness gate, not the release critical path |
-| D | Deep diagnostic, exploratory, security, performance, or broad regression signal | Normal CI, scheduled, or an explicitly requested deep-release mode |
-| E | Ceremony, duplicated evidence, or proof-of-proof with no unique risk | Do not add; remove if found |
+| Class | Meaning                                                                         | Default authority                                                        |
+| ----- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| A     | Stops a known bad candidate from reaching production                            | Mandatory release critical path                                          |
+| B     | Proves exact identity, rollback readiness, or safe recovery                     | Mandatory release critical path                                          |
+| C     | Monitoring or operational-readiness signal                                      | Asynchronous or a separate readiness gate, not the release critical path |
+| D     | Deep diagnostic, exploratory, security, performance, or broad regression signal | Normal CI, scheduled, or an explicitly requested deep-release mode       |
+| E     | Ceremony, duplicated evidence, or proof-of-proof with no unique risk            | Do not add; remove if found                                              |
 
 Only Class A and Class B controls belong on the default mandatory path. Wave A
 today is Class A/B by design (required checks, identity match, cleanup proof).
@@ -211,6 +219,7 @@ the plan that introduces it):
 
 ```markdown
 ### Release-system impact
+
 - Risk class (A/B/C/D/E):
 - Unique production risk prevented:
 - Existing controls that already cover part of this risk:

@@ -169,6 +169,15 @@ describe("createTemporaryHold concurrency", () => {
         scheduler,
       );
       expect(confirmed.status).toBe("confirmed");
+      const confirmedAgain = await confirmVisit(
+        db,
+        clock,
+        hold.visitId,
+        undefined,
+        scheduler,
+      );
+      expect(confirmedAgain).toEqual(confirmed);
+      expect(scheduled).toHaveLength(1);
 
       const rescheduled = await rescheduleVisit(
         db,
@@ -182,6 +191,18 @@ describe("createTemporaryHold concurrency", () => {
       expect(rescheduled.status).toBe("confirmed");
       expect(scheduled).toHaveLength(2);
       expect(cancelledRefs).toEqual([`external-${scheduled[0]}`]);
+
+      const rescheduledAgain = await rescheduleVisit(
+        db,
+        clock,
+        {
+          visitId: hold.visitId,
+          stay: ["2026-10-09", "2026-10-11"],
+        },
+        scheduler,
+      );
+      expect(rescheduledAgain).toEqual(rescheduled);
+      expect(scheduled).toHaveLength(2);
 
       const activeJobs = await db<{ count: number }[]>`
         select count(*)::integer as count

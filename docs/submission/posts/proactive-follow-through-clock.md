@@ -20,13 +20,13 @@ An external scheduler is a trigger, not the source of truth. Each confirmed visi
 - Did it finish, fail, or get cancelled?
 - Which visit and reconfirmation cycle does it belong to?
 
-For the selected local runtime, Vercel Cron calls `/api/ticks` every minute. The route claims due rows and invokes the same `runAgentTask({ task: "tick", jobId })` path used by tests and the demo clock. The repository also contains an EventBridge Scheduler adapter for the AgentCore path evaluated during the runtime spike.
+For the selected local runtime, Vercel Cron calls `/api/ticks` every minute. The route claims due rows and enqueues the same tick task used by tests and the demo clock. It also recovers expired agent-run leases and drains at most two queued runs per invocation. The repository contains an EventBridge Scheduler adapter for the AgentCore path evaluated during the runtime spike.
 
 ## Claim before delivery
 
 Two workers can wake at the same time. A claim transaction selects due work with row locking, marks it running, and sets a lease. A partial unique index prevents two open jobs of the same kind for one visit.
 
-The lease makes a crashed worker recoverable. After expiry, another tick can claim the job. That means delivery must also be idempotent.
+The lease makes a crashed worker recoverable. After expiry, another tick can claim the job. Scheduled jobs wait one minute after a first failure and five minutes after a second failure. A third failure quarantines the job for operator review. That means delivery must also be idempotent.
 
 Notifications use the scheduled job ID as part of their idempotency boundary. A party chase can be inserted once for that job. A host escalation can be inserted once per host for that job. A retry after notifying the first host can safely continue to the second without duplicating the first notification.
 
