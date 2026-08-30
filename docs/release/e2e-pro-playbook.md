@@ -144,7 +144,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Current release decision
 
-BLOCKED. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET` and the separate `AGENT_ROUTE_SECRET`. The exact candidate, terminal CI evidence, deployment authorization, deployed identity, and two consecutive production demo runs are not yet available.
+BLOCKED before publication. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET` and the separate `AGENT_ROUTE_SECRET`. Release still requires terminal candidate CI, production migration and database-role proof, deployed identity, one complete production demo and probe run, and verified cleanup.
 
 ## Rollback
 

@@ -16,7 +16,7 @@ video, the Devpost entry, and drafts of up to three builder.aws posts.
 - [ ] 6.4 Recording: owner records (or authorizes a screen recording produced with the demo-e2e driver for the narration to be added). Output under five minutes, uploaded where Devpost requires (owner action for the upload).
 - [x] 6.5 Devpost text `docs/submission/devpost.md`: project name, tagline, inspiration, what it does, how it was built (Strands TypeScript SDK, AgentCore Runtime, Bedrock Sonnet 4.5, EventBridge Scheduler, Supabase, Next.js), challenges (interrupt persistence across microVMs, Scheduler's synchronous timeout, deterministic policy under an agent), accomplishments, what we learned, what is next, built-with list, repo link, live link, video link. Owner files it (needs AWS Builder ID and Devpost registration).
 - [x] 6.6 builder.aws drafts under `docs/submission/posts/`: "Interrupts for household decisions", "A deterministic policy layer under a Strands agent", "Proactive follow-through with a controllable clock". Drafts only; publication is a separate authorization and happens only after 5.6 is stable.
-- [ ] 6.7 Final `/pre-launch`, `/update-docs`, and `/release` per the playbook; tag `v0.1.0` last, after tag authorization.
+- [ ] 6.7 Final `/pre-launch`, `/update-docs`, and `/release` per the playbook; tag `v0.1.1` last, after tag authorization.
 
 ## Verification
 
