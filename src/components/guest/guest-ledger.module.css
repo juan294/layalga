@@ -197,8 +197,12 @@
   cursor: pointer;
   font: 700 0.78rem/1 var(--font-jetbrains-mono, ui-monospace, monospace);
   letter-spacing: 0.06em;
+  line-height: 1.2;
+  min-height: var(--interactive-target);
+  overflow-wrap: anywhere;
   padding: 0.82rem 1rem;
   text-transform: uppercase;
+  white-space: normal;
 }
 
 .primaryButton {

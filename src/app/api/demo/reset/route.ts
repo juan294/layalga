@@ -6,8 +6,7 @@ import {
   acquireDemoMutationLease,
   authorizeDemoMutation,
 } from "@/lib/auth/demo-mutation";
-
-import { DEMO_SEED, seedDemo } from "../../../../../scripts/seed-demo";
+import { DEMO_SEED, resetDemoHome } from "@/lib/demo/reset";
 
 const resetInput = z.object({
   homeId: z.uuid(),
@@ -62,7 +61,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const result = await seedDemo(databaseUrl, tokenSecret);
+    const result = await resetDemoHome(databaseUrl, tokenSecret);
     return NextResponse.json({ ...result, now: DEMO_SEED.clock.start });
   } finally {
     await releaseLease();

@@ -7,6 +7,8 @@
   --teal: #0c615b;
   --rule: rgb(32 35 31 / 22%);
   --focus: #087f75;
+  --interactive-target: 2.75rem;
+  --interactive-target-compact: 2.25rem;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-inter), Arial, sans-serif;
@@ -86,8 +88,13 @@ a {
 }
 
 .locale-switcher a {
+  align-items: center;
   border: 1px solid transparent;
   color: var(--graphite);
+  display: inline-flex;
+  justify-content: center;
+  min-block-size: var(--interactive-target-compact);
+  min-inline-size: var(--interactive-target-compact);
   padding: 0.35rem 0.5rem;
   text-decoration: none;
 }

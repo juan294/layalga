@@ -13,6 +13,7 @@ import {
   labelStyle,
   rule,
   teal,
+  visuallyHiddenStyle,
 } from "./host-styles";
 
 interface CaptureInvitationFormProps {
@@ -88,6 +89,7 @@ export function CaptureInvitationForm({
             paddingTop: "1rem",
           }}
         >
+          <CaptureSuccessAnnouncement label={labels.result} />
           <p style={{ ...labelStyle, color: teal }}>{labels.result}</p>
           <p style={{ color: graphite, lineHeight: 1.55, margin: "0.5rem 0" }}>
             {state.summary}
@@ -126,6 +128,14 @@ export function CaptureInvitationForm({
       ) : null}
     </form>
   );
+}
+
+export function CaptureSuccessAnnouncement({
+  label,
+}: {
+  label: string;
+}) {
+  return <PoliteStatus hidden message={label} />;
 }
 
 function GuestLinkCopy({
@@ -183,14 +193,59 @@ function GuestLinkCopy({
           style={buttonStyle}
           type="button"
         >
-          {copyState === "copied" ? copiedLabel : copyLabel}
+          {copyButtonLabel(copyState, copyLabel, copiedLabel)}
         </button>
       </div>
-      {copyState === "failed" ? (
-        <p role="status" style={{ color: graphite }}>
-          {failedLabel}
-        </p>
-      ) : null}
+      <CopyFeedback
+        copiedLabel={copiedLabel}
+        failedLabel={failedLabel}
+        state={copyState}
+      />
     </div>
+  );
+}
+
+export function copyButtonLabel(
+  state: "idle" | "copied" | "failed",
+  copyLabel: string,
+  copiedLabel: string,
+): string {
+  return state === "copied" ? copiedLabel : copyLabel;
+}
+
+export function CopyFeedback({
+  state,
+  copiedLabel,
+  failedLabel,
+}: {
+  state: "idle" | "copied" | "failed";
+  copiedLabel: string;
+  failedLabel: string;
+}) {
+  if (state === "idle") return null;
+
+  return (
+    <PoliteStatus
+      message={state === "copied" ? copiedLabel : failedLabel}
+    />
+  );
+}
+
+function PoliteStatus({
+  message,
+  hidden = false,
+}: {
+  message: string;
+  hidden?: boolean;
+}) {
+  return (
+    <p
+      aria-atomic="true"
+      aria-live="polite"
+      role="status"
+      style={hidden ? visuallyHiddenStyle : { color: graphite }}
+    >
+      {message}
+    </p>
   );
 }

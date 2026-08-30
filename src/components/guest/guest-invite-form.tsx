@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -48,9 +48,20 @@ export function GuestInviteForm({
     initialSubmitState,
   );
   const [searchDirty, setSearchDirty] = useState(false);
+  const optionsVisible =
+    optionState.status === "success" && !searchDirty && !finding;
+  const optionsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const optionsWereVisible = useRef(optionsVisible);
   const markSearchDirty = () => {
     if (optionState.status === "success") setSearchDirty(true);
   };
+
+  useEffect(() => {
+    if (shouldFocusGuestOptions(optionsWereVisible.current, optionsVisible)) {
+      optionsHeadingRef.current?.focus();
+    }
+    optionsWereVisible.current = optionsVisible;
+  }, [optionsVisible]);
 
   return (
     <div className={styles.formStack}>
@@ -124,7 +135,7 @@ export function GuestInviteForm({
         </p>
       ) : null}
 
-      {optionState.status === "success" && !searchDirty && !finding ? (
+      {optionsVisible && optionState.status === "success" ? (
         <form
           action={submitAction}
           className={styles.ruledForm}
@@ -134,7 +145,9 @@ export function GuestInviteForm({
           <input name="locale" type="hidden" value={locale} />
           <div className={styles.formHeading}>
             <span className={styles.sequence}>{t("stepDetails")}</span>
-            <h2>{t("partyDetailsTitle")}</h2>
+            <h2 ref={optionsHeadingRef} tabIndex={-1}>
+              {t("partyDetailsTitle")}
+            </h2>
           </div>
           <fieldset className={styles.optionList}>
             <legend>{t("chooseStay")}</legend>
@@ -216,6 +229,13 @@ export function GuestInviteForm({
       ) : null}
     </div>
   );
+}
+
+export function shouldFocusGuestOptions(
+  wasVisible: boolean,
+  isVisible: boolean,
+): boolean {
+  return !wasVisible && isVisible;
 }
 
 function formatStay(stay: readonly [string, string], locale: string): string {

@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { securityHeaders } from "./next.config";
+import nextConfig, { buildSecurityHeaders } from "./next.config";
 
-describe("browser security headers", () => {
-  it("sets the browser defense-in-depth baseline", () => {
+describe("content security policy", () => {
+  test("keeps the browser defense-in-depth baseline", () => {
     const headers = new Map(
-      securityHeaders.map(({ key, value }) => [key.toLowerCase(), value]),
+      buildSecurityHeaders("production").map(({ key, value }) => [
+        key.toLowerCase(),
+        value,
+      ]),
     );
 
     expect(headers.get("content-security-policy")).toContain(
@@ -23,5 +26,25 @@ describe("browser security headers", () => {
       "strict-origin-when-cross-origin",
     );
     expect(headers.get("permissions-policy")).toContain("camera=()");
+  });
+
+  test("observes a strict production script policy before enforcement", () => {
+    const securityHeaders = buildSecurityHeaders("production");
+    const enforced = securityHeaders.find(
+      (header) => header.key === "Content-Security-Policy",
+    );
+    const reportOnly = securityHeaders.find(
+      (header) => header.key === "Content-Security-Policy-Report-Only",
+    );
+
+    expect(enforced?.value).toContain("script-src 'self' 'unsafe-inline'");
+    expect(reportOnly?.value).toContain("script-src 'self'");
+    expect(
+      reportOnly?.value.match(/script-src[^;]*/)?.[0],
+    ).not.toContain("'unsafe-inline'");
+    expect(reportOnly?.value).toContain(
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+    );
+    expect(nextConfig.experimental?.sri).toEqual({ algorithm: "sha256" });
   });
 });
