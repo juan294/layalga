@@ -86,16 +86,16 @@ if [[ "$COMMAND" == *"git push"* ]]; then
     exit 2
   fi
 
-  # Error #48: direct push to main/master instead of a non-production path.
-  # Matches "main" or "master" anywhere in the push args (handles flags like -u
+  # Error #48: direct push to a protected branch (develop is integration,
+  # main is production) instead of a feature branch plus PR.
+  # Matches the branch name anywhere in the push args (handles flags like -u
   # appearing before the remote name: git push -u origin main).
   # Allows --follow-tags (release flow).
-  if [[ "$COMMAND" =~ (^|[[:space:]])(main|master)($|[[:space:]]|:) ]] \
+  if [[ "$COMMAND" =~ (^|[[:space:]])(main|master|develop)($|[[:space:]]|:) ]] \
      && [[ "$COMMAND" != *"--follow-tags"* ]]; then
     emit_block "guard-bash.sh" "Error #48: direct push to protected branch" \
-      "Pushing directly to main/master is a high-stakes action." \
-      "  git push origin develop                 # develop/main topology
-  git push -u origin feature/my-change    # main-only or PR flow
+      "Pushing directly to develop/main is a high-stakes action; open a PR." \
+      "  git push -u origin feature/my-change    # then: gh pr create --base develop
   git push origin main --follow-tags      # releases with tags (ask first)"
     log_event block error-48
     exit 2

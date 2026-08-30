@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvokeLayalgaAgentRuntime",
+      "Effect": "Allow",
+      "Action": "bedrock-agentcore:InvokeAgentRuntime",
+      "Resource": ["__AGENTCORE_RUNTIME_ARN__", "__AGENTCORE_RUNTIME_ARN__/*"]
+    },
+    {
+      "Sid": "SendSchedulerFailuresToDlq",
+      "Effect": "Allow",
+      "Action": "sqs:SendMessage",
+      "Resource": "__SCHEDULER_DLQ_ARN__"
+    }
+  ]
+}

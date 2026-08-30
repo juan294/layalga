@@ -4,16 +4,138 @@ on:
   pull_request:
   push:
     branches:
+      - develop
       - main
 
 permissions:
   contents: read
 
 jobs:
-  bootstrap-contract:
+  unit:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Verify cc-rpi bootstrap
         run: bash scripts/verify-bootstrap.sh
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Lint
+        run: pnpm run lint
+      - name: Run unit tests with coverage
+        run: pnpm run test:coverage
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/
+      - name: Build
+        run: pnpm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Start Supabase
+        run: supabase start
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54622/postgres
+        run: pnpm run test:integration
+
+  acceptance:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54622/postgres
+      LINK_TOKEN_SECRET: 0123456789abcdef0123456789abcdef
+      DEMO_SESSION_SECRET: abcdef0123456789abcdef0123456789
+      TICK_SECRET: fedcba9876543210fedcba9876543210
+      AGENT_ROUTE_SECRET: 1234567890abcdef1234567890abcdef
+      APP_URL: http://127.0.0.1:3008
+      DEMO_MODE: "true"
+      AGENT_RUNTIME: local
+      MODEL: scripted
+      SCHEDULER: none
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.116.0
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start Supabase
+        run: supabase start
+      - name: Export local Supabase public settings
+        shell: bash
+        run: |
+          supabase status -o env > "$RUNNER_TEMP/supabase-status.env"
+          api_url=$(sed -n 's/^API_URL="\([^"]*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          publishable_key=$(sed -n 's/^PUBLISHABLE_KEY="\([^"]*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          test -n "$api_url"
+          test -n "$publishable_key"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$api_url" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$publishable_key" >> "$GITHUB_ENV"
+      - name: Run browser tests
+        run: pnpm run test:e2e
+      - name: Run demo and release probes
+        shell: bash
+        run: |
+          pnpm run dev > "$RUNNER_TEMP/layalga-next.log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:3008/api/health > /dev/null; then
+              break
+            fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/layalga-next.log"
+              exit 1
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              cat "$RUNNER_TEMP/layalga-next.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          pnpm run demo:e2e -- --base http://127.0.0.1:3008
+          pnpm run release:probes -- --base http://127.0.0.1:3008

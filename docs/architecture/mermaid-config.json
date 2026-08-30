@@ -1,0 +1,20 @@
+{
+  "fontFamily": "Arial, sans-serif",
+  "flowchart": {
+    "curve": "basis",
+    "htmlLabels": false,
+    "nodeSpacing": 46,
+    "rankSpacing": 64,
+    "useMaxWidth": false
+  },
+  "themeVariables": {
+    "background": "#f7f1e5",
+    "fontSize": "18px",
+    "lineColor": "#143f3b",
+    "primaryColor": "#143f3b",
+    "primaryTextColor": "#fffdf7",
+    "primaryBorderColor": "#143f3b",
+    "clusterBkg": "#eee7d9",
+    "clusterBorder": "#b9976e"
+  }
+}

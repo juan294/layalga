@@ -10,6 +10,18 @@ required_files=(
   CLAUDE.md
   LICENSE
   README.md
+  package.json
+  pnpm-lock.yaml
+  tsconfig.json
+  next.config.ts
+  eslint.config.mjs
+  vitest.config.ts
+  playwright.config.ts
+  .env.example
+  vercel.json
+  src/app/[locale]/layout.tsx
+  src/app/[locale]/\(host\)/page.tsx
+  src/app/api/health/route.ts
   .claude/settings.json
   .claude/cc-rpi-sync.json
   .claude/hooks/guard-bash.sh
@@ -31,6 +43,17 @@ done
 
 jq -e '.lastSyncCommit == "2229ac2c3e0830e333dfec5b25033311b7d4dd0a" and .blueprintVersion == "v1.28.2"' .claude/cc-rpi-sync.json >/dev/null
 jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .permissions.allow' .claude/settings.json >/dev/null
+jq -e '.engines.node == "24.x" and .scripts.typecheck == "next typegen && tsc --noEmit" and .scripts.lint == "eslint ." and (.scripts.test | startswith("vitest run"))' package.json >/dev/null
+
+dev_port=3008
+jq -e --arg command "next dev --port $dev_port" '.scripts.dev == $command' package.json >/dev/null
+grep -q "^APP_URL=http://localhost:$dev_port$" .env.example
+grep -q "site_url = \"http://127.0.0.1:$dev_port\"" supabase/config.toml
+if grep -R -n --exclude=verify-bootstrap.sh -E 'localhost:3000|127\.0\.0\.1:3000' \
+  .env.example README.md playwright.config.ts scripts src supabase .github docs/release; then
+  printf 'BLOCKED: a runtime or test URL still uses the unfixed default port 3000.\n' >&2
+  exit 1
+fi
 
 bash -n .claude/hooks/guard-bash.sh
 bash -n .claude/hooks/verify-edit.sh

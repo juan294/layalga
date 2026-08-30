@@ -11,15 +11,16 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 - Hackathon: AWS Agents for Humans, Everyday Agents track
 - Working assessment: `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md`
 
-## Planned Stack
+## Implemented Stack
 
-- Next.js and TypeScript
-- Strands Agents SDK with Amazon Bedrock
-- AgentCore Runtime, subject to the documented day-one deployment spike
-- PostgreSQL through Supabase for authoritative booking state
-- EventBridge Scheduler for reconfirmation jobs
+- Next.js 16 and TypeScript 6 on the selected Vercel web path
+- Strands Agents SDK with a local `runAgentTask` adapter
+- Amazon Bedrock Sonnet 4.5 when the account model gate is active; a scripted model for deterministic demo and test runs
+- PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
+- Vercel Cron for the selected local runtime; an EventBridge Scheduler adapter for a future AgentCore retry
+- Supabase Auth with Google OAuth plus signed synthetic-demo sessions
 
-The repository contains bootstrap scaffolding only. The first `/plan` must confirm the application scaffold and exact package versions before adding code.
+ADR 0002 records why the AgentCore package reached `READY` but the selected hackathon runtime remains local: the AWS account rejected the first Anthropic model request before any tool call.
 
 ## Product Safety Contracts
 
@@ -43,17 +44,24 @@ Each phase is its own conversation. STOP after each phase unless the user explic
 ## Key Commands
 
 ```bash
-bash scripts/verify-bootstrap.sh  # Verify the initial cc-rpi scaffold
+pnpm run typecheck
+pnpm run lint
+pnpm run test
+pnpm run build
+pnpm run test:e2e
+pnpm run demo:e2e
+pnpm run release:probes
+bash scripts/verify-bootstrap.sh
 ```
 
-Add `pnpm run typecheck`, `pnpm run lint`, `pnpm run test`, and `pnpm run build` when the application scaffold is created. Run verification sequentially.
+Run verification sequentially. Database-backed tests, browser tests, the demo driver, and release probes require the local Supabase stack and demo seed.
 
 ## Git Workflow
 
-- Integration branch: `main`
-- Production branch: `main` once deployment is configured
-- Merge strategy: squash through pull requests
-- Implementation happens in temporary branches or isolated worktrees, not directly on `main`
+- Integration branch: `develop` (GitHub default branch)
+- Production branch: `main`; Vercel deploys production from `main`
+- Merge strategy: squash through pull requests; feature branches open PRs against `develop`; `develop` is promoted to `main` through a PR at release time
+- Implementation happens in temporary branches or isolated worktrees, never directly on `develop` or `main`
 - Commit before pulling; verify the current branch before every commit
 - Push, GitHub publication, deployment, DNS changes, tags, and releases require separate authorization
 
@@ -61,7 +69,7 @@ Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description
 
 ## Deployment
 
-No deployment is configured. The intended web hostname is `layalga.thecreativetoken.com`. AgentCore and web deployment providers must be verified during planning. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
+The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. The intended web hostname is `layalga.thecreativetoken.com`, but no production candidate has been deployed or verified. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
 ## Agent Behavior
 
