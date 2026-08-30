@@ -73,6 +73,13 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - Chose: register both `http://localhost:54321/auth/v1/callback` and `http://localhost:54621/auth/v1/callback`, and keep the application callbacks for localhost and the intended hosted domain in the Supabase redirect allow-list.
 - Why: both approved local configurations can complete the provider round trip without weakening the exact redirect allow-list.
 
+### Phase 3: Exact application OAuth return path
+
+- Plan said: keep exact localhost and hosted application callbacks in the Supabase redirect allow-list while preserving the requested post-login path.
+- Found: adding `?next=...` made the runtime callback differ from the exact allow-list entry, so hosted Supabase fell back to the production site URL. Local Supabase also derived its Google callback with `127.0.0.1` while the approved Google client used `localhost`.
+- Chose: prepare the validated internal return path in a ten-minute HttpOnly, same-site cookie, send OAuth to the exact `/auth/callback` URL, clear the cookie after every callback result, and override the local Google provider callback to `http://localhost:54621/auth/v1/callback`.
+- Why: this keeps the allow-list exact, avoids wildcard callbacks, keeps guest-link tokens out of the provider redirect, and aligns local Auth with the registered Google client.
+
 ### Phase 5: Notification acceptance count
 
 - Plan said: the final demo state contains four notifications to hosts.
@@ -106,7 +113,7 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 
 - English and Spanish routing, host and guest surfaces, demo host sessions, Supabase PKCE callback code, bounded run polling, time-zone rendering, and the Paper Ink responsive UI are implemented.
 - The dedicated Google Cloud project `layalga` contains the `L’Ayalga` Web OAuth client. Its hosted and two local Supabase callback URIs are exact. The hosted Supabase Google provider is enabled, the application callback allow-list is exact, and the ignored local environment stores the client values through `supabase/config.toml` indirection.
-- The real Google flow for `juan294@gmail.com` reached the localhost PKCE callback and the host allow-list rejected it before the local process was restarted with that address. This verifies the provider, consent, exchange, callback, sign-out, and negative authorization boundary. A positive host-login retry is ready and needs browser action-time approval because it transmits the account name and email to Supabase again.
+- The real Google flow for `juan294@gmail.com` passed through local Supabase, the exact localhost application callback, PKCE exchange, first-host claim, and the authenticated `/en` host dashboard. The local database verified one Nel host joined to that exact `auth.users` email.
 - All four Playwright journeys passed: guest hold, host capture and private link, interrupt approval and resume, and the Spanish host view.
 
 ### Phase 4 recovery hardening
@@ -120,7 +127,7 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - Preview and Production Vercel environment values are configured, including distinct `CRON_SECRET`, `TICK_SECRET`, and `AGENT_ROUTE_SECRET` credentials. No deployment was performed.
 - The deterministic four-beat driver passed with two invitations, two visits, one escalated visit, four total notifications, exactly two host escalations, and one approved decision.
 - All eight release probes passed against localhost. Probe cleanup deleted only its tagged synthetic records and verified their absence.
-- Sequential verification passed after the recovery migrations: database reset, typecheck, lint, 121 tests, 97 covered unit tests, production build, and four Playwright tests. Coverage passed explicit 30% statement/line, 30% function, and 25% branch floors.
+- Sequential verification passed after the recovery migrations and OAuth correction: database reset, typecheck, lint, 125 tests, 101 covered unit tests, production build, and four Playwright tests. Coverage passed explicit 30% statement/line, 30% function, and 25% branch floors.
 
 ### Final pre-launch remediation
 

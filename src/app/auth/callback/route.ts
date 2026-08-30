@@ -2,14 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { routing } from "@/i18n/routing";
 import { claimHostForUser } from "@/lib/auth/current-host";
+import {
+  clearOAuthNextCookie,
+  oauthNextPath,
+} from "@/lib/auth/oauth-next";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
-import { safeNextPath } from "@/lib/auth/safe-next-path";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = safeNextPath(url.searchParams.get("next"));
+  const next = oauthNextPath(request);
   const supabase = await createClient();
 
   if (code) {
@@ -21,23 +24,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (user) {
         const guestToken = guestTokenFromPath(next);
         if (guestToken && (await claimPartyForUser(guestToken, user.id))) {
-          return NextResponse.redirect(new URL(next, request.url));
+          return clearOAuthNextCookie(
+            NextResponse.redirect(new URL(next, request.url)),
+          );
         }
         if (!guestToken && (await claimHostForUser(user))) {
-          return NextResponse.redirect(new URL(next, request.url));
+          return clearOAuthNextCookie(
+            NextResponse.redirect(new URL(next, request.url)),
+          );
         }
       }
       await supabase.auth.signOut();
       if (guestTokenFromPath(next)) {
         const failed = new URL(next, request.url);
         failed.searchParams.set("claim", "failed");
-        return NextResponse.redirect(failed);
+        return clearOAuthNextCookie(NextResponse.redirect(failed));
       }
-      return signInRedirect(request, next, "not_a_host");
+      return clearOAuthNextCookie(
+        signInRedirect(request, next, "not_a_host"),
+      );
     }
   }
 
-  return signInRedirect(request, next, "oauth_failed");
+  return clearOAuthNextCookie(signInRedirect(request, next, "oauth_failed"));
 }
 
 function guestTokenFromPath(value: string): string | null {

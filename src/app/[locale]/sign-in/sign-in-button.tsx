@@ -24,12 +24,19 @@ export function SignInButton({
     setError(false);
     setPending(true);
     try {
+      const preparation = await fetch("/auth/prepare", {
+        body: JSON.stringify({ next: nextPath }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+      if (!preparation.ok) throw new Error("OAuth preparation failed");
+
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (authError) throw authError;
