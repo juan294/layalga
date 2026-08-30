@@ -31,11 +31,13 @@ export const DEMO_SEED = {
   hosts: [
     {
       id: "00000000-0000-4000-8000-000000000201",
+      email: "nel@example.com",
       displayName: "Nel",
       locale: "es",
     },
     {
       id: "00000000-0000-4000-8000-000000000202",
+      email: "covadonga@example.com",
       displayName: "Covadonga",
       locale: "en",
     },
@@ -168,6 +170,8 @@ export async function resetDemoHome(
         `;
       }
 
+      await transaction`select private.restore_demo_identity_claims()`;
+
       for (const party of DEMO_SEED.parties) {
         const token = party.guestLink.split("/").at(-1);
         if (!token) {
@@ -182,16 +186,12 @@ export async function resetDemoHome(
             id,
             home_id,
             family_name,
-            locale,
-            link_token,
-            link_token_expires_at
+            locale
           ) values (
             ${party.id},
             ${DEMO_SEED.home.id},
             ${party.familyName},
-            ${party.locale},
-            ${linkTokenHash},
-            ${party.linkTokenExpiresAt}
+            ${party.locale}
           )
         `;
 
@@ -212,7 +212,10 @@ export async function resetDemoHome(
             party_id,
             raw_message,
             structured,
-            status
+            status,
+            link_token,
+            link_token_expires_at,
+            link_token_revoked_at
           ) values (
             ${party.invitation.id},
             ${DEMO_SEED.home.id},
@@ -220,7 +223,10 @@ export async function resetDemoHome(
             ${party.id},
             ${party.invitation.rawMessage},
             ${transaction.json(structured)},
-            'tentative'
+            'tentative',
+            ${linkTokenHash},
+            ${party.linkTokenExpiresAt},
+            null
           )
         `;
       }

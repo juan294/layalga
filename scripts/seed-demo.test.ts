@@ -1,6 +1,8 @@
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { hashLinkToken } from "@/core/booking/invitations";
+
 import { DEMO_SEED, seedDemo } from "./seed-demo";
 
 const databaseUrl =
@@ -30,5 +32,48 @@ describe("seedDemo", () => {
         select key from public.agent_sessions where session_id = ${sessionId}
       `,
     ).toHaveLength(0);
+  });
+
+  it("restores invitation-scoped links and stable host identities", async () => {
+    const secret = "seed-demo-test-secret";
+    await seedDemo(databaseUrl, secret);
+
+    const invitations = await sql<
+      { id: string; link_token: string; link_token_revoked_at: Date | null }[]
+    >`
+      select id, link_token, link_token_revoked_at
+      from public.invitations
+      where home_id = ${DEMO_SEED.home.id}
+      order by id
+    `;
+    expect(invitations).toEqual(
+      DEMO_SEED.parties
+        .map((party) => ({
+          id: party.invitation.id,
+          link_token: hashLinkToken(party.guestLink.split("/").at(-1)!, secret),
+          link_token_revoked_at: null,
+        }))
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    );
+
+    const claims = await sql<
+      { normalized_email: string; host_id: string; home_id: string }[]
+    >`
+      select normalized_email, host_id, home_id
+      from public.host_identity_claims
+      where home_id = ${DEMO_SEED.home.id}
+      order by normalized_email
+    `;
+    expect(claims).toEqual(
+      DEMO_SEED.hosts
+        .map((host) => ({
+          normalized_email: host.email,
+          host_id: host.id,
+          home_id: DEMO_SEED.home.id,
+        }))
+        .sort((left, right) =>
+          left.normalized_email.localeCompare(right.normalized_email),
+        ),
+    );
   });
 });
