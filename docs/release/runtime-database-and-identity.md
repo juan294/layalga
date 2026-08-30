@@ -2,10 +2,10 @@
 
 The application must not use the Supabase `postgres` owner credential outside the local stack. Migration `20260831001100_secure_invitation_identity.sql` creates two login roles with no password and two NOLOGIN grant roles:
 
-| External service | Login role | Grant role |
-|---|---|---|
-| Vercel web and local agent runtime | `layalga_web` | `layalga_web_runtime` |
-| AgentCore runtime | `layalga_agent` | `layalga_agent_runtime` |
+| External service                   | Login role      | Grant role              |
+| ---------------------------------- | --------------- | ----------------------- |
+| Vercel web and local agent runtime | `layalga_web`   | `layalga_web_runtime`   |
+| AgentCore runtime                  | `layalga_agent` | `layalga_agent_runtime` |
 
 The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role can insert and delete host rows for the synthetic demo reset, but it can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
 
@@ -85,3 +85,26 @@ select
 from public.host_identity_claims
 where normalized_email = lower(btrim(:'host_email'));
 ```
+
+## Replay a quarantined scheduled job
+
+A scheduled job waits one minute after its first failure and five minutes after its second failure. Its third failure changes its status to `quarantined` and creates a `scheduled_job_quarantined` audit event. Inspect the job and its audit event before replay. Do not change a queued or running job.
+
+Use an operator database session to replay one verified quarantined job:
+
+```sql
+update public.scheduled_jobs
+set status = 'scheduled',
+    attempt_count = 0,
+    available_at = now(),
+    quarantined_at = null,
+    claim_token = null,
+    claimed_at = null,
+    run_id = null,
+    last_error = null
+where id = :'job_id'::uuid
+  and status = 'quarantined'
+returning id, status, available_at;
+```
+
+The statement must return exactly one row. The next cron invocation can claim the job. Notification idempotency prevents a successful earlier delivery from being sent again.

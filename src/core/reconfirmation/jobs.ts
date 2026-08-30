@@ -12,6 +12,8 @@ import {
 
 const CLAIM_LIMIT = 25;
 const JOB_LEASE_MS = 10 * 60 * 1_000;
+const MAX_JOB_ATTEMPTS = 3;
+const JOB_RETRY_DELAYS_MS = [60_000, 5 * 60_000] as const;
 
 export interface TickTask {
   task: "tick";
@@ -21,6 +23,10 @@ export interface TickTask {
 
 export interface AgentInvoker {
   run(task: TickTask): Promise<unknown>;
+}
+
+export interface AgentEnqueuer {
+  enqueue(task: TickTask): Promise<{ runId: string; status: string }>;
 }
 
 export interface ScheduledJobRequest {
@@ -47,7 +53,8 @@ export interface JobRunResult {
   visitId: string;
   kind: ScheduledJobKind;
   action: "chase" | "escalate" | "none";
-  status: "done" | "skipped";
+  status: "done" | "skipped" | "queued";
+  runId?: string;
 }
 
 interface JobRow {
@@ -61,6 +68,8 @@ interface JobRow {
   claim_token: string | null;
   claimed_at: Date | null;
   attempt_count: number;
+  available_at: Date;
+  run_id: string | null;
 }
 
 interface VisitRow {
@@ -174,6 +183,77 @@ export async function runDueJobs(
   return results;
 }
 
+export async function dispatchDueJobs(
+  database: DatabaseClient,
+  clock: Clock,
+  agentEnqueuer: AgentEnqueuer,
+  homeId?: string,
+  scheduler: JobScheduler = noopJobScheduler,
+): Promise<JobRunResult[]> {
+  await reconcileStaleRuns(database, clock.now(), homeId);
+  const { expireTemporaryHolds } = await import("@/core/booking/holds");
+  await expireTemporaryHolds(database, clock, scheduler, homeId);
+  const results: JobRunResult[] = [];
+  const attemptedJobIds: string[] = [];
+
+  for (let index = 0; index < CLAIM_LIMIT; index += 1) {
+    const job = await claimDueJob(
+      database,
+      clock.now(),
+      homeId,
+      attemptedJobIds,
+    );
+    if (!job) break;
+    attemptedJobIds.push(job.id);
+    try {
+      const action = await prepareClaimedJob(database, clock, scheduler, job);
+      if (action === "none") {
+        await completeClaimedJob(database, job);
+        results.push(result(job, action, "done"));
+        continue;
+      }
+      const queued = await agentEnqueuer.enqueue({
+        task: "tick",
+        homeId: job.home_id,
+        jobId: job.id,
+      });
+      if (queued.status === "completed") {
+        if (!(await deliveryIsComplete(database, job))) {
+          throw new Error(
+            `Completed run did not deliver the ${job.kind} notification`,
+          );
+        }
+        await completeClaimedJob(database, job);
+        results.push(result(job, action, "done"));
+        continue;
+      }
+      if (queued.status !== "queued") {
+        throw new Error(`Scheduled agent run was not queued: ${queued.runId}`);
+      }
+      const sql = sqlClient(database);
+      const [linked] = await sql<{ id: string }[]>`
+        update public.scheduled_jobs
+        set run_id = ${queued.runId}
+        where id = ${job.id} and status = 'running'
+          and claim_token = ${job.claim_token}
+        returning id
+      `;
+      if (!linked) throw new Error(`Lost scheduled job lease: ${job.id}`);
+      results.push({
+        ...result(job, action, "queued"),
+        runId: queued.runId,
+      });
+    } catch (error) {
+      await recordJobFailure(database, clock.now(), job);
+      console.error("[SCHEDULED_JOB_DISPATCH_FAILED]", {
+        jobId: job.id,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
+  }
+  return results;
+}
+
 export async function runJob(
   database: DatabaseClient,
   clock: Clock,
@@ -191,6 +271,64 @@ export async function runJob(
   return executeClaimedJob(database, clock, agentInvoker, scheduler, job);
 }
 
+export async function completeDispatchedJob(
+  database: DatabaseClient,
+  jobId: string,
+  runId: string,
+): Promise<void> {
+  const job = await loadDispatchedJob(database, jobId, runId);
+  if (!job) return;
+  if (!(await deliveryIsComplete(database, job))) {
+    throw new Error(
+      `The ${job.kind} job did not reach every required recipient`,
+    );
+  }
+  await completeClaimedJob(database, job);
+}
+
+export async function failDispatchedJob(
+  database: DatabaseClient,
+  now: Date,
+  jobId: string,
+  runId: string,
+): Promise<void> {
+  const job = await loadDispatchedJob(database, jobId, runId);
+  if (job) await recordJobFailure(database, now, job);
+}
+
+async function loadDispatchedJob(
+  database: DatabaseClient,
+  jobId: string,
+  runId: string,
+): Promise<JobRow | undefined> {
+  const sql = sqlClient(database);
+  const [job] = await sql<JobRow[]>`
+    select id, home_id, visit_id, kind, due_at, status, external_ref,
+      claim_token, claimed_at, attempt_count, available_at, run_id
+    from public.scheduled_jobs
+    where id = ${jobId} and run_id = ${runId} and status = 'running'
+  `;
+  return job;
+}
+
+export async function replayQuarantinedJob(
+  database: DatabaseClient,
+  jobId: string,
+  now: Date,
+): Promise<void> {
+  const sql = sqlClient(database);
+  const [replayed] = await sql<{ id: string }[]>`
+    update public.scheduled_jobs
+    set status = 'scheduled', attempt_count = 0,
+      available_at = ${now.toISOString()}, quarantined_at = null,
+      claim_token = null, claimed_at = null, run_id = null,
+      last_error = null
+    where id = ${jobId} and status = 'quarantined'
+    returning id
+  `;
+  if (!replayed) throw new Error(`Quarantined job not found: ${jobId}`);
+}
+
 async function executeClaimedJob(
   database: DatabaseClient,
   clock: Clock,
@@ -198,41 +336,8 @@ async function executeClaimedJob(
   scheduler: JobScheduler,
   job: JobRow,
 ): Promise<JobRunResult> {
-  const sql = sqlClient(database);
   try {
-    const { transition, changed } = await sql.begin(async (transaction) => {
-      const [visitRow] = await transaction<VisitRow[]>`
-        select id, home_id, lower(stay)::text as stay_start, status,
-          confirmed_at, reconfirm_requested_at, reconfirmed_at, escalated_at
-        from public.visits
-        where id = ${job.visit_id}
-        for update
-      `;
-      if (!visitRow) throw new Error(`Visit not found: ${job.visit_id}`);
-
-      const visit = toVisit(visitRow);
-      const next = transitionFor(job.kind, visit, clock.now());
-      if (next.visit !== visit) {
-        await transaction`
-          update public.visits
-          set status = ${next.visit.status},
-            reconfirm_requested_at = ${timestamp(next.visit.reconfirmRequestedAt)},
-            reconfirmed_at = ${timestamp(next.visit.reconfirmedAt)},
-            escalated_at = ${timestamp(next.visit.escalatedAt)}
-          where id = ${visit.id}
-        `;
-      }
-      return { transition: next, changed: next.visit !== visit };
-    });
-
-    await scheduleJobs(database, scheduler, transition.jobs);
-    const candidateAction = actionFor(job.kind, transition);
-    const action =
-      candidateAction !== "none" &&
-      !changed &&
-      (await deliveryIsComplete(database, job))
-        ? "none"
-        : candidateAction;
+    const action = await prepareClaimedJob(database, clock, scheduler, job);
     if (action !== "none") {
       await agentInvoker.run({
         task: "tick",
@@ -246,25 +351,99 @@ async function executeClaimedJob(
       }
     }
 
-    const [completed] = await sql<{ id: string }[]>`
+    await completeClaimedJob(database, job);
+    return result(job, action, "done");
+  } catch (error) {
+    await recordJobFailure(database, clock.now(), job);
+    throw error;
+  }
+}
+
+async function prepareClaimedJob(
+  database: DatabaseClient,
+  clock: Clock,
+  scheduler: JobScheduler,
+  job: JobRow,
+): Promise<JobRunResult["action"]> {
+  const sql = sqlClient(database);
+  const { transition, changed } = await sql.begin(async (transaction) => {
+    const [visitRow] = await transaction<VisitRow[]>`
+        select id, home_id, lower(stay)::text as stay_start, status,
+          confirmed_at, reconfirm_requested_at, reconfirmed_at, escalated_at
+        from public.visits
+        where id = ${job.visit_id}
+        for update
+      `;
+    if (!visitRow) throw new Error(`Visit not found: ${job.visit_id}`);
+
+    const visit = toVisit(visitRow);
+    const next = transitionFor(job.kind, visit, clock.now());
+    if (next.visit !== visit) {
+      await transaction`
+          update public.visits
+          set status = ${next.visit.status},
+            reconfirm_requested_at = ${timestamp(next.visit.reconfirmRequestedAt)},
+            reconfirmed_at = ${timestamp(next.visit.reconfirmedAt)},
+            escalated_at = ${timestamp(next.visit.escalatedAt)}
+          where id = ${visit.id}
+        `;
+    }
+    return { transition: next, changed: next.visit !== visit };
+  });
+
+  await scheduleJobs(database, scheduler, transition.jobs);
+  const candidateAction = actionFor(job.kind, transition);
+  return candidateAction !== "none" &&
+    !changed &&
+    (await deliveryIsComplete(database, job))
+    ? "none"
+    : candidateAction;
+}
+
+async function completeClaimedJob(
+  database: DatabaseClient,
+  job: JobRow,
+): Promise<void> {
+  const sql = sqlClient(database);
+  const [completed] = await sql<{ id: string }[]>`
       update public.scheduled_jobs
       set status = 'done', claim_token = null, claimed_at = null,
-        last_error = null
+        last_error = null, run_id = null
       where id = ${job.id} and status = 'running'
         and claim_token = ${job.claim_token}
       returning id
     `;
-    if (!completed) throw new Error(`Lost scheduled job lease: ${job.id}`);
-    return result(job, action, "done");
-  } catch (error) {
+  if (!completed) throw new Error(`Lost scheduled job lease: ${job.id}`);
+}
+
+async function recordJobFailure(
+  database: DatabaseClient,
+  now: Date,
+  job: JobRow,
+): Promise<void> {
+  const sql = sqlClient(database);
+  const quarantined = job.attempt_count >= MAX_JOB_ATTEMPTS;
+  const delay = JOB_RETRY_DELAYS_MS[job.attempt_count - 1] ?? 0;
+  const failed = await sql<{ id: string }[]>`
+    update public.scheduled_jobs
+    set status = ${quarantined ? "quarantined" : "scheduled"},
+      claim_token = null, claimed_at = null, run_id = null,
+      available_at = ${new Date(now.getTime() + delay).toISOString()},
+      quarantined_at = ${quarantined ? now.toISOString() : null},
+      last_error = 'Scheduled job execution failed'
+    where id = ${job.id} and status = 'running'
+      and claim_token = ${job.claim_token}
+    returning id
+  `;
+  if (quarantined && failed.length > 0) {
     await sql`
-      update public.scheduled_jobs
-      set status = 'scheduled', claim_token = null, claimed_at = null,
-        last_error = ${error instanceof Error ? error.message : String(error)}
-      where id = ${job.id} and status = 'running'
-        and claim_token = ${job.claim_token}
+      insert into public.audit_events (home_id, actor, kind, payload)
+      values (
+        ${job.home_id}, 'system', 'scheduled_job_quarantined',
+        ${JSON.stringify({ jobId: job.id, kind: job.kind })}::text::jsonb
+      )
     `;
-    throw error;
+    console.error("[SCHEDULED_JOB_QUARANTINED]", { jobId: job.id });
   }
 }
 
@@ -284,9 +463,18 @@ async function claimDueJob(
       from public.scheduled_jobs
       where (
           status = 'scheduled'
-          or (status = 'running' and claimed_at <= ${staleBefore.toISOString()})
+          or (
+            status = 'running'
+            and claimed_at <= ${staleBefore.toISOString()}
+            and not exists (
+              select 1 from public.runs
+              where runs.id = scheduled_jobs.run_id
+                and runs.status in ('queued', 'running')
+            )
+          )
         )
         and due_at <= ${now.toISOString()}
+        and available_at <= ${now.toISOString()}
         and id <> all(${transaction.array([...excludedJobIds])}::uuid[])
         and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
         and (
@@ -308,7 +496,7 @@ async function claimDueJob(
     where job.id = due.id
     returning job.id, job.home_id, job.visit_id, job.kind, job.due_at,
       job.status, job.external_ref, job.claim_token, job.claimed_at,
-      job.attempt_count
+      job.attempt_count, job.available_at, job.run_id
   `,
   );
   return rows[0];
@@ -328,8 +516,17 @@ async function claimJob(
       select id from public.scheduled_jobs
       where id = ${jobId}
         and (status = 'scheduled'
-          or (status = 'running' and claimed_at <= ${staleBefore.toISOString()}))
+          or (
+            status = 'running'
+            and claimed_at <= ${staleBefore.toISOString()}
+            and not exists (
+              select 1 from public.runs
+              where runs.id = scheduled_jobs.run_id
+                and runs.status in ('queued', 'running')
+            )
+          ))
         and due_at <= ${now.toISOString()}
+        and available_at <= ${now.toISOString()}
       for update skip locked
     )
     update public.scheduled_jobs as job
@@ -340,7 +537,7 @@ async function claimJob(
     where job.id = due.id
     returning job.id, job.home_id, job.visit_id, job.kind, job.due_at,
       job.status, job.external_ref, job.claim_token, job.claimed_at,
-      job.attempt_count
+      job.attempt_count, job.available_at, job.run_id
   `,
   );
   return rows[0];
@@ -354,6 +551,7 @@ async function loadJob(
   const rows = await sql<JobRow[]>`
     select id, home_id, visit_id, kind, due_at, status, external_ref,
       claim_token, claimed_at, attempt_count
+      , available_at, run_id
     from public.scheduled_jobs where id = ${jobId}
   `;
   return rows[0];
@@ -366,13 +564,34 @@ export async function reconcileStaleRuns(
 ): Promise<number> {
   const sql = sqlClient(database);
   return sql.begin(async (transaction) => {
+    const recovered = await transaction<{ id: string }[]>`
+      update public.runs
+      set status = 'queued', queue_available_at = ${now.toISOString()},
+        queue_claimed_at = null, queue_claim_token = null,
+        heartbeat_at = null, deadline_at = null,
+        result = ${JSON.stringify({
+          code: "run_lease_recovered",
+          summary:
+            "The agent run was recovered after its worker lease expired.",
+        })}::text::jsonb,
+        last_error = 'Agent worker lease expired'
+      where status = 'running'
+        and queue_claim_token is not null
+        and execution_attempt_count < 3
+        and deadline_at is not null
+        and deadline_at <= ${now.toISOString()}
+        and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
+      returning id
+    `;
     const rows = await transaction<{ id: string }[]>`
       update public.runs
       set status = 'failed', finished_at = ${now.toISOString()},
         result = ${JSON.stringify({
           code: "run_deadline_exceeded",
           summary: "The agent run exceeded its execution deadline.",
-        })}::text::jsonb
+        })}::text::jsonb,
+        queue_claimed_at = null, queue_claim_token = null,
+        last_error = 'Agent execution deadline exceeded'
       where status = 'running'
         and deadline_at is not null
         and deadline_at <= ${now.toISOString()}
@@ -392,7 +611,7 @@ export async function reconcileStaleRuns(
           )
       `;
     }
-    return rows.length;
+    return recovered.length + rows.length;
   });
 }
 

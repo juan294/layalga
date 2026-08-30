@@ -30,7 +30,10 @@ describe("agent request safety", () => {
       clock.advance(10 * 60 * 1_000);
       const later = await runAgentTask(
         task,
-        deps(new ScriptedModel([{ text: "Invitation recorded again." }]), clock),
+        deps(
+          new ScriptedModel([{ text: "Invitation recorded again." }]),
+          clock,
+        ),
       );
       expect(later.runId).not.toBe(first.runId);
       const [count] = await sql<{ count: number }[]>`
@@ -86,6 +89,10 @@ describe("agent request safety", () => {
         status: "failed",
         request_attempt_count: 1,
       });
+      await sql`
+        update public.runs set execution_attempt_count = 3
+        where id = ${failed!.id}
+      `;
 
       const retried = await runAgentTask(
         task,
@@ -93,14 +100,20 @@ describe("agent request safety", () => {
       );
       expect(retried).toMatchObject({ runId: failed!.id, status: "completed" });
       const [completed] = await sql<
-        { status: string; request_attempt_count: number }[]
+        {
+          status: string;
+          request_attempt_count: number;
+          execution_attempt_count: number;
+        }[]
       >`
-        select status, request_attempt_count from public.runs
+        select status, request_attempt_count, execution_attempt_count
+        from public.runs
         where id = ${failed!.id}
       `;
       expect(completed).toEqual({
         status: "completed",
         request_attempt_count: 2,
+        execution_attempt_count: 1,
       });
     } finally {
       await cleanup(fixture);

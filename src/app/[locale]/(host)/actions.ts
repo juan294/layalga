@@ -7,18 +7,17 @@ import {
   MAX_DECISION_NOTE_LENGTH,
   MAX_HOST_MESSAGE_LENGTH,
 } from "@/agent/task-limits";
-import { reissueInvitationLink } from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { requireHost } from "@/lib/auth/current-host";
-import { parseServerEnvironment } from "@/lib/server/env";
 import {
   reportActionError,
   reportedActionError,
 } from "@/lib/server/action-errors";
 
 export interface CaptureState {
-  status: "idle" | "success" | "error";
+  status: "idle" | "queued" | "success" | "error";
+  runId?: string;
   summary?: string;
   guestLink?: string;
   structured?: unknown;
@@ -38,45 +37,17 @@ export async function captureInvitationAction(
   }
 
   try {
-    const result = await getAgentClient().run({
+    const result = await getAgentClient().enqueue({
       task: "host_capture",
       homeId: host.homeId,
       hostId: host.id,
       rawMessage,
       locale,
     });
-    const sql = sqlClient(getDatabaseConnection().db);
-    const [audit] = await sql<{ payload: unknown }[]>`
-      select payload
-      from public.audit_events
-      where run_id = ${result.runId}
-        and kind = 'tool_call'
-        and payload->>'name' = 'capture_invitation'
-      order by created_at desc
-      limit 1
-    `;
-    const payload = objectValue(audit?.payload);
-    const invitationId =
-      typeof payload?.invitationId === "string" ? payload.invitationId : null;
-    const [invitation] = invitationId
-      ? await sql<{ structured: unknown }[]>`
-          select structured
-          from public.invitations
-          where id = ${invitationId} and home_id = ${host.homeId}
-        `
-      : [];
-    const guestLink = invitationId
-      ? await reissueInvitationLink(getDatabaseConnection().db, invitationId, {
-          appUrl: parseServerEnvironment().appUrl,
-        })
-      : undefined;
-
-    revalidatePath(`/${locale}`);
     return {
-      status: "success",
+      status: "queued",
+      runId: result.runId,
       summary: result.summary,
-      guestLink,
-      structured: invitation?.structured,
     };
   } catch (error) {
     reportActionError("host_capture_failed", error);
@@ -124,7 +95,7 @@ export async function decideAction(formData: FormData): Promise<void> {
     `;
     if (!decision) return;
 
-    await getAgentClient().run({
+    await getAgentClient().enqueue({
       task: "resume",
       homeId: host.homeId,
       sessionId: decision.agent_session_id,
@@ -143,17 +114,4 @@ export async function decideAction(formData: FormData): Promise<void> {
 
 function localeValue(formData: FormData): "en" | "es" {
   return formData.get("locale") === "es" ? "es" : "en";
-}
-
-function objectValue(value: unknown): Record<string, unknown> | null {
-  if (typeof value === "string") {
-    try {
-      return objectValue(JSON.parse(value));
-    } catch {
-      return null;
-    }
-  }
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }

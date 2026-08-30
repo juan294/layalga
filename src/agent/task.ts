@@ -78,7 +78,7 @@ export type HostDecision = z.infer<typeof hostDecisionSchema>;
 
 export interface RunResult {
   runId: string;
-  status: "completed" | "interrupted" | "failed";
+  status: "queued" | "completed" | "interrupted" | "failed";
   sessionId: string;
   pendingDecisionIds: string[];
   summary: string;

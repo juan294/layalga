@@ -21,9 +21,11 @@ export type VisitStatus =
   | "escalated"
   | "cancelled";
 export type DecisionStatus = "pending" | "approved" | "declined";
-export type RunStatus = "running" | "completed" | "interrupted" | "failed";
+export type RunStatus =
+  "queued" | "running" | "completed" | "interrupted" | "failed";
 export type ScheduledJobKind = "reconfirm_chase" | "reconfirm_escalate";
-export type ScheduledJobStatus = "scheduled" | "running" | "done" | "cancelled";
+export type ScheduledJobStatus =
+  "scheduled" | "running" | "done" | "cancelled" | "quarantined";
 export type RecipientKind = "host" | "party";
 export type StayRange = readonly [start: string, end: string];
 
@@ -240,6 +242,19 @@ export const runs = pgTable("runs", {
   finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
   heartbeatAt: timestamp("heartbeat_at", { withTimezone: true, mode: "date" }),
   deadlineAt: timestamp("deadline_at", { withTimezone: true, mode: "date" }),
+  queueAvailableAt: timestamp("queue_available_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  queueClaimedAt: timestamp("queue_claimed_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  queueClaimToken: uuid("queue_claim_token"),
+  executionAttemptCount: integer("execution_attempt_count")
+    .notNull()
+    .default(0),
+  lastError: text("last_error"),
 });
 
 export const pendingDecisions = pgTable("pending_decisions", {
@@ -310,6 +325,19 @@ export const scheduledJobs = pgTable(
     claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
     claimToken: uuid("claim_token"),
     attemptCount: integer("attempt_count").notNull().default(0),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    quarantinedAt: timestamp("quarantined_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    runId: uuid("run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
     lastError: text("last_error"),
     createdAt: createdAt(),
   },

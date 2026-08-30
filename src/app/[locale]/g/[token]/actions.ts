@@ -152,7 +152,7 @@ export async function submitGuestVisit(
 
   const [start, end] = parsed.data.stay.split("|") as [string, string];
   try {
-    const result = await getAgentClient().run({
+    const result = await getAgentClient().enqueue({
       task: "guest_submit",
       homeId: invitation.homeId,
       invitationId: invitation.id,
@@ -187,14 +187,14 @@ export async function requestGuestChange(formData: FormData): Promise<void> {
 
     const result =
       invitation.visit.status === "reconfirm_pending"
-        ? await getAgentClient().run({
+        ? await getAgentClient().enqueue({
             task: "guest_reconfirm",
             homeId: invitation.homeId,
             visitId: invitation.visit.id,
             answer: "change",
             message,
           })
-        : await getAgentClient().run({
+        : await getAgentClient().enqueue({
             task: "guest_change",
             homeId: invitation.homeId,
             visitId: invitation.visit.id,
