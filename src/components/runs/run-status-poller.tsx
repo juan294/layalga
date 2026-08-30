@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { z } from "zod";
 
 import type { RunSnapshot } from "@/app/api/runs/run-data";
 import { scriptedOutcomeKey } from "@/agent/scripted-outcomes";
@@ -16,6 +17,12 @@ import styles from "./run-status.module.css";
 const TERMINAL = new Set(["completed", "interrupted", "failed"]);
 const POLL_INTERVAL_MS = 1_500;
 const FALLBACK_POLL_DEADLINE_MS = 6 * 60_000;
+const runSnapshotSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(["queued", "running", "completed", "interrupted", "failed"]),
+  summary: z.string().nullable(),
+  finishedAt: z.iso.datetime().nullable(),
+});
 
 interface RunStatusPollerProps {
   initial: RunSnapshot;
@@ -24,6 +31,8 @@ interface RunStatusPollerProps {
   token?: string;
   timeZone: string;
   deadlineAt: string | null;
+  onSnapshot?: (snapshot: RunSnapshot) => void;
+  showReturnLink?: boolean;
 }
 
 export function RunStatusPoller({
@@ -33,12 +42,18 @@ export function RunStatusPoller({
   token,
   timeZone,
   deadlineAt,
+  onSnapshot,
+  showReturnLink = true,
 }: RunStatusPollerProps) {
   const t = useTranslations("Runs");
   const [run, setRun] = useState(initial);
   const [pollFailed, setPollFailed] = useState(false);
   const [pollStopped, setPollStopped] = useState(false);
   const [pollCycle, setPollCycle] = useState(0);
+
+  useEffect(() => {
+    onSnapshot?.(run);
+  }, [onSnapshot, run]);
 
   useEffect(() => {
     if (TERMINAL.has(run.status)) return;
@@ -76,7 +91,7 @@ export function RunStatusPoller({
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("run_poll_failed");
-        const next = (await response.json()) as RunSnapshot;
+        const next = runSnapshotSchema.parse(await response.json());
         if (!active) return;
         setRun(next);
         setPollFailed(false);
@@ -159,7 +174,7 @@ export function RunStatusPoller({
           {t("retryStatus")}
         </button>
       ) : null}
-      {TERMINAL.has(run.status) ? (
+      {showReturnLink && TERMINAL.has(run.status) ? (
         <a
           className={styles.returnLink}
           data-testid="run-return"

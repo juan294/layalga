@@ -44,7 +44,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm exec next dev --port ${e2ePort}`,
+    command: `./node_modules/.bin/next dev --webpack --port ${e2ePort}`,
     env: e2eEnv,
     url: e2eBaseUrl,
     reuseExistingServer: false,

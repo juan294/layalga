@@ -129,6 +129,7 @@ describe("product and UX remediation contracts", () => {
           retryDeclined: "Retry decline",
           retryDeclining: "Retrying decline…",
           retryHelp: "Retry help",
+          applying: "Applying decision",
         }}
         locale="en"
       />,

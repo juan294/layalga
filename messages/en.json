@@ -81,7 +81,12 @@
       "copied": "Copied",
       "copyFailed": "Copy failed. Select and copy the link.",
       "emptyError": "Enter an invitation message.",
-      "failedError": "The invitation could not be captured."
+      "failedError": "The invitation could not be captured.",
+      "queued": "Invitation queued",
+      "statusLink": "Open run status",
+      "reveal": "Prepare private guest link",
+      "revealing": "Preparing private link…",
+      "completionFailed": "The completed invitation could not be loaded. Try again."
     },
     "decisions": {
       "eyebrow": "Host review",
@@ -106,7 +111,8 @@
       "retryApproving": "Retrying approval…",
       "retryDeclined": "Retry decline",
       "retryDeclining": "Retrying decline…",
-      "retryHelp": "Your decision was saved, but the booking run did not finish. Retry the recorded decision."
+      "retryHelp": "Your decision was saved, but the booking run did not finish. Retry the recorded decision.",
+      "applying": "Your decision was saved and is being applied."
     },
     "decisionReasons": {
       "children": "Children need host approval",
@@ -241,6 +247,7 @@
     "eyebrow": "Agent run",
     "title": "Updating the household ledger",
     "working": "The request is still being processed.",
+    "queuedBody": "The request is queued and will start shortly.",
     "pollFailed": "The latest status could not be loaded. Retrying…",
     "pollStopped": "Automatic updates paused. Check the latest status when you are ready.",
     "retryStatus": "Check status",

@@ -81,7 +81,12 @@
       "copied": "Copiado",
       "copyFailed": "No se pudo copiar. Selecciona y copia el enlace.",
       "emptyError": "Escribe un mensaje de invitación.",
-      "failedError": "No se pudo registrar la invitación."
+      "failedError": "No se pudo registrar la invitación.",
+      "queued": "Invitación en cola",
+      "statusLink": "Abrir el estado de la ejecución",
+      "reveal": "Preparar el enlace privado",
+      "revealing": "Preparando el enlace privado…",
+      "completionFailed": "No se pudo cargar la invitación terminada. Inténtalo de nuevo."
     },
     "decisions": {
       "eyebrow": "Revisión del anfitrión",
@@ -106,7 +111,8 @@
       "retryApproving": "Reintentando aprobación…",
       "retryDeclined": "Reintentar rechazo",
       "retryDeclining": "Reintentando rechazo…",
-      "retryHelp": "La decisión se guardó, pero la reserva no terminó. Reintenta la misma decisión."
+      "retryHelp": "La decisión se guardó, pero la reserva no terminó. Reintenta la misma decisión.",
+      "applying": "La decisión se guardó y se está aplicando."
     },
     "decisionReasons": {
       "children": "Los menores requieren aprobación del anfitrión",
@@ -241,6 +247,7 @@
     "eyebrow": "Ejecución del agente",
     "title": "Actualizando el libro del hogar",
     "working": "La solicitud sigue en curso.",
+    "queuedBody": "La solicitud está en cola y comenzará pronto.",
     "pollFailed": "No se pudo cargar el último estado. Reintentando…",
     "pollStopped": "Las actualizaciones automáticas están en pausa. Consulta el último estado cuando quieras.",
     "retryStatus": "Consultar estado",

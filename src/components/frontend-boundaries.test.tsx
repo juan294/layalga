@@ -5,18 +5,26 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("@/app/[locale]/(host)/actions", () => ({
   captureInvitationAction: vi.fn(),
+  revealCapturedInvitationAction: vi.fn(),
 }));
 vi.mock("@/app/[locale]/g/[token]/actions", () => ({
   findGuestOptions: vi.fn(),
   submitGuestVisit: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 import {
+  CaptureFormBoundary,
   CaptureSuccessAnnouncement,
   CopyFeedback,
+  captureStatusHref,
+  captureSubmitDisabled,
   copyButtonLabel,
 } from "./host/capture-invitation-form";
 import { buttonStyle } from "./host/host-styles";
+import { DemoClockPanel } from "./host/demo-clock-panel";
 import { shouldFocusGuestOptions } from "./guest/guest-invite-form";
 
 describe("frontend boundary remediation", () => {
@@ -51,6 +59,54 @@ describe("frontend boundary remediation", () => {
     expect(copyButtonLabel("idle", "Copy", "Copied")).toBe("Copy");
     expect(copyButtonLabel("failed", "Copy", "Copied")).toBe("Copy");
     expect(copyButtonLabel("copied", "Copy", "Copied")).toBe("Copied");
+  });
+
+  test("keeps queued capture and completion forms as DOM siblings", () => {
+    const html = renderToStaticMarkup(
+      <CaptureFormBoundary
+        captureForm={<form data-testid="capture-submit" />}
+        resultPanel={<form data-testid="capture-completion" />}
+      />,
+    );
+
+    expect(html.match(/<form/g)).toHaveLength(2);
+    expect(html).toMatch(
+      /capture-submit[^>]*><\/form><form[^>]*capture-completion/,
+    );
+  });
+
+  test("guards a queued capture until that exact run becomes terminal", () => {
+    expect(captureSubmitDisabled(false, "run-1", null)).toBe(true);
+    expect(captureSubmitDisabled(false, "run-1", "run-1")).toBe(false);
+    expect(captureSubmitDisabled(true, null, null)).toBe(true);
+    expect(captureSubmitDisabled(false, null, null)).toBe(false);
+    expect(captureStatusHref("es", "run-1")).toBe(
+      "/es/runs/run-1/status?returnTo=%2Fes",
+    );
+  });
+
+  test("hydrates the demo clock with server-formatted household text", () => {
+    const html = renderToStaticMarkup(
+      <DemoClockPanel
+        current="2026-09-07T08:00:00.000Z"
+        currentLabel="SERVER CLOCK TEXT"
+        homeId="home-1"
+        labels={{
+          current: "Current",
+          chase: "Chase",
+          escalation: "Escalate",
+          custom: "Custom",
+          set: "Set",
+          working: "Working",
+          error: "Error",
+        }}
+        locale="en"
+        timeZone="Europe/Madrid"
+      />,
+    );
+
+    expect(html).toContain("SERVER CLOCK TEXT");
+    expect(html).not.toContain("Sep 7");
   });
 
   test("uses shared target sizes without preventing wrapped labels", async () => {

@@ -21,6 +21,7 @@ import {
 
 interface DemoClockPanelProps {
   current: string;
+  currentLabel: string;
   homeId: string;
   locale: string;
   timeZone: string;
@@ -37,12 +38,14 @@ interface DemoClockPanelProps {
 
 export function DemoClockPanel({
   current,
+  currentLabel,
   homeId,
   locale,
   timeZone,
   labels,
 }: DemoClockPanelProps) {
   const [now, setNow] = useState(current);
+  const [nowLabel, setNowLabel] = useState(currentLabel);
   const router = useRouter();
   const [custom, setCustom] = useState(clockInputValue(current, timeZone));
   const [working, setWorking] = useState<
@@ -68,6 +71,7 @@ export function DemoClockPanel({
         throw new Error("clock_response");
       }
       setNow(result.now);
+      setNowLabel(formatHouseholdDateTime(result.now, locale, timeZone));
       setCustom(clockInputValue(result.now, timeZone));
       router.refresh();
     } catch {
@@ -96,7 +100,7 @@ export function DemoClockPanel({
           margin: "0.45rem 0 0.8rem",
         }}
       >
-        {formatHouseholdDateTime(now, locale, timeZone)}
+        {nowLabel}
       </time>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
         <button

@@ -50,6 +50,7 @@ interface PendingDecisionsProps {
     retryDeclined: string;
     retryDeclining: string;
     retryHelp: string;
+    applying: string;
   };
 }
 
@@ -166,23 +167,29 @@ export function PendingDecisions({
           ) : (
             <div>
               {decision.applicationFailed ? (
-                <p style={{ color: graphite, lineHeight: 1.5 }}>
-                  {labels.retryHelp}
+                <>
+                  <p style={{ color: graphite, lineHeight: 1.5 }}>
+                    {labels.retryHelp}
+                  </p>
+                  <PendingDecisionRetryButton
+                    idleLabel={
+                      decision.status === "approved"
+                        ? labels.retryApproved
+                        : labels.retryDeclined
+                    }
+                    pendingLabel={
+                      decision.status === "approved"
+                        ? labels.retryApproving
+                        : labels.retryDeclining
+                    }
+                    style={buttonStyle}
+                  />
+                </>
+              ) : (
+                <p aria-live="polite" role="status" style={{ color: graphite }}>
+                  {labels.applying}
                 </p>
-              ) : null}
-              <PendingDecisionRetryButton
-                idleLabel={
-                  decision.status === "approved"
-                    ? labels.retryApproved
-                    : labels.retryDeclined
-                }
-                pendingLabel={
-                  decision.status === "approved"
-                    ? labels.retryApproving
-                    : labels.retryDeclining
-                }
-                style={buttonStyle}
-              />
+              )}
             </div>
           )}
         </form>

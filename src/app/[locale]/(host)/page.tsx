@@ -367,6 +367,7 @@ export default async function HostPage({
                 retryDeclined: t("decisions.retryDeclined"),
                 retryDeclining: t("decisions.retryDeclining"),
                 retryHelp: t("decisions.retryHelp"),
+                applying: t("decisions.applying"),
               }}
               locale={safeLocale}
             />
@@ -389,8 +390,14 @@ export default async function HostPage({
                 copyFailed: t("capture.copyFailed"),
                 emptyError: t("capture.emptyError"),
                 failedError: t("capture.failedError"),
+                queued: t("capture.queued"),
+                statusLink: t("capture.statusLink"),
+                reveal: t("capture.reveal"),
+                revealing: t("capture.revealing"),
+                completionFailed: t("capture.completionFailed"),
               }}
               locale={safeLocale}
+              timeZone={timeZone}
             />
           </section>
 
@@ -405,6 +412,11 @@ export default async function HostPage({
               </p>
               <DemoClockPanel
                 current={new Date(clockRows[0].now).toISOString()}
+                currentLabel={formatHouseholdDateTime(
+                  String(clockRows[0].now),
+                  safeLocale,
+                  clockRows[0].timezone,
+                )}
                 homeId={host.homeId}
                 labels={{
                   current: t("demo.current"),
