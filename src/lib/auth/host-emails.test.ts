@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { hostEmailIndex } from "./host-emails";
+import { normalizeHostEmail } from "./host-emails";
 
-describe("host email allow-list", () => {
-  it("matches normalized addresses and preserves configured order", () => {
-    expect(hostEmailIndex(" COVA@example.com ", "nel@example.com, cova@example.com")).toBe(1);
+describe("host identity email", () => {
+  it("normalizes the same way for configuration and identity-provider claims", () => {
+    expect(normalizeHostEmail(" COVA@Example.COM ")).toBe("cova@example.com");
   });
 
-  it("fails closed for missing or unlisted addresses", () => {
-    expect(hostEmailIndex(undefined, "nel@example.com")).toBe(-1);
-    expect(hostEmailIndex("other@example.com", undefined)).toBe(-1);
+  it("fails closed for missing or blank addresses", () => {
+    expect(normalizeHostEmail(undefined)).toBeNull();
+    expect(normalizeHostEmail("   ")).toBeNull();
   });
 });

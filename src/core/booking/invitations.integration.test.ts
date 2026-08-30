@@ -55,7 +55,7 @@ describe("invitation persistence", () => {
         { link_token: string; link_token_expires_at: Date }[]
       >`
         select link_token, link_token_expires_at
-        from public.parties where id = ${captured.partyId}
+        from public.invitations where id = ${captured.invitationId}
       `;
       expect(stored?.link_token).not.toBe(token);
       expect(stored?.link_token_expires_at.toISOString()).toBe(
@@ -85,6 +85,80 @@ describe("invitation persistence", () => {
       ).toMatchObject({
         id: captured.invitationId,
       });
+    } finally {
+      await db`delete from public.homes where id = ${home.id}`;
+    }
+  });
+
+  it("keeps each family invitation link bound to its original invitation", async () => {
+    const suffix = randomUUID();
+    const [home] = await db<{ id: string }[]>`
+      insert into public.homes (name, timezone)
+      values (${`Stable invitation ${suffix}`}, 'Europe/Madrid')
+      returning id
+    `;
+    if (!home) throw new Error("Failed to seed invitation home");
+    const [host] = await db<{ id: string }[]>`
+      insert into public.hosts (home_id, display_name, locale)
+      values (${home.id}, 'Host', 'en')
+      returning id
+    `;
+    if (!host) throw new Error("Failed to seed invitation host");
+
+    const secret = "stable-invitation-secret";
+    try {
+      const first = await captureInvitation(db, {
+        homeId: home.id,
+        hostId: host.id,
+        partyName: "Returning family",
+        partyLocale: "en",
+        rawMessage: "First visit",
+        tokenSecret: secret,
+        appUrl: "https://example.test",
+        now: new Date("2026-08-31T10:00:00.000Z"),
+      });
+      const second = await captureInvitation(db, {
+        homeId: home.id,
+        hostId: host.id,
+        partyName: "Returning family",
+        partyLocale: "en",
+        rawMessage: "Second visit",
+        tokenSecret: secret,
+        appUrl: "https://example.test",
+        now: new Date("2026-09-01T10:00:00.000Z"),
+      });
+      const firstToken = new URL(first.guestLink).pathname.split("/").at(-1)!;
+      const secondToken = new URL(second.guestLink).pathname.split("/").at(-1)!;
+
+      expect(await findInvitationByToken(db, firstToken, secret)).toMatchObject({
+        id: first.invitationId,
+        rawMessage: "First visit",
+      });
+      expect(await findInvitationByToken(db, secondToken, secret)).toMatchObject({
+        id: second.invitationId,
+        rawMessage: "Second visit",
+      });
+
+      const replacementLink = await reissueInvitationLink(
+        db,
+        second.invitationId,
+        {
+          tokenSecret: secret,
+          appUrl: "https://example.test",
+          now: new Date("2026-09-02T10:00:00.000Z"),
+        },
+      );
+      const replacementToken = new URL(replacementLink).pathname
+        .split("/")
+        .at(-1)!;
+
+      expect(await findInvitationByToken(db, firstToken, secret)).toMatchObject({
+        id: first.invitationId,
+      });
+      expect(await findInvitationByToken(db, secondToken, secret)).toBeNull();
+      expect(
+        await findInvitationByToken(db, replacementToken, secret),
+      ).toMatchObject({ id: second.invitationId });
     } finally {
       await db`delete from public.homes where id = ${home.id}`;
     }

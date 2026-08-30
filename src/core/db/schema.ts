@@ -108,13 +108,11 @@ export const parties = pgTable("parties", {
     .references(() => homes.id, { onDelete: "cascade" }),
   familyName: text("family_name").notNull(),
   locale: text("locale").$type<Locale>().notNull(),
-  linkToken: text("link_token").notNull().unique(),
+  linkToken: text("link_token").unique(),
   linkTokenExpiresAt: timestamp("link_token_expires_at", {
     withTimezone: true,
     mode: "date",
-  })
-    .notNull()
-    .default(sql`now() + interval '30 days'`),
+  }),
   authUserId: uuid("auth_user_id"),
   createdAt: createdAt(),
 });
@@ -139,7 +137,29 @@ export const invitations = pgTable("invitations", {
     .$type<InvitationStatus>()
     .notNull()
     .default("tentative"),
+  linkToken: text("link_token").unique(),
+  linkTokenExpiresAt: timestamp("link_token_expires_at", {
+    withTimezone: true,
+    mode: "date",
+  }).default(sql`now() + interval '30 days'`),
+  linkTokenRevokedAt: timestamp("link_token_revoked_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
   createdAt: createdAt(),
+});
+
+export const hostIdentityClaims = pgTable("host_identity_claims", {
+  normalizedEmail: text("normalized_email").primaryKey(),
+  hostId: uuid("host_id")
+    .notNull()
+    .references(() => hosts.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  authUserId: uuid("auth_user_id").unique(),
+  createdAt: createdAt(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true, mode: "date" }),
 });
 
 export const visits = pgTable("visits", {

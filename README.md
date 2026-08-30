@@ -91,14 +91,13 @@ LINK_TOKEN_SECRET=replace-with-at-least-32-random-bytes
 TICK_SECRET=replace-with-at-least-32-random-bytes
 AGENT_ROUTE_SECRET=replace-with-a-different-at-least-32-random-byte-secret
 CRON_SECRET=replace-with-at-least-32-random-bytes
-HOST_EMAILS=your-google-account@example.com
 GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
 Open `http://localhost:3008/en` or `/es`. Use the synthetic-host buttons to enter the demo without Google OAuth.
 
-For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Local Supabase allows the exact application return URL `http://localhost:3008/auth/callback` through `supabase/config.toml`. A hosted Supabase project used for local sign-in must allow that same exact application return URL. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only.
+For real host sign-in, create a Google OAuth web client and enable the Google provider in Supabase. The authorized Google callbacks are the hosted Supabase callback plus both supported local Supabase ports, `54321` and `54621`. Local Supabase allows the exact application return URL `http://localhost:3008/auth/callback` through `supabase/config.toml`. A hosted Supabase project used for local sign-in must allow that same exact application return URL. Keep the client secret in `.env.local`, Supabase Auth, and the deployment secret store only. Before sign-in, provision the normalized email to one explicit host and home in `host_identity_claims`; an unmatched or conflicting identity fails closed. See the [runtime database and identity runbook](docs/release/runtime-database-and-identity.md).
 
 Run the complete local checks in this order:
 
@@ -113,7 +112,7 @@ pnpm run demo:e2e -- --base http://localhost:3008
 pnpm run release:probes -- --base http://localhost:3008
 ```
 
-The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract.
+The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
 
 ## Deployment shape
 
@@ -123,12 +122,13 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 
 ## Safety contracts
 
-- Guest URLs contain high-entropy tokens; only token hashes are stored.
+- Each guest URL is scoped to one invitation. URLs contain high-entropy tokens; only invitation-scoped HMACs are stored.
 - Guest views never reveal another party name or room name.
-- Host access uses Supabase Google Auth, with an explicit email allow-list for the first claim. Synthetic demo cookies work only for demo homes when `DEMO_MODE=true`.
-- Public tables have RLS enabled and no direct client policies. Server code uses the service connection.
+- Host access uses Supabase Google Auth, with a normalized email mapped to one explicit host and home. Synthetic demo cookies work only for demo homes when `DEMO_MODE=true`.
+- Public tables have RLS enabled and no direct client policies. Hosted web and agent processes use separate non-owner PostgreSQL roles with explicit object grants; migration and release operations use a separate administrative connection.
 - Policy runs before consequential tools, and the database independently enforces room exclusivity.
 - Run, decision, tool, scheduler, and notification actions are auditable.
+- A daily state-aware retention job minimizes terminal prompt/session data without deleting active interrupts, pending decisions, open jobs, audit metadata, or demo fixtures.
 - Synthetic release probes tag and delete only their own data.
 
 ## Hackathon disclosure

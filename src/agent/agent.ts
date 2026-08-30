@@ -11,6 +11,7 @@ import { parseServerEnvironment } from "@/lib/server/env";
 
 import { buildTools, type AgentDeps } from "./deps";
 import { installPolicyHook } from "./policy-hook";
+import { PromptMinimizingModel } from "./prompt-minimization";
 import { PostgresStorage } from "./storage/postgres-storage";
 import { systemPrompts } from "./system-prompt";
 
@@ -38,13 +39,15 @@ export function buildAgent({ sessionId, deps, model }: BuildAgentOptions): Agent
   return agent;
 }
 
-function bedrockModel(): BedrockModel {
+function bedrockModel() {
   const config = parseServerEnvironment();
   if (config.model !== "bedrock") {
     throw new Error("A model must be provided when MODEL is scripted");
   }
-  return new BedrockModel({
-    region: config.awsRegion!,
-    modelId: config.bedrockModelId!,
-  });
+  return new PromptMinimizingModel(
+    new BedrockModel({
+      region: config.awsRegion!,
+      modelId: config.bedrockModelId!,
+    }),
+  );
 }

@@ -9,7 +9,7 @@ import { getDatabaseConnection } from "@/core/db/client";
 import { createClient } from "@/lib/supabase/server";
 
 import { DEMO_HOST_COOKIE, readDemoHostCookie } from "./demo-session";
-import { hostEmailIndex } from "./host-emails";
+import { claimHostIdentity } from "./host-identity";
 
 export interface HostRecord {
   id: string;
@@ -55,26 +55,9 @@ export async function claimHostForUser(user: User): Promise<HostRecord | null> {
   const existing = await findHostByAuthUserId(user.id);
   if (existing) return existing;
 
-  const emailIndex = hostEmailIndex(user.email);
-  if (emailIndex < 0) return null;
-
   const sql = getDatabaseConnection().sql;
-  const [claimed] = await sql<{ id: string }[]>`
-    with target as (
-      select id
-      from public.hosts
-      order by created_at, id
-      limit 1 offset ${emailIndex}
-    )
-    update public.hosts as host
-    set auth_user_id = ${user.id}
-    from target
-    where host.id = target.id
-      and (host.auth_user_id is null or host.auth_user_id = ${user.id})
-    returning host.id
-  `;
-
-  return claimed ? findHostById(claimed.id) : null;
+  const claimedHostId = await claimHostIdentity(sql, user.id, user.email);
+  return claimedHostId ? findHostById(claimedHostId) : null;
 }
 
 async function findHostByAuthUserId(authUserId: string): Promise<HostRecord | null> {
