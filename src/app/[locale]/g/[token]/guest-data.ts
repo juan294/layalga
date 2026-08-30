@@ -19,11 +19,16 @@ export interface GuestVisit {
   roomCount: number;
   hasOverlap: boolean;
   chaseMessage: string | null;
+  holdExpiresAt: string | null;
+  holdExpired: boolean;
+  preArrival: boolean;
+  timeZone: string;
 }
 
 export interface GuestInvitationData {
   id: string;
   homeId: string;
+  partyId: string;
   partyName: string;
   partyLocale: "en" | "es";
   structured: Record<string, unknown>;
@@ -58,6 +63,10 @@ export async function loadGuestInvitation(
       status: GuestVisitStatus;
       room_count: number;
       has_overlap: boolean;
+      hold_expires_at: Date | string | null;
+      hold_expired: boolean;
+      pre_arrival: boolean;
+      timezone: string;
     }[]
   >`
     select
@@ -68,6 +77,12 @@ export async function loadGuestInvitation(
       v.children,
       v.pets,
       v.status,
+      v.hold_expires_at,
+      h.timezone,
+      v.hold_expires_at is not null
+        and v.hold_expires_at <= coalesce(dc.now, now()) as hold_expired,
+      lower(v.stay) >
+        (coalesce(dc.now, now()) at time zone h.timezone)::date as pre_arrival,
       (
         select count(*)::integer
         from public.visit_rooms vr
@@ -84,6 +99,8 @@ export async function loadGuestInvitation(
           and other.stay && v.stay
       ) as has_overlap
     from public.visits v
+    join public.homes h on h.id = v.home_id
+    left join public.demo_clock dc on dc.home_id = h.id and dc.enabled
     where v.invitation_id = ${invitation.id}
     order by v.created_at desc
     limit 1
@@ -114,6 +131,7 @@ export async function loadGuestInvitation(
   return {
     id: invitation.id,
     homeId: invitation.homeId,
+    partyId: invitation.partyId,
     partyName: invitation.partyName,
     partyLocale: invitation.partyLocale,
     structured: record(invitation.structured),
@@ -128,6 +146,12 @@ export async function loadGuestInvitation(
           roomCount: visit.room_count,
           hasOverlap: visit.has_overlap,
           chaseMessage,
+          holdExpiresAt: visit.hold_expires_at
+            ? new Date(visit.hold_expires_at).toISOString()
+            : null,
+          holdExpired: visit.hold_expired,
+          preArrival: visit.pre_arrival,
+          timeZone: visit.timezone,
         }
       : null,
   };

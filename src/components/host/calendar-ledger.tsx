@@ -1,4 +1,5 @@
 import { graphite, ink, labelStyle, rule, teal } from "./host-styles";
+import { formatDateStay } from "../frontend-utils";
 import { StatusChip } from "./status-chip";
 import styles from "./calendar-ledger.module.css";
 
@@ -18,6 +19,13 @@ interface CalendarLedgerProps {
   statusLabels: Record<string, string>;
   emptyLabel: string;
   roomsLabel: string;
+  navigation: {
+    previousHref: string;
+    previousLabel: string;
+    nextHref: string;
+    nextLabel: string;
+    visitCountLabel: string;
+  };
 }
 
 export function CalendarLedger({
@@ -27,6 +35,7 @@ export function CalendarLedger({
   statusLabels,
   emptyLabel,
   roomsLabel,
+  navigation,
 }: CalendarLedgerProps) {
   const days = monthDays(month);
   const monthLabel = new Intl.DateTimeFormat(locale, {
@@ -37,6 +46,12 @@ export function CalendarLedger({
 
   return (
     <>
+      <nav aria-label={monthLabel} className={styles.navigation}>
+        <a href={navigation.previousHref}>{navigation.previousLabel}</a>
+        <strong>{monthLabel}</strong>
+        <a href={navigation.nextHref}>{navigation.nextLabel}</a>
+        <span>{navigation.visitCountLabel}</span>
+      </nav>
       <div
         aria-hidden="true"
         className={styles.visual}
@@ -53,7 +68,7 @@ export function CalendarLedger({
           }}
         >
           <p style={{ ...labelStyle, color: teal }}>{monthLabel}</p>
-          <p style={labelStyle}>{visits.length || emptyLabel}</p>
+          <p style={labelStyle}>{navigation.visitCountLabel}</p>
         </div>
         <div style={{ minWidth: "40rem" }}>
           {days.map((day) => {
@@ -178,7 +193,7 @@ export function CalendarLedger({
               <li key={visit.id}>
                 <strong>{visit.familyName}</strong>
                 <time dateTime={`${visit.start}/${visit.end}`}>
-                  {formatStay(visit, locale)}
+                  {formatDateStay([visit.start, visit.end], locale)}
                 </time>
                 <small>{statusLabels[visit.status] ?? visit.status}</small>
                 <p>
@@ -193,16 +208,6 @@ export function CalendarLedger({
       </section>
     </>
   );
-}
-
-function formatStay(visit: LedgerVisit, locale: string): string {
-  const formatter = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeZone: "UTC",
-  });
-  return `${formatter.format(new Date(`${visit.start}T00:00:00Z`))} – ${formatter.format(
-    new Date(`${visit.end}T00:00:00Z`),
-  )}`;
 }
 
 function monthDays(month: Date): Date[] {

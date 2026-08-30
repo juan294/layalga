@@ -2,15 +2,33 @@
   overflow-x: auto;
 }
 
+.navigation {
+  align-items: center;
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 0.65rem 1rem;
+  grid-template-columns: auto 1fr auto;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  text-align: center;
+}
+
+.navigation a {
+  border-bottom: 2px solid var(--teal);
+  color: var(--teal);
+  font-weight: 750;
+  padding: 0.5rem;
+  text-decoration: none;
+}
+
+.navigation span {
+  color: var(--graphite);
+  grid-column: 1 / -1;
+}
+
 .agenda {
   border-top: 2px solid var(--ink);
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
+  margin-top: 1rem;
 }
 
 .agenda ol {
@@ -43,13 +61,13 @@
     display: none;
   }
 
-  .agenda {
-    clip: auto;
-    clip-path: none;
-    height: auto;
-    overflow: visible;
-    position: static;
-    white-space: normal;
-    width: auto;
+  .navigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .navigation strong,
+  .navigation span {
+    grid-column: 1 / -1;
+    grid-row: auto;
   }
 }

@@ -10,6 +10,7 @@ import { sqlClient } from "@/core/db/client";
 import type { AgentDeps } from "./deps";
 import { ScriptedModel, type ScriptStep } from "./scripted-model";
 import type { AgentTask } from "./task";
+import { scriptedOutcome } from "./scripted-outcomes";
 
 /** Deterministic local model used only when MODEL=scripted. */
 export class TaskScriptedModel extends ScriptedModel {
@@ -35,11 +36,11 @@ export class TaskScriptedModel extends ScriptedModel {
         return { text: result.error };
       }
       if (typeof result.invitationId === "string") {
-        return { text: "The private guest link is ready." };
+        return { text: scriptedOutcome("invitationReady") };
       }
       if (typeof result.visitId === "string") {
         return result.status === "confirmed"
-          ? { text: "The visit is confirmed." }
+          ? { text: scriptedOutcome("visitConfirmed") }
           : {
               toolUse: {
                 name: "confirm_visit",
@@ -50,7 +51,7 @@ export class TaskScriptedModel extends ScriptedModel {
       if (typeof result.notificationId === "string") {
         return this.tickStep(notificationResultCount(messages));
       }
-      return { text: "The household ledger is up to date." };
+      return { text: scriptedOutcome("ledgerUpdated") };
     }
 
     if (this.task.task === "host_capture") {
@@ -95,12 +96,12 @@ export class TaskScriptedModel extends ScriptedModel {
       return this.tickStep(0);
     }
 
-    return { text: "The household ledger is up to date." };
+    return { text: scriptedOutcome("ledgerUpdated") };
   }
 
   private async tickStep(notificationCount: number): Promise<ScriptStep> {
     if (this.task.task !== "tick") {
-      return { text: "The household ledger is up to date." };
+      return { text: scriptedOutcome("ledgerUpdated") };
     }
     const sql = sqlClient(this.deps.db);
     const [job] = await sql<
@@ -117,12 +118,11 @@ export class TaskScriptedModel extends ScriptedModel {
       join public.parties as party on party.id = visit.party_id
       where job.id = ${this.task.jobId}
     `;
-    if (!job)
-      return { text: "The scheduled follow-up is no longer available." };
+    if (!job) return { text: scriptedOutcome("followUpUnavailable") };
 
     if (job.kind === "reconfirm_chase") {
       if (notificationCount > 0) {
-        return { text: "The guest received the reconfirmation request." };
+        return { text: scriptedOutcome("guestReconfirmationSent") };
       }
       return notificationStep({
         recipientKind: "party",
@@ -142,7 +142,7 @@ export class TaskScriptedModel extends ScriptedModel {
     `;
     const host = hosts[notificationCount];
     if (!host) {
-      return { text: "Both hosts received the escalation." };
+      return { text: scriptedOutcome("escalationSent") };
     }
     return notificationStep({
       recipientKind: "host",

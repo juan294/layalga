@@ -34,6 +34,9 @@
     "localeEnglish": "English",
     "localeSpanish": "Español",
     "unknownParty": "Invitado desconocido",
+    "account": {
+      "signOut": "Cerrar sesión"
+    },
     "status": {
       "hold": "En espera",
       "confirmed": "Confirmada",
@@ -59,7 +62,10 @@
       "eyebrow": "El mes de un vistazo",
       "title": "Calendario de visitas",
       "empty": "No hay visitas registradas para este mes.",
-      "rooms": "Habitaciones"
+      "rooms": "Habitaciones",
+      "previous": "Mes anterior",
+      "next": "Mes siguiente",
+      "visitCount": "{count, plural, =0 {No hay visitas este mes} one {# visita este mes} other {# visitas este mes}}"
     },
     "capture": {
       "eyebrow": "Nueva invitación",
@@ -81,15 +87,25 @@
       "eyebrow": "Revisión del anfitrión",
       "title": "Decisiones pendientes",
       "empty": "No hay decisiones que revisar.",
-      "requested": "Estancia solicitada",
+      "requestedStay": "Estancia solicitada",
+      "createdAt": "Solicitud recibida",
+      "requestDetail": "Detalle de la solicitud",
+      "overlap": "Fechas compartidas",
+      "overlapSummary": "{count, plural, one {Coincide con # estancia; los nombres de los huéspedes son privados} other {Coincide con # estancias; los nombres de los huéspedes son privados}}",
+      "stayUnavailable": "El registro anterior no contiene una propuesta de estancia verificada.",
       "reason": "Motivo de la revisión",
       "partySummary": "{adults} adultos · {children} menores · {pets} mascotas",
+      "contextUnavailable": "El registro anterior no contiene un recuento verificado de huéspedes.",
       "note": "Nota",
       "notePlaceholder": "Añade una nota opcional para el invitado.",
       "approve": "Aprobar",
+      "approving": "Aprobando…",
       "decline": "Rechazar",
+      "declining": "Rechazando…",
       "retryApproved": "Reintentar aprobación",
+      "retryApproving": "Reintentando aprobación…",
       "retryDeclined": "Reintentar rechazo",
+      "retryDeclining": "Reintentando rechazo…",
       "retryHelp": "La decisión se guardó, pero la reserva no terminó. Reintenta la misma decisión."
     },
     "decisionReasons": {
@@ -114,6 +130,22 @@
       "reconfirmChase": "Recordatorio de reconfirmación enviado",
       "reconfirmEscalation": "Reconfirmación avisada al anfitrión",
       "other": "Actividad del hogar"
+    },
+    "activityTools": {
+      "captureInvitation": "Registrar invitación",
+      "confirmVisit": "Confirmar visita",
+      "createTemporaryHold": "Crear reserva temporal",
+      "evaluateOverlap": "Comprobar disponibilidad del hogar",
+      "findVisitOptions": "Buscar opciones de visita",
+      "notify": "Enviar aviso del hogar",
+      "rescheduleVisit": "Cambiar las fechas de la visita",
+      "other": "Acción del hogar"
+    },
+    "activityPolicies": {
+      "allow": "Permitida",
+      "deny": "No permitida",
+      "interrupt": "Requiere revisión del anfitrión",
+      "other": "Política comprobada"
     }
   },
   "Guest": {
@@ -124,8 +156,12 @@
     "claimOptional": "Cuenta opcional",
     "claimBenefit": "Inicia sesión después de responder si quieres guardar esta visita en tu cuenta.",
     "claimFailed": "Este registro de huésped ya está vinculado a otra cuenta.",
+    "claimComplete": "Guardada en tu cuenta",
+    "claimCompleteBody": "Puedes volver a abrir esta visita desde tu cuenta de huésped sin el enlace de invitación.",
+    "openAccount": "Abrir mis visitas",
     "invitedTitle": "Elige tu estancia",
     "holdTitle": "Tus habitaciones están reservadas temporalmente",
+    "holdExpiredTitle": "La reserva temporal ha caducado",
     "confirmedTitle": "Tu estancia está confirmada",
     "reconfirm_pendingTitle": "Confirma que vais a venir",
     "reconfirmedTitle": "Tu visita está reconfirmada",
@@ -164,6 +200,9 @@
     "roomCount": "{count, plural, one {# habitación} other {# habitaciones}}",
     "sharedStayNote": "Otro grupo también estará en la casa durante parte de esta estancia.",
     "chaseMessageFallback": "Confirma si todavía vais a venir.",
+    "holdActiveBody": "El hogar mantiene estas habitaciones hasta {expiry} mientras termina la confirmación. Puedes esperar o solicitar un cambio abajo.",
+    "holdExpiredBody": "La reserva temporal caducó a las {expiry}. No es una confirmación. Solicita un cambio abajo o pide al anfitrión que revise la visita.",
+    "holdExpiryUnavailable": "la fecha límite registrada",
     "reconfirmYes": "Sí, vamos a venir",
     "reconfirming": "Confirmando…",
     "requestChangeTitle": "Solicitar un cambio",
@@ -172,6 +211,24 @@
     "requestingChange": "Enviando solicitud…",
     "status": {
       "invited": "Invitado",
+      "hold": "En espera",
+      "holdExpired": "Reserva caducada",
+      "confirmed": "Confirmada",
+      "reconfirm_pending": "Falta confirmación",
+      "reconfirmed": "Reconfirmada",
+      "escalated": "En revisión",
+      "cancelled": "Cancelada"
+    }
+  },
+  "GuestAccount": {
+    "eyebrow": "Cuenta opcional de huésped",
+    "title": "Mis visitas",
+    "signInBody": "Inicia sesión con la misma cuenta de Google que vinculaste desde una invitación.",
+    "signIn": "Iniciar sesión con Google",
+    "notFound": "Esta cuenta de Google no está vinculada a una visita. Abre primero un enlace de invitación para conectarla.",
+    "empty": "No hay visitas vinculadas a esta cuenta.",
+    "signOut": "Cerrar sesión",
+    "status": {
       "hold": "En espera",
       "confirmed": "Confirmada",
       "reconfirm_pending": "Falta confirmación",
@@ -195,10 +252,19 @@
     "returnToVisit": "Volver a la visita",
     "notFound": "No se encontró esta ejecución.",
     "status": {
+      "queued": "En cola",
       "running": "En curso",
       "completed": "Finalizada",
       "interrupted": "Esperando al anfitrión",
       "failed": "Fallida"
+    },
+    "outcomes": {
+      "invitationReady": "El enlace privado del huésped está listo.",
+      "visitConfirmed": "La visita está confirmada.",
+      "ledgerUpdated": "El libro del hogar está actualizado.",
+      "followUpUnavailable": "El seguimiento programado ya no está disponible.",
+      "guestReconfirmationSent": "El huésped recibió la solicitud de reconfirmación.",
+      "escalationSent": "Los dos anfitriones recibieron el aviso."
     }
   },
   "RouteStates": {

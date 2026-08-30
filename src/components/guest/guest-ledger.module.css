@@ -250,12 +250,31 @@
 }
 
 .sharedNote,
-.chase {
+.chase,
+.holdNotice {
   border: 1px solid var(--guest-teal);
   color: var(--guest-muted);
   line-height: 1.55;
   margin: 0 0 1.4rem;
   padding: 0.9rem 1rem;
+}
+
+.accountVisits {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+
+.accountVisits li {
+  border-bottom: 1px solid var(--guest-rule);
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+}
+
+.accountVisits span,
+.accountVisits small {
+  color: var(--guest-muted);
 }
 
 @media (max-width: 36rem) {

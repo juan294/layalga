@@ -2,11 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { routing } from "@/i18n/routing";
 import { claimHostForUser } from "@/lib/auth/current-host";
-import {
-  clearOAuthNextCookie,
-  oauthNextPath,
-} from "@/lib/auth/oauth-next";
+import { clearOAuthNextCookie, oauthNextPath } from "@/lib/auth/oauth-next";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
+import { hasPartyForUser } from "@/lib/auth/guest-account";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -28,7 +26,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             NextResponse.redirect(new URL(next, request.url)),
           );
         }
-        if (!guestToken && (await claimHostForUser(user))) {
+        if (guestAccountPath(next) && (await hasPartyForUser(user.id))) {
+          return clearOAuthNextCookie(
+            NextResponse.redirect(new URL(next, request.url)),
+          );
+        }
+        if (
+          !guestToken &&
+          !guestAccountPath(next) &&
+          (await claimHostForUser(user))
+        ) {
           return clearOAuthNextCookie(
             NextResponse.redirect(new URL(next, request.url)),
           );
@@ -40,13 +47,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         failed.searchParams.set("claim", "failed");
         return clearOAuthNextCookie(NextResponse.redirect(failed));
       }
-      return clearOAuthNextCookie(
-        signInRedirect(request, next, "not_a_host"),
-      );
+      if (guestAccountPath(next)) {
+        const failed = new URL(next, request.url);
+        failed.searchParams.set("account", "not_found");
+        return clearOAuthNextCookie(NextResponse.redirect(failed));
+      }
+      return clearOAuthNextCookie(signInRedirect(request, next, "not_a_host"));
     }
   }
 
   return clearOAuthNextCookie(signInRedirect(request, next, "oauth_failed"));
+}
+
+function guestAccountPath(value: string): boolean {
+  return /^\/(?:en|es)\/visits$/.test(value);
 }
 
 function guestTokenFromPath(value: string): string | null {

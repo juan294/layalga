@@ -1,9 +1,14 @@
 import { getTranslations } from "next-intl/server";
 
+import { verifiedHostDecisionContext } from "@/agent/host-decision-context";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { requireHost } from "@/lib/auth/current-host";
 import {
+  calendarMonthFromSearch,
+  calendarMonthValue,
+  calendarMonthWindow,
+  formatDateStay,
   formatHouseholdDateTime,
   householdMonth,
 } from "@/components/frontend-utils";
@@ -18,12 +23,17 @@ import {
   type PendingDecisionItem,
 } from "@/components/host/pending-decisions";
 import {
+  activityPolicyLabelKey,
+  activityToolLabelKey,
+} from "@/components/host/activity-labels";
+import {
   graphite,
   headingStyle,
   ink,
   labelStyle,
   panelStyle,
   paper,
+  quietButtonStyle,
   rule,
   sheet,
   teal,
@@ -31,6 +41,7 @@ import {
 
 interface HostPageProps {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ month?: string }>;
 }
 
 interface VisitRow {
@@ -46,12 +57,10 @@ interface DecisionRow {
   id: string;
   status: "pending" | "approved" | "declined";
   family_name: string | null;
-  adults: number | null;
-  children: number | null;
-  pets: number | null;
   reason: unknown;
   note: string | null;
   application_error: string | null;
+  overlap_count: number;
   created_at: Date | string;
 }
 
@@ -63,14 +72,37 @@ interface ActivityRow {
   created_at: Date | string;
 }
 
-export default async function HostPage({ params }: HostPageProps) {
+export default async function HostPage({
+  params,
+  searchParams,
+}: HostPageProps) {
   const { locale } = await params;
   const safeLocale = locale === "es" ? "es" : "en";
   const host = await requireHost(safeLocale);
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
+  const clockRows = await sql<
+    { now: Date | string | null; timezone: string }[]
+  >`
+    select dc.now, h.timezone
+    from public.homes h
+    left join public.demo_clock dc
+      on dc.home_id = h.id and dc.enabled
+    where h.id = ${host.homeId}
+  `;
+  const timeZone = clockRows[0]?.timezone ?? "UTC";
+  const defaultMonth = householdMonth(
+    clockRows[0]?.now ?? undefined,
+    undefined,
+    timeZone,
+  );
+  const calendarMonth = calendarMonthFromSearch(
+    (await searchParams).month,
+    defaultMonth,
+  );
+  const calendarWindow = calendarMonthWindow(calendarMonth);
 
-  const [visitRows, decisionRows, activityRows, clockRows] = await Promise.all([
+  const [visitRows, decisionRows, activityRows] = await Promise.all([
     sql<VisitRow[]>`
       select v.id, p.family_name, lower(v.stay)::text as stay_start,
         upper(v.stay)::text as stay_end, v.status,
@@ -80,16 +112,41 @@ export default async function HostPage({ params }: HostPageProps) {
       join public.parties p on p.id = v.party_id
       left join public.visit_rooms vr on vr.visit_id = v.id
       left join public.rooms r on r.id = vr.room_id
-      where v.home_id = ${host.homeId} and v.status <> 'cancelled'
+      where v.home_id = ${host.homeId}
+        and v.status <> 'cancelled'
+        and v.stay && daterange(
+          ${calendarWindow.from}::date,
+          ${calendarWindow.to}::date,
+          '[)'
+        )
       group by v.id, p.family_name
       order by lower(v.stay), p.family_name
     `,
     sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
-        nullif(rn.payload->>'adults', '')::int as adults,
-        nullif(rn.payload->>'children', '')::int as children,
-        nullif(rn.payload->>'pets', '')::int as pets,
-        pd.reason, pd.note, pd.application_error, pd.created_at
+        pd.reason, pd.note, pd.application_error, pd.created_at,
+        case
+          when pd.reason->>'stayApprovalHash' ~ '^[0-9a-f]{64}$'
+            and pd.reason#>>'{requestedDraft,stay,0}' is not null
+            and pd.reason#>>'{requestedDraft,stay,1}' is not null
+          then (
+            select count(*)::integer
+            from public.visits other
+            where other.home_id = pd.home_id
+              and other.status <> 'cancelled'
+              and case
+                when rn.payload->>'visitId' ~* '^[0-9a-f-]{36}$'
+                then other.id <> (rn.payload->>'visitId')::uuid
+                else true
+              end
+              and other.stay && daterange(
+                (pd.reason#>>'{requestedDraft,stay,0}')::date,
+                (pd.reason#>>'{requestedDraft,stay,1}')::date,
+                '[)'
+              )
+          )
+          else 0
+        end as overlap_count
       from public.pending_decisions pd
       join public.runs rn on rn.id = pd.run_id
       left join public.visits v on v.id = pd.visit_id
@@ -129,13 +186,6 @@ export default async function HostPage({ params }: HostPageProps) {
       order by created_at desc
       limit 20
     `,
-    sql<{ now: Date | string | null; timezone: string }[]>`
-      select dc.now, h.timezone
-      from public.homes h
-      left join public.demo_clock dc
-        on dc.home_id = h.id and dc.enabled
-      where h.id = ${host.homeId}
-    `,
   ]);
 
   const visits: LedgerVisit[] = visitRows.map((visit) => ({
@@ -146,30 +196,37 @@ export default async function HostPage({ params }: HostPageProps) {
     status: visit.status,
     rooms: visit.room_names,
   }));
-  const timeZone = clockRows[0]?.timezone ?? "UTC";
-  const calendarMonth = householdMonth(
-    clockRows[0]?.now ?? undefined,
-    visits[0]?.start,
-    timeZone,
-  );
-  const decisions: PendingDecisionItem[] = decisionRows.map((decision) => ({
-    id: decision.id,
-    status: decision.status,
-    partyName: decision.family_name ?? t("unknownParty"),
-    partySummary: t("decisions.partySummary", {
-      adults: decision.adults ?? 0,
-      children: decision.children ?? 0,
-      pets: decision.pets ?? 0,
-    }),
-    reason: reasonLabel(decision.reason, t),
-    note: decision.note,
-    applicationFailed: decision.application_error !== null,
-    requestedAt: formatHouseholdDateTime(
-      String(decision.created_at),
-      safeLocale,
-      timeZone,
-    ),
-  }));
+  const decisions: PendingDecisionItem[] = decisionRows.map((decision) => {
+    const context = verifiedHostDecisionContext(decision.reason);
+    return {
+      id: decision.id,
+      status: decision.status,
+      partyName: decision.family_name ?? t("unknownParty"),
+      partySummary: context
+        ? t("decisions.partySummary", {
+            adults: context.adults,
+            children: context.children,
+            pets: context.pets,
+          })
+        : t("decisions.contextUnavailable"),
+      reason: reasonLabel(decision.reason, t),
+      requestDetail: context?.specialRequests.join("; ") || null,
+      overlapSummary:
+        context && decision.overlap_count > 0
+          ? t("decisions.overlapSummary", { count: decision.overlap_count })
+          : null,
+      note: decision.note,
+      applicationFailed: decision.application_error !== null,
+      requestedStay: context
+        ? formatDateStay(context.stay, safeLocale)
+        : t("decisions.stayUnavailable"),
+      createdAt: formatHouseholdDateTime(
+        String(decision.created_at),
+        safeLocale,
+        timeZone,
+      ),
+    };
+  });
   const statusLabels = {
     hold: t("status.hold"),
     confirmed: t("status.confirmed"),
@@ -244,6 +301,12 @@ export default async function HostPage({ params }: HostPageProps) {
             <p style={{ color: graphite, margin: "0 0 0.55rem" }}>
               {t("welcome", { name: host.displayName })}
             </p>
+            <form action="/auth/sign-out" method="post">
+              <input name="locale" type="hidden" value={safeLocale} />
+              <button style={quietButtonStyle} type="submit">
+                {t("account.signOut")}
+              </button>
+            </form>
           </div>
         </header>
 
@@ -255,6 +318,15 @@ export default async function HostPage({ params }: HostPageProps) {
               emptyLabel={t("calendar.empty")}
               locale={safeLocale}
               month={calendarMonth}
+              navigation={{
+                previousHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, -1)}`,
+                previousLabel: t("calendar.previous"),
+                nextHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, 1)}`,
+                nextLabel: t("calendar.next"),
+                visitCountLabel: t("calendar.visitCount", {
+                  count: visits.length,
+                }),
+              }}
               roomsLabel={t("calendar.rooms")}
               statusLabels={statusLabels}
               visits={visits}
@@ -280,13 +352,20 @@ export default async function HostPage({ params }: HostPageProps) {
               labels={{
                 empty: t("decisions.empty"),
                 reason: t("decisions.reason"),
-                requested: t("decisions.requested"),
+                requestedStay: t("decisions.requestedStay"),
+                createdAt: t("decisions.createdAt"),
+                requestDetail: t("decisions.requestDetail"),
+                overlap: t("decisions.overlap"),
                 note: t("decisions.note"),
                 notePlaceholder: t("decisions.notePlaceholder"),
                 approve: t("decisions.approve"),
+                approving: t("decisions.approving"),
                 decline: t("decisions.decline"),
+                declining: t("decisions.declining"),
                 retryApproved: t("decisions.retryApproved"),
+                retryApproving: t("decisions.retryApproving"),
                 retryDeclined: t("decisions.retryDeclined"),
+                retryDeclining: t("decisions.retryDeclining"),
                 retryHelp: t("decisions.retryHelp"),
               }}
               locale={safeLocale}
@@ -434,10 +513,18 @@ function activityDetail(
   }
   const detail = objectValue(activity.detail);
   if (typeof detail?.name === "string") {
-    return t("activity.toolDetail", { name: detail.name });
+    const key = activityToolLabelKey(detail.name);
+    return t("activity.toolDetail", {
+      name: key ? t(`activityTools.${key}`) : t("activityTools.other"),
+    });
   }
   if (typeof detail?.decision === "string") {
-    return t("activity.policyDetail", { decision: detail.decision });
+    const key = activityPolicyLabelKey(detail.decision);
+    return t("activity.policyDetail", {
+      decision: key
+        ? t(`activityPolicies.${key}`)
+        : t("activityPolicies.other"),
+    });
   }
   return `${t("activity.noDetail")} · ${new Intl.DateTimeFormat(locale, {
     timeStyle: "short",

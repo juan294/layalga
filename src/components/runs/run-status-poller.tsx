@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import type { RunSnapshot } from "@/app/api/runs/run-data";
+import { scriptedOutcomeKey } from "@/agent/scripted-outcomes";
 import {
   formatHouseholdDateTime,
   pollDelay,
+  steadyPollDelay,
 } from "@/components/frontend-utils";
 
 import styles from "./run-status.module.css";
@@ -44,6 +46,7 @@ export function RunStatusPoller({
     let polling = false;
     let timer: ReturnType<typeof setTimeout>;
     let failures = 0;
+    let successes = 0;
     const startedAt = Date.now();
     const parsedDeadline = deadlineAt ? new Date(deadlineAt).getTime() : NaN;
     const stopAt = Number.isFinite(parsedDeadline)
@@ -79,7 +82,8 @@ export function RunStatusPoller({
         setPollFailed(false);
         failures = 0;
         if (!TERMINAL.has(next.status)) {
-          schedule(POLL_INTERVAL_MS);
+          successes += 1;
+          schedule(steadyPollDelay(successes));
         }
       } catch {
         if (!active) return;
@@ -132,7 +136,7 @@ export function RunStatusPoller({
       {run.summary ? (
         <div className={styles.summary}>
           <span>{t("summaryLabel")}</span>
-          <p>{run.summary}</p>
+          <p>{localizedSummary(run.summary, t)}</p>
         </div>
       ) : null}
       {run.finishedAt ? (
@@ -166,4 +170,12 @@ export function RunStatusPoller({
       ) : null}
     </section>
   );
+}
+
+function localizedSummary(
+  summary: string,
+  t: ReturnType<typeof useTranslations>,
+): string {
+  const key = scriptedOutcomeKey(summary);
+  return key ? t(`outcomes.${key}`) : summary;
 }

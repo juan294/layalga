@@ -8,7 +8,14 @@ import {
 } from "./guest-data";
 import { GuestActions } from "@/components/guest/guest-actions";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
+import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
 import styles from "@/components/guest/guest-ledger.module.css";
+import {
+  formatDateStay,
+  formatHouseholdDateTime,
+} from "@/components/frontend-utils";
+import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
+import { createClient } from "@/lib/supabase/server";
 
 interface GuestPageProps {
   params: Promise<{ locale: "en" | "es"; token: string }>;
@@ -48,8 +55,19 @@ export default async function GuestPage({
   }
 
   const status = invitation.visit?.status ?? "invited";
-  const title = t(`${status}Title`);
+  const presentation = invitation.visit
+    ? guestVisitPresentation(invitation.visit)
+    : null;
+  const statusKey = presentation?.statusKey ?? status;
+  const title = t(`${statusKey}Title`);
   const defaults = invitationDefaults(invitation.structured);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const claimed = user
+    ? await partyIsClaimedByUser(invitation.partyId, user.id)
+    : false;
 
   return (
     <main className={styles.shell}>
@@ -63,7 +81,7 @@ export default async function GuestPage({
             <p className={styles.eyebrow}>{t("eyebrow")}</p>
             <h1 className={styles.title}>{title}</h1>
           </div>
-          <span className={styles.stamp}>{t(`status.${status}`)}</span>
+          <span className={styles.stamp}>{t(`status.${statusKey}`)}</span>
         </header>
         <div className={styles.body}>
           <p className={styles.lede}>
@@ -88,15 +106,23 @@ export default async function GuestPage({
 
           <aside className={styles.claim}>
             <div>
-              <strong>{t("claimOptional")}</strong>
-              <p>{t("claimBenefit")}</p>
+              <strong>
+                {claimed ? t("claimComplete") : t("claimOptional")}
+              </strong>
+              <p>{claimed ? t("claimCompleteBody") : t("claimBenefit")}</p>
             </div>
-            <SignInButton
-              className={styles.secondaryButton}
-              label={t("claimWithGoogle")}
-              locale={locale}
-              nextPath={`/${locale}/g/${token}`}
-            />
+            {claimed ? (
+              <a className={styles.secondaryButton} href={`/${locale}/visits`}>
+                {t("openAccount")}
+              </a>
+            ) : (
+              <SignInButton
+                className={styles.secondaryButton}
+                label={t("claimWithGoogle")}
+                locale={locale}
+                nextPath={`/${locale}/g/${token}`}
+              />
+            )}
             {claimFailed ? <p role="alert">{t("claimFailed")}</p> : null}
           </aside>
         </div>
@@ -115,14 +141,13 @@ async function GuestVisitRecord({
   visit: GuestVisit;
 }) {
   const t = await getTranslations({ locale, namespace: "Guest" });
-  const canChange =
-    visit.status !== "cancelled" && visit.status !== "reconfirmed";
+  const presentation = guestVisitPresentation(visit);
 
   return (
     <section className={styles.summary}>
       <dl className={styles.factList}>
         <dt>{t("stayLabel")}</dt>
-        <dd>{formatStay(visit.stay, locale)}</dd>
+        <dd>{formatDateStay(visit.stay, locale)}</dd>
         <dt>{t("guestsLabel")}</dt>
         <dd>
           {t("guestCounts", {
@@ -145,7 +170,20 @@ async function GuestVisitRecord({
           {visit.chaseMessage ?? t("chaseMessageFallback")}
         </p>
       ) : null}
-      {canChange ? (
+      {presentation.holdMessageKey ? (
+        <p className={styles.holdNotice}>
+          {t(presentation.holdMessageKey, {
+            expiry: visit.holdExpiresAt
+              ? formatHouseholdDateTime(
+                  visit.holdExpiresAt,
+                  locale,
+                  visit.timeZone,
+                )
+              : t("holdExpiryUnavailable"),
+          })}
+        </p>
+      ) : null}
+      {presentation.canChange ? (
         <GuestActions
           canReconfirm={visit.status === "reconfirm_pending"}
           locale={locale}
@@ -195,14 +233,4 @@ function record(value: unknown): Record<string, unknown> {
 
 function stringValue(value: unknown): string | null {
   return typeof value === "string" ? value : null;
-}
-
-function formatStay(stay: readonly [string, string], locale: string): string {
-  const formatter = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeZone: "UTC",
-  });
-  return `${formatter.format(new Date(`${stay[0]}T00:00:00Z`))} – ${formatter.format(
-    new Date(`${stay[1]}T00:00:00Z`),
-  )}`;
 }

@@ -1,0 +1,44 @@
+import { expect, test } from "@playwright/test";
+
+import { seedDemo } from "../../scripts/seed-demo";
+import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
+
+const oterosToken = "o".repeat(43);
+const nelHostId = "00000000-0000-4000-8000-000000000201";
+
+test("@mobile guest link reaches a touch-safe host decision", async ({
+  context,
+  page,
+}) => {
+  const databaseUrl = process.env.DATABASE_URL;
+  const tokenSecret = process.env.LINK_TOKEN_SECRET;
+  if (!databaseUrl || !tokenSecret)
+    throw new Error("E2E database settings are missing");
+  await seedDemo(databaseUrl, tokenSecret);
+
+  await page.goto(`/en/g/${oterosToken}`);
+  await expect(page.getByTestId("guest-status")).toBeVisible();
+  await page.getByTestId("find-options").click();
+  await page.getByTestId("guest-option").first().check();
+  await page.getByTestId("guest-submit").click();
+  await expect(page.getByTestId("run-status")).toHaveAttribute(
+    "data-status",
+    "interrupted",
+  );
+
+  await context.addCookies([
+    {
+      httpOnly: true,
+      name: "layalga_demo_host",
+      sameSite: "Lax",
+      url: "http://127.0.0.1:3008",
+      value: createDemoHostCookie(nelHostId),
+    },
+  ]);
+  await page.goto("/en");
+  const approve = page.getByTestId("approve-decision");
+  await expect(approve).toBeVisible();
+  await expect(approve).toHaveCSS("min-height", "44px");
+  await approve.click();
+  await expect(page.getByTestId("pending-decision")).toHaveCount(0);
+});
