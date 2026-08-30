@@ -32,7 +32,7 @@ one real schedule observed firing.
 clock = new FakeClock('2026-09-07T10:00+02:00'); visit Vega confirmed 09-18 to 09-21
 ops = planChase(visit, 'Europe/Madrid') -> one job reconfirm_chase due 2026-09-15T09:00+02:00
 clock.set('2026-09-15T09:00+02:00'); run due -> visit.status 'reconfirm_pending', notify(party, 'reconfirm_chase'), job reconfirm_escalate due 2026-09-16T09:00+02:00
-branch A: clock.set('2026-09-16T09:05+02:00'); run due -> visit.status 'escalated', two notify(host) rows (Nel, Covadonga), escalate job done
+branch A: clock.set('2026-09-16T09:05+02:00'); run due -> visit.status 'escalated', two notify(host) rows (Juan, Jordan), escalate job done
 branch B: clock.set('2026-09-15T18:00+02:00'); applyGuestAnswer('yes') -> 'reconfirmed', escalate job cancelled; clock.set('2026-09-16T09:05+02:00'); run due -> no notifications, no status change
 branch C: chase planned when now is already past T-3 -> job due now (immediate chase), then the same 24 h escalation
 ```

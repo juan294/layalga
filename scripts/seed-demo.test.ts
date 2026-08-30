@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
+
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { hashLinkToken } from "@/core/booking/invitations";
+import { claimHostIdentity } from "@/lib/auth/host-identity";
 
 import { DEMO_SEED, seedDemo } from "./seed-demo";
 
@@ -77,5 +80,77 @@ describe("seedDemo", () => {
           left.normalized_email.localeCompare(right.normalized_email),
         ),
     );
+  });
+
+  it("seeds exactly the two real host identities", async () => {
+    await seedDemo(databaseUrl, "seed-demo-test-secret");
+
+    const hosts = await sql<
+      { normalized_email: string; display_name: string; host_id: string }[]
+    >`
+      select claim.normalized_email, host.display_name, claim.host_id
+      from public.host_identity_claims as claim
+      join public.hosts as host
+        on host.id = claim.host_id
+       and host.home_id = claim.home_id
+      where claim.home_id = ${DEMO_SEED.home.id}
+      order by claim.normalized_email
+    `;
+
+    expect(hosts).toEqual([
+      {
+        normalized_email: "jordanlynn5@gmail.com",
+        display_name: "Jordan Lynn",
+        host_id: "00000000-0000-4000-8000-000000000202",
+      },
+      {
+        normalized_email: "juan294@gmail.com",
+        display_name: "Juan González",
+        host_id: "00000000-0000-4000-8000-000000000201",
+      },
+    ]);
+  });
+
+  it("preserves an operator login across demo resets", async () => {
+    const userId = randomUUID();
+    await seedDemo(databaseUrl, "seed-demo-test-secret");
+
+    try {
+      await sql`
+        insert into auth.users (id, email, aud, role, created_at, updated_at)
+        values (
+          ${userId},
+          'jordanlynn5@gmail.com',
+          'authenticated',
+          'authenticated',
+          now(),
+          now()
+        )
+      `;
+
+      expect(
+        await claimHostIdentity(
+          sql,
+          userId,
+          "jordanlynn5@gmail.com",
+        ),
+      ).toBe("00000000-0000-4000-8000-000000000202");
+
+      await seedDemo(databaseUrl, "seed-demo-test-secret");
+
+      const [operator] = await sql<
+        { auth_user_id: string | null; display_name: string }[]
+      >`
+        select host.auth_user_id, host.display_name
+        from public.hosts as host
+        where host.id = '00000000-0000-4000-8000-000000000202'
+      `;
+      expect(operator).toEqual({
+        auth_user_id: userId,
+        display_name: "Jordan Lynn",
+      });
+    } finally {
+      await sql`delete from auth.users where id = ${userId}`;
+    }
   });
 });

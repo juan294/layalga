@@ -111,4 +111,4 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 
 ## Eligibility disclosure
 
-The repository was created during the hackathon submission period. Pre-existing cc-rpi v1.28.2 files provided development-process scaffolding. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period. The demonstration uses synthetic data only.
+The repository was created during the hackathon submission period. Pre-existing cc-rpi v1.28.2 files provided development-process scaffolding. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period. The two host names identify the real operators; all guest identities, invitations, visits, and notifications in the demonstration are synthetic.

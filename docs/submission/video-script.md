@@ -5,7 +5,7 @@ Target length: 4:55. Hard limit: 5:00.
 ## Before recording
 
 - Run `pnpm run demo:e2e -- --base <target>` once, then reset the demo.
-- Open one Spanish host tab as Nel and one English host tab as Covadonga.
+- Open one Spanish host tab as Juan and one English host tab as Jordan.
 - Open the Vega guest link in Spanish and the Oteros guest link in English.
 - Close password managers, notifications, bookmarks, and unrelated tabs.
 - Set browser zoom so the host calendar, decisions, activity, and demo clock fit without horizontal scrolling.
@@ -14,7 +14,7 @@ Target length: 4:55. Hard limit: 5:00.
 
 ## 0:00–0:45 — The problem and audience
 
-**On screen:** L’Ayalga title, then the empty host view shared by Nel and Covadonga.
+**On screen:** L’Ayalga title, then the empty host view shared by Juan and Jordan.
 
 **Narration:**
 
@@ -24,11 +24,11 @@ L’Ayalga turns an informal invitation into a private guest flow. It finds room
 
 ## 0:45–1:30 — Beat 1: capture an informal invitation
 
-**On screen:** Nel’s Spanish host tab. Paste the prepared Familia Vega invitation and submit it. Briefly show the queued run state, then the structured party, flexible dates, and generated guest link. Do not expose the full token for longer than needed.
+**On screen:** Juan’s Spanish host tab. Paste the prepared Familia Vega invitation and submit it. Briefly show the queued run state, then the structured party, flexible dates, and generated guest link. Do not expose the full token for longer than needed.
 
 **Narration:**
 
-“Nel receives this Spanish message from Familia Vega. She pastes it as-is. The request enters a durable Postgres queue, and this page follows that exact run to completion. A Strands agent calls a typed capture tool, keeps the original message for audit, and structures the party: two adults, two children, Spanish locale, and flexible dates.
+“Juan receives this Spanish message from Familia Vega. He pastes it as-is. The request enters a durable Postgres queue, and this page follows that exact run to completion. A Strands agent calls a typed capture tool, keeps the original message for audit, and structures the party: two adults, two children, Spanish locale, and flexible dates.
 
 The result is tentative, not booked. L’Ayalga creates a high-entropy guest link and stores only its hash. Vega can now choose from dates that the deterministic booking engine says are possible.”
 
@@ -44,19 +44,19 @@ When Vega submits these dates, the agent requests a temporary hold. Before the t
 
 ## 2:15–3:30 — Beat 3: interrupt, human decision, resume
 
-**On screen:** Covadonga’s English host tab. Capture the Oteros invitation. Open their English guest page and submit the prepared overlapping dates with the ground-floor wheelchair-access request. Switch to Nel’s host view. Show the pending decision reason, select Approve, then show the completed visit and activity entry.
+**On screen:** Jordan’s English host tab. Capture the Oteros invitation. Open their English guest page and submit the prepared overlapping dates with the ground-floor wheelchair-access request. Switch to Juan’s host view. Show the pending decision reason, select Approve, then show the completed visit and activity entry.
 
 **Narration:**
 
-“Covadonga independently invites the Oteros. Their dates overlap Vega, but partial overlap is a first-class case: free rooms still exist, and the children and pets rules pass.
+“Jordan independently invites the Oteros. Their dates overlap Vega, but partial overlap is a first-class case: free rooms still exist, and the children and pets rules pass.
 
 The Oteros also need ground-floor wheelchair access. That is a social exception, so the policy hook interrupts the Strands run before the booking tool executes. The complete session snapshot and a separate pending decision are stored in Postgres.
 
-Nel sees what is at stake and approves. A new run restores the saved session, supplies her response to the exact interrupt, and continues the pending tool call. The decision stays approved; a `decision_applied` audit event records the consuming run. The booking tool executes once, even though the process stopped and resumed.”
+Juan sees what is at stake and approves. A new run restores the saved session, supplies his response to the exact interrupt, and continues the pending tool call. The decision stays approved; a `decision_applied` audit event records the consuming run. The booking tool executes once, even though the process stopped and resumed.”
 
 ## 3:30–4:20 — Beat 4: proactive follow-through
 
-**On screen:** Host view with the labeled synthetic clock. Use the first preset to move to T-3. Show the two party chase notifications. Do not reconfirm Oteros. Use the second preset to move 24 hours forward. Show one escalation for Nel and one for Covadonga.
+**On screen:** Host view with the labeled synthetic clock. Use the first preset to move to T-3. Show the two party chase notifications. Do not reconfirm Oteros. Use the second preset to move 24 hours forward. Show one escalation for Juan and one for Jordan.
 
 **Narration:**
 

@@ -48,36 +48,17 @@ insert into public.hosts (id, home_id, display_name, locale) values
   (
     '00000000-0000-4000-8000-000000000201',
     '00000000-0000-4000-8000-000000000001',
-    'Nel',
-    'es'
+    'Juan González',
+    'en'
   ),
   (
     '00000000-0000-4000-8000-000000000202',
     '00000000-0000-4000-8000-000000000001',
-    'Covadonga',
+    'Jordan Lynn',
     'en'
   );
 
-insert into public.host_identity_claims (
-  normalized_email,
-  host_id,
-  home_id
-) values
-  (
-    'nel@example.com',
-    '00000000-0000-4000-8000-000000000201',
-    '00000000-0000-4000-8000-000000000001'
-  ),
-  (
-    'juan294@gmail.com',
-    '00000000-0000-4000-8000-000000000201',
-    '00000000-0000-4000-8000-000000000001'
-  ),
-  (
-    'covadonga@example.com',
-    '00000000-0000-4000-8000-000000000202',
-    '00000000-0000-4000-8000-000000000001'
-  );
+select private.restore_demo_identity_claims();
 
 insert into public.parties (
   id,

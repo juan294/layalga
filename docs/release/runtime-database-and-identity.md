@@ -73,9 +73,9 @@ from public.hosts as host
 where host.id = :'host_id'::uuid;
 ```
 
-Run this only through the administrative connection. The web role can read and claim a prepared mapping, but it cannot insert, delete, or redirect one. Existing claimed users are backfilled from `auth.users`; the fixed synthetic identities map to their existing demo host UUIDs. Duplicate user claims, conflicting emails, and missing mappings fail closed.
+Run this only through the administrative connection. The web role can read and claim a prepared mapping, but it cannot insert, delete, or redirect one. Existing claimed users are backfilled from `auth.users`. Duplicate user claims, conflicting emails, and missing mappings fail closed.
 
-The fixed Nel owner identity is also part of the migration and demo-reset data. This keeps the real Google host binding available after `POST /api/demo/reset` or `pnpm run seed:demo`; a reset must not reduce the house to synthetic-only access.
+Juan González and Jordan Lynn are the two stable host identities. The demo uses those same two host rows, so reminders still have exactly two recipients. The migration and every demo-reset path restore both email mappings and preserve an existing Google auth binding.
 
 Verify the mapping without printing the email:
 

@@ -2,6 +2,18 @@
 
 All notable changes to L’Ayalga are documented in this file.
 
+## [0.1.2] - 2026-08-30
+
+### Fixed
+
+- Replaced the synthetic host identities with the two real operators, Juan González and Jordan Lynn.
+- Preserved Juan’s existing Google account binding while provisioning Jordan’s account for later use.
+- Kept demo resets limited to exactly two host recipients so reconfirmation sends one escalation to each host.
+
+### Changed
+
+- Updated the README, architecture diagram, video script, runbook, and Devpost copy to use the real host identities and the `v0.1.2` release target.
+
 ## [0.1.1] - 2026-08-30
 
 ### Added
