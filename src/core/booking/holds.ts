@@ -2,6 +2,14 @@ import { createHash } from "node:crypto";
 
 import type { TransactionSql } from "postgres";
 
+import {
+  MAX_ADULTS,
+  MAX_CHILDREN,
+  MAX_PETS,
+  MAX_SPECIAL_REQUEST_LENGTH,
+  MAX_SPECIAL_REQUESTS,
+} from "@/agent/task-limits";
+
 import type { Clock } from "../clock";
 import { sqlClient, type DatabaseClient } from "../db/client";
 import {
@@ -96,6 +104,12 @@ interface VisitRow {
   approval_stay_hash: string | null;
   status: VisitStatus;
   hold_expires_at: Date | string | null;
+}
+
+interface SchedulingPlan {
+  cancelledExternalRefs: string[];
+  request: ScheduledJobRequest | null;
+  visitId: string;
 }
 
 export async function createTemporaryHold(
@@ -195,6 +209,13 @@ export async function confirmVisit(
       const visit = await loadVisitWithHomeLock(transaction, visitId);
       if (visit.status === "cancelled")
         throw new Error("A cancelled visit cannot be confirmed");
+      await assertHostInHome(transaction, approvedBy, visit.home_id);
+      if (visit.status !== "hold") {
+        return {
+          result: await existingVisitResult(transaction, visit),
+          scheduling: emptyScheduling(visit.id),
+        };
+      }
       assertActiveHold(visit, clock.now());
 
       const home = await loadHome(transaction, visit.home_id, false);
@@ -204,7 +225,6 @@ export async function confirmVisit(
         clock.now(),
       );
       const draft = visitDraft(visit);
-      await assertHostInHome(transaction, approvedBy, visit.home_id);
       const verdict = evaluateOverlap(
         draft,
         await loadHouseState(transaction, home, draft.stay),
@@ -213,14 +233,16 @@ export async function confirmVisit(
 
       const approvalHash = approvedBy ? stayApprovalHash(draft) : null;
       const now = clock.now();
-      await transaction`
+      const [confirmed] = await transaction<{ id: string }[]>`
         update public.visits
         set status = 'confirmed',
             confirmed_at = ${now.toISOString()},
             hold_expires_at = null,
             approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash)
-        where id = ${visitId}
+        where id = ${visitId} and status = 'hold'
+        returning id
       `;
+      if (!confirmed) throw new Error(`Visit is no longer held: ${visitId}`);
       const scheduling = await replaceChaseJob(
         transaction,
         visit,
@@ -339,6 +361,12 @@ export async function rescheduleVisit(
       };
       validateParty(draft);
       await assertHostInHome(transaction, input.approvedBy, current.home_id);
+      if (visitMatchesDraft(current, draft)) {
+        return {
+          result: await existingVisitResult(transaction, current),
+          scheduling: emptyScheduling(current.id),
+        };
+      }
       const verdict = evaluateOverlap(
         draft,
         await loadHouseState(transaction, home, draft.stay),
@@ -352,7 +380,7 @@ export async function rescheduleVisit(
           : null;
 
       await transaction`delete from public.visit_rooms where visit_id = ${current.id}`;
-      await transaction`
+      const [rescheduled] = await transaction<{ id: string }[]>`
         update public.visits
         set stay = daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)'),
             adults = ${draft.adults},
@@ -366,8 +394,12 @@ export async function rescheduleVisit(
             reconfirm_requested_at = null,
             reconfirmed_at = null,
             escalated_at = null
-        where id = ${current.id}
+        where id = ${current.id} and status = ${current.status}
+        returning id
       `;
+      if (!rescheduled) {
+        throw new Error(`Visit changed while being rescheduled: ${current.id}`);
+      }
       await insertVisitRooms(
         transaction,
         current.id,
@@ -482,6 +514,40 @@ function assertActiveHold(visit: VisitRow, now: Date): void {
   ) {
     throw new Error("An expired hold cannot be confirmed or rescheduled");
   }
+}
+
+function visitMatchesDraft(visit: VisitRow, draft: VisitDraft): boolean {
+  return (
+    visit.stay_start === String(draft.stay[0]) &&
+    visit.stay_end === String(draft.stay[1]) &&
+    visit.adults === draft.adults &&
+    visit.children === draft.children &&
+    visit.pets === draft.pets &&
+    visit.special_requests.length === draft.specialRequests.length &&
+    visit.special_requests.every(
+      (request, index) => request === draft.specialRequests[index],
+    )
+  );
+}
+
+async function existingVisitResult(
+  transaction: TransactionSql,
+  visit: VisitRow,
+): Promise<VisitResult> {
+  const allocation = await transaction<
+    { id: string; name: string; beds: number }[]
+  >`
+    select room.id, room.name, room.beds
+    from public.visit_rooms visit_room
+    join public.rooms room on room.id = visit_room.room_id
+    where visit_room.visit_id = ${visit.id}
+    order by room.created_at, room.id
+  `;
+  return { visitId: visit.id, allocation, status: visit.status };
+}
+
+function emptyScheduling(visitId: string): SchedulingPlan {
+  return { cancelledExternalRefs: [], request: null, visitId };
 }
 
 async function assertHostInHome(
@@ -701,11 +767,12 @@ async function replaceChaseJob(
 async function syncChaseJob(
   database: DatabaseClient,
   scheduler: JobScheduler,
-  scheduling: Awaited<ReturnType<typeof replaceChaseJob>>,
+  scheduling: SchedulingPlan,
 ): Promise<void> {
   for (const externalRef of scheduling.cancelledExternalRefs) {
     await scheduler.cancel(externalRef);
   }
+  if (!scheduling.request) return;
   await scheduleJobs(database, scheduler, [
     {
       type: "create",
@@ -770,6 +837,7 @@ function validateParty(input: {
   adults: number;
   children?: number;
   pets?: number;
+  specialRequests?: readonly string[];
 }): void {
   const values = [input.adults, input.children ?? 0, input.pets ?? 0];
   if (values.some((value) => !Number.isInteger(value) || value < 0)) {
@@ -777,6 +845,22 @@ function validateParty(input: {
   }
   if ((input.adults ?? 0) + (input.children ?? 0) === 0) {
     throw new RangeError("A visit must include at least one person");
+  }
+  if (
+    input.adults > MAX_ADULTS ||
+    (input.children ?? 0) > MAX_CHILDREN ||
+    (input.pets ?? 0) > MAX_PETS
+  ) {
+    throw new RangeError("Party counts exceed the supported maximum");
+  }
+  const specialRequests = input.specialRequests ?? [];
+  if (
+    specialRequests.length > MAX_SPECIAL_REQUESTS ||
+    specialRequests.some(
+      (request) => request.length > MAX_SPECIAL_REQUEST_LENGTH,
+    )
+  ) {
+    throw new RangeError("Special requests exceed the supported maximum");
   }
 }
 

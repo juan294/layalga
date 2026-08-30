@@ -7,6 +7,7 @@ import {
 } from "@strands-agents/sdk";
 
 import { sqlClient } from "@/core/db/client";
+import { parseServerEnvironment } from "@/lib/server/env";
 
 import { buildTools, type AgentDeps } from "./deps";
 import { installPolicyHook } from "./policy-hook";
@@ -20,14 +21,7 @@ export interface BuildAgentOptions {
 }
 
 export function buildAgent({ sessionId, deps, model }: BuildAgentOptions): Agent {
-  const selectedModel =
-    model ??
-    new BedrockModel({
-      region: process.env.AWS_REGION ?? "us-east-1",
-      modelId:
-        process.env.BEDROCK_MODEL_ID ??
-        "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    });
+  const selectedModel = model ?? bedrockModel();
   const agent = new Agent({
     model: selectedModel,
     tools: buildTools(deps),
@@ -42,4 +36,15 @@ export function buildAgent({ sessionId, deps, model }: BuildAgentOptions): Agent
   });
   installPolicyHook(agent, deps);
   return agent;
+}
+
+function bedrockModel(): BedrockModel {
+  const config = parseServerEnvironment();
+  if (config.model !== "bedrock") {
+    throw new Error("A model must be provided when MODEL is scripted");
+  }
+  return new BedrockModel({
+    region: config.awsRegion!,
+    modelId: config.bedrockModelId!,
+  });
 }

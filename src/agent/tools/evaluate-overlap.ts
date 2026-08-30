@@ -5,6 +5,13 @@ import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 
 import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
+import {
+  MAX_ADULTS,
+  MAX_CHILDREN,
+  MAX_PETS,
+  MAX_SPECIAL_REQUEST_LENGTH,
+  MAX_SPECIAL_REQUESTS,
+} from "../task-limits";
 import { audit, homeIdForInvitation, loadHouseState } from "./shared";
 
 export function evaluateOverlapTool(deps: AgentDeps) {
@@ -15,10 +22,13 @@ export function evaluateOverlapTool(deps: AgentDeps) {
     inputSchema: z.object({
       invitationId: z.uuid(),
       stay: staySchema,
-      adults: z.int().min(1),
-      children: z.int().min(0).default(0),
-      pets: z.int().min(0).default(0),
-      specialRequests: z.array(z.string()).default([]),
+      adults: z.int().min(1).max(MAX_ADULTS),
+      children: z.int().min(0).max(MAX_CHILDREN).default(0),
+      pets: z.int().min(0).max(MAX_PETS).default(0),
+      specialRequests: z
+        .array(z.string().max(MAX_SPECIAL_REQUEST_LENGTH))
+        .max(MAX_SPECIAL_REQUESTS)
+        .default([]),
     }),
     callback: async (input, context) => {
       const draft = input;

@@ -1,8 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { checkDatabaseHealth } from "./route";
+import { checkDatabaseHealth, healthStatus } from "./route";
 
 describe("database health check", () => {
+  it("degrades when mode-aware configuration is not ready", () => {
+    expect(
+      healthStatus(
+        {
+          ready: false,
+          issues: [{ key: "AGENT_RUNTIME", code: "missing" }],
+        },
+        { staleRuns: 0, staleJobs: 0, retryingJobs: 0 },
+      ),
+    ).toBe("degraded");
+  });
+
   it("runs one query", async () => {
     const query = vi.fn(async () => [
       {

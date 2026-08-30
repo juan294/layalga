@@ -1,0 +1,12 @@
+export const MAX_ADULTS = 12;
+export const MAX_CHILDREN = 12;
+export const MAX_PETS = 6;
+export const MAX_HOST_MESSAGE_LENGTH = 4_000;
+export const MAX_GUEST_MESSAGE_LENGTH = 2_000;
+export const MAX_GUEST_NOTES_LENGTH = 1_000;
+export const MAX_ARRIVAL_TIME_LENGTH = 120;
+export const MAX_DECISION_NOTE_LENGTH = 1_000;
+export const MAX_PARTY_NAME_LENGTH = 120;
+export const MAX_FLEXIBLE_DATE_TEXT_LENGTH = 1_000;
+export const MAX_SPECIAL_REQUESTS = 10;
+export const MAX_SPECIAL_REQUEST_LENGTH = 500;

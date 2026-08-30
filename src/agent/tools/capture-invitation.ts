@@ -4,6 +4,17 @@ import { z } from "zod";
 import { captureInvitation } from "@/core/booking/invitations";
 
 import type { AgentDeps } from "../ports";
+import {
+  MAX_ADULTS,
+  MAX_ARRIVAL_TIME_LENGTH,
+  MAX_CHILDREN,
+  MAX_FLEXIBLE_DATE_TEXT_LENGTH,
+  MAX_HOST_MESSAGE_LENGTH,
+  MAX_PARTY_NAME_LENGTH,
+  MAX_PETS,
+  MAX_SPECIAL_REQUEST_LENGTH,
+  MAX_SPECIAL_REQUESTS,
+} from "../task-limits";
 import { audit, requireAuthority } from "./shared";
 
 export function captureInvitationTool(deps: AgentDeps) {
@@ -12,19 +23,22 @@ export function captureInvitationTool(deps: AgentDeps) {
     description:
       "Structure a host's invitation, create or reuse the invited party, and return the private guest link.",
     inputSchema: z.object({
-      partyName: z.string().min(1),
+      partyName: z.string().min(1).max(MAX_PARTY_NAME_LENGTH),
       partyLocale: z.enum(["en", "es"]),
-      adults: z.int().min(1),
-      children: z.int().min(0).default(0),
-      pets: z.int().min(0).default(0),
+      adults: z.int().min(1).max(MAX_ADULTS),
+      children: z.int().min(0).max(MAX_CHILDREN).default(0),
+      pets: z.int().min(0).max(MAX_PETS).default(0),
       flexibleDates: z.object({
-        text: z.string(),
+        text: z.string().max(MAX_FLEXIBLE_DATE_TEXT_LENGTH),
         earliest: z.string().optional(),
         latest: z.string().optional(),
       }),
-      arrivalTime: z.string().optional(),
-      specialRequests: z.array(z.string()).default([]),
-      rawMessage: z.string().min(1),
+      arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
+      specialRequests: z
+        .array(z.string().max(MAX_SPECIAL_REQUEST_LENGTH))
+        .max(MAX_SPECIAL_REQUESTS)
+        .default([]),
+      rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
     }),
     callback: async (input, context) => {
       const authority = requireAuthority(deps);

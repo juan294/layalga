@@ -7,13 +7,14 @@ import {
 
 import type { AgentTask, RunResult } from "./task";
 import { LocalAgentClient, type AgentClient } from "./runtime/local";
+import { parseServerEnvironment } from "@/lib/server/env";
 
 export class AgentCoreClient implements AgentClient {
   private readonly client: AwsBedrockAgentCoreClient;
 
   constructor(
-    private readonly runtimeArn = required("AGENTCORE_RUNTIME_ARN"),
-    region = process.env.AWS_REGION ?? "us-east-1",
+    private readonly runtimeArn: string,
+    region: string,
   ) {
     this.client = new AwsBedrockAgentCoreClient({ region });
   }
@@ -35,8 +36,9 @@ export class AgentCoreClient implements AgentClient {
 }
 
 export function getAgentClient(): AgentClient {
-  return process.env.AGENT_RUNTIME === "agentcore"
-    ? new AgentCoreClient()
+  const config = parseServerEnvironment();
+  return config.agentRuntime === "agentcore"
+    ? new AgentCoreClient(config.agentcoreRuntimeArn!, config.awsRegion!)
     : new LocalAgentClient();
 }
 
@@ -49,10 +51,4 @@ export function parseAgentCoreResponse(body: string, contentType?: string): RunR
     .filter(Boolean);
   if (data.length === 0) throw new Error("AgentCore returned empty SSE data");
   return JSON.parse(data.at(-1)!) as RunResult;
-}
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
 }

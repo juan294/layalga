@@ -10,6 +10,7 @@ import type {
   JobScheduler,
   ScheduledJobRequest,
 } from "@/core/reconfirmation/jobs";
+import { parseServerEnvironment } from "@/lib/server/env";
 
 export type SchedulerJob = ScheduledJobRequest;
 export type Scheduler = JobScheduler;
@@ -118,17 +119,16 @@ export function schedulerForHome({
   homeDemo: boolean;
   env?: SchedulerEnvironment;
 }): Scheduler {
-  if (homeDemo || env.SCHEDULER === undefined || env.SCHEDULER === "none") {
+  if (homeDemo) return new NoopScheduler();
+  const config = parseServerEnvironment(env);
+  if (config.scheduler === "none") {
     return new NoopScheduler();
   }
-  if (env.SCHEDULER !== "eventbridge") {
-    throw new Error(`Unsupported SCHEDULER value: ${env.SCHEDULER}`);
-  }
   return new EventBridgeScheduler({
-    runtimeArn: requiredEnv("AGENTCORE_RUNTIME_ARN", env),
-    roleArn: requiredEnv("SCHEDULER_ROLE_ARN", env),
-    dlqArn: requiredEnv("SCHEDULER_DLQ_ARN", env),
-    region: env.AWS_REGION,
+    runtimeArn: config.agentcoreRuntimeArn!,
+    roleArn: config.schedulerRoleArn!,
+    dlqArn: config.schedulerDlqArn!,
+    region: config.awsRegion!,
   });
 }
 

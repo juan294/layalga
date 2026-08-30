@@ -3,10 +3,15 @@
 import { revalidatePath } from "next/cache";
 
 import { getAgentClient } from "@/agent/client";
+import {
+  MAX_DECISION_NOTE_LENGTH,
+  MAX_HOST_MESSAGE_LENGTH,
+} from "@/agent/task-limits";
 import { reissueInvitationLink } from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { requireHost } from "@/lib/auth/current-host";
+import { parseServerEnvironment } from "@/lib/server/env";
 import {
   reportActionError,
   reportedActionError,
@@ -28,6 +33,9 @@ export async function captureInvitationAction(
   const host = await requireHost(locale);
   const rawMessage = String(formData.get("rawMessage") ?? "").trim();
   if (!rawMessage) return { status: "error", error: "empty" };
+  if (rawMessage.length > MAX_HOST_MESSAGE_LENGTH) {
+    return { status: "error", error: "failed" };
+  }
 
   try {
     const result = await getAgentClient().run({
@@ -59,7 +67,7 @@ export async function captureInvitationAction(
       : [];
     const guestLink = invitationId
       ? await reissueInvitationLink(getDatabaseConnection().db, invitationId, {
-          appUrl: process.env.APP_URL ?? "http://localhost:3008",
+          appUrl: parseServerEnvironment().appUrl,
         })
       : undefined;
 
@@ -82,6 +90,12 @@ export async function decideAction(formData: FormData): Promise<void> {
   const decisionId = String(formData.get("decisionId") ?? "");
   const approved = formData.get("decision") === "approve";
   const noteValue = String(formData.get("note") ?? "").trim();
+  if (noteValue.length > MAX_DECISION_NOTE_LENGTH) {
+    throw reportedActionError(
+      "host_decision_failed",
+      new Error("Decision note exceeds the supported length"),
+    );
+  }
   const note = noteValue || undefined;
   const sql = sqlClient(getDatabaseConnection().db);
 

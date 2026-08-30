@@ -1,8 +1,11 @@
+import { createHash } from "node:crypto";
+
 import {
   InterruptResponseContent,
   type BaseModelConfig,
   type Model,
 } from "@strands-agents/sdk";
+import type { TransactionSql } from "postgres";
 
 import { sqlClient } from "@/core/db/client";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
@@ -35,17 +38,18 @@ export async function runAgentTask(
           trustedSpecialRequests: authority.guestSubmission!.specialRequests,
         }
       : task;
-  const [run] = await sql<{ id: string }[]>`
-    insert into public.runs (
-      home_id, session_id, task, payload, heartbeat_at, deadline_at
-    ) values (
-      ${task.homeId}, ${sessionId}, ${task.task},
-      ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
-      ${deadlineAt.toISOString()}
-    )
-    returning id
-  `;
-  if (!run) throw new Error("Failed to start agent run");
+  const runStart = await startRun({
+    sql,
+    task,
+    sessionId,
+    runPayload,
+    startedAt,
+    deadlineAt,
+    actorKey: actorKeyForTask(task),
+    intentKey: await intentKeyForTask(task, sql, startedAt),
+  });
+  if (runStart.replay) return runStart.result;
+  const run = { id: runStart.runId };
 
   try {
     if (task.task === "guest_reconfirm" && task.answer === "yes") {
@@ -232,6 +236,261 @@ export async function runAgentTask(
     }
     throw error;
   }
+}
+
+interface StartRunInput {
+  sql: ReturnType<typeof sqlClient>;
+  task: AgentTask;
+  sessionId: string;
+  runPayload: AgentTask | (AgentTask & { trustedSpecialRequests: string[] });
+  startedAt: Date;
+  deadlineAt: Date;
+  actorKey: string;
+  intentKey: string;
+}
+
+type StartRunResult =
+  | { replay: false; runId: string }
+  | { replay: true; result: RunResult };
+
+async function startRun(input: StartRunInput): Promise<StartRunResult> {
+  const {
+    sql,
+    task,
+    sessionId,
+    runPayload,
+    startedAt,
+    deadlineAt,
+    actorKey,
+    intentKey,
+  } = input;
+  return sql.begin(async (transaction) => {
+    await transaction`
+      select id from public.homes where id = ${task.homeId} for update
+    `;
+    const [existing] = await transaction<
+      {
+        id: string;
+        status: "running" | "completed" | "interrupted" | "failed";
+        result: unknown;
+        request_attempt_count: number;
+      }[]
+    >`
+      select id, status, result, request_attempt_count
+      from public.runs
+      where home_id = ${task.homeId} and intent_key = ${intentKey}
+    `;
+    if (existing) {
+      if (existing.status === "running") {
+        throw new Error("This agent request is already in progress");
+      }
+      if (
+        task.task === "tick" ||
+        existing.status === "failed"
+      ) {
+        const interactiveRetry = task.task !== "tick";
+        if (interactiveRetry) {
+          if (existing.request_attempt_count >= 3) {
+            throw new Error("Agent request retry limit reached");
+          }
+          assertRequestLimit(
+            task,
+            await loadRequestUsage(
+              transaction,
+              task,
+              actorKey,
+              startedAt,
+            ),
+          );
+        }
+        const [restarted] = await transaction<{ id: string }[]>`
+          update public.runs
+          set status = 'running', result = null,
+            started_at = ${startedAt.toISOString()}, finished_at = null,
+            heartbeat_at = ${startedAt.toISOString()},
+            deadline_at = ${deadlineAt.toISOString()},
+            payload = ${JSON.stringify(runPayload)}::text::jsonb,
+            request_attempt_count = request_attempt_count + ${interactiveRetry ? 1 : 0}
+          where id = ${existing.id} and status = ${existing.status}
+          returning id
+        `;
+        if (!restarted) throw new Error("Failed to retry the agent request");
+        return { replay: false, runId: restarted.id };
+      }
+      return {
+        replay: true,
+        result: await storedRunResult(
+          transaction,
+          existing.id,
+          sessionId,
+          existing.status,
+          existing.result,
+        ),
+      };
+    }
+
+    assertRequestLimit(
+      task,
+      await loadRequestUsage(transaction, task, actorKey, startedAt),
+    );
+
+    const [created] = await transaction<{ id: string }[]>`
+      insert into public.runs (
+        home_id, session_id, task, payload, heartbeat_at, deadline_at,
+        actor_key, intent_key, started_at
+      ) values (
+        ${task.homeId}, ${sessionId}, ${task.task},
+        ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
+        ${deadlineAt.toISOString()}, ${actorKey}, ${intentKey},
+        ${startedAt.toISOString()}
+      )
+      returning id
+    `;
+    if (!created) throw new Error("Failed to start agent run");
+    return { replay: false, runId: created.id };
+  });
+}
+
+interface RequestUsage {
+  actor_requests: number;
+  actor_active: number;
+  home_requests: number;
+  home_active: number;
+}
+
+async function loadRequestUsage(
+  transaction: TransactionSql,
+  task: AgentTask,
+  actorKey: string,
+  startedAt: Date,
+): Promise<RequestUsage> {
+  const windowStart = new Date(startedAt.getTime() - 10 * 60 * 1_000);
+  const hourStart = new Date(startedAt.getTime() - 60 * 60 * 1_000);
+  const [usage] = await transaction<RequestUsage[]>`
+    select
+      coalesce(sum(request_attempt_count) filter (
+        where actor_key = ${actorKey}
+          and task = ${task.task}
+          and started_at >= ${windowStart.toISOString()}
+      ), 0)::int as actor_requests,
+      count(*) filter (
+        where actor_key = ${actorKey} and status = 'running'
+      )::int as actor_active,
+      coalesce(sum(request_attempt_count) filter (
+        where started_at >= ${hourStart.toISOString()}
+          and task <> 'tick'
+      ), 0)::int as home_requests,
+      count(*) filter (
+        where status = 'running' and task <> 'tick'
+      )::int as home_active
+    from public.runs
+    where home_id = ${task.homeId}
+  `;
+  if (!usage) throw new Error("Failed to read agent request usage");
+  return usage;
+}
+
+function assertRequestLimit(task: AgentTask, usage: RequestUsage): void {
+  if (
+    task.task !== "tick" &&
+    (usage.actor_requests >= 5 ||
+      usage.actor_active >= 2 ||
+      usage.home_requests >= 30 ||
+      usage.home_active >= 4)
+  ) {
+    throw new Error("Agent request limit reached; try again later");
+  }
+}
+
+async function storedRunResult(
+  transaction: TransactionSql,
+  runId: string,
+  sessionId: string,
+  status: "completed" | "interrupted" | "failed",
+  storedResult: unknown,
+): Promise<RunResult> {
+  const summary = objectString(storedResult, "summary") ?? "Agent run finished";
+  const pendingDecisionIds =
+    status === "interrupted"
+      ? (
+          await transaction<{ id: string }[]>`
+            select id from public.pending_decisions
+            where run_id = ${runId} and status = 'pending'
+            order by created_at, id
+          `
+        ).map(({ id }) => id)
+      : [];
+  return { runId, sessionId, status, pendingDecisionIds, summary };
+}
+
+function objectString(value: unknown, key: string): string | undefined {
+  if (typeof value === "string") {
+    try {
+      return objectString(JSON.parse(value), key);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const candidate = (value as Record<string, unknown>)[key];
+  return typeof candidate === "string" ? candidate : undefined;
+}
+
+function actorKeyForTask(task: AgentTask): string {
+  const actor =
+    task.task === "host_capture"
+      ? `host:${task.hostId}`
+      : task.task === "resume"
+        ? `host:${task.responses.map(({ response }) => response.hostId).sort().join(",")}`
+        : task.task === "tick"
+          ? `job:${task.jobId}`
+          : task.task === "guest_submit"
+            ? `invitation:${task.invitationId}`
+            : `visit:${task.visitId}`;
+  return digest(actor);
+}
+
+async function intentKeyForTask(
+  task: AgentTask,
+  sql: ReturnType<typeof sqlClient>,
+  startedAt: Date,
+): Promise<string> {
+  let state: unknown = null;
+  if (task.task === "guest_change" || task.task === "guest_reconfirm") {
+    const [visit] = await sql<
+      {
+        stay: string;
+        status: string;
+        adults: number;
+        children: number;
+        pets: number;
+        special_requests: string[];
+        reconfirm_requested_at: Date | null;
+        reconfirmed_at: Date | null;
+        escalated_at: Date | null;
+      }[]
+    >`
+      select stay::text, status, adults, children, pets, special_requests,
+        reconfirm_requested_at, reconfirmed_at, escalated_at
+      from public.visits
+      where id = ${task.visitId} and home_id = ${task.homeId}
+    `;
+    state = visit ?? null;
+  }
+  // Public submissions use a bounded retry window because this Server Action
+  // path has no caller-generated submission ID. Retries inside the window are
+  // one intent; identical input in a later window is a legitimate new intent.
+  const retryWindow =
+    task.task === "host_capture" || task.task === "guest_submit"
+      ? Math.floor(startedAt.getTime() / (10 * 60 * 1_000))
+      : null;
+  return digest(JSON.stringify({ task, state, retryWindow }));
+}
+
+function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 async function finish(
