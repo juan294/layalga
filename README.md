@@ -11,12 +11,12 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 ## Four-beat demo
 
-1. Nel pastes a Spanish invitation for Familia Vega. The agent structures the party and creates a private guest link.
+1. Juan pastes a Spanish invitation for Familia Vega. The agent structures the party and creates a private guest link.
 2. Vega selects dates. The deterministic booking engine allocates rooms, places a temporary hold, and confirms the visit.
-3. Covadonga independently invites the Oteros for partly overlapping dates. Beds, children, and pets rules pass, but a wheelchair-access request pauses the Strands run. Nel approves it in the host view, and the saved run resumes without repeating the booking tool.
+3. Jordan independently invites the Oteros for partly overlapping dates. Beds, children, and pets rules pass, but a wheelchair-access request pauses the Strands run. Juan approves it in the host view, and the saved run resumes without repeating the booking tool.
 4. The labeled synthetic clock moves to three days before arrival. L’Ayalga asks each party to reconfirm. When one party does not respond for 24 hours, it alerts both hosts.
 
-All names, messages, visits, and notifications in the demo are synthetic.
+The guest names, messages, visits, and notifications in the demo are synthetic. Juan González and Jordan Lynn are the two real host operators.
 
 ## How it works
 
@@ -97,7 +97,7 @@ GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
-Open `http://localhost:3008/en` or `/es`. Use the synthetic-host buttons to enter the demo without Google OAuth.
+Open `http://localhost:3008/en` or `/es`. Use the demo-host buttons to enter without Google OAuth.
 
 An invited guest can use the private link without an account. They can also sign in with Google, claim the matching invitation, and review their visits at `/<locale>/visits`. Signing out does not invalidate the invitation-specific private link.
 

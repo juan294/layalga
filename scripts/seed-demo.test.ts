@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { hashLinkToken } from "@/core/booking/invitations";
 import { claimHostIdentity } from "@/lib/auth/host-identity";
 
-import { DEMO_SEED, SEEDED_HOSTS, seedDemo } from "./seed-demo";
+import { DEMO_SEED, seedDemo } from "./seed-demo";
 
 const databaseUrl =
   process.env.DATABASE_URL ??
@@ -68,7 +68,7 @@ describe("seedDemo", () => {
       order by normalized_email
     `;
     expect(claims).toEqual(
-      SEEDED_HOSTS
+      DEMO_SEED.hosts
         .flatMap((host) =>
           host.emails.map((email) => ({
             normalized_email: email,
@@ -82,10 +82,10 @@ describe("seedDemo", () => {
     );
   });
 
-  it("keeps the real operators separate from synthetic demo hosts", async () => {
+  it("seeds exactly the two real host identities", async () => {
     await seedDemo(databaseUrl, "seed-demo-test-secret");
 
-    const operators = await sql<
+    const hosts = await sql<
       { normalized_email: string; display_name: string; host_id: string }[]
     >`
       select claim.normalized_email, host.display_name, claim.host_id
@@ -93,23 +93,20 @@ describe("seedDemo", () => {
       join public.hosts as host
         on host.id = claim.host_id
        and host.home_id = claim.home_id
-      where claim.normalized_email in (
-        'juan294@gmail.com',
-        'jordanlynn5@gmail.com'
-      )
+      where claim.home_id = ${DEMO_SEED.home.id}
       order by claim.normalized_email
     `;
 
-    expect(operators).toEqual([
+    expect(hosts).toEqual([
       {
         normalized_email: "jordanlynn5@gmail.com",
         display_name: "Jordan Lynn",
-        host_id: "00000000-0000-4000-8000-000000000212",
+        host_id: "00000000-0000-4000-8000-000000000202",
       },
       {
         normalized_email: "juan294@gmail.com",
         display_name: "Juan González",
-        host_id: "00000000-0000-4000-8000-000000000211",
+        host_id: "00000000-0000-4000-8000-000000000201",
       },
     ]);
   });
@@ -137,7 +134,7 @@ describe("seedDemo", () => {
           userId,
           "jordanlynn5@gmail.com",
         ),
-      ).toBe("00000000-0000-4000-8000-000000000212");
+      ).toBe("00000000-0000-4000-8000-000000000202");
 
       await seedDemo(databaseUrl, "seed-demo-test-secret");
 
@@ -146,7 +143,7 @@ describe("seedDemo", () => {
       >`
         select host.auth_user_id, host.display_name
         from public.hosts as host
-        where host.id = '00000000-0000-4000-8000-000000000212'
+        where host.id = '00000000-0000-4000-8000-000000000202'
       `;
       expect(operator).toEqual({
         auth_user_id: userId,

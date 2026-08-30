@@ -120,7 +120,7 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 
 - English and Spanish routing, host and guest surfaces, demo host sessions, Supabase PKCE callback code, bounded run polling, time-zone rendering, and the Paper Ink responsive UI are implemented.
 - The dedicated Google Cloud project `layalga` contains the `L’Ayalga` Web OAuth client. Its hosted and two local Supabase callback URIs are exact. The hosted Supabase Google provider is enabled, the application callback allow-list is exact, and the ignored local environment stores the client values through `supabase/config.toml` indirection.
-- The real Google flow for `juan294@gmail.com` passed through local Supabase, the exact localhost application callback, PKCE exchange, first-host claim, and the authenticated `/en` host dashboard. The local database verified one Nel host joined to that exact `auth.users` email.
+- The real Google flow for `juan294@gmail.com` passed through local Supabase, the exact localhost application callback, PKCE exchange, first-host claim, and the authenticated `/en` host dashboard. The host identity was later corrected to Juan González while preserving the same stable host ID and Google binding.
 - All four Playwright journeys passed: guest hold, host capture and private link, interrupt approval and resume, and the Spanish host view.
 
 ### Phase 4 recovery hardening

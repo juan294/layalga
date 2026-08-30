@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 
 import { resetDemoHome } from "@/lib/demo/reset";
 
-export { DEMO_SEED, SEEDED_HOSTS } from "@/lib/demo/reset";
+export { DEMO_SEED } from "@/lib/demo/reset";
 export type { SeedDemoResult } from "@/lib/demo/reset";
 
 export async function seedDemo(

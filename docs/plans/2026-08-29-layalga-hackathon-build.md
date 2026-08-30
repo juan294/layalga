@@ -351,7 +351,7 @@ The truth table and the test that encodes it are in phase-1.
   false`, `max_families_with_children = 1`, `demo = true`.
 - Rooms: "Cuartu del Horreu" 2 beds, "Cuartu de la Fonte" 2 beds, "Cuartu
   del Teixu" 3 beds. Seven beds.
-- Hosts: Host A "Nel" (locale `es`), Host B "Covadonga" (locale `en`).
+- Hosts: Host A "Juan González", Host B "Jordan Lynn".
 - Party 1 "Familia Vega" (locale `es`): 2 adults, 2 children, 0 pets, no
   special requests. Host A's pasted message: "Oye, los Vega quieren venir a
   la casa un finde de septiembre, son Marta y Xuan con los dos crios. Les va
@@ -378,7 +378,7 @@ true.
 
 - Hosts: Supabase Auth with Google (PKCE, `app/auth/callback/route.ts`
   outside the `[locale]` segment). `hosts.auth_user_id` links the account.
-  Demo mode adds "Enter as Nel" and "Enter as Covadonga" buttons that set a
+  Demo mode adds "Enter as Juan González" and "Enter as Jordan Lynn" buttons that set a
   signed `layalga_demo_host` cookie; the buttons render only when `DEMO_MODE`
   is true and the home is a demo home.
 - Guests: `/[locale]/g/[token]` with a 32-byte random token. Optional Google
