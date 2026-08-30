@@ -1,0 +1,13 @@
+allowBuilds:
+  "@parcel/watcher": true
+  "@swc/core": true
+  esbuild: true
+  unrs-resolver: true
+minimumReleaseAgeExclude:
+  - "@aws-sdk/client-bedrock-agentcore-control@3.1121.0"
+  - "@aws-sdk/client-bedrock-agentcore@3.1121.0"
+  - "@aws-sdk/client-bedrock-runtime@3.1121.0"
+  - "@aws-sdk/client-scheduler@3.1121.0"
+  - "@aws-sdk/token-providers@3.1121.0"
+  - zod@4.5.2
+  - '@aws-sdk/client-s3@3.1121.0'

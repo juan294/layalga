@@ -1,0 +1,142 @@
+.shell {
+  --run-paper: var(--paper, #f4f0e7);
+  --run-sheet: var(--sheet, #fffdf7);
+  --run-ink: var(--ink, #171b1a);
+  --run-muted: var(--graphite, #5d625f);
+  --run-teal: var(--teal, #0c615b);
+  background: var(--run-paper);
+  color: var(--run-ink);
+  display: grid;
+  min-height: 100vh;
+  padding: 1.5rem;
+  place-items: center;
+}
+
+.frame {
+  max-width: 40rem;
+  width: 100%;
+}
+
+.eyebrow,
+.summary span,
+.finished {
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.retryButton {
+  background: transparent;
+  border: 1px solid var(--run-ink);
+  border-radius: 0;
+  color: var(--run-ink);
+  cursor: pointer;
+  font-weight: 750;
+  margin-top: 1rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.eyebrow {
+  color: var(--run-teal);
+}
+
+.title {
+  font-family: var(--font-fraunces, Georgia, serif);
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  margin: 0.45rem 0 1.5rem;
+}
+
+.card {
+  background: var(--run-sheet);
+  border: 1px solid color-mix(in srgb, var(--run-ink) 25%, transparent);
+  padding: clamp(1.2rem, 5vw, 2.5rem);
+}
+
+.statusLine {
+  align-items: center;
+  display: flex;
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  gap: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pulse {
+  background: var(--run-teal);
+  display: block;
+  height: 0.72rem;
+  width: 0.72rem;
+}
+
+.card[data-status="running"] .pulse {
+  animation: ledger-pulse 1.5s steps(2, end) infinite;
+}
+
+.card[data-status="failed"] .pulse {
+  background: var(--run-ink);
+}
+
+.explainer {
+  color: var(--run-muted);
+  line-height: 1.6;
+  margin: 1rem 0 1.5rem;
+}
+
+.summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--run-ink) 25%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--run-ink) 25%, transparent);
+  padding: 1rem 0;
+}
+
+.summary p {
+  line-height: 1.6;
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+}
+
+.finished {
+  color: var(--run-muted);
+  display: block;
+  margin-top: 1rem;
+}
+
+.returnLink {
+  border-bottom: 2px solid var(--run-teal);
+  color: var(--run-teal);
+  display: inline-block;
+  font-weight: 750;
+  margin-top: 1.5rem;
+  padding-bottom: 0.18rem;
+  text-decoration: none;
+}
+
+.returnLink:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--run-teal) 35%, transparent);
+  outline-offset: 4px;
+}
+
+@keyframes ledger-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-status="running"] .pulse {
+    animation: none;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .shell {
+    --run-paper: #111615;
+    --run-sheet: #19201e;
+    --run-ink: #f0eee7;
+    --run-muted: #b9c0bc;
+    --run-teal: #70bdb6;
+  }
+}

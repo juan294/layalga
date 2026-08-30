@@ -1,0 +1,55 @@
+.visual {
+  overflow-x: auto;
+}
+
+.agenda {
+  border-top: 2px solid var(--ink);
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.agenda ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agenda li {
+  border-bottom: 1px solid var(--rule);
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 0;
+}
+
+.agenda p {
+  color: var(--graphite);
+  margin: 0;
+}
+
+.agenda time,
+.agenda small {
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 48rem) {
+  .visual {
+    display: none;
+  }
+
+  .agenda {
+    clip: auto;
+    clip-path: none;
+    height: auto;
+    overflow: visible;
+    position: static;
+    white-space: normal;
+    width: auto;
+  }
+}

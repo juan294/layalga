@@ -1,12 +1,14 @@
 # Dependencies and builds
 node_modules/
 .next/
+/next-env.d.ts
 out/
 dist/
 build/
 coverage/
 test-results/
 playwright-report/
+*.tsbuildinfo
 
 # Local environment and providers
 .env

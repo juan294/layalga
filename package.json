@@ -1,0 +1,63 @@
+{
+  "name": "layalga",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.22.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --maxWorkers=1 --no-file-parallelism",
+    "test:unit": "vitest run --maxWorkers=1 --no-file-parallelism --exclude 'scripts/seed-demo.test.ts' --exclude 'src/agent/interrupt-resume.test.ts' --exclude 'src/agent/reschedule.test.ts' --exclude 'src/agent/storage/postgres-storage.test.ts' --exclude 'src/agent/tenant-scope.test.ts' --exclude 'src/core/booking/holds.concurrency.test.ts' --exclude 'src/core/booking/invitations.integration.test.ts' --exclude 'src/core/reconfirmation/jobs.test.ts'",
+    "test:integration": "vitest run --maxWorkers=1 --no-file-parallelism scripts/seed-demo.test.ts src/agent/interrupt-resume.test.ts src/agent/reschedule.test.ts src/agent/storage/postgres-storage.test.ts src/agent/tenant-scope.test.ts src/core/booking/holds.concurrency.test.ts src/core/booking/invitations.integration.test.ts src/core/reconfirmation/jobs.test.ts",
+    "test:coverage": "pnpm run test:unit --coverage",
+    "test:e2e": "playwright test",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "agent:bundle": "bash scripts/build-agent-bundle.sh",
+    "demo:e2e": "tsx scripts/demo-e2e.ts",
+    "release:probes": "tsx scripts/release-probes.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agentcore": "3.1121.0",
+    "@aws-sdk/client-bedrock-agentcore-control": "3.1121.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1121.0",
+    "@aws-sdk/client-scheduler": "3.1121.0",
+    "@aws-sdk/client-s3": "3.1121.0",
+    "@strands-agents/sdk": "1.15.0",
+    "@supabase/ssr": "0.12.5",
+    "@supabase/supabase-js": "2.112.4",
+    "bedrock-agentcore": "0.4.3",
+    "drizzle-orm": "0.45.2",
+    "fastify": "5.12.1",
+    "next": "16.3.3",
+    "next-intl": "4.14.1",
+    "postgres": "3.4.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitest/coverage-v8": "4.1.11",
+    "esbuild": "0.25.12",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.3",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.6",
+    "tsx": "4.23.12",
+    "typescript": "6.0.3",
+    "vitest": "4.1.11"
+  }
+}
