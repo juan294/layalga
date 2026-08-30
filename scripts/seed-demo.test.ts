@@ -66,11 +66,13 @@ describe("seedDemo", () => {
     `;
     expect(claims).toEqual(
       DEMO_SEED.hosts
-        .map((host) => ({
-          normalized_email: host.email,
-          host_id: host.id,
-          home_id: DEMO_SEED.home.id,
-        }))
+        .flatMap((host) =>
+          host.emails.map((email) => ({
+            normalized_email: email,
+            host_id: host.id,
+            home_id: DEMO_SEED.home.id,
+          })),
+        )
         .sort((left, right) =>
           left.normalized_email.localeCompare(right.normalized_email),
         ),
