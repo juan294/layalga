@@ -31,13 +31,13 @@ export const DEMO_SEED = {
   hosts: [
     {
       id: "00000000-0000-4000-8000-000000000201",
-      email: "nel@example.com",
+      emails: ["nel@example.com", "juan294@gmail.com"],
       displayName: "Nel",
       locale: "es",
     },
     {
       id: "00000000-0000-4000-8000-000000000202",
-      email: "covadonga@example.com",
+      emails: ["covadonga@example.com"],
       displayName: "Covadonga",
       locale: "en",
     },
