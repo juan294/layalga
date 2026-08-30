@@ -156,3 +156,13 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 
 - The README, Mermaid source, rendered SVG and PNG architecture diagram, video script, Devpost draft, and three builder.aws drafts are complete locally.
 - Recording, upload, Devpost filing, production deployment, tag, publication, and GitHub mutations remain separate owner-authorized actions.
+
+### 2026-08-30 pre-launch remediation addendum
+
+- All accepted pre-launch findings were converted to tracked GitHub issues and fixed before release. Release-pipeline hardening and architecture-overengineering findings stayed outside the hackathon scope.
+- Interactive agent work now returns a queued acknowledgement and runs through a durable Postgres queue. Runs have idempotency keys, expiring leases, bounded attempts, and exact terminal-state polling. Next.js `after()` is an opportunistic dispatcher; `/api/ticks` is the recovery and bounded-drain path.
+- Scheduled jobs retry after one and five minutes. A third failure quarantines the job and records an audit event. The operator replay procedure is in `docs/release/runtime-database-and-identity.md`.
+- Invitation links now use invitation-scoped HMACs. Host identities use explicit database claims. Guests can optionally claim an invitation with Google, review `/<locale>/visits`, and sign out without changing the private-link contract.
+- Vercel and a future AgentCore worker use separate non-owner database roles. The owner connection remains limited to migrations and operator work.
+- The host calendar, decision flow, guest change path, localized outcomes, pending controls, target sizes, mobile WebKit behavior, deterministic hydration, demo driver, and all eight release probes were updated to match the durable-run behavior.
+- Clean local verification passed through migration `20260831001500_durable_agent_queue.sql`: typecheck, lint, 195 tests, production build, five Playwright journeys, the four-beat demo, and all eight release probes.

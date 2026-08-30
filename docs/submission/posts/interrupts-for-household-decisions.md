@@ -25,7 +25,7 @@ For L’Ayalga, the sequence is:
 5. Strands saves the session snapshot to Postgres.
 6. L’Ayalga writes a pending decision that the host can understand and act on.
 7. The host records `approved` or `declined`.
-8. A new run restores the session and supplies the response.
+8. A new queued run restores the session and supplies the response.
 9. The hook continues. Approval permits the pending tool; decline cancels it.
 
 The model does not need to call the tool again.
@@ -89,7 +89,7 @@ The approval is tied to a hash of the proposed stay. If the dates or party detai
 
 ## Process restarts are part of the feature
 
-Serverless and managed agent runtimes make process lifetime an unreliable place to store user decisions. We therefore implemented the Strands `Storage` interface over Postgres and used stable session identifiers. Our tests interrupt one agent, destroy it, build a new agent with the same session, and resume. A separate-process test proves that the behavior does not depend on a module singleton.
+Serverless and managed agent runtimes make process lifetime an unreliable place to store user decisions. We therefore implemented the Strands `Storage` interface over Postgres and used stable session identifiers. Each accepted request also has a durable run row with a lease and bounded attempts. The browser polls the exact run instead of holding the original request open. Our tests interrupt one agent, destroy it, build a new agent with the same session, and resume. A separate-process test proves that the behavior does not depend on a module singleton.
 
 The important assertions are negative as well as positive:
 
