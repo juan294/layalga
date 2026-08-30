@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import postgres, { type Sql } from "postgres";
+import { z } from "zod";
 
-import type { RunResult } from "../src/agent/task";
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { hashLinkToken } from "../src/core/booking/invitations";
 import { DEMO_SEED } from "./seed-demo";
@@ -30,12 +30,38 @@ interface ProbeFixture {
   invitationIds: readonly [string, string];
 }
 
+const runResultSchema = z.object({
+  runId: z.uuid(),
+  status: z.enum(["queued", "completed", "interrupted", "failed"]),
+  sessionId: z.string(),
+  pendingDecisionIds: z.array(z.uuid()),
+  summary: z.string(),
+});
+const storedRunSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(["queued", "running", "completed", "interrupted", "failed"]),
+  result: z.unknown().nullable(),
+});
+const storedResultSchema = z.object({ summary: z.string() });
+
+type StoredRun = z.infer<typeof storedRunSchema>;
+type TerminalStoredRun = StoredRun & {
+  status: "completed" | "interrupted" | "failed";
+};
+
+interface TerminalProbeRunResult {
+  runId: string;
+  status: "completed" | "interrupted" | "failed";
+  summary: string;
+}
+
 export async function runReleaseProbes(
   options: ReleaseCliOptions,
 ): Promise<ProbeEvidence[]> {
   const databaseUrl = requiredEnvironment("DATABASE_URL");
   const linkTokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
   const agentRouteSecret = requiredAgentRouteSecret();
+  const tickSecret = requiredInternalSecret("TICK_SECRET");
   const sql = postgres(databaseUrl, { prepare: false, max: 8 });
   const runId = randomUUID();
   const runMarker = `release-probe:${runId}`;
@@ -77,6 +103,7 @@ export async function runReleaseProbes(
       sql,
       options.baseUrl,
       agentRouteSecret,
+      tickSecret,
       fixture,
     );
     evidence.push(
@@ -241,6 +268,7 @@ async function probeConcurrentConflict(
   sql: Sql,
   baseUrl: string,
   agentRouteSecret: string,
+  tickSecret: string,
   fixture: ProbeFixture,
 ): Promise<void> {
   const responses = await Promise.all(
@@ -267,12 +295,29 @@ async function probeConcurrentConflict(
   assert.equal(
     responses.filter((response) => response.ok).length,
     2,
-    "the internal agent route must complete both policy outcomes",
+    "the internal agent route must acknowledge both runs",
   );
-  const results = await Promise.all(
+  const acknowledgements = await Promise.all(
     responses.map((response, index) =>
-      responseJson<RunResult>(response, `concurrent agent run ${index + 1}`),
+      responseJson<unknown>(response, `concurrent agent run ${index + 1}`),
     ),
+  );
+  const runIds = queuedRunIds(acknowledgements);
+  const results = await drainAndCollectTerminalRunResults(
+    runIds,
+    async () => {
+      await responseJson(
+        await fetch(`${baseUrl}/api/ticks`, {
+          headers: { "x-layalga-internal": tickSecret },
+        }),
+        "queued probe drain",
+      );
+    },
+    (exactRunIds) => sql`
+      select id, status, result
+      from public.runs
+      where id = any(${sql.array([...exactRunIds])}::uuid[])
+    `,
   );
   assert.equal(
     results.filter((result) => /confirmed/i.test(result.summary)).length,
@@ -313,6 +358,71 @@ async function probeConcurrentConflict(
     outcome,
     { confirmed: 1, holds: 1, confirmations: 1 },
     "exactly one conflicting visit must pass the policy and confirm",
+  );
+}
+
+export function queuedRunIds(results: readonly unknown[]): string[] {
+  const acknowledgements = results.map((result) =>
+    runResultSchema.parse(result),
+  );
+  assert.ok(
+    acknowledgements.every((result) => result.status === "queued"),
+    "concurrent agent runs must return a queued acknowledgement",
+  );
+  const runIds = acknowledgements.map((result) => result.runId);
+  assert.equal(
+    new Set(runIds).size,
+    runIds.length,
+    "queued acknowledgements must contain distinct run IDs",
+  );
+  return runIds;
+}
+
+export async function drainAndCollectTerminalRunResults(
+  runIds: readonly string[],
+  drain: () => Promise<void>,
+  load: (runIds: readonly string[]) => Promise<readonly unknown[]>,
+  options: { attempts?: number; intervalMs?: number } = {},
+): Promise<TerminalProbeRunResult[]> {
+  const attempts = options.attempts ?? 40;
+  const intervalMs = options.intervalMs ?? 250;
+  assert.ok(attempts > 0, "terminal run polling needs at least one attempt");
+  await drain();
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const rows = (await load(runIds)).map((row) => storedRunSchema.parse(row));
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
+    const exactRows = runIds.map((runId) => rowsById.get(runId));
+    if (exactRows.every(isTerminalStoredRun)) {
+      return exactRows.map((row, index) => {
+        const result = storedResultSchema.parse(row.result);
+        const runId = runIds[index];
+        assert.ok(runId, "terminal run result ID is missing");
+        return {
+          runId,
+          status: row.status,
+          summary: result.summary,
+        };
+      });
+    }
+    if (attempt + 1 < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  throw new Error(
+    `queued probe runs did not reach terminal status: ${runIds.join(", ")}`,
+  );
+}
+
+function isTerminalStoredRun(
+  row: StoredRun | undefined,
+): row is TerminalStoredRun {
+  return Boolean(
+    row &&
+    row.status !== "queued" &&
+    row.status !== "running" &&
+    row.result !== null,
   );
 }
 
@@ -515,11 +625,18 @@ function pass(probe: number, name: string, detail: string): ProbeEvidence {
 function requiredAgentRouteSecret(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
-  const secret = env.AGENT_ROUTE_SECRET;
-  if (!secret) throw new Error("AGENT_ROUTE_SECRET is required");
+  return requiredInternalSecret("AGENT_ROUTE_SECRET", env);
+}
+
+function requiredInternalSecret(
+  name: "AGENT_ROUTE_SECRET" | "TICK_SECRET",
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const secret = env[name];
+  if (!secret) throw new Error(`${name} is required`);
   if (Buffer.byteLength(secret) < MIN_INTERNAL_SECRET_BYTES) {
     throw new Error(
-      `AGENT_ROUTE_SECRET must be at least ${MIN_INTERNAL_SECRET_BYTES} bytes`,
+      `${name} must be at least ${MIN_INTERNAL_SECRET_BYTES} bytes`,
     );
   }
   return secret;

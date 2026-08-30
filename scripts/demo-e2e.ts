@@ -75,8 +75,7 @@ export async function runDemoE2E(
     const decision = page.getByTestId("pending-decision");
     await decision.waitFor();
     assert.equal(await decision.count(), 1, "expected one host decision");
-    await page.getByTestId("approve-decision").click();
-    await waitForCount(page, "[data-testid='pending-decision']", 0);
+    await approvePendingDecision(page, "en");
 
     await warpClock(page, options.baseUrl, DEMO_SEED.clock.chase);
     const finalClock = await warpClock(
@@ -168,17 +167,33 @@ async function enterHost(
   await page.getByTestId("host-capture-form").waitFor();
 }
 
-async function captureInvitation(
+export async function captureInvitation(
   page: Page,
   rawMessage: string,
 ): Promise<string> {
   await page.getByTestId("host-capture-message").fill(rawMessage);
   await page.getByTestId("host-capture-submit").click();
+  await page.getByTestId("capture-queued").waitFor();
+  const reveal = page.getByTestId("capture-reveal");
+  await reveal.waitFor();
+  await reveal.click();
   const guestLink = page.getByTestId("guest-link");
   await guestLink.waitFor();
   const href = await guestLink.getAttribute("href");
   assert.ok(href, "capture did not return a guest link");
   return new URL(href, page.url()).toString();
+}
+
+export async function approvePendingDecision(
+  page: Page,
+  locale: "en" | "es",
+): Promise<void> {
+  await page.getByTestId("approve-decision").click();
+  await page.waitForURL(new RegExp(`/${locale}/runs/[0-9a-f-]+/status`));
+  await waitForRunStatus(page, "completed");
+  await page.getByTestId("run-return").click();
+  await page.waitForURL(new RegExp(`/${locale}/?(?:[?#].*)?$`));
+  await waitForCount(page, "[data-testid='pending-decision']", 0);
 }
 
 async function submitGuest(
@@ -202,12 +217,19 @@ async function submitGuest(
   await page.getByTestId("guest-submit").click();
   await page.waitForURL(/\/runs\/[0-9a-f-]+\/status/);
   await page.getByTestId("run-status").waitFor();
+  await waitForRunStatus(page, stay.expectedRunStatus);
+}
+
+async function waitForRunStatus(
+  page: Page,
+  expectedStatus: "completed" | "interrupted",
+): Promise<void> {
   await page.waitForFunction(
     (expected) =>
       document
         .querySelector("[data-testid='run-status']")
         ?.getAttribute("data-status") === expected,
-    stay.expectedRunStatus,
+    expectedStatus,
   );
 }
 
