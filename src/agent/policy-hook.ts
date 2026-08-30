@@ -31,11 +31,9 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
   agent.addHook(BeforeToolCallEvent, async (event) => {
     if (!GATED.has(event.toolUse.name)) return;
     const input = asObject(event.toolUse.input);
-    const { homeId, draft, approvalStayHash } = await loadDraftForTool(
-      deps,
-      event.toolUse.name,
-      input,
-    );
+    const { homeId, draft, approvalStayHash, sanitizedInput } =
+      await loadDraftForTool(deps, event.toolUse.name, input);
+    event.toolUse.input = sanitizedInput as unknown as JSONValue;
     const verdict = evaluateOverlap(
       draft,
       await loadHouseState(deps, homeId, draft),
@@ -61,7 +59,7 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
       event.cancel = `Declined by host${response.note ? `: ${response.note}` : ""}`;
       return;
     }
-    event.toolUse.input = { ...input, approvedBy: response.hostId };
+    event.toolUse.input = { ...sanitizedInput, approvedBy: response.hostId };
   });
 }
 

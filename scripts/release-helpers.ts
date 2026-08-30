@@ -5,6 +5,7 @@ export interface DemoSnapshot {
   visits: { id: string; status: string }[];
   notifications: {
     recipient_kind: "host" | "party";
+    recipient_id: string;
     kind: string;
   }[];
   decisions: { id: string; status: string }[];
@@ -28,14 +29,21 @@ export function assertDemoSnapshot(snapshot: DemoSnapshot): void {
     4,
     "expected four total notifications",
   );
+  const hostEscalations = snapshot.notifications.filter(
+    (notification) =>
+      notification.recipient_kind === "host" &&
+      notification.kind === "reconfirm_escalation",
+  );
   assert.equal(
-    snapshot.notifications.filter(
-      (notification) =>
-        notification.recipient_kind === "host" &&
-        notification.kind === "reconfirm_escalation",
-    ).length,
+    hostEscalations.length,
     2,
     "expected exactly two host escalation notifications",
+  );
+  assert.equal(
+    new Set(hostEscalations.map((notification) => notification.recipient_id))
+      .size,
+    2,
+    "expected host escalations for two distinct hosts",
   );
   assert.equal(
     snapshot.decisions.filter((decision) => decision.status === "approved")

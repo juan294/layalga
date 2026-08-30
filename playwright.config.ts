@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const e2eBaseUrl = process.env.E2E_BASE_URL ?? "http://127.0.0.1:3008";
+const e2ePort = new URL(e2eBaseUrl).port || "80";
 const e2eEnv = {
   DATABASE_URL:
     process.env.DATABASE_URL ??
@@ -9,7 +11,7 @@ const e2eEnv = {
   DEMO_SESSION_SECRET:
     process.env.DEMO_SESSION_SECRET ?? "abcdef0123456789abcdef0123456789",
   TICK_SECRET: process.env.TICK_SECRET ?? "fedcba9876543210fedcba9876543210",
-  APP_URL: process.env.APP_URL ?? "http://127.0.0.1:3008",
+  APP_URL: process.env.APP_URL ?? e2eBaseUrl,
   DEMO_MODE: "true",
   AGENT_RUNTIME: "local",
   MODEL: "scripted",
@@ -26,7 +28,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:3008",
+    baseURL: e2eBaseUrl,
     trace: "on-first-retry",
   },
   projects: [
@@ -36,9 +38,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm run dev",
+    command: `pnpm exec next dev --port ${e2ePort}`,
     env: e2eEnv,
-    url: "http://127.0.0.1:3008",
+    url: e2eBaseUrl,
     reuseExistingServer: false,
   },
 });

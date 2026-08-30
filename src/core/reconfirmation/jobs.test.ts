@@ -77,6 +77,7 @@ describe("reconfirmation jobs", () => {
     expect(await runDueJobs(sql, clock, invoker, homeId)).toHaveLength(1);
     expect(await visitStatus()).toBe("escalated");
     expect(await notificationCount("host")).toBe(2);
+    expect(await hostNotificationRecipientIds()).toEqual([...hostIds].sort());
     expect(await runDueJobs(sql, clock, invoker, homeId)).toEqual([]);
     expect(await notificationCount()).toBe(3);
   });
@@ -158,6 +159,46 @@ describe("reconfirmation jobs", () => {
     expect(attempts).toBe(2);
     expect(await notificationCount("host")).toBe(2);
     expect(await runDueJobs(sql, clock, retryingInvoker, homeId)).toEqual([]);
+  });
+
+  it("retries an escalation that did not notify every host", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
+    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    const incompleteInvoker: AgentInvoker = {
+      async run(task) {
+        await runAgentTask(
+          task as AgentTask,
+          agentDeps(
+            clock,
+            new ScriptedModel([
+              {
+                toolUse: {
+                  name: "notify",
+                  input: notificationInput(
+                    "host",
+                    hostIds[0],
+                    "reconfirm_escalation",
+                    task.jobId,
+                  ),
+                },
+              },
+              { text: "Hosts notified." },
+            ]),
+          ),
+        );
+      },
+    };
+
+    await expect(
+      runDueJobs(sql, clock, incompleteInvoker, homeId),
+    ).rejects.toThrow("One or more reconfirmation jobs failed");
+    expect(await hostNotificationRecipientIds()).toEqual([hostIds[0]]);
+    const [job] = await sql<{ status: string }[]>`
+      select status from public.scheduled_jobs
+      where visit_id = ${visitId} and kind = 'reconfirm_escalate'
+    `;
+    expect(job?.status).toBe("scheduled");
   });
 
   it("delivers a new chase for a later reconfirmation cycle", async () => {
@@ -306,48 +347,54 @@ describe("reconfirmation jobs", () => {
 function scriptedInvoker(clock: FakeClock): AgentInvoker {
   return {
     async run(task) {
-      const [job] = await sql<{ kind: string }[]>`
-        select kind from public.scheduled_jobs where id = ${task.jobId}
+      const [job] = await sql<
+        { kind: string; home_id: string; visit_id: string; party_id: string }[]
+      >`
+        select job.kind, job.home_id, job.visit_id, visit.party_id
+        from public.scheduled_jobs job
+        join public.visits visit on visit.id = job.visit_id
+        where job.id = ${task.jobId}
       `;
+      if (!job) throw new Error(`Scheduled job not found: ${task.jobId}`);
+      const hosts =
+        job.kind === "reconfirm_chase"
+          ? []
+          : await sql<{ id: string }[]>`
+              select id from public.hosts where home_id = ${job.home_id}
+              order by created_at, id
+            `;
       const steps =
-        job?.kind === "reconfirm_chase"
+        job.kind === "reconfirm_chase"
           ? [
               {
                 toolUse: {
                   name: "notify",
                   input: notificationInput(
                     "party",
-                    partyId,
+                    job.party_id,
                     "reconfirm_chase",
                     task.jobId,
+                    job.home_id,
+                    job.visit_id,
                   ),
                 },
               },
               { text: "Reconfirmation requested." },
             ]
           : [
-              {
+              ...hosts.map(({ id: recipientId }) => ({
                 toolUse: {
                   name: "notify",
                   input: notificationInput(
                     "host",
-                    hostIds[0],
+                    recipientId,
                     "reconfirm_escalation",
                     task.jobId,
+                    job.home_id,
+                    job.visit_id,
                   ),
                 },
-              },
-              {
-                toolUse: {
-                  name: "notify",
-                  input: notificationInput(
-                    "host",
-                    hostIds[1],
-                    "reconfirm_escalation",
-                    task.jobId,
-                  ),
-                },
-              },
+              })),
               { text: "Hosts notified." },
             ];
       return runAgentTask(
@@ -363,12 +410,14 @@ function notificationInput(
   recipientId: string,
   kind: string,
   scheduledJobId: string,
+  notificationHomeId = homeId,
+  notificationVisitId = visitId,
 ) {
   return {
-    homeId,
+    homeId: notificationHomeId,
     recipientKind,
     recipientId,
-    visitId,
+    visitId: notificationVisitId,
     scheduledJobId,
     kind,
     bodyEn: "Please confirm your visit.",
@@ -403,4 +452,15 @@ async function notificationCount(
       and (${recipientKind ?? null}::text is null or recipient_kind = ${recipientKind ?? null})
   `;
   return row?.count ?? 0;
+}
+
+async function hostNotificationRecipientIds(): Promise<string[]> {
+  const rows = await sql<{ recipient_id: string }[]>`
+    select distinct recipient_id from public.notifications
+    where visit_id = ${visitId}
+      and recipient_kind = 'host'
+      and kind = 'reconfirm_escalation'
+    order by recipient_id
+  `;
+  return rows.map(({ recipient_id: recipientId }) => recipientId);
 }

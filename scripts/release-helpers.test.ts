@@ -14,10 +14,22 @@ const validSnapshot: DemoSnapshot = {
     { id: "oteros", status: "reconfirm_pending" },
   ],
   notifications: [
-    { recipient_kind: "party", kind: "reconfirm_chase" },
-    { recipient_kind: "party", kind: "reconfirm_chase" },
-    { recipient_kind: "host", kind: "reconfirm_escalation" },
-    { recipient_kind: "host", kind: "reconfirm_escalation" },
+    { recipient_kind: "party", recipient_id: "vega", kind: "reconfirm_chase" },
+    {
+      recipient_kind: "party",
+      recipient_id: "oteros",
+      kind: "reconfirm_chase",
+    },
+    {
+      recipient_kind: "host",
+      recipient_id: "nel",
+      kind: "reconfirm_escalation",
+    },
+    {
+      recipient_kind: "host",
+      recipient_id: "covadonga",
+      kind: "reconfirm_escalation",
+    },
   ],
   decisions: [{ id: "decision", status: "approved" }],
 };
@@ -33,10 +45,24 @@ describe("assertDemoSnapshot", () => {
         ...validSnapshot,
         notifications: validSnapshot.notifications.map(() => ({
           recipient_kind: "host",
+          recipient_id: "nel",
           kind: "reconfirm_escalation",
         })),
       }),
     ).toThrow(/exactly two host escalation notifications/i);
+  });
+
+  it("rejects two escalations sent to the same host", () => {
+    expect(() =>
+      assertDemoSnapshot({
+        ...validSnapshot,
+        notifications: validSnapshot.notifications.map((notification) =>
+          notification.recipient_kind === "host"
+            ? { ...notification, recipient_id: "nel" }
+            : notification,
+        ),
+      }),
+    ).toThrow(/two distinct hosts/i);
   });
 
   it("rejects a pending host decision", () => {

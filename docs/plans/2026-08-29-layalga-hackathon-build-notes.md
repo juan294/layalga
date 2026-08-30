@@ -144,6 +144,14 @@ Plan: `2026-08-29-layalga-hackathon-build.md`
 - Migrations `20260831000900_relationship_tenants.sql` and `20260831001000_demo_mutation_control.sql` applied from a clean reset. The full four-beat demo and all eight release probes passed again after these changes.
 - The final simplify review removed app-clock skew from scheduler leases, normalized safe host and guest action errors, moved shared dependencies into leaf ports, and reused pure validation and time helpers.
 
+### Post-implementation validation: trusted booking input and acceptance evidence
+
+- Plan said: the validated guest submission drives the hold policy; only a recorded host response can approve a social exception; reschedule Case B proves `deny(children)`; and the clock protocol notifies both hosts while a guest answer prevents escalation.
+- Found: `create_temporary_hold` trusted model-retyped dates, party counts, pets, requests, and `approvedBy`; stored invitation requests could be omitted. The reschedule denial asserted only scripted prose, the unchanged approval path had no negative control, the state-machine assertion did not prove the visit stayed reconfirmed, and escalation checks counted host rows without proving two distinct recipients.
+- Chose: carry the validated guest submission through task authority, freeze its trusted request list in the originating run for resume, union its note with stored invitation requests, replace model-retyped hold fields before policy and execution, remove every model-authored `approvedBy`, preserve only an existing matching reschedule approval hash, verify the `policy_verdict` audit payload, assert the unchanged approved path does not interrupt, assert the reconfirmed state after the escalation deadline, require two distinct host IDs, and retry any scheduled delivery that does not reach every required recipient.
+- Why: policy, persistence, audit evidence, and acceptance tests now use the same trusted values. A model cannot omit a request, forge host approval, change the submitted booking, or complete an escalation after notifying one host twice.
+- Verification: sequential typecheck, lint, 130 tests, 102 covered unit tests, production build, AgentCore bundle, four Playwright journeys, the local four-beat demo, and all eight release probes passed. The demo produced four notifications with two distinct host recipients. Candidate-only browser checks used the opt-in `E2E_BASE_URL` on port 3018 because the owner-run server on fixed port 3008 remained untouched; port 3018 was stopped after verification.
+
 ### Phase 6 deliverables
 
 - The README, Mermaid source, rendered SVG and PNG architecture diagram, video script, Devpost draft, and three builder.aws drafts are complete locally.

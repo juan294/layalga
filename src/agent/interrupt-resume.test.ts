@@ -169,7 +169,7 @@ describe("interrupt and resume", () => {
       { text: "Declined by host: not this weekend." },
     ]);
     const declinedFirst = await runAgentTask(
-      submit(declinedInvitationId),
+      submit(declinedInvitationId, ["2026-09-22", "2026-09-24"], "quiet room"),
       deps(declinedModel),
     );
     const [declinedDecision] = await sql<
@@ -204,16 +204,20 @@ describe("interrupt and resume", () => {
   }, 30_000);
 });
 
-function submit(id = invitationId): AgentTask {
+function submit(
+  id = invitationId,
+  stay: [string, string] = ["2026-09-19", "2026-09-21"],
+  notes = "wheelchair access",
+): AgentTask {
   return {
     task: "guest_submit",
     homeId,
     invitationId: id,
-    stay: ["2026-09-19", "2026-09-21"],
+    stay,
     adults: 2,
     children: 0,
     pets: 1,
-    notes: "wheelchair access",
+    notes,
     locale: "en",
   };
 }

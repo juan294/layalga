@@ -93,6 +93,7 @@ interface VisitRow {
   children: number;
   pets: number;
   special_requests: string[];
+  approval_stay_hash: string | null;
   status: VisitStatus;
   hold_expires_at: Date | string | null;
 }
@@ -343,6 +344,12 @@ export async function rescheduleVisit(
         await loadHouseState(transaction, home, draft.stay),
       );
       assertBookable(verdict);
+      const draftApprovalHash = stayApprovalHash(draft);
+      const approvalHash = input.approvedBy
+        ? draftApprovalHash
+        : current.approval_stay_hash === draftApprovalHash
+          ? current.approval_stay_hash
+          : null;
 
       await transaction`delete from public.visit_rooms where visit_id = ${current.id}`;
       await transaction`
@@ -352,7 +359,7 @@ export async function rescheduleVisit(
             children = ${draft.children},
             pets = ${draft.pets},
             special_requests = ${transaction.array([...draft.specialRequests])},
-            approval_stay_hash = ${input.approvedBy ? stayApprovalHash(draft) : null},
+            approval_stay_hash = ${approvalHash},
             status = 'confirmed',
             confirmed_at = coalesce(confirmed_at, ${clock.now().toISOString()}),
             hold_expires_at = null,
@@ -523,6 +530,7 @@ function loadVisit(
           children,
           pets,
           special_requests,
+          approval_stay_hash,
           status,
           hold_expires_at
         from public.visits
@@ -541,6 +549,7 @@ function loadVisit(
           children,
           pets,
           special_requests,
+          approval_stay_hash,
           status,
           hold_expires_at
         from public.visits

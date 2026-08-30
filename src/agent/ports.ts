@@ -18,4 +18,11 @@ export interface AgentAuthority {
   invitationId?: string;
   visitId?: string;
   jobId?: string;
+  guestSubmission?: {
+    stay: [string, string];
+    adults: number;
+    children: number;
+    pets: number;
+    specialRequests: string[];
+  };
 }

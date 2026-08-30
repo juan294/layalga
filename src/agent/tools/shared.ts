@@ -76,25 +76,44 @@ export function assertHomeAuthority(deps: AgentDeps, homeId: string): void {
 export async function loadDraftForTool(
   deps: AgentDeps,
   name: string,
-  input: Record<string, unknown>,
+  input: Record<string, JSONValue>,
 ): Promise<{
   homeId: string;
   draft: VisitDraft;
   approvalStayHash: string | null;
+  sanitizedInput: Record<string, JSONValue>;
 }> {
   const sql = sqlClient(deps.db);
+  const sanitizedInput = { ...input };
+  delete sanitizedInput.approvedBy;
   if (name === "create_temporary_hold") {
     const invitationId = String(input.invitationId);
+    const submission = deps.authority?.guestSubmission;
+    if (!submission) {
+      throw new Error(
+        "A trusted guest submission is required to create a hold",
+      );
+    }
+    const draft: VisitDraft = {
+      stay: submission.stay,
+      adults: submission.adults,
+      children: submission.children,
+      pets: submission.pets,
+      specialRequests: submission.specialRequests,
+    };
     return {
       homeId: await homeIdForInvitation(deps, invitationId),
-      draft: {
-        stay: input.stay as [string, string],
-        adults: Number(input.adults),
-        children: Number(input.children ?? 0),
-        pets: Number(input.pets ?? 0),
-        specialRequests: (input.specialRequests as string[] | undefined) ?? [],
-      },
+      draft,
       approvalStayHash: null,
+      sanitizedInput: {
+        ...sanitizedInput,
+        invitationId,
+        stay: draft.stay as [string, string],
+        adults: draft.adults,
+        children: draft.children,
+        pets: draft.pets,
+        specialRequests: [...draft.specialRequests],
+      },
     };
   }
 
@@ -136,6 +155,7 @@ export async function loadDraftForTool(
         visit.special_requests,
     },
     approvalStayHash: visit.approval_stay_hash,
+    sanitizedInput,
   };
 }
 

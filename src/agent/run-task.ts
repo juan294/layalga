@@ -28,12 +28,19 @@ export async function runAgentTask(
   await reconcileStaleRuns(deps.db, deps.clock.now(), task.homeId);
   const startedAt = deps.clock.now();
   const deadlineAt = new Date(startedAt.getTime() + 6 * 60 * 1_000);
+  const runPayload =
+    task.task === "guest_submit"
+      ? {
+          ...task,
+          trustedSpecialRequests: authority.guestSubmission!.specialRequests,
+        }
+      : task;
   const [run] = await sql<{ id: string }[]>`
     insert into public.runs (
       home_id, session_id, task, payload, heartbeat_at, deadline_at
     ) values (
       ${task.homeId}, ${sessionId}, ${task.task},
-      ${JSON.stringify(task)}::text::jsonb, ${startedAt.toISOString()},
+      ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
       ${deadlineAt.toISOString()}
     )
     returning id
@@ -283,14 +290,18 @@ async function authorityForTask(
     return { homeId: task.homeId, hostId: task.hostId };
   }
   if (task.task === "guest_submit") {
-    const [invitation] = await sql<{ id: string }[]>`
-      select id from public.invitations
+    const [invitation] = await sql<{ id: string; structured: unknown }[]>`
+      select id, structured from public.invitations
       where id = ${task.invitationId} and home_id = ${task.homeId}
         and status <> 'cancelled'
     `;
     if (!invitation)
       throw new Error("Invitation does not belong to the task home");
-    return { homeId: task.homeId, invitationId: task.invitationId };
+    return {
+      homeId: task.homeId,
+      invitationId: task.invitationId,
+      guestSubmission: canonicalGuestSubmission(task, invitation.structured),
+    };
   }
   if (task.task === "guest_change" || task.task === "guest_reconfirm") {
     const [visit] = await sql<{ invitation_id: string }[]>`
@@ -330,8 +341,10 @@ async function authorityForTask(
   }
   if (task.sessionId.startsWith("inv_")) {
     const invitationId = task.sessionId.slice(4);
-    const [record] = await sql<{ visit_id: string | null }[]>`
-      select v.id as visit_id
+    const [record] = await sql<
+      { visit_id: string | null; structured: unknown }[]
+    >`
+      select v.id as visit_id, i.structured
       from public.invitations i
       left join public.visits v on v.invitation_id = i.id and v.home_id = i.home_id
       where i.id = ${invitationId} and i.home_id = ${task.homeId}
@@ -340,10 +353,31 @@ async function authorityForTask(
     `;
     if (!record)
       throw new Error("Agent session invitation is outside the task home");
+    const [submissionRun] = await sql<{ payload: unknown }[]>`
+      select run.payload
+      from public.pending_decisions decision
+      join public.runs run on run.id = decision.run_id
+      where decision.home_id = ${task.homeId}
+        and decision.agent_session_id = ${task.sessionId}
+        and decision.interrupt_id = ${task.responses[0]!.interruptId}
+    `;
+    const parsedSubmission = agentTaskSchema.safeParse(submissionRun?.payload);
+    const trustedSpecialRequests = specialRequestsFromRunPayload(
+      submissionRun?.payload,
+    );
     return {
       homeId: task.homeId,
       invitationId,
       visitId: record.visit_id ?? undefined,
+      guestSubmission:
+        parsedSubmission.success &&
+        parsedSubmission.data.task === "guest_submit"
+          ? canonicalGuestSubmission(
+              parsedSubmission.data,
+              record.structured,
+              trustedSpecialRequests,
+            )
+          : undefined,
     };
   }
   if (task.sessionId.startsWith("capture_")) {
@@ -355,6 +389,55 @@ async function authorityForTask(
     return { homeId: task.homeId, hostId };
   }
   throw new Error("Unsupported agent session scope");
+}
+
+function invitationSpecialRequests(structured: unknown): string[] {
+  if (
+    !structured ||
+    typeof structured !== "object" ||
+    Array.isArray(structured)
+  ) {
+    return [];
+  }
+  const value = (structured as { specialRequests?: unknown }).specialRequests;
+  return Array.isArray(value)
+    ? value.filter((request): request is string => typeof request === "string")
+    : [];
+}
+
+function canonicalGuestSubmission(
+  task: Extract<AgentTask, { task: "guest_submit" }>,
+  structured: unknown,
+  trustedSpecialRequests?: string[],
+): NonNullable<AgentAuthority["guestSubmission"]> {
+  return {
+    stay: task.stay,
+    adults: task.adults,
+    children: task.children,
+    pets: task.pets,
+    specialRequests:
+      trustedSpecialRequests ??
+      uniqueStrings([
+        ...invitationSpecialRequests(structured),
+        ...(task.notes ? [task.notes] : []),
+      ]),
+  };
+}
+
+function specialRequestsFromRunPayload(payload: unknown): string[] | undefined {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return undefined;
+  }
+  const value = (payload as { trustedSpecialRequests?: unknown })
+    .trustedSpecialRequests;
+  return Array.isArray(value) &&
+    value.every((request) => typeof request === "string")
+    ? uniqueStrings(value)
+    : undefined;
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 async function buildPrompt(

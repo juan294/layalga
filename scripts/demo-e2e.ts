@@ -97,6 +97,19 @@ export async function runDemoE2E(
         notification.recipient_kind === "host" &&
         notification.kind === "reconfirm_escalation",
     ).length;
+    assert.equal(
+      new Set(
+        snapshot.notifications
+          .filter(
+            (notification) =>
+              notification.recipient_kind === "host" &&
+              notification.kind === "reconfirm_escalation",
+          )
+          .map((notification) => notification.recipient_id),
+      ).size,
+      2,
+      "expected escalation notifications for two distinct hosts",
+    );
 
     return {
       baseUrl: options.baseUrl,
@@ -119,7 +132,10 @@ export async function runDemoE2E(
   }
 }
 
-async function resetDemo(page: Page, baseUrl: string): Promise<{
+async function resetDemo(
+  page: Page,
+  baseUrl: string,
+): Promise<{
   homeId: string;
   hostIds: string[];
   partyIds: string[];
@@ -231,8 +247,10 @@ async function loadSnapshot(sql: postgres.Sql): Promise<DemoSnapshot> {
       where home_id = ${DEMO_SEED.home.id}
       order by created_at, id
     `,
-    sql<{ recipient_kind: "host" | "party"; kind: string }[]>`
-      select recipient_kind, kind from public.notifications
+    sql<
+      { recipient_kind: "host" | "party"; recipient_id: string; kind: string }[]
+    >`
+      select recipient_kind, recipient_id, kind from public.notifications
       where home_id = ${DEMO_SEED.home.id}
       order by created_at, id
     `,

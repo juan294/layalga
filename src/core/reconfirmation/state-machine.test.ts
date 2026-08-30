@@ -68,7 +68,17 @@ describe("reconfirmation state machine", () => {
         kind: "reconfirm_escalate",
       },
     ]);
-    expect(applyEscalation(answered.visit, escalationAt).jobs).toEqual([]);
+    const afterEscalationDeadline = applyEscalation(
+      answered.visit,
+      escalationAt,
+    );
+    expect(afterEscalationDeadline.visit).toBe(answered.visit);
+    expect(afterEscalationDeadline.visit).toMatchObject({
+      status: "reconfirmed",
+      reconfirmedAt: answerAt,
+      escalatedAt: null,
+    });
+    expect(afterEscalationDeadline.jobs).toEqual([]);
   });
 
   it("makes an already-past chase due immediately", () => {

@@ -15,6 +15,169 @@ const sql = postgres(url, { prepare: false });
 describe("agent task authority", () => {
   afterAll(() => sql.end());
 
+  it("uses stored invitation requests even when the model omits them", async () => {
+    const fixture = await seedHome("Stored requests");
+    try {
+      await sql`
+        update public.invitations
+        set structured = ${JSON.stringify({
+          specialRequests: ["wheelchair access"],
+        })}::text::jsonb
+        where id = ${fixture.invitationId}
+      `;
+      const result = await runAgentTask(
+        guestSubmit(fixture),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "create_temporary_hold",
+                input: holdInput(fixture, { specialRequests: [] }),
+              },
+            },
+            { text: "Hold created." },
+          ]),
+        ),
+      );
+
+      expect(result.status).toBe("interrupted");
+      expect(result.pendingDecisionIds).toHaveLength(1);
+      expect(
+        await sql`
+          select id from public.visits
+          where invitation_id = ${fixture.invitationId}
+        `,
+      ).toHaveLength(0);
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
+  it("removes a model-authored approval from an allowed hold", async () => {
+    const fixture = await seedHome("Forged approval");
+    try {
+      const result = await runAgentTask(
+        guestSubmit(fixture),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "create_temporary_hold",
+                input: holdInput(fixture, { approvedBy: fixture.hostId }),
+              },
+            },
+            { text: "Hold created." },
+          ]),
+        ),
+      );
+
+      expect(result.status).toBe("completed");
+      const [visit] = await sql<{ approval_stay_hash: string | null }[]>`
+        select approval_stay_hash from public.visits
+        where invitation_id = ${fixture.invitationId}
+      `;
+      expect(visit?.approval_stay_hash).toBeNull();
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
+  it("persists validated guest values instead of model-retyped values", async () => {
+    const fixture = await seedHome("Canonical guest input", 6);
+    try {
+      const result = await runAgentTask(
+        guestSubmit(fixture, {
+          stay: ["2026-10-02", "2026-10-05"],
+          adults: 2,
+          children: 1,
+          pets: 1,
+          notes: "cot near the window",
+        }),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "create_temporary_hold",
+                input: holdInput(fixture, {
+                  stay: ["2026-11-10", "2026-11-11"],
+                  adults: 5,
+                  children: 0,
+                  pets: 0,
+                  specialRequests: [],
+                }),
+              },
+            },
+            { text: "Hold created." },
+          ]),
+        ),
+      );
+
+      expect(result.status).toBe("interrupted");
+      const [decision] = await sql<{ reason: { decision: string } }[]>`
+        select reason from public.pending_decisions where run_id = ${result.runId}
+      `;
+      expect(decision?.reason).toMatchObject({ decision: "interrupt" });
+
+      const [pending] = await sql<{ id: string; interrupt_id: string }[]>`
+        select id, interrupt_id from public.pending_decisions
+        where run_id = ${result.runId}
+      `;
+      await sql`
+        update public.invitations
+        set structured = ${JSON.stringify({
+          specialRequests: ["request added after the decision"],
+        })}::text::jsonb
+        where id = ${fixture.invitationId}
+      `;
+      await sql`
+        update public.pending_decisions
+        set status = 'approved', decided_by_host_id = ${fixture.hostId},
+          decided_at = '2026-09-01T10:00:00Z'
+        where id = ${pending!.id}
+      `;
+      const resumed = await runAgentTask(
+        {
+          task: "resume",
+          homeId: fixture.homeId,
+          sessionId: result.sessionId,
+          responses: [
+            {
+              interruptId: pending!.interrupt_id,
+              response: { approved: true, hostId: fixture.hostId },
+            },
+          ],
+        },
+        agentDeps(new ScriptedModel([{ text: "Hold created." }])),
+      );
+      expect(resumed.status).toBe("completed");
+
+      const [visit] = await sql<
+        {
+          stay_start: string;
+          stay_end: string;
+          adults: number;
+          children: number;
+          pets: number;
+          special_requests: string[];
+        }[]
+      >`
+        select lower(stay)::text as stay_start, upper(stay)::text as stay_end,
+          adults, children, pets, special_requests
+        from public.visits where invitation_id = ${fixture.invitationId}
+      `;
+      expect(visit).toEqual({
+        stay_start: "2026-10-02",
+        stay_end: "2026-10-05",
+        adults: 2,
+        children: 1,
+        pets: 1,
+        special_requests: ["cot near the window"],
+      });
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
   it("rejects a model-selected invitation from another home", async () => {
     const [homeA, homeB] = await Promise.all([
       seedHome("Scoped A"),
@@ -192,7 +355,61 @@ describe("agent task authority", () => {
   });
 });
 
-async function seedHome(name: string) {
+function guestSubmit(
+  fixture: Awaited<ReturnType<typeof seedHome>>,
+  overrides: Partial<{
+    stay: [string, string];
+    adults: number;
+    children: number;
+    pets: number;
+    notes: string;
+  }> = {},
+) {
+  return {
+    task: "guest_submit" as const,
+    homeId: fixture.homeId,
+    invitationId: fixture.invitationId,
+    stay: ["2026-10-02", "2026-10-04"] as [string, string],
+    adults: 2,
+    children: 0,
+    pets: 0,
+    locale: "en" as const,
+    ...overrides,
+  };
+}
+
+function holdInput(
+  fixture: Awaited<ReturnType<typeof seedHome>>,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    invitationId: fixture.invitationId,
+    stay: ["2026-10-02", "2026-10-04"],
+    adults: 2,
+    children: 0,
+    pets: 0,
+    specialRequests: [],
+    ...overrides,
+  };
+}
+
+function agentDeps(model: ScriptedModel) {
+  return {
+    db: sql,
+    clock: new FakeClock(new Date("2026-09-01T10:00:00Z")),
+    scheduler: new NoopScheduler(),
+    appUrl: "http://localhost:3008",
+    locale: "en" as const,
+    model,
+  };
+}
+
+async function cleanup(fixture: Awaited<ReturnType<typeof seedHome>>) {
+  await sql`delete from public.homes where id = ${fixture.homeId}`;
+  await sql`delete from public.agent_sessions where session_id = ${`inv_${fixture.invitationId}`}`;
+}
+
+async function seedHome(name: string, beds = 2) {
   const [home] = await sql<{ id: string }[]>`
     insert into public.homes (name, timezone) values (${name}, 'Europe/Madrid')
     returning id
@@ -211,7 +428,11 @@ async function seedHome(name: string) {
   `;
   await sql`
     insert into public.rooms (home_id, name, beds)
-    values (${home!.id}, 'Room', 2)
+    values (${home!.id}, 'Room', ${beds})
   `;
-  return { homeId: home!.id, invitationId: invitation!.id };
+  return {
+    homeId: home!.id,
+    hostId: host!.id,
+    invitationId: invitation!.id,
+  };
 }

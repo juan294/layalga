@@ -239,6 +239,11 @@ async function executeClaimedJob(
         homeId: job.home_id,
         jobId: job.id,
       });
+      if (!(await deliveryIsComplete(database, job))) {
+        throw new Error(
+          `The ${job.kind} job did not reach every required recipient`,
+        );
+      }
     }
 
     const [completed] = await sql<{ id: string }[]>`
