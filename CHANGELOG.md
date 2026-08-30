@@ -17,7 +17,7 @@ All notable changes to L’Ayalga are documented in this file.
 - Bound request sizes, idempotency, rate limits, searches, leases, attempts, and worker concurrency.
 - Secured invitation capabilities, tenant relationships, runtime database roles, prompt retention, and nonce-based content security policy.
 - Corrected calendar navigation, time-zone rendering, decision re-evaluation, expired holds, localized outcomes, pending controls, target sizes, and WebKit hydration.
-- Updated the demo driver and concurrency probe to follow queued runs to their exact terminal results.
+- Updated CI test partitioning and browser installation, plus the demo driver and concurrency probe, to follow database, mobile, and queued-run contracts correctly.
 
 ### Changed
 
