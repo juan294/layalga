@@ -31,7 +31,7 @@ export const DEMO_SEED = {
   hosts: [
     {
       id: "00000000-0000-4000-8000-000000000201",
-      emails: ["nel@example.com", "juan294@gmail.com"],
+      emails: ["nel@example.com"],
       displayName: "Nel",
       locale: "es",
     },
@@ -39,6 +39,20 @@ export const DEMO_SEED = {
       id: "00000000-0000-4000-8000-000000000202",
       emails: ["covadonga@example.com"],
       displayName: "Covadonga",
+      locale: "en",
+    },
+  ],
+  operators: [
+    {
+      id: "00000000-0000-4000-8000-000000000211",
+      emails: ["juan294@gmail.com"],
+      displayName: "Juan González",
+      locale: "en",
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000212",
+      emails: ["jordanlynn5@gmail.com"],
+      displayName: "Jordan Lynn",
       locale: "en",
     },
   ],
@@ -90,6 +104,11 @@ export const DEMO_SEED = {
     escalation: "2026-09-16T09:05:00+02:00",
   },
 } as const;
+
+export const SEEDED_HOSTS = [
+  ...DEMO_SEED.hosts,
+  ...DEMO_SEED.operators,
+] as const;
 
 export interface SeedDemoResult {
   homeId: string;
@@ -158,7 +177,7 @@ export async function resetDemoHome(
         `;
       }
 
-      for (const host of DEMO_SEED.hosts) {
+      for (const host of SEEDED_HOSTS) {
         await transaction`
           insert into public.hosts (id, home_id, display_name, locale)
           values (
@@ -242,7 +261,7 @@ export async function resetDemoHome(
 
   return {
     homeId: DEMO_SEED.home.id,
-    hostIds: DEMO_SEED.hosts.map((host) => host.id),
+    hostIds: SEEDED_HOSTS.map((host) => host.id),
     partyIds: DEMO_SEED.parties.map((party) => party.id),
     invitationIds: DEMO_SEED.parties.map((party) => party.invitation.id),
   };
