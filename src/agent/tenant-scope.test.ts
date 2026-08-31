@@ -427,8 +427,10 @@ async function seedHome(name: string, beds = 2) {
     values (${home!.id}, ${host!.id}, ${party!.id}, 'Scoped') returning id
   `;
   await sql`
-    insert into public.rooms (home_id, name, beds)
-    values (${home!.id}, 'Room', ${beds})
+    insert into public.rooms (
+      home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+      maximum_capacity, inventory_state
+    ) values (${home!.id}, 'Room', ${beds}, 'Room', 'Ground', 'Beds', ${beds}, 'available')
   `;
   return {
     homeId: home!.id,

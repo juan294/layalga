@@ -6,6 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FakeClock } from "../clock";
 import type { JobScheduler } from "../reconfirmation/jobs";
 import {
+  createPrivateRoomBlock,
+  RoomOperationConflictError,
+} from "../rooms/operations";
+import {
   cancelVisit,
   confirmVisit,
   createTemporaryHold,
@@ -21,7 +25,9 @@ const db = postgres(connectionUrl, { max: 12, prepare: false });
 
 interface Fixture {
   homeId: string;
+  hostId: string;
   invitationIds: [string, string];
+  roomId: string;
 }
 
 async function seedFixture(sql: Sql): Promise<Fixture> {
@@ -33,10 +39,14 @@ async function seedFixture(sql: Sql): Promise<Fixture> {
   `;
   if (!home) throw new Error("Failed to seed the concurrency home");
 
-  await sql`
-    insert into public.rooms (home_id, name, beds)
-    values (${home.id}, 'Only room', 2)
+  const [room] = await sql<{ id: string }[]>`
+    insert into public.rooms (
+      home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+      maximum_capacity, inventory_state
+    ) values (${home.id}, 'Only room', 2, 'Only room', 'Ground', 'Double bed', 2, 'available')
+    returning id
   `;
+  if (!room) throw new Error("Failed to seed the concurrency room");
   const [host] = await sql<{ id: string }[]>`
     insert into public.hosts (home_id, display_name, locale)
     values (${home.id}, 'Host', 'en')
@@ -67,7 +77,12 @@ async function seedFixture(sql: Sql): Promise<Fixture> {
     invitationIds.push(invitation.id);
   }
 
-  return { homeId: home.id, invitationIds: invitationIds as [string, string] };
+  return {
+    homeId: home.id,
+    hostId: host.id,
+    invitationIds: invitationIds as [string, string],
+    roomId: room.id,
+  };
 }
 
 async function runRace(lockHome: boolean): Promise<void> {
@@ -326,8 +341,10 @@ describe("createTemporaryHold concurrency", () => {
         adults: 1,
       });
       await db`
-        insert into public.rooms (home_id, name, beds)
-        values (${fixture.homeId}, 'Second room', 2)
+        insert into public.rooms (
+          home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+          maximum_capacity, inventory_state
+        ) values (${fixture.homeId}, 'Second room', 2, 'Second room', 'Upper', 'Double bed', 2, 'available')
       `;
       const activeClock = new FakeClock(
         new Date(firstClock.now().getTime() + 47 * 60 * 60 * 1_000),
@@ -347,6 +364,138 @@ describe("createTemporaryHold concurrency", () => {
         select status from public.visits where id = ${stale.visitId}
       `;
       expect(expired?.status).toBe("cancelled");
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("rechecks and stores an exact room selection", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      await db`
+        insert into public.rooms (
+          home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+          maximum_capacity, inventory_state, display_order
+        ) values (${fixture.homeId}, 'Single room', 1, 'Single room', 'Upper', 'Single bed', 1, 'available', -1)
+      `;
+      const hold = await createTemporaryHold(db, clock, {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2026-11-02", "2026-11-04"],
+        adults: 1,
+        roomIds: [fixture.roomId],
+      });
+      expect(hold.allocation.map(({ id }) => id)).toEqual([fixture.roomId]);
+
+      await expect(
+        createTemporaryHold(db, clock, {
+          invitationId: fixture.invitationIds[1],
+          stay: ["2026-12-02", "2026-12-04"],
+          adults: 1,
+          roomIds: [fixture.roomId, fixture.roomId],
+        }),
+      ).rejects.toBeInstanceOf(RoomUnavailableError);
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("requires host approval for the exact overflow arrangement", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const [overflow] = await db<{ id: string }[]>`
+        insert into public.rooms (
+          home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+          overflow_arrangement, maximum_capacity, inventory_state, overflow_policy
+        ) values (
+          ${fixture.homeId}, 'Overflow room', 2, 'Overflow room', 'Lower',
+          'One sofa bed', 'One double air mattress', 4, 'available', 'host_approval'
+        ) returning id
+      `;
+      if (!overflow) throw new Error("Failed to create the overflow room");
+      const request = {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2027-01-02", "2027-01-04"] as const,
+        adults: 4,
+        roomIds: [overflow.id],
+        overflowConsent: true,
+      };
+      await expect(
+        createTemporaryHold(db, clock, request),
+      ).rejects.toMatchObject({
+        name: "RoomOverflowApprovalRequiredError",
+        arrangements: ["One double air mattress"],
+      });
+      await expect(
+        createTemporaryHold(db, clock, {
+          ...request,
+          approvedBy: fixture.hostId,
+        }),
+      ).resolves.toMatchObject({ status: "hold" });
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("does not invent overflow consent when capacity changes before confirmation", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const hold = await createTemporaryHold(db, clock, {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2027-01-12", "2027-01-14"],
+        adults: 2,
+        roomIds: [fixture.roomId],
+      });
+      await db`
+        update public.rooms
+        set beds = 1,
+            maximum_capacity = 2,
+            overflow_arrangement = 'One folding bed',
+            overflow_policy = 'host_approval'
+        where id = ${fixture.roomId}
+      `;
+
+      await expect(
+        confirmVisit(db, clock, hold.visitId, fixture.hostId),
+      ).rejects.toBeInstanceOf(RoomUnavailableError);
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it("allows only one winner between a visit and a private block", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const results = await Promise.allSettled([
+        createTemporaryHold(db, clock, {
+          invitationId: fixture.invitationIds[0],
+          stay: ["2027-02-02", "2027-02-04"],
+          adults: 2,
+          roomIds: [fixture.roomId],
+        }),
+        createPrivateRoomBlock(db, {
+          homeId: fixture.homeId,
+          hostId: fixture.hostId,
+          roomIds: [fixture.roomId],
+          stay: ["2027-02-02", "2027-02-04"],
+          publicLabel: "Reserved by host",
+          idempotencyKey: `race-${randomUUID()}`,
+        }),
+      ]);
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      const rejected = results.find(
+        (result): result is PromiseRejectedResult =>
+          result.status === "rejected",
+      );
+      expect(
+        rejected?.reason instanceof RoomUnavailableError ||
+          rejected?.reason instanceof RoomOperationConflictError,
+      ).toBe(true);
     } finally {
       await db`delete from public.homes where id = ${fixture.homeId}`;
     }

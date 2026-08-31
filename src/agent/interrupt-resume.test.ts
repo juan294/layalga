@@ -24,7 +24,12 @@ describe("interrupt and resume", () => {
     await sql`delete from public.homes where id = ${homeId}`;
     await sql`delete from public.agent_sessions where session_id like 'inv_10000000%'`;
     await sql`insert into public.homes (id, name, timezone) values (${homeId}, 'Interrupt home', 'Europe/Madrid')`;
-    await sql`insert into public.rooms (home_id, name, beds) values (${homeId}, 'Room', 3)`;
+    await sql`
+      insert into public.rooms (
+        home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+        maximum_capacity, inventory_state
+      ) values (${homeId}, 'Room', 3, 'Room', 'Ground', 'Three beds', 3, 'available')
+    `;
     await sql`insert into public.hosts (id, home_id, display_name, locale) values (${hostId}, ${homeId}, 'Nel', 'es')`;
     const partyId = "10000000-0000-4000-8000-000000000302";
     const declinedPartyId = "10000000-0000-4000-8000-000000000303";

@@ -40,7 +40,7 @@ pnpm run lint
 
 ## Done when
 
-- [ ] Red tests pass.
-- [ ] Existing booking and policy tests pass.
-- [ ] Concurrency proves the shared exclusion constraint.
-- [ ] Plan-compliance review approves exact selection and privacy DTOs.
+- [x] Red tests pass.
+- [x] Existing booking and policy tests pass.
+- [x] Concurrency proves the shared exclusion constraint.
+- [x] Plan-compliance review approves exact selection and privacy DTOs.

@@ -843,6 +843,8 @@ function canonicalGuestSubmission(
         ...invitationSpecialRequests(structured),
         ...(task.notes ? [task.notes] : []),
       ]),
+    roomIds: task.roomIds,
+    overflowConsent: task.overflowConsent,
   };
 }
 

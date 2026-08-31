@@ -37,6 +37,8 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     pets: z.int().min(0).max(MAX_PETS),
     arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
     notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
+    roomIds: z.array(z.uuid()).min(1).max(20).optional(),
+    overflowConsent: z.boolean().optional(),
     locale,
   }),
   z.object({

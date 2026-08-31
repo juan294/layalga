@@ -4,6 +4,7 @@ import { stayApprovalHash } from "@/core/booking/holds";
 
 import {
   hostDecisionReason,
+  hostOverflowDecisionReason,
   verifiedHostDecisionContext,
 } from "./host-decision-context";
 
@@ -71,5 +72,35 @@ describe("host decision context", () => {
       }),
     ).toBeNull();
     expect(verifiedHostDecisionContext({ decision: "interrupt" })).toBeNull();
+  });
+
+  test("binds overflow approval to canonical room IDs and guest consent", () => {
+    const roomId = "00000000-0000-4000-8000-000000000777";
+    const proposed = {
+      stay: ["2026-10-10", "2026-10-13"] as const,
+      adults: 4,
+      children: 0,
+      pets: 0,
+      specialRequests: [] as string[],
+      roomIds: [roomId],
+      overflowConsent: true,
+    };
+    const reason = hostOverflowDecisionReason(proposed, [
+      "One double air mattress",
+    ]);
+
+    expect(verifiedHostDecisionContext(reason)).toMatchObject({
+      roomIds: [roomId],
+      overflowConsent: true,
+    });
+    expect(
+      verifiedHostDecisionContext({
+        ...reason,
+        requestedDraft: {
+          ...reason.requestedDraft,
+          roomIds: ["00000000-0000-4000-8000-000000000778"],
+        },
+      }),
+    ).toBeNull();
   });
 });

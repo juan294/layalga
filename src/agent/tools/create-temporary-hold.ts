@@ -34,7 +34,18 @@ export function createTemporaryHoldTool(deps: AgentDeps) {
       approvedBy: z.uuid().optional(),
     }),
     callback: async (input, context) => {
-      const visit = await createTemporaryHold(deps.db, deps.clock, input);
+      const trustedInput = input as typeof input & {
+        roomIds?: string[];
+        overflowConsent?: boolean;
+      };
+      const visit = await createTemporaryHold(deps.db, deps.clock, {
+        ...trustedInput,
+        roomIds:
+          deps.authority?.guestSubmission?.roomIds ?? trustedInput.roomIds,
+        overflowConsent:
+          deps.authority?.guestSubmission?.overflowConsent ??
+          trustedInput.overflowConsent,
+      });
       const homeId = await homeIdForInvitation(deps, input.invitationId);
       await audit(deps, homeId, context, "tool_call", {
         name: "create_temporary_hold",

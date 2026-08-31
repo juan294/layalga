@@ -7,6 +7,8 @@ export interface VerifiedHostDecisionContext {
   children: number;
   pets: number;
   specialRequests: readonly string[];
+  roomIds?: readonly string[];
+  overflowConsent?: boolean;
 }
 
 export function hostDecisionReason(
@@ -18,13 +20,20 @@ export function hostDecisionReason(
     reason: verdict.reason,
     allocation: verdict.allocation,
     specialRequests: [...verdict.specialRequests],
-    requestedDraft: {
-      stay: draft.stay.map(dateValue) as [string, string],
-      adults: draft.adults,
-      children: draft.children,
-      pets: draft.pets,
-      specialRequests: [...draft.specialRequests],
-    },
+    requestedDraft: requestedDraft(draft),
+    stayApprovalHash: stayApprovalHash(draft),
+  };
+}
+
+export function hostOverflowDecisionReason(
+  draft: VisitDraft,
+  overflowArrangements: readonly string[],
+) {
+  return {
+    decision: "interrupt",
+    reason: "overflow",
+    overflowArrangements: [...overflowArrangements],
+    requestedDraft: requestedDraft(draft),
     stayApprovalHash: stayApprovalHash(draft),
   };
 }
@@ -36,6 +45,8 @@ export function verifiedHostDecisionContext(
   const draft = record(reason?.requestedDraft);
   const stay = draft?.stay;
   const specialRequests = draft?.specialRequests;
+  const roomIds = draft?.roomIds;
+  const overflowConsent = draft?.overflowConsent;
   if (
     typeof reason?.stayApprovalHash !== "string" ||
     !/^[0-9a-f]{64}$/.test(reason.stayApprovalHash) ||
@@ -48,7 +59,14 @@ export function verifiedHostDecisionContext(
     !isCount(draft?.children) ||
     !isCount(draft?.pets) ||
     !Array.isArray(specialRequests) ||
-    !specialRequests.every((request) => typeof request === "string")
+    !specialRequests.every((request) => typeof request === "string") ||
+    (roomIds !== undefined &&
+      (!Array.isArray(roomIds) ||
+        roomIds.length === 0 ||
+        roomIds.length > 20 ||
+        new Set(roomIds).size !== roomIds.length ||
+        !roomIds.every(isUuid))) ||
+    (overflowConsent !== undefined && typeof overflowConsent !== "boolean")
   ) {
     return null;
   }
@@ -59,8 +77,24 @@ export function verifiedHostDecisionContext(
     children: draft.children,
     pets: draft.pets,
     specialRequests,
+    ...(roomIds ? { roomIds: roomIds as string[] } : {}),
+    ...(typeof overflowConsent === "boolean" ? { overflowConsent } : {}),
   };
   return stayApprovalHash(context) === reason.stayApprovalHash ? context : null;
+}
+
+function requestedDraft(draft: VisitDraft): VerifiedHostDecisionContext {
+  return {
+    stay: draft.stay.map(dateValue) as [string, string],
+    adults: draft.adults,
+    children: draft.children,
+    pets: draft.pets,
+    specialRequests: [...draft.specialRequests],
+    ...(draft.roomIds ? { roomIds: [...draft.roomIds].sort() } : {}),
+    ...(typeof draft.overflowConsent === "boolean"
+      ? { overflowConsent: draft.overflowConsent }
+      : {}),
+  };
 }
 
 function dateValue(value: string | Date): string {
@@ -81,6 +115,15 @@ function isIsoDate(value: unknown): value is string {
   return (
     !Number.isNaN(parsed.getTime()) &&
     parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   );
 }
 

@@ -32,10 +32,14 @@ export function rescheduleVisitTool(deps: AgentDeps) {
       approvedBy: z.uuid().optional(),
     }),
     callback: async (input, context) => {
+      const trustedInput = input as typeof input & {
+        roomIds?: string[];
+        overflowConsent?: boolean;
+      };
       const visit = await rescheduleVisit(
         deps.db,
         deps.clock,
-        input,
+        trustedInput,
         deps.scheduler,
       );
       await audit(

@@ -24,5 +24,7 @@ export interface AgentAuthority {
     children: number;
     pets: number;
     specialRequests: string[];
+    roomIds?: string[];
+    overflowConsent?: boolean;
   };
 }
