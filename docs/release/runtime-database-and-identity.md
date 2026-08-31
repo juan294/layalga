@@ -9,6 +9,8 @@ The application must not use the Supabase `postgres` owner credential outside th
 
 The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role can insert and delete host rows for the synthetic demo reset, but it can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
 
+Migration `20260831083526_agent_first_room_coordination.sql` narrows `layalga_agent_runtime`'s room access further: `select` on a restricted column subset of `rooms` (no `private_notes`), `select` and `delete` plus column-scoped `insert` on `visit_rooms`, and `select` and `insert` on `room_action_proposal_rooms`. It grants no access to `private_room_blocks` or write access to `room_availability_overrides` — those stay host-only through `layalga_web`. The agent can only ever create a pending room-action proposal; applying one still runs through a host-authenticated web action.
+
 ## Release-time credential step
 
 The migration deliberately sets no password. It does not change Vercel, AgentCore, or production `DATABASE_URL` values. Complete this step once, after the migration is applied and before starting the candidate runtime:

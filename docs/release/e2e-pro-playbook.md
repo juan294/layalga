@@ -122,7 +122,7 @@ The release probe refuses a non-local target without `--commit`. Both scripts re
 
 ## Database runtime readiness
 
-Apply all migrations through `20260831001500_durable_agent_queue.sql` before the web candidate starts. Follow [the runtime database and identity runbook](runtime-database-and-identity.md) to set unique passwords for `layalga_web` and `layalga_agent`, configure each deployment with its service-specific non-owner `DATABASE_URL`, and verify grants with `current_user`. A production URL that starts with the database owner is a release blocker.
+Apply all migrations through `20260831083526_agent_first_room_coordination.sql` before the web candidate starts. Follow [the runtime database and identity runbook](runtime-database-and-identity.md) to set unique passwords for `layalga_web` and `layalga_agent`, configure each deployment with its service-specific non-owner `DATABASE_URL`, and verify grants with `current_user`. A production URL that starts with the database owner is a release blocker.
 
 The queue recovers expired run leases and permits bounded attempts. Scheduled jobs retry after one minute and five minutes. A third failure changes the job to `quarantined`; inspect and replay it with the same runbook. Do not replay queued or running work.
 
@@ -144,7 +144,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Current release decision
 
-BLOCKED before publication. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET` and the separate `AGENT_ROUTE_SECRET`. Release still requires terminal candidate CI, production migration and database-role proof, deployed identity, one complete production demo and probe run, and verified cleanup.
+BLOCKED before publication. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET`, the separate `AGENT_ROUTE_SECRET`, and `CALENDAR_FEED_SECRET`. Release still requires terminal candidate CI, production migration and database-role proof, deployed identity, one complete production demo and probe run, and verified cleanup.
 
 ## Rollback
 

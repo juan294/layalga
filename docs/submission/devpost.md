@@ -24,7 +24,7 @@ L’Ayalga started from that lived pattern and generalizes it to any home with m
 
 ## What it does
 
-L’Ayalga turns an informal English or Spanish invitation into a structured party and a private guest link. Agent requests enter a durable queue, so the browser gets a quick acknowledgement and can follow the exact run without depending on one web request staying alive. The guest chooses possible dates, and the system allocates rooms for the whole stay. Guests can stay account-free or claim their invitation with Google and review their visits. The system supports partial overlap instead of treating the whole home as simply free or busy.
+L’Ayalga turns an informal English or Spanish invitation into a structured party and a private guest link. Agent requests enter a durable queue, so the browser gets a quick acknowledgement and can follow the exact run without depending on one web request staying alive. The guest chooses possible dates and the exact rooms for the stay from the host's real inventory, with the agent recommending overflow arrangements when standard capacity runs out. Guests can stay account-free or claim their invitation with Google and review their visits. The system supports partial overlap instead of treating the whole home as simply free or busy.
 
 Three deterministic rules protect the house:
 
@@ -40,7 +40,7 @@ After confirmation, L’Ayalga schedules a reconfirmation request for three days
 
 The application uses Next.js 16 and TypeScript 6, with `next-intl` for English and Spanish. Supabase Postgres is the authoritative store for homes, rooms, invitations, visits, room allocations, queued agent runs, session snapshots, pending decisions, scheduled jobs, notifications, identity claims, and audit events.
 
-The agent uses the Strands Agents TypeScript SDK with seven typed tools. Natural language helps structure invitations, choose tools, and compose bilingual follow-up. A `BeforeToolCallEvent` hook runs a pure deterministic policy before hold, confirm, and reschedule tools. PostgreSQL `daterange` and an exclusion constraint provide an independent concurrency boundary at the room level.
+The agent uses the Strands Agents TypeScript SDK with ten typed tools, including guest-safe room-availability lookup and a host-facing tool that only prepares a pending room-inventory change for separate human approval. Natural language helps structure invitations, choose tools, and compose bilingual follow-up. A `BeforeToolCallEvent` hook runs a pure deterministic policy before hold, confirm, and reschedule tools. PostgreSQL `daterange` and an exclusion constraint provide an independent concurrency boundary at the room level.
 
 Strands session snapshots live in Postgres. When the hook calls `event.interrupt`, the SDK preserves the pending tool execution. A host decision is stored separately. A new process restores the session, supplies an `InterruptResponseContent`, and records which run consumed the response.
 
