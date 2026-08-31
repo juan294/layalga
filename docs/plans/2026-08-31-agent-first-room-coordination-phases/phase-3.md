@@ -39,7 +39,7 @@ pnpm run build
 
 ## Done when
 
-- [ ] Red tests pass.
-- [ ] Route has no GET side effects.
-- [ ] Privacy snapshot contains only approved fields.
-- [ ] Plan-compliance review approves token and calendar semantics.
+- [x] Red tests pass.
+- [x] Route has no GET side effects.
+- [x] Privacy snapshot contains only approved fields.
+- [x] Plan-compliance review approves token and calendar semantics.

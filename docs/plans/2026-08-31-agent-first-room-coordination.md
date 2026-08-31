@@ -117,7 +117,7 @@ Confirmed, reconfirmation, and escalated visits plus active private blocks becom
 
 - [x] Phase 1: authoritative inventory and occupancy migration
 - [x] Phase 2 `[batch-eligible after Phase 1]`: deterministic room operations and exact selection
-- [ ] Phase 3 `[batch-eligible after Phase 1]`: revocable iCalendar feed
+- [x] Phase 3 `[batch-eligible after Phase 1]`: revocable iCalendar feed
 - [ ] Phase 4: host and guest room interfaces
 - [ ] Phase 5: Strands room coordination and WebMCP preparation
 - [ ] Phase 6: demo proof, documentation, and full validation

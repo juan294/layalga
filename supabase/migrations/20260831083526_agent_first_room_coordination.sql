@@ -142,6 +142,15 @@ alter table public.visits
   add column calendar_sequence integer not null default 0
     check (calendar_sequence >= 0);
 
+update public.visits
+set calendar_eligible_at = coalesce(confirmed_at, created_at),
+    calendar_updated_at = coalesce(confirmed_at, created_at),
+    calendar_sequence = 0
+where status in (
+    'confirmed', 'reconfirm_pending', 'reconfirmed', 'escalated'
+  )
+  and calendar_eligible_at is null;
+
 create table public.calendar_feeds (
   id uuid primary key default gen_random_uuid(),
   home_id uuid not null references public.homes (id) on delete cascade,

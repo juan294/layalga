@@ -119,6 +119,8 @@ async function verifyMigratedFixture(fixture: {
         guest_label: string | null;
         inventory_state: string;
         maximum_capacity: number;
+        calendar_eligible_at: Date | null;
+        calendar_updated_at: Date | null;
         occupancy_id: string;
         private_block_id: string | null;
         visit_id: string;
@@ -130,9 +132,12 @@ async function verifyMigratedFixture(fixture: {
         room.maximum_capacity,
         occupancy.id as occupancy_id,
         occupancy.private_block_id,
-        occupancy.visit_id
+        occupancy.visit_id,
+        visit.calendar_eligible_at,
+        visit.calendar_updated_at
       from public.rooms room
       join public.visit_rooms occupancy on occupancy.room_id = room.id
+      join public.visits visit on visit.id = occupancy.visit_id
       where room.id = ${fixture.roomId}
     `;
 
@@ -141,6 +146,8 @@ async function verifyMigratedFixture(fixture: {
       row.guest_label !== null ||
       row.inventory_state !== "draft" ||
       row.maximum_capacity !== 2 ||
+      row.calendar_eligible_at === null ||
+      row.calendar_updated_at === null ||
       row.occupancy_id !== fixture.occupancyId ||
       row.private_block_id !== null ||
       row.visit_id !== fixture.visitId

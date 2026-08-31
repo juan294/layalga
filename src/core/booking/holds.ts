@@ -288,7 +288,13 @@ export async function confirmVisit(
         set status = 'confirmed',
             confirmed_at = ${now.toISOString()},
             hold_expires_at = null,
-            approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash)
+            approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash),
+            calendar_eligible_at = coalesce(calendar_eligible_at, ${now.toISOString()}),
+            calendar_updated_at = ${now.toISOString()},
+            calendar_sequence = case
+              when calendar_eligible_at is null then calendar_sequence
+              else calendar_sequence + 1
+            end
         where id = ${visitId} and status = 'hold'
         returning id
       `;
@@ -331,7 +337,14 @@ export async function cancelVisit(
     const externalRefs = await cancelOpenVisitJobs(transaction, visitId);
     await transaction`
       update public.visits
-      set status = 'cancelled', hold_expires_at = null
+      set status = 'cancelled', hold_expires_at = null,
+          calendar_updated_at = case
+            when calendar_eligible_at is null then calendar_updated_at else now()
+          end,
+          calendar_sequence = case
+            when calendar_eligible_at is null then calendar_sequence
+            else calendar_sequence + 1
+          end
       where id = ${visitId}
     `;
     return externalRefs;
@@ -464,7 +477,13 @@ export async function rescheduleVisit(
             hold_expires_at = null,
             reconfirm_requested_at = null,
             reconfirmed_at = null,
-            escalated_at = null
+            escalated_at = null,
+            calendar_eligible_at = coalesce(calendar_eligible_at, ${clock.now().toISOString()}),
+            calendar_updated_at = ${clock.now().toISOString()},
+            calendar_sequence = case
+              when calendar_eligible_at is null then calendar_sequence
+              else calendar_sequence + 1
+            end
         where id = ${current.id} and status = ${current.status}
         returning id
       `;

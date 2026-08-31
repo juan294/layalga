@@ -229,10 +229,18 @@ describe("createTemporaryHold concurrency", () => {
 
       await cancelVisit(db, hold.visitId);
       const [cancelled] = await db<
-        { status: string; rooms: number; jobs: number }[]
+        {
+          status: string;
+          rooms: number;
+          jobs: number;
+          calendar_sequence: number;
+          calendar_eligible: boolean;
+        }[]
       >`
         select
           v.status,
+          v.calendar_sequence,
+          v.calendar_eligible_at is not null as calendar_eligible,
           (select count(*)::integer from public.visit_rooms where visit_id = v.id) as rooms,
           (
             select count(*)::integer
@@ -242,7 +250,13 @@ describe("createTemporaryHold concurrency", () => {
         from public.visits v
         where v.id = ${hold.visitId}
       `;
-      expect(cancelled).toEqual({ status: "cancelled", rooms: 0, jobs: 0 });
+      expect(cancelled).toEqual({
+        status: "cancelled",
+        rooms: 0,
+        jobs: 0,
+        calendar_sequence: 2,
+        calendar_eligible: true,
+      });
     } finally {
       await db`delete from public.homes where id = ${fixture.homeId}`;
     }
