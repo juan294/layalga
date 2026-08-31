@@ -4,9 +4,7 @@ import { parseServerEnvironment, serverEnvironmentReadiness } from "./env";
 
 describe("server environment", () => {
   it("keeps local scripted development usable without cloud secrets", () => {
-    expect(
-      parseServerEnvironment({ NODE_ENV: "development" }),
-    ).toMatchObject({
+    expect(parseServerEnvironment({ NODE_ENV: "development" })).toMatchObject({
       agentRuntime: "local",
       model: "scripted",
       scheduler: "none",
@@ -49,6 +47,7 @@ describe("server environment", () => {
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable",
       LINK_TOKEN_SECRET: "l".repeat(32),
+      CALENDAR_FEED_SECRET: "f".repeat(32),
       AGENT_ROUTE_SECRET: "a".repeat(32),
       CRON_SECRET: "c".repeat(32),
     });
@@ -68,6 +67,7 @@ describe("server environment", () => {
       NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable",
       LINK_TOKEN_SECRET: "l".repeat(32),
+      CALENDAR_FEED_SECRET: "f".repeat(32),
       AGENT_ROUTE_SECRET: "a".repeat(32),
       CRON_SECRET: "c".repeat(32),
     });
@@ -81,5 +81,27 @@ describe("server environment", () => {
         "SCHEDULER_DLQ_ARN",
       ]),
     );
+  });
+
+  it("requires a purpose-specific production calendar feed secret", () => {
+    const readiness = serverEnvironmentReadiness({
+      NODE_ENV: "production",
+      VERCEL_ENV: "production",
+      AGENT_RUNTIME: "local",
+      MODEL: "scripted",
+      SCHEDULER: "none",
+      APP_URL: "https://layalga.example",
+      DATABASE_URL: "postgresql://database.example/postgres",
+      NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable",
+      LINK_TOKEN_SECRET: "l".repeat(32),
+      AGENT_ROUTE_SECRET: "a".repeat(32),
+      CRON_SECRET: "c".repeat(32),
+    });
+
+    expect(readiness.issues).toContainEqual({
+      key: "CALENDAR_FEED_SECRET",
+      code: "missing",
+    });
   });
 });

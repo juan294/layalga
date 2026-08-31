@@ -17,6 +17,7 @@ const rawEnvironmentSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   LINK_TOKEN_SECRET: z.string().optional(),
+  CALENDAR_FEED_SECRET: z.string().optional(),
   AGENT_ROUTE_SECRET: z.string().optional(),
   CRON_SECRET: z.string().optional(),
   AGENTCORE_RUNTIME_ARN: z.string().optional(),
@@ -93,6 +94,7 @@ export function parseServerEnvironment(
         1,
       ],
       ["LINK_TOKEN_SECRET", raw.LINK_TOKEN_SECRET, 32],
+      ["CALENDAR_FEED_SECRET", raw.CALENDAR_FEED_SECRET, 32],
       ["AGENT_ROUTE_SECRET", raw.AGENT_ROUTE_SECRET, 32],
       ["CRON_SECRET", raw.CRON_SECRET, 32],
     ] as const) {
@@ -201,6 +203,7 @@ export function serverEnvironmentReadiness(
     require("NEXT_PUBLIC_SUPABASE_URL");
     require("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
     require("LINK_TOKEN_SECRET", 32);
+    require("CALENDAR_FEED_SECRET", 32);
     require("AGENT_ROUTE_SECRET", 32);
     require("CRON_SECRET", 32);
     if (
@@ -219,7 +222,8 @@ export function serverEnvironmentReadiness(
   }
   if (agentRuntime === "agentcore") require("AGENTCORE_RUNTIME_ARN");
   if (model === "bedrock") require("BEDROCK_MODEL_ID");
-  if (agentRuntime === "agentcore" || model === "bedrock") require("AWS_REGION");
+  if (agentRuntime === "agentcore" || model === "bedrock")
+    require("AWS_REGION");
   if (scheduler === "eventbridge") {
     require("AGENTCORE_RUNTIME_ARN");
     require("AWS_REGION");

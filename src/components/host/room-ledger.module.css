@@ -1,0 +1,234 @@
+.ledger {
+  display: grid;
+  gap: 1.25rem;
+}
+.doorStrip {
+  border-block: 2px solid var(--ink);
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+}
+.door {
+  --door-state: var(--graphite);
+  align-items: center;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: 1.2rem 1fr;
+  min-height: 5rem;
+  padding: 0.75rem;
+}
+.door[data-door-state="available"] {
+  --door-state: var(--teal);
+}
+.door[data-door-state="occupied"] {
+  --door-state: #a14a2c;
+}
+.door[data-door-state="private"] {
+  --door-state: #72508f;
+}
+.door[data-door-state="closed"],
+.door[data-door-state="withheld"] {
+  --door-state: var(--graphite);
+}
+.doorShape {
+  border: 2px solid var(--door-state);
+  border-left-width: 5px;
+  display: block;
+  grid-row: span 2;
+  height: 2.5rem;
+  position: relative;
+  width: 1.1rem;
+}
+.doorShape::after {
+  background: var(--door-state);
+  border-radius: 50%;
+  content: "";
+  height: 0.22rem;
+  position: absolute;
+  right: 0.14rem;
+  top: 1.1rem;
+  width: 0.22rem;
+}
+.door small,
+.roomRow small,
+.compactList small {
+  color: var(--graphite);
+  display: block;
+  font: 700 0.68rem/1.35 var(--font-jetbrains-mono, ui-monospace, monospace);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.controlGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+}
+.controlSection {
+  border-top: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  padding-top: 1rem;
+}
+.controlSection h3 {
+  font-family: var(--font-fraunces, Georgia, serif);
+  font-size: 1.5rem;
+  margin: 0;
+}
+.controlSection > p {
+  color: var(--graphite);
+  line-height: 1.5;
+}
+.roomRows {
+  display: grid;
+  gap: 0.5rem;
+}
+.roomRow,
+.addRoom {
+  border: 1px solid color-mix(in srgb, var(--ink) 24%, transparent);
+}
+.roomRow summary,
+.addRoom summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  min-height: var(--interactive-target);
+  padding: 0.7rem;
+}
+.roomRow > p {
+  margin-inline: 0.75rem;
+}
+.privateNote {
+  border-left: 3px solid var(--teal);
+  color: var(--graphite);
+  padding-left: 0.6rem;
+}
+.inventoryForm {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  padding: 0.75rem;
+}
+.inventoryForm label,
+.stackForm label,
+.inlineForm label {
+  display: grid;
+  gap: 0.3rem;
+}
+.inventoryForm label > span,
+.stackForm label > span,
+.inlineForm label > span,
+.stackForm legend {
+  font: 700 0.7rem/1.2 var(--font-jetbrains-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.inventoryForm input,
+.inventoryForm select,
+.inventoryForm textarea,
+.stackForm input,
+.stackForm select,
+.stackForm textarea,
+.inlineForm input {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  min-height: var(--interactive-target);
+  padding: 0.55rem;
+  width: 100%;
+}
+.inventoryForm button,
+.stackForm button,
+.inlineForm button,
+.compactList button,
+.proposalActions button {
+  background: var(--teal);
+  border: 1px solid var(--teal);
+  border-radius: 0;
+  color: var(--sheet);
+  cursor: pointer;
+  font: 700 0.72rem/1 var(--font-jetbrains-mono, ui-monospace, monospace);
+  min-height: var(--interactive-target);
+  padding: 0.65rem 0.8rem;
+  text-transform: uppercase;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.stackForm {
+  display: grid;
+  gap: 0.7rem;
+}
+.stackForm fieldset {
+  border: 1px solid color-mix(in srgb, var(--ink) 24%, transparent);
+  margin: 0;
+  padding: 0.6rem;
+}
+.checkRow {
+  align-items: center;
+  display: flex !important;
+  min-height: var(--interactive-target);
+}
+.checkRow input {
+  min-height: auto;
+  width: auto;
+}
+.dateFields {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 1fr 1fr;
+}
+.compactList,
+.proposals {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+.compactList li,
+.proposals li {
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 0.7rem 0;
+}
+.proposals p {
+  color: var(--graphite);
+  margin: 0.3rem 0 0;
+}
+.proposalActions {
+  display: flex;
+  gap: 0.4rem;
+}
+.inlineForm {
+  align-items: end;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(12rem, 1fr) auto;
+}
+.secretResult {
+  border: 2px solid var(--teal);
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  padding: 0.7rem;
+}
+.secretResult code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 40rem) {
+  .doorStrip {
+    grid-template-columns: 1fr;
+  }
+  .dateFields,
+  .inlineForm {
+    grid-template-columns: 1fr;
+  }
+  .compactList li,
+  .proposals li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

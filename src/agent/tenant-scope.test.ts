@@ -178,6 +178,171 @@ describe("agent task authority", () => {
     }
   });
 
+  it("uses trusted guest room selection instead of model-authored room authority", async () => {
+    const fixture = await seedHome("Trusted room selection");
+    const [otherRoom] = await sql<{ id: string }[]>`
+      insert into public.rooms (
+        home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+        maximum_capacity, inventory_state
+      ) values (
+        ${fixture.homeId}, 'Other room', 2, 'Other room', 'Upper',
+        'Double bed', 2, 'available'
+      ) returning id
+    `;
+    try {
+      const result = await runAgentTask(
+        guestSubmit(fixture, {
+          roomIds: [fixture.roomId],
+          overflowConsent: false,
+        }),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "create_temporary_hold",
+                input: holdInput(fixture, {
+                  roomIds: [otherRoom!.id],
+                  overflowConsent: true,
+                }),
+              },
+            },
+            { text: "Hold created." },
+          ]),
+        ),
+      );
+
+      expect(result.status).toBe("completed");
+      const rooms = await sql<{ room_id: string }[]>`
+        select occupancy.room_id
+        from public.visit_rooms occupancy
+        join public.visits visit on visit.id = occupancy.visit_id
+        where visit.invitation_id = ${fixture.invitationId}
+      `;
+      expect(rooms).toEqual([{ room_id: fixture.roomId }]);
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
+  it("prepares one home-scoped room proposal per host request without applying it", async () => {
+    const fixture = await seedHome("Room proposal");
+    const task = {
+      task: "host_room_request" as const,
+      homeId: fixture.homeId,
+      hostId: fixture.hostId,
+      rawMessage: "Close Room from 2026-10-02 to 2026-10-04.",
+      locale: "en" as const,
+    };
+    const model = () =>
+      new ScriptedModel([
+        {
+          toolUse: {
+            name: "prepare_room_action",
+            input: {
+              kind: "close",
+              stay: ["2026-10-02", "2026-10-04"],
+              roomIds: [fixture.roomId],
+              summary: "Room unavailable",
+            },
+          },
+        },
+        {
+          toolUse: {
+            name: "prepare_room_action",
+            input: {
+              kind: "close",
+              stay: ["2026-10-02", "2026-10-04"],
+              roomIds: [fixture.roomId],
+              summary: "Room unavailable",
+            },
+          },
+        },
+        { text: "Proposal ready for host confirmation." },
+      ]);
+    try {
+      const first = await runAgentTask(task, agentDeps(model()));
+      const replay = await runAgentTask(task, agentDeps(model()));
+
+      expect(first.status).toBe("completed");
+      expect(replay.runId).toBe(first.runId);
+      const proposals = await sql<
+        { id: string; status: string; run_id: string; room_id: string }[]
+      >`
+        select proposal.id, proposal.status, proposal.run_id, link.room_id
+        from public.room_action_proposals proposal
+        join public.room_action_proposal_rooms link
+          on link.proposal_id = proposal.id
+        where proposal.home_id = ${fixture.homeId}
+      `;
+      expect(proposals).toEqual([
+        expect.objectContaining({
+          status: "pending",
+          run_id: first.runId,
+          room_id: fixture.roomId,
+        }),
+      ]);
+      expect(
+        await sql`
+          select id from public.private_room_blocks
+          where home_id = ${fixture.homeId}
+        `,
+      ).toHaveLength(0);
+      expect(
+        await sql`
+          select id from public.room_availability_overrides
+          where home_id = ${fixture.homeId}
+        `,
+      ).toHaveLength(0);
+    } finally {
+      await cleanup(fixture);
+      await sql`delete from public.agent_sessions where session_id = ${`room_${fixture.hostId}`}`;
+    }
+  });
+
+  it("does not prepare a host proposal that names a room in another home", async () => {
+    const [homeA, homeB] = await Promise.all([
+      seedHome("Proposal A"),
+      seedHome("Proposal B"),
+    ]);
+    try {
+      const result = await runAgentTask(
+        {
+          task: "host_room_request",
+          homeId: homeA.homeId,
+          hostId: homeA.hostId,
+          rawMessage: "Close a room.",
+          locale: "en",
+        },
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "prepare_room_action",
+                input: {
+                  kind: "close",
+                  stay: ["2026-10-02", "2026-10-04"],
+                  roomIds: [homeB.roomId],
+                  summary: "Unavailable",
+                },
+              },
+            },
+            { text: "The room proposal could not be prepared." },
+          ]),
+        ),
+      );
+      expect(result.status).toBe("completed");
+      expect(
+        await sql`
+          select id from public.room_action_proposals
+          where home_id in (${homeA.homeId}, ${homeB.homeId})
+        `,
+      ).toHaveLength(0);
+    } finally {
+      await sql`delete from public.homes where id in (${homeA.homeId}, ${homeB.homeId})`;
+      await sql`delete from public.agent_sessions where session_id = ${`room_${homeA.hostId}`}`;
+    }
+  });
+
   it("rejects a model-selected invitation from another home", async () => {
     const [homeA, homeB] = await Promise.all([
       seedHome("Scoped A"),
@@ -363,6 +528,8 @@ function guestSubmit(
     children: number;
     pets: number;
     notes: string;
+    roomIds: string[];
+    overflowConsent: boolean;
   }> = {},
 ) {
   return {
@@ -426,13 +593,17 @@ async function seedHome(name: string, beds = 2) {
     insert into public.invitations (home_id, host_id, party_id, raw_message)
     values (${home!.id}, ${host!.id}, ${party!.id}, 'Scoped') returning id
   `;
-  await sql`
-    insert into public.rooms (home_id, name, beds)
-    values (${home!.id}, 'Room', ${beds})
+  const [room] = await sql<{ id: string }[]>`
+    insert into public.rooms (
+      home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+      maximum_capacity, inventory_state
+    ) values (${home!.id}, 'Room', ${beds}, 'Room', 'Ground', 'Beds', ${beds}, 'available')
+    returning id
   `;
   return {
     homeId: home!.id,
     hostId: host!.id,
     invitationId: invitation!.id,
+    roomId: room!.id,
   };
 }

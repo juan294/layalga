@@ -96,7 +96,7 @@ async function invokeAgentCore(
       agentRuntimeArn: runtimeArn,
       runtimeSessionId: randomUUID(),
       contentType: "application/json",
-      accept: "application/json, text/event-stream",
+      accept: "text/plain",
       payload: new TextEncoder().encode(JSON.stringify(request)),
     }),
   );

@@ -15,7 +15,7 @@ vi.mock("@/lib/supabase/proxy", () => ({
   updateSession: mocks.updateSession,
 }));
 
-import proxy, { buildContentSecurityPolicy } from "./proxy";
+import proxy, { buildContentSecurityPolicy, config } from "./proxy";
 
 describe("nonce content security policy", () => {
   beforeEach(() => {
@@ -64,14 +64,13 @@ describe("nonce content security policy", () => {
     const request = new NextRequest("https://layalga.example/");
     const response = await proxy(request);
     const routedRequest = mocks.handleI18nRouting.mock.calls[0]?.[0] as
-      | NextRequest
-      | undefined;
+      NextRequest | undefined;
     const refreshedRequest = mocks.updateSession.mock.calls[0]?.[0] as
-      | NextRequest
-      | undefined;
+      NextRequest | undefined;
 
     expect(routedRequest).toBeInstanceOf(NextRequest);
-    if (!routedRequest) throw new Error("i18n routing did not receive a request");
+    if (!routedRequest)
+      throw new Error("i18n routing did not receive a request");
     expect(routedRequest.headers.get("x-nonce")).toMatch(/^[A-Za-z0-9+/=]+$/);
     expect(routedRequest.headers.get("content-security-policy")).toContain(
       `'nonce-${routedRequest.headers.get("x-nonce")}'`,
@@ -85,5 +84,12 @@ describe("nonce content security policy", () => {
     );
     expect(response.cookies.get("NEXT_LOCALE")?.value).toBe("en");
     expect(response.cookies.get("session")?.value).toBe("refreshed");
+  });
+
+  test("leaves the unlocalized calendar capability route outside i18n", () => {
+    const matcher = new RegExp(`^${config.matcher}$`);
+
+    expect(matcher.test("/en")).toBe(true);
+    expect(matcher.test("/calendar/private-token")).toBe(false);
   });
 });

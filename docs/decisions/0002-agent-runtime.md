@@ -142,3 +142,18 @@ The selected runtime remains `AGENT_RUNTIME=local`, but HTTP requests no longer 
 This queue is also the compatibility boundary for a later AgentCore retry. The direct-code handler accepts an `execute_run` envelope containing an existing run ID, claims that row, and brackets execution with AgentCore asynchronous-task accounting. It does not create a second logical run or keep the caller waiting for model completion.
 
 Runtime database authority is split. Vercel uses the `layalga_web` login and its explicit grant role. A future AgentCore worker uses `layalga_agent`. Migration and retention operations stay on an administrative connection. This refinement does not change the local runtime verdict or the conditions for retrying Bedrock.
+
+## AgentCore retry addendum: 2026-08-31
+
+The account-level Anthropic use case was submitted and accepted. A direct Bedrock `Converse` request to `us.anthropic.claude-sonnet-4-5-20250929-v1:0` then returned `OK`. Claude Sonnet 5 remained unavailable to this account, so the retry used the newest accessible Sonnet model rather than blocking on an AWS Sales access path.
+
+The retry found and fixed four runtime boundaries:
+
+- The production bundle now installs only the six direct runtime dependencies and uses pnpm's hoisted layout. This reduced the transformed artifact from 275,489,461 uncompressed bytes and 113,860 ZIP entries to 62,694,999 bytes and 17,390 entries.
+- The AgentCore entrypoint no longer imports `LocalAgentClient`, because that Vercel implementation imports `next/server`. Tick execution calls the shared `runAgentTask` function directly.
+- Per-home run serialization now uses a transaction-scoped advisory lock. `SELECT ... FOR UPDATE` required `UPDATE` permission on `homes`, which conflicts with the read-only home-policy boundary of `layalga_agent`.
+- The web-side AgentCore client requests `text/plain`. `bedrock-agentcore` 0.4.3 and `@fastify/sse` 0.4.0 reject a non-streaming object response, while the supported text branch serializes the same JSON result safely.
+
+Runtime `arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-mONXXjFms4`, version 7, reached `READY`. One synthetic `host_capture` invocation returned completed run `07397d2b-f104-4ca6-a98a-877f6e0c4e68`. Independent PostgreSQL evidence showed invitation `133cd1bb-249d-411c-bff4-723df4ebe359`, an `agent` audit event with kind `tool_call` and name `capture_invitation`, one durable session record, and no run error. The runtime connected as the non-owner `layalga_agent` role; checks confirmed no `auth` schema usage, no `CREATE` on `public`, and the required invitation DML grant.
+
+This proves a real AgentCore model-and-tool run. It does not replace the original fail-closed production selection. `AGENT_RUNTIME=local` remains the selected production setting until the full interrupt-and-resume cloud sequence passes and the owner separately authorizes the runtime switch and release.

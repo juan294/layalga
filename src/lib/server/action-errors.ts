@@ -1,12 +1,23 @@
 import { randomUUID } from "node:crypto";
 
 export type ActionErrorCode =
+  | "calendar_feed_issue_failed"
+  | "calendar_feed_revoke_failed"
   | "guest_change_failed"
   | "guest_options_failed"
   | "guest_reconfirm_failed"
   | "guest_submit_failed"
   | "host_capture_failed"
-  | "host_decision_failed";
+  | "host_decision_failed"
+  | "private_room_block_cancel_failed"
+  | "private_room_block_create_failed"
+  | "room_inventory_create_failed"
+  | "room_inventory_update_failed"
+  | "room_override_create_failed"
+  | "room_override_remove_failed"
+  | "room_proposal_apply_failed"
+  | "room_proposal_dismiss_failed"
+  | "room_proposal_request_failed";
 
 export function reportActionError(
   code: ActionErrorCode,

@@ -9,6 +9,7 @@ import {
   MAX_SPECIAL_REQUEST_LENGTH,
   MAX_SPECIAL_REQUESTS,
 } from "@/agent/task-limits";
+import { validateDateStay } from "@/core/date-stay";
 
 import type { Clock } from "../clock";
 import { sqlClient, type DatabaseClient } from "../db/client";
@@ -20,6 +21,10 @@ import {
   type VisitDraft,
   type VisitStatus,
 } from "../policy/evaluate-overlap";
+import { listGuestRoomOptions } from "../rooms/availability";
+import { evaluateRoomSelection } from "../rooms/occupancy";
+import { recommendRooms } from "../rooms/recommendation";
+import type { GuestRoomOption } from "../rooms/types";
 import { reconfirmationChaseTime } from "../reconfirmation/state-machine";
 import {
   noopJobScheduler,
@@ -38,6 +43,8 @@ export interface CreateTemporaryHoldInput {
   pets?: number;
   specialRequests?: readonly string[];
   approvedBy?: string;
+  roomIds?: readonly string[];
+  overflowConsent?: boolean;
 }
 
 export interface HoldOptions {
@@ -59,6 +66,8 @@ export interface RescheduleVisitInput {
   pets?: number;
   specialRequests?: readonly string[];
   approvedBy?: string;
+  roomIds?: readonly string[];
+  overflowConsent?: boolean;
 }
 
 export class RoomUnavailableError extends Error {
@@ -75,6 +84,15 @@ export class BookingPolicyError extends Error {
   constructor(readonly verdict: PolicyVerdict) {
     super(`Booking denied by the ${verdict.reason ?? "unknown"} rule`);
     this.name = "BookingPolicyError";
+  }
+}
+
+export class RoomOverflowApprovalRequiredError extends Error {
+  constructor(readonly arrangements: readonly string[]) {
+    super(
+      "The selected rooms require host approval for overflow sleeping arrangements",
+    );
+    this.name = "RoomOverflowApprovalRequiredError";
   }
 }
 
@@ -142,9 +160,23 @@ export async function createTemporaryHold(
       await expireHomeHolds(transaction, invitation.home_id, clock.now());
       const draft = toDraft(input);
       await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
-      const state = await loadHouseState(transaction, home, draft.stay);
+      const allocation = await selectRoomAllocation(
+        transaction,
+        home,
+        draft,
+        input.roomIds,
+        input.overflowConsent ?? false,
+        Boolean(input.approvedBy),
+      );
+      const state = await loadHouseState(
+        transaction,
+        home,
+        draft.stay,
+        allocation.policyRooms,
+      );
       const verdict = evaluateOverlap(draft, state);
       assertBookable(verdict);
+      draft.roomIds ??= allocation.rooms.map(({ id }) => id);
 
       const now = clock.now();
       const holdExpiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1_000);
@@ -186,9 +218,9 @@ export async function createTemporaryHold(
         visitId,
         invitation.home_id,
         input.stay,
-        verdict.allocation,
+        allocation.rooms,
       );
-      return { visitId, allocation: verdict.allocation, status: "hold" };
+      return { visitId, allocation: allocation.rooms, status: "hold" };
     });
   } catch (error) {
     throw mapRoomConflict(error, options.lockHome === false);
@@ -225,9 +257,28 @@ export async function confirmVisit(
         clock.now(),
       );
       const draft = visitDraft(visit);
+      const heldRoomIds = await loadVisitRoomIds(transaction, visit.id);
+      draft.roomIds = heldRoomIds;
+      const overflowPreviouslyApproved =
+        visit.approval_stay_hash ===
+        stayApprovalHash({ ...draft, overflowConsent: true });
+      draft.overflowConsent = overflowPreviouslyApproved ? true : undefined;
+      const allocation = await selectRoomAllocation(
+        transaction,
+        home,
+        draft,
+        heldRoomIds,
+        overflowPreviouslyApproved,
+        overflowPreviouslyApproved,
+      );
       const verdict = evaluateOverlap(
         draft,
-        await loadHouseState(transaction, home, draft.stay),
+        await loadHouseState(
+          transaction,
+          home,
+          draft.stay,
+          allocation.policyRooms,
+        ),
       );
       assertBookable(verdict);
 
@@ -238,7 +289,13 @@ export async function confirmVisit(
         set status = 'confirmed',
             confirmed_at = ${now.toISOString()},
             hold_expires_at = null,
-            approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash)
+            approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash),
+            calendar_eligible_at = coalesce(calendar_eligible_at, ${now.toISOString()}),
+            calendar_updated_at = ${now.toISOString()},
+            calendar_sequence = case
+              when calendar_eligible_at is null then calendar_sequence
+              else calendar_sequence + 1
+            end
         where id = ${visitId} and status = 'hold'
         returning id
       `;
@@ -254,7 +311,7 @@ export async function confirmVisit(
       return {
         result: {
           visitId,
-          allocation: verdict.allocation,
+          allocation: allocation.rooms,
           status: "confirmed" as const,
         },
         scheduling,
@@ -281,7 +338,14 @@ export async function cancelVisit(
     const externalRefs = await cancelOpenVisitJobs(transaction, visitId);
     await transaction`
       update public.visits
-      set status = 'cancelled', hold_expires_at = null
+      set status = 'cancelled', hold_expires_at = null,
+          calendar_updated_at = case
+            when calendar_eligible_at is null then calendar_updated_at else now()
+          end,
+          calendar_sequence = case
+            when calendar_eligible_at is null then calendar_sequence
+            else calendar_sequence + 1
+          end
       where id = ${visitId}
     `;
     return externalRefs;
@@ -358,20 +422,41 @@ export async function rescheduleVisit(
         children: input.children ?? current.children,
         pets: input.pets ?? current.pets,
         specialRequests: input.specialRequests ?? current.special_requests,
+        roomIds: input.roomIds,
+        overflowConsent: input.overflowConsent,
       };
       validateParty(draft);
       await assertHostInHome(transaction, input.approvedBy, current.home_id);
-      if (visitMatchesDraft(current, draft)) {
+      const currentRoomIds = await loadVisitRoomIds(transaction, current.id);
+      if (
+        visitMatchesDraft(current, draft) &&
+        (input.roomIds === undefined ||
+          sameRoomIds(input.roomIds, currentRoomIds))
+      ) {
         return {
           result: await existingVisitResult(transaction, current),
           scheduling: emptyScheduling(current.id),
         };
       }
+      const allocation = await selectRoomAllocation(
+        transaction,
+        home,
+        draft,
+        input.roomIds,
+        input.overflowConsent ?? false,
+        Boolean(input.approvedBy),
+      );
       const verdict = evaluateOverlap(
         draft,
-        await loadHouseState(transaction, home, draft.stay),
+        await loadHouseState(
+          transaction,
+          home,
+          draft.stay,
+          allocation.policyRooms,
+        ),
       );
       assertBookable(verdict);
+      draft.roomIds ??= allocation.rooms.map(({ id }) => id);
       const draftApprovalHash = stayApprovalHash(draft);
       const approvalHash = input.approvedBy
         ? draftApprovalHash
@@ -393,7 +478,13 @@ export async function rescheduleVisit(
             hold_expires_at = null,
             reconfirm_requested_at = null,
             reconfirmed_at = null,
-            escalated_at = null
+            escalated_at = null,
+            calendar_eligible_at = coalesce(calendar_eligible_at, ${clock.now().toISOString()}),
+            calendar_updated_at = ${clock.now().toISOString()},
+            calendar_sequence = case
+              when calendar_eligible_at is null then calendar_sequence
+              else calendar_sequence + 1
+            end
         where id = ${current.id} and status = ${current.status}
         returning id
       `;
@@ -405,7 +496,7 @@ export async function rescheduleVisit(
         current.id,
         current.home_id,
         input.stay,
-        verdict.allocation,
+        allocation.rooms,
       );
 
       const cancelledExternalRefs = await cancelOpenVisitJobs(
@@ -428,7 +519,7 @@ export async function rescheduleVisit(
       return {
         result: {
           visitId: current.id,
-          allocation: verdict.allocation,
+          allocation: allocation.rooms,
           status: "confirmed" as const,
         },
         scheduling,
@@ -452,6 +543,8 @@ export function stayApprovalHash(draft: VisitDraft): string {
         children: draft.children,
         pets: draft.pets,
         specialRequests: [...draft.specialRequests],
+        roomIds: draft.roomIds ? [...draft.roomIds].sort() : undefined,
+        overflowConsent: draft.overflowConsent === true,
       }),
     )
     .digest("hex");
@@ -537,7 +630,7 @@ async function existingVisitResult(
   const allocation = await transaction<
     { id: string; name: string; beds: number }[]
   >`
-    select room.id, room.name, room.beds
+    select room.id, coalesce(room.guest_label, 'Room') as name, room.beds
     from public.visit_rooms visit_room
     join public.rooms room on room.id = visit_room.room_id
     where visit_room.visit_id = ${visit.id}
@@ -623,17 +716,94 @@ function loadVisit(
       `;
 }
 
+async function loadVisitRoomIds(
+  transaction: TransactionSql,
+  visitId: string,
+): Promise<string[]> {
+  const rows = await transaction<{ room_id: string }[]>`
+    select room_id from public.visit_rooms
+    where visit_id = ${visitId}
+    order by room_id
+  `;
+  return rows.map(({ room_id: id }) => id);
+}
+
+function sameRoomIds(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  const leftSorted = [...left].sort();
+  const rightSorted = [...right].sort();
+  return (
+    leftSorted.length === rightSorted.length &&
+    leftSorted.every((id, index) => id === rightSorted[index])
+  );
+}
+
+async function selectRoomAllocation(
+  transaction: TransactionSql,
+  home: HomeRow,
+  draft: VisitDraft,
+  requestedRoomIds: readonly string[] | undefined,
+  overflowConsent: boolean,
+  overflowApproved: boolean,
+): Promise<{
+  rooms: VisitResult["allocation"];
+  policyRooms: HouseState["rooms"];
+}> {
+  const partySize = draft.adults + draft.children;
+  const options = await listGuestRoomOptions(
+    transaction,
+    home.id,
+    [dateBoundary(draft.stay[0]), dateBoundary(draft.stay[1])],
+    partySize,
+    { excludeVisitId: draft.visitId },
+  );
+
+  let selected: GuestRoomOption[];
+  let exactSelection = false;
+  if (requestedRoomIds !== undefined) {
+    exactSelection = true;
+    const selection = evaluateRoomSelection(
+      requestedRoomIds,
+      options,
+      partySize,
+      overflowConsent,
+    );
+    if (selection.decision === "deny") throw new RoomUnavailableError();
+    if (selection.decision === "interrupt" && !overflowApproved) {
+      throw new RoomOverflowApprovalRequiredError(
+        selection.overflowArrangements,
+      );
+    }
+    selected = selection.rooms;
+  } else {
+    const recommendation = recommendRooms(options, partySize);
+    if (!recommendation) throw new RoomUnavailableError();
+    selected = recommendation;
+  }
+
+  const rooms = selected.map((room) => ({
+    id: room.id,
+    name: room.guestLabel,
+    beds: room.standardCapacity,
+  }));
+  const policyRooms = exactSelection
+    ? [{ id: "selected-room-set", name: "Selected rooms", beds: partySize }]
+    : options.map((room) => ({
+        id: room.id,
+        name: room.guestLabel,
+        beds: room.standardCapacity,
+      }));
+  return { rooms, policyRooms };
+}
+
 async function loadHouseState(
   transaction: TransactionSql,
   home: HomeRow,
   stay: Stay,
+  rooms: HouseState["rooms"],
 ): Promise<HouseState> {
-  const rooms = await transaction<{ id: string; name: string; beds: number }[]>`
-    select id, name, beds
-    from public.rooms
-    where home_id = ${home.id}
-    order by created_at, id
-  `;
   const visits = await transaction<
     {
       id: string;
@@ -791,6 +961,8 @@ function toDraft(input: CreateTemporaryHoldInput): VisitDraft {
     children: input.children ?? 0,
     pets: input.pets ?? 0,
     specialRequests: input.specialRequests ?? [],
+    roomIds: input.roomIds,
+    overflowConsent: input.overflowConsent,
   };
 }
 
@@ -865,13 +1037,7 @@ function validateParty(input: {
 }
 
 function validateStay(stay: DateStay): void {
-  const start = Date.parse(`${stay[0]}T00:00:00.000Z`);
-  const end = Date.parse(`${stay[1]}T00:00:00.000Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    throw new RangeError(
-      "Stay must be a valid, non-empty half-open date range",
-    );
-  }
+  validateDateStay(stay);
 }
 
 function dateBoundary(value: string | Date): string {

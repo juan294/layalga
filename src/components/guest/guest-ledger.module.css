@@ -159,6 +159,8 @@
 .field input:focus-visible,
 .field textarea:focus-visible,
 .option input:focus-visible,
+.roomOption input:focus-visible,
+.consent input:focus-visible,
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--guest-teal) 35%, transparent);
@@ -175,6 +177,22 @@
   margin-bottom: 0.55rem;
 }
 
+.roomList {
+  border: 0;
+  border-top: 2px solid var(--guest-ink);
+  margin: 1.2rem 0 0;
+  padding: 1rem 0 0;
+}
+
+.roomList legend {
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  padding-right: 0.7rem;
+  text-transform: uppercase;
+}
+
 .option {
   align-items: start;
   border-bottom: 1px solid var(--guest-rule);
@@ -189,6 +207,47 @@
   color: var(--guest-muted);
   display: block;
   margin-top: 0.2rem;
+}
+
+.roomOption {
+  align-items: start;
+  border-bottom: 1px solid var(--guest-rule);
+  cursor: pointer;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto 1fr;
+  padding: 0.9rem 0;
+}
+
+.roomOption input {
+  margin-top: 0.22rem;
+}
+
+.roomOption small {
+  color: var(--guest-muted);
+  display: block;
+  line-height: 1.45;
+  margin-top: 0.18rem;
+}
+
+.capacityNote {
+  border-left: 3px solid var(--guest-teal);
+  color: var(--guest-muted);
+  line-height: 1.5;
+  margin: 1rem 0;
+  padding: 0.65rem 0.8rem;
+}
+
+.consent {
+  align-items: start;
+  border: 1px solid var(--guest-teal);
+  cursor: pointer;
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: auto 1fr;
+  line-height: 1.5;
+  margin: 0 0 1.4rem;
+  padding: 0.85rem;
 }
 
 .primaryButton,

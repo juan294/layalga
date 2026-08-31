@@ -160,6 +160,12 @@ async function GuestVisitRecord({
         <dd data-testid="guest-room-count">
           {t("roomCount", { count: visit.roomCount })}
         </dd>
+        <dt>{t("assignedRoomsLabel")}</dt>
+        <dd data-testid="guest-room-labels">
+          {visit.roomLabels.length > 0
+            ? visit.roomLabels.join(", ")
+            : t("assignedRoomsPending")}
+        </dd>
       </dl>
 
       {visit.hasOverlap ? (

@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RunResult } from "../src/agent/task";
 import {
+  assertRoomCoordinationProof,
   drainAndCollectTerminalRunResults,
   queuedRunIds,
 } from "./release-probes";
+import { DEMO_SEED } from "./seed-demo";
 
 const firstRunId = "11111111-1111-4111-8111-111111111111";
 const secondRunId = "22222222-2222-4222-8222-222222222222";
@@ -60,6 +62,36 @@ describe("durable release probe runs", () => {
     expect(drain).toHaveBeenCalledTimes(1);
     expect(load).toHaveBeenCalledTimes(2);
     expect(load).toHaveBeenNthCalledWith(1, [firstRunId, secondRunId]);
+  });
+
+  it("requires complete, fixture-bound room coordination evidence", () => {
+    const proof = {
+      proposalCreated: true,
+      privateBlockApplied: true,
+      blockedRoomHidden: true,
+      withheldRoomOpened: true,
+      selectedRoomIds: [DEMO_SEED.rooms[0].id, DEMO_SEED.rooms[1].id],
+      overflowInterrupted: true,
+      overflowApproved: true,
+      overflowAppliedOnce: true,
+      calendarFeedRead: true,
+      calendarPrivateDataAbsent: true,
+      calendarEventCount: 3,
+    };
+
+    expect(() => assertRoomCoordinationProof(proof)).not.toThrow();
+    expect(() =>
+      assertRoomCoordinationProof({ ...proof, overflowAppliedOnce: false }),
+    ).toThrow(/overflowAppliedOnce/);
+    expect(() =>
+      assertRoomCoordinationProof({
+        ...proof,
+        selectedRoomIds: [DEMO_SEED.rooms[1].id, DEMO_SEED.rooms[2].id],
+      }),
+    ).toThrow(/selected room ids/i);
+    expect(() =>
+      assertRoomCoordinationProof({ ...proof, calendarEventCount: 0 }),
+    ).toThrow(/calendar event/i);
   });
 });
 

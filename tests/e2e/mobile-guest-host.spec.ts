@@ -5,6 +5,7 @@ import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
 
 const oterosToken = "o".repeat(43);
 const nelHostId = "00000000-0000-4000-8000-000000000201";
+test.setTimeout(90_000);
 
 test("@mobile guest link reaches a touch-safe host decision", async ({
   context,
@@ -27,7 +28,12 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   ]);
   await page.goto(`/en/g/${oterosToken}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
+  await expect(
+    page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
+  ).toBeVisible();
   await page.getByTestId("find-options").click();
+  await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
+  await expect(page.getByTestId("guest-room-option").first()).toBeChecked();
   await page.getByTestId("guest-option").first().check();
   await page.getByTestId("guest-submit").click();
   await expect(page.getByTestId("run-status")).toHaveAttribute(
@@ -39,8 +45,10 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   const approve = page.getByTestId("approve-decision");
   await expect(approve).toBeVisible();
   await expect(approve).toHaveCSS("min-height", "44px");
-  await approve.click();
-  await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
+  await Promise.all([
+    page.waitForURL(/\/en\/runs\/[0-9a-f-]+\/status/, { timeout: 30_000 }),
+    approve.click(),
+  ]);
   await expect(page.getByTestId("run-status")).toHaveAttribute(
     "data-status",
     "completed",

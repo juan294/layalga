@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { hashLinkToken } from "../src/core/booking/invitations";
-import { DEMO_SEED } from "./seed-demo";
+import { DEMO_SEED, seedDemo } from "./seed-demo";
 import { runDemoE2E } from "./demo-e2e";
 import {
   isDirectExecution,
@@ -43,6 +43,19 @@ const storedRunSchema = z.object({
   result: z.unknown().nullable(),
 });
 const storedResultSchema = z.object({ summary: z.string() });
+const roomCoordinationProofSchema = z.object({
+  proposalCreated: z.literal(true),
+  privateBlockApplied: z.literal(true),
+  blockedRoomHidden: z.literal(true),
+  withheldRoomOpened: z.literal(true),
+  selectedRoomIds: z.tuple([z.uuid(), z.uuid()]),
+  overflowInterrupted: z.literal(true),
+  overflowApproved: z.literal(true),
+  overflowAppliedOnce: z.literal(true),
+  calendarFeedRead: z.literal(true),
+  calendarPrivateDataAbsent: z.literal(true),
+  calendarEventCount: z.int(),
+});
 
 type StoredRun = z.infer<typeof storedRunSchema>;
 type TerminalStoredRun = StoredRun & {
@@ -127,14 +140,24 @@ export async function runReleaseProbes(
       ),
     );
 
+    assertRoomCoordinationProof(demo.roomCoordination);
+    evidence.push(
+      pass(
+        7,
+        "room coordination",
+        "proposal, exact rooms, overflow approval, and private calendar proved",
+      ),
+    );
+
     await probeUnauthorizedGuest(options.baseUrl);
     evidence.push(
-      pass(7, "guest isolation", "invalid token revealed no family identity"),
+      pass(8, "guest isolation", "invalid token revealed no family identity"),
     );
   } finally {
     const cleanupErrors: unknown[] = [];
     try {
       await cleanupDemoArtifacts(sql, runMarker, linkTokenSecret);
+      await seedDemo(databaseUrl, linkTokenSecret);
     } catch (error) {
       cleanupErrors.push(error);
     }
@@ -151,13 +174,30 @@ export async function runReleaseProbes(
     }
     if (fixture) {
       evidence.push(
-        pass(8, "synthetic cleanup", `deleted probe rows tagged ${runId}`),
+        pass(
+          9,
+          "synthetic cleanup",
+          `deleted probe rows tagged ${runId} and restored the demo fixture`,
+        ),
       );
     }
   }
 
-  assert.equal(evidence.length, 8, "all eight release probes must pass");
+  assert.equal(evidence.length, 9, "all nine release probes must pass");
   return evidence;
+}
+
+export function assertRoomCoordinationProof(value: unknown): void {
+  const proof = roomCoordinationProofSchema.parse(value);
+  assert.deepEqual(
+    proof.selectedRoomIds,
+    [DEMO_SEED.rooms[0].id, DEMO_SEED.rooms[1].id],
+    "selected room IDs must match the exact synthetic multi-room choice",
+  );
+  assert.ok(
+    proof.calendarEventCount > 0,
+    "room coordination must produce at least one calendar event",
+  );
 }
 
 async function probeHealth(options: ReleaseCliOptions): Promise<void> {
@@ -221,8 +261,13 @@ async function createProbeFixture(
     `;
     assert.ok(home);
     await transaction`
-      insert into public.rooms (home_id, name, beds)
-      values (${home.id}, ${`Only room ${runId}`}, 2)
+      insert into public.rooms (
+        home_id, name, beds, guest_label, floor_label,
+        sleeping_arrangement, maximum_capacity, inventory_state
+      ) values (
+        ${home.id}, ${`Only room ${runId}`}, 2,
+        'Probe room', 'Probe floor', 'One double bed', 2, 'available'
+      )
     `;
     const [host] = await transaction<{ id: string }[]>`
       insert into public.hosts (home_id, display_name, locale)

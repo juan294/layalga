@@ -28,6 +28,13 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     locale,
   }),
   z.object({
+    task: z.literal("host_room_request"),
+    homeId: z.uuid(),
+    hostId: z.uuid(),
+    rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
+    locale,
+  }),
+  z.object({
     task: z.literal("guest_submit"),
     homeId: z.uuid(),
     invitationId: z.uuid(),
@@ -37,6 +44,8 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     pets: z.int().min(0).max(MAX_PETS),
     arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
     notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
+    roomIds: z.array(z.uuid()).min(1).max(20).optional(),
+    overflowConsent: z.boolean().optional(),
     locale,
   }),
   z.object({

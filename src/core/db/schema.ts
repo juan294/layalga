@@ -27,6 +27,13 @@ export type ScheduledJobKind = "reconfirm_chase" | "reconfirm_escalate";
 export type ScheduledJobStatus =
   "scheduled" | "running" | "done" | "cancelled" | "quarantined";
 export type RecipientKind = "host" | "party";
+export type RoomInventoryState =
+  "draft" | "available" | "withheld" | "inactive";
+export type RoomOverflowPolicy = "none" | "host_approval";
+export type RoomAvailabilityAction = "open" | "close";
+export type PrivateRoomBlockStatus = "active" | "cancelled";
+export type RoomActionProposalKind = "private_block" | "open" | "close";
+export type RoomActionProposalStatus = "pending" | "applied" | "dismissed";
 export type StayRange = readonly [start: string, end: string];
 
 function parseDateRange(value: string): StayRange {
@@ -88,7 +95,22 @@ export const rooms = pgTable("rooms", {
     .notNull()
     .references(() => homes.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  beds: integer("beds").notNull(),
+  standardCapacity: integer("beds"),
+  guestLabel: text("guest_label"),
+  floorLabel: text("floor_label"),
+  sleepingArrangement: text("sleeping_arrangement"),
+  overflowArrangement: text("overflow_arrangement"),
+  maximumCapacity: integer("maximum_capacity"),
+  inventoryState: text("inventory_state")
+    .$type<RoomInventoryState>()
+    .notNull()
+    .default("draft"),
+  overflowPolicy: text("overflow_policy")
+    .$type<RoomOverflowPolicy>()
+    .notNull()
+    .default("none"),
+  displayOrder: integer("display_order").notNull().default(0),
+  privateNotes: text("private_notes"),
   createdAt: createdAt(),
 });
 
@@ -196,14 +218,97 @@ export const visits = pgTable("visits", {
   }),
   escalatedAt: timestamp("escalated_at", { withTimezone: true, mode: "date" }),
   approvalStayHash: text("approval_stay_hash"),
+  calendarEligibleAt: timestamp("calendar_eligible_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  calendarUpdatedAt: timestamp("calendar_updated_at", {
+    withTimezone: true,
+    mode: "date",
+  }),
+  calendarSequence: integer("calendar_sequence").notNull().default(0),
   createdAt: createdAt(),
 });
 
-export const visitRooms = pgTable("visit_rooms", {
+export const roomAvailabilityOverrides = pgTable(
+  "room_availability_overrides",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    stay: dateRange("stay").notNull(),
+    action: text("action").$type<RoomAvailabilityAction>().notNull(),
+    createdByHostId: uuid("created_by_host_id")
+      .notNull()
+      .references(() => hosts.id, { onDelete: "restrict" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    privateNote: text("private_note"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("room_availability_overrides_home_idempotency_idx").on(
+      table.homeId,
+      table.idempotencyKey,
+    ),
+  ],
+);
+
+export const privateRoomBlocks = pgTable(
+  "private_room_blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    stay: dateRange("stay").notNull(),
+    status: text("status")
+      .$type<PrivateRoomBlockStatus>()
+      .notNull()
+      .default("active"),
+    publicLabel: text("public_label").notNull(),
+    privateNote: text("private_note"),
+    createdByHostId: uuid("created_by_host_id")
+      .notNull()
+      .references(() => hosts.id, { onDelete: "restrict" }),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    calendarEligibleAt: timestamp("calendar_eligible_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    calendarUpdatedAt: timestamp("calendar_updated_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    calendarSequence: integer("calendar_sequence").notNull().default(0),
+    cancelledAt: timestamp("cancelled_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("private_room_blocks_home_idempotency_idx").on(
+      table.homeId,
+      table.idempotencyKey,
+    ),
+  ],
+);
+
+export const roomOccupancies = pgTable("visit_rooms", {
   id: uuid("id").primaryKey().defaultRandom(),
-  visitId: uuid("visit_id")
-    .notNull()
-    .references(() => visits.id, { onDelete: "cascade" }),
+  visitId: uuid("visit_id").references(() => visits.id, {
+    onDelete: "cascade",
+  }),
+  privateBlockId: uuid("private_block_id").references(
+    () => privateRoomBlocks.id,
+    { onDelete: "cascade" },
+  ),
   roomId: uuid("room_id")
     .notNull()
     .references(() => rooms.id, { onDelete: "cascade" }),
@@ -211,6 +316,21 @@ export const visitRooms = pgTable("visit_rooms", {
     .notNull()
     .references(() => homes.id, { onDelete: "cascade" }),
   stay: dateRange("stay").notNull(),
+  createdAt: createdAt(),
+});
+
+export const calendarFeeds = pgTable("calendar_feeds", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  createdByHostId: uuid("created_by_host_id")
+    .notNull()
+    .references(() => hosts.id, { onDelete: "restrict" }),
+  label: text("label").notNull(),
+  locale: text("locale").$type<Locale>().notNull(),
+  tokenHash: bytea("token_hash").notNull(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true, mode: "date" }),
   createdAt: createdAt(),
 });
 
@@ -256,6 +376,66 @@ export const runs = pgTable("runs", {
     .default(0),
   lastError: text("last_error"),
 });
+
+export const roomActionProposals = pgTable(
+  "room_action_proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    requestedByHostId: uuid("requested_by_host_id")
+      .notNull()
+      .references(() => hosts.id, { onDelete: "restrict" }),
+    runId: uuid("run_id").references(() => runs.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").$type<RoomActionProposalKind>().notNull(),
+    stay: dateRange("stay").notNull(),
+    summary: text("summary").notNull(),
+    privateNote: text("private_note"),
+    status: text("status")
+      .$type<RoomActionProposalStatus>()
+      .notNull()
+      .default("pending"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    requestHash: text("request_hash").notNull(),
+    appliedAt: timestamp("applied_at", {
+      withTimezone: true,
+      mode: "date",
+    }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("room_action_proposals_home_idempotency_idx").on(
+      table.homeId,
+      table.idempotencyKey,
+    ),
+  ],
+);
+
+export const roomActionProposalRooms = pgTable(
+  "room_action_proposal_rooms",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => roomActionProposals.id, { onDelete: "cascade" }),
+    roomId: uuid("room_id")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex("room_action_proposal_rooms_proposal_room_idx").on(
+      table.proposalId,
+      table.roomId,
+    ),
+  ],
+);
 
 export const pendingDecisions = pgTable("pending_decisions", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -201,6 +201,7 @@ async function executeClaimedAgentTask(
     const agent = buildAgent({
       sessionId,
       deps,
+      task: task.task,
       model: deps.model,
     });
     const invokeArgs =
@@ -425,7 +426,7 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
     input;
   return sql.begin(async (transaction) => {
     await transaction`
-      select id from public.homes where id = ${task.homeId} for update
+      select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))
     `;
     const [existing] = await transaction<
       {
@@ -597,7 +598,7 @@ function objectString(value: unknown, key: string): string | undefined {
 
 function actorKeyForTask(task: AgentTask): string {
   const actor =
-    task.task === "host_capture"
+    task.task === "host_capture" || task.task === "host_room_request"
       ? `host:${task.hostId}`
       : task.task === "resume"
         ? `host:${task.responses
@@ -643,7 +644,9 @@ async function intentKeyForTask(
   // path has no caller-generated submission ID. Retries inside the window are
   // one intent; identical input in a later window is a legitimate new intent.
   const retryWindow =
-    task.task === "host_capture" || task.task === "guest_submit"
+    task.task === "host_capture" ||
+    task.task === "host_room_request" ||
+    task.task === "guest_submit"
       ? Math.floor(startedAt.getTime() / (10 * 60 * 1_000))
       : null;
   return digest(JSON.stringify({ task, state, retryWindow }));
@@ -695,7 +698,9 @@ async function resolveSessionId(
     if (!row) throw new Error(`Visit not found: ${task.visitId}`);
     return `inv_${row.invitation_id}`;
   }
-  return `capture_${task.hostId}`;
+  return task.task === "host_room_request"
+    ? `room_${task.hostId}`
+    : `capture_${task.hostId}`;
 }
 
 async function authorityForTask(
@@ -703,7 +708,7 @@ async function authorityForTask(
   deps: AgentDeps,
 ): Promise<AgentAuthority> {
   const sql = sqlClient(deps.db);
-  if (task.task === "host_capture") {
+  if (task.task === "host_capture" || task.task === "host_room_request") {
     const [host] = await sql<{ id: string }[]>`
       select id from public.hosts
       where id = ${task.hostId} and home_id = ${task.homeId}
@@ -843,6 +848,8 @@ function canonicalGuestSubmission(
         ...invitationSpecialRequests(structured),
         ...(task.notes ? [task.notes] : []),
       ]),
+    roomIds: task.roomIds,
+    overflowConsent: task.overflowConsent,
   };
 }
 
@@ -873,6 +880,9 @@ async function buildPrompt(
       where id = ${task.hostId} and home_id = ${task.homeId}
     `;
     return `${host?.display_name ?? "The host"} pasted this invitation (locale ${task.locale}): """${task.rawMessage}""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.`;
+  }
+  if (task.task === "host_room_request") {
+    return `The host requests this room action (locale ${task.locale}): """${task.rawMessage}""". Use list_guest_rooms or find_room_options to resolve only guest-safe room facts. Then call prepare_room_action exactly once with kind private_block, open, or close; an exact half-open stay; the selected room IDs; and a generic calendar-safe summary with no person's name or private detail. Prepare only. Do not apply the action and do not claim that any room was blocked, opened, or closed. Tell the host that the proposal needs visible confirmation.`;
   }
   if (task.task === "guest_submit") {
     const [party] = await sql<{ family_name: string }[]>`

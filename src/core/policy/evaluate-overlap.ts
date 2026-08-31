@@ -17,6 +17,8 @@ export interface VisitDraft {
   children: number;
   pets: number;
   specialRequests: readonly string[];
+  roomIds?: readonly string[];
+  overflowConsent?: boolean;
 }
 
 export interface ExistingVisit {

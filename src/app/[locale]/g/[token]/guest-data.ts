@@ -17,6 +17,7 @@ export interface GuestVisit {
   pets: number;
   status: GuestVisitStatus;
   roomCount: number;
+  roomLabels: string[];
   hasOverlap: boolean;
   chaseMessage: string | null;
   holdExpiresAt: string | null;
@@ -35,12 +36,34 @@ export interface GuestInvitationData {
   visit: GuestVisit | null;
 }
 
+export interface GuestInvitationAuthority {
+  id: string;
+  homeId: string;
+  partyId: string;
+}
+
 export function partyDefaults(structured: Record<string, unknown>) {
   return {
     adults: count(structured.adults, 1),
     children: count(structured.children, 0),
     pets: count(structured.pets, 0),
   };
+}
+
+export async function resolveGuestInvitationAuthority(
+  token: string,
+): Promise<GuestInvitationAuthority | null> {
+  const invitation = await findInvitationByToken(
+    getDatabaseConnection().db,
+    token,
+  );
+  return invitation
+    ? {
+        id: invitation.id,
+        homeId: invitation.homeId,
+        partyId: invitation.partyId,
+      }
+    : null;
 }
 
 export async function loadGuestInvitation(
@@ -62,6 +85,7 @@ export async function loadGuestInvitation(
       pets: number;
       status: GuestVisitStatus;
       room_count: number;
+      room_labels: string[];
       has_overlap: boolean;
       hold_expires_at: Date | string | null;
       hold_expired: boolean;
@@ -83,11 +107,8 @@ export async function loadGuestInvitation(
         and v.hold_expires_at <= coalesce(dc.now, now()) as hold_expired,
       lower(v.stay) >
         (coalesce(dc.now, now()) at time zone h.timezone)::date as pre_arrival,
-      (
-        select count(*)::integer
-        from public.visit_rooms vr
-        where vr.visit_id = v.id
-      ) as room_count,
+      coalesce(assigned.room_count, 0) as room_count,
+      coalesce(assigned.room_labels, '{}'::text[]) as room_labels,
       exists (
         select 1
         from public.visits other
@@ -101,6 +122,18 @@ export async function loadGuestInvitation(
     from public.visits v
     join public.homes h on h.id = v.home_id
     left join public.demo_clock dc on dc.home_id = h.id and dc.enabled
+    left join lateral (
+      select
+        count(*)::integer as room_count,
+        coalesce(
+          array_agg(r.guest_label order by r.display_order, r.id)
+            filter (where r.guest_label is not null),
+          '{}'::text[]
+        ) as room_labels
+      from public.visit_rooms vr
+      join public.rooms r on r.id = vr.room_id
+      where vr.visit_id = v.id
+    ) assigned on true
     where v.invitation_id = ${invitation.id}
     order by v.created_at desc
     limit 1
@@ -144,6 +177,7 @@ export async function loadGuestInvitation(
           pets: visit.pets,
           status: visit.status,
           roomCount: visit.room_count,
+          roomLabels: visit.room_labels,
           hasOverlap: visit.has_overlap,
           chaseMessage,
           holdExpiresAt: visit.hold_expires_at

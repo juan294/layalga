@@ -1,6 +1,7 @@
 import type { Clock } from "@/core/clock";
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import type { HouseState, VisitDraft } from "@/core/policy/evaluate-overlap";
+import { listGuestRoomOptions } from "@/core/rooms/availability";
 
 export async function loadHouseState(
   database: DatabaseClient,
@@ -17,9 +18,18 @@ export async function loadHouseState(
   `;
   if (!home) throw new Error(`Home not found: ${homeId}`);
 
-  const rooms = await sql<{ id: string; name: string; beds: number }[]>`
-    select id, name, beds from public.rooms where home_id = ${homeId} order by name
-  `;
+  const roomOptions = await listGuestRoomOptions(
+    database,
+    homeId,
+    [dateBoundary(draft.stay[0]), dateBoundary(draft.stay[1])],
+    draft.adults + draft.children,
+    { excludeVisitId: draft.visitId },
+  );
+  const rooms = roomOptions.map((room) => ({
+    id: room.id,
+    name: room.guestLabel,
+    beds: room.standardCapacity,
+  }));
   const visits = await sql<
     {
       id: string;
@@ -59,4 +69,8 @@ export async function loadHouseState(
       roomIds: visit.room_ids,
     })),
   };
+}
+
+function dateBoundary(value: string | Date): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value;
 }

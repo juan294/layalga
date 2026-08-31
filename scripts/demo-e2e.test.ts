@@ -1,7 +1,12 @@
 import type { Page } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 
-import { approvePendingDecision, captureInvitation } from "./demo-e2e";
+import {
+  approvePendingDecision,
+  assertCalendarPrivacy,
+  captureInvitation,
+  parseICalendar,
+} from "./demo-e2e";
 
 describe("durable demo browser flows", () => {
   it("waits for queued capture completion before revealing the guest link", async () => {
@@ -42,6 +47,39 @@ describe("durable demo browser flows", () => {
       "waitForURL:/\\/en\\/?(?:[?#].*)?$/",
       "waitForFunction:[data-testid='pending-decision']:0",
     ]);
+  });
+
+  it("rejects private values in synthetic calendar evidence", () => {
+    const safeCalendar = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "BEGIN:VEVENT",
+      "UID:private-block-test@layalga.example",
+      "DTSTART;VALUE=DATE:20260922",
+      "DTEND;VALUE=DATE:20260924",
+      "STATUS:CONFIRMED",
+      "SUMMARY:Private room use",
+      "DESCRIPTION:Rooms: Horreu Room",
+      "END:VEVENT",
+      "END:VCALENDAR",
+      "",
+    ].join("\r\n");
+
+    expect(parseICalendar(safeCalendar).events).toHaveLength(1);
+    expect(() =>
+      assertCalendarPrivacy(safeCalendar, [
+        "DEMO-PRIVATE-ROOM-MARKER",
+        "Cuartu del Horreu",
+        "private@example.com",
+      ]),
+    ).not.toThrow();
+    const foldedLeak = safeCalendar.replace(
+      "DESCRIPTION:Rooms: Horreu Room",
+      "DESCRIPTION:Private\\, mar\r\n ker\\;with\\\\slash",
+    );
+    expect(() =>
+      assertCalendarPrivacy(foldedLeak, ["Private, marker;with\\slash"]),
+    ).toThrow(/exposed forbidden value/);
   });
 });
 

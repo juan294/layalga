@@ -1,5 +1,6 @@
 import type { JSONValue } from "postgres";
 
+import { stayApprovalHash } from "@/core/booking/holds";
 import { sqlClient } from "@/core/db/client";
 import { loadHouseState as loadCoreHouseState } from "@/core/booking/house-state";
 import type { HouseState, VisitDraft } from "@/core/policy/evaluate-overlap";
@@ -86,6 +87,8 @@ export async function loadDraftForTool(
   const sql = sqlClient(deps.db);
   const sanitizedInput = { ...input };
   delete sanitizedInput.approvedBy;
+  delete sanitizedInput.roomIds;
+  delete sanitizedInput.overflowConsent;
   if (name === "create_temporary_hold") {
     const invitationId = String(input.invitationId);
     const submission = deps.authority?.guestSubmission;
@@ -100,6 +103,8 @@ export async function loadDraftForTool(
       children: submission.children,
       pets: submission.pets,
       specialRequests: submission.specialRequests,
+      roomIds: submission.roomIds,
+      overflowConsent: submission.overflowConsent,
     };
     return {
       homeId: await homeIdForInvitation(deps, invitationId),
@@ -128,32 +133,63 @@ export async function loadDraftForTool(
       pets: number;
       special_requests: string[];
       approval_stay_hash: string | null;
+      room_ids: string[];
+      uses_overflow: boolean;
     }[]
   >`
-    select home_id, lower(stay)::text as stay_start, upper(stay)::text as stay_end,
-      adults, children, pets, special_requests, approval_stay_hash
-    from public.visits where id = ${visitId}
+    select
+      visit.home_id,
+      lower(visit.stay)::text as stay_start,
+      upper(visit.stay)::text as stay_end,
+      visit.adults,
+      visit.children,
+      visit.pets,
+      visit.special_requests,
+      visit.approval_stay_hash,
+      coalesce(
+        array_agg(room.id::text order by room.display_order, room.id)
+          filter (where room.id is not null),
+        '{}'::text[]
+      ) as room_ids,
+      coalesce(sum(room.beds), 0) < visit.adults + visit.children as uses_overflow
+    from public.visits visit
+    left join public.visit_rooms occupancy on occupancy.visit_id = visit.id
+    left join public.rooms room on room.id = occupancy.room_id
+    where visit.id = ${visitId}
+    group by visit.id
   `;
   if (!visit) throw new Error(`Visit not found: ${visitId}`);
   assertHomeAuthority(deps, visit.home_id);
   if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
     throw new Error("Visit is outside the agent task scope");
   }
+  const draft: VisitDraft = {
+    visitId,
+    stay: (input.stay as [string, string] | undefined) ?? [
+      visit.stay_start,
+      visit.stay_end,
+    ],
+    adults: Number(input.adults ?? visit.adults),
+    children: Number(input.children ?? visit.children),
+    pets: Number(input.pets ?? visit.pets),
+    specialRequests:
+      (input.specialRequests as string[] | undefined) ?? visit.special_requests,
+  };
+  if (visit.room_ids.length > 0) {
+    draft.roomIds = visit.room_ids;
+    sanitizedInput.roomIds = visit.room_ids;
+  }
+  if (
+    visit.uses_overflow &&
+    visit.approval_stay_hash ===
+      stayApprovalHash({ ...draft, overflowConsent: true })
+  ) {
+    draft.overflowConsent = true;
+    sanitizedInput.overflowConsent = true;
+  }
   return {
     homeId: visit.home_id,
-    draft: {
-      visitId,
-      stay: (input.stay as [string, string] | undefined) ?? [
-        visit.stay_start,
-        visit.stay_end,
-      ],
-      adults: Number(input.adults ?? visit.adults),
-      children: Number(input.children ?? visit.children),
-      pets: Number(input.pets ?? visit.pets),
-      specialRequests:
-        (input.specialRequests as string[] | undefined) ??
-        visit.special_requests,
-    },
+    draft,
     approvalStayHash: visit.approval_stay_hash,
     sanitizedInput,
   };

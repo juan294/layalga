@@ -2,6 +2,7 @@ import type { Agent } from "@strands-agents/sdk";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { HouseState } from "@/core/policy/evaluate-overlap";
+import { listGuestRoomOptions } from "@/core/rooms/availability";
 
 import type { AgentDeps } from "./deps";
 import { audit, loadDraftForTool, loadHouseState } from "./tools/shared";
@@ -10,6 +11,9 @@ vi.mock("./tools/shared", () => ({
   audit: vi.fn(),
   loadDraftForTool: vi.fn(),
   loadHouseState: vi.fn(),
+}));
+vi.mock("@/core/rooms/availability", () => ({
+  listGuestRoomOptions: vi.fn(),
 }));
 
 import { installPolicyHook } from "./policy-hook";
@@ -34,6 +38,21 @@ describe("policy hook approval refresh", () => {
         sanitizedInput: { invitationId: "invitation-1" },
       });
     vi.mocked(loadHouseState).mockReset();
+    vi.mocked(listGuestRoomOptions)
+      .mockReset()
+      .mockResolvedValue([
+        {
+          id: "room-1",
+          guestLabel: "Horreu",
+          floorLabel: "Ground",
+          sleepingArrangement: "Double bed",
+          overflowArrangement: null,
+          standardCapacity: 2,
+          maximumCapacity: 2,
+          overflowPolicy: "none",
+          displayOrder: 0,
+        },
+      ]);
   });
 
   test("rejects an approved draft when the refreshed house state now denies it", async () => {
@@ -75,6 +94,110 @@ describe("policy hook approval refresh", () => {
     expect(event.cancel).toMatch(/not enough free beds/i);
     expect(event.toolUse.input).not.toHaveProperty("approvedBy");
   });
+
+  test("interrupts for the trusted overflow arrangement and resumes with host authority", async () => {
+    const roomId = "00000000-0000-4000-8000-000000000777";
+    const overflowDraft = {
+      ...draft,
+      adults: 4,
+      specialRequests: [],
+      roomIds: [roomId],
+      overflowConsent: true,
+    };
+    vi.mocked(loadDraftForTool).mockResolvedValue({
+      homeId: "home-1",
+      draft: overflowDraft,
+      approvalStayHash: null,
+      sanitizedInput: { invitationId: "invitation-1" },
+    });
+    vi.mocked(listGuestRoomOptions).mockResolvedValue([
+      {
+        id: roomId,
+        guestLabel: "Lower room",
+        floorLabel: "Lower",
+        sleepingArrangement: "One sofa bed",
+        overflowArrangement: "One double air mattress",
+        standardCapacity: 2,
+        maximumCapacity: 4,
+        overflowPolicy: "host_approval",
+        displayOrder: 0,
+      },
+    ]);
+    vi.mocked(loadHouseState).mockResolvedValue({
+      home: { petsTogetherAllowed: false, maxFamiliesWithChildren: 1 },
+      rooms: [{ id: roomId, name: "Lower room", beds: 4 }],
+      visits: [],
+    });
+
+    let hook: ((event: PolicyEvent) => Promise<void>) | undefined;
+    const agent = {
+      addHook: vi.fn((_eventType, callback) => {
+        hook = callback as (event: PolicyEvent) => Promise<void>;
+      }),
+    } as unknown as Agent;
+    installPolicyHook(agent, {} as AgentDeps);
+    const event: PolicyEvent = {
+      invocationState: {},
+      toolUse: {
+        name: "create_temporary_hold",
+        input: { invitationId: "invitation-1" },
+      },
+      interrupt: vi.fn(() => ({ approved: true, hostId: "host-1" })),
+    };
+
+    await hook?.(event);
+
+    expect(event.interrupt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "host_decision",
+        reason: expect.objectContaining({
+          reason: "overflow",
+          rooms: [{ id: roomId, guestLabel: "Lower room" }],
+          overflowArrangements: ["One double air mattress"],
+        }),
+      }),
+    );
+    expect(event.toolUse.input).toMatchObject({ approvedBy: "host-1" });
+  });
+
+  test("does not apply approval when the reviewed room label changes", async () => {
+    const roomId = "00000000-0000-4000-8000-000000000778";
+    vi.mocked(loadDraftForTool).mockResolvedValue({
+      homeId: "home-1",
+      draft: { ...draft, adults: 4, roomIds: [roomId], overflowConsent: true },
+      approvalStayHash: null,
+      sanitizedInput: { invitationId: "invitation-1" },
+    });
+    vi.mocked(listGuestRoomOptions)
+      .mockResolvedValueOnce([overflowRoom(roomId, "Lower room")])
+      .mockResolvedValueOnce([overflowRoom(roomId, "Renamed lower room")]);
+    vi.mocked(loadHouseState).mockResolvedValue({
+      home: { petsTogetherAllowed: false, maxFamiliesWithChildren: 1 },
+      rooms: [{ id: roomId, name: "Lower room", beds: 4 }],
+      visits: [],
+    });
+
+    let hook: ((event: PolicyEvent) => Promise<void>) | undefined;
+    const agent = {
+      addHook: vi.fn((_eventType, callback) => {
+        hook = callback as (event: PolicyEvent) => Promise<void>;
+      }),
+    } as unknown as Agent;
+    installPolicyHook(agent, {} as AgentDeps);
+    const event: PolicyEvent = {
+      invocationState: {},
+      toolUse: {
+        name: "create_temporary_hold",
+        input: { invitationId: "invitation-1" },
+      },
+      interrupt: vi.fn(() => ({ approved: true, hostId: "host-1" })),
+    };
+
+    await hook?.(event);
+
+    expect(event.cancel).toMatch(/arrangement changed/i);
+    expect(event.toolUse.input).not.toHaveProperty("approvedBy");
+  });
 });
 
 interface PolicyEvent {
@@ -89,5 +212,19 @@ function houseState(visits: HouseState["visits"]): HouseState {
     home: { petsTogetherAllowed: false, maxFamiliesWithChildren: 1 },
     rooms: [{ id: "room-1", name: "Horreu", beds: 2 }],
     visits,
+  };
+}
+
+function overflowRoom(id: string, guestLabel: string) {
+  return {
+    id,
+    guestLabel,
+    floorLabel: "Lower",
+    sleepingArrangement: "One sofa bed",
+    overflowArrangement: "One double air mattress",
+    standardCapacity: 2,
+    maximumCapacity: 4,
+    overflowPolicy: "host_approval" as const,
+    displayOrder: 0,
   };
 }

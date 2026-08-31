@@ -18,6 +18,8 @@ import {
 } from "@/components/host/calendar-ledger";
 import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
 import { DemoClockPanel } from "@/components/host/demo-clock-panel";
+import { RoomLedger } from "@/components/host/room-ledger";
+import { loadHostRoomLedger } from "./room-data";
 import {
   PendingDecisions,
   type PendingDecisionItem,
@@ -102,7 +104,11 @@ export default async function HostPage({
   );
   const calendarWindow = calendarMonthWindow(calendarMonth);
 
-  const [visitRows, decisionRows, activityRows] = await Promise.all([
+  const [roomData, visitRows, decisionRows, activityRows] = await Promise.all([
+    loadHostRoomLedger(sql, host.homeId, [
+      calendarWindow.from,
+      calendarWindow.to,
+    ]),
     sql<VisitRow[]>`
       select v.id, p.family_name, lower(v.stay)::text as stay_start,
         upper(v.stay)::text as stay_end, v.status,
@@ -210,7 +216,16 @@ export default async function HostPage({
           })
         : t("decisions.contextUnavailable"),
       reason: reasonLabel(decision.reason, t),
-      requestDetail: context?.specialRequests.join("; ") || null,
+      requestDetail: context
+        ? context.overflowRooms && context.overflowArrangements
+          ? t("decisions.overflowDetail", {
+              rooms: context.overflowRooms
+                .map(({ guestLabel }) => guestLabel)
+                .join(", "),
+              arrangements: context.overflowArrangements.join("; "),
+            })
+          : context.specialRequests.join("; ") || null
+        : null,
       overlapSummary:
         context && decision.overlap_count > 0
           ? t("decisions.overlapSummary", { count: decision.overlap_count })
@@ -309,6 +324,14 @@ export default async function HostPage({
             </form>
           </div>
         </header>
+
+        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
+          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("rooms.title")}</h2>
+          <div style={panelStyle}>
+            <RoomLedger data={roomData} locale={safeLocale} />
+          </div>
+        </section>
 
         <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
           <p style={labelStyle}>{t("calendar.eyebrow")}</p>
@@ -497,6 +520,7 @@ function reasonLabel(
   if (code === "children") return t("decisionReasons.children");
   if (code === "pets") return t("decisionReasons.pets");
   if (code === "beds") return t("decisionReasons.beds");
+  if (code === "overflow") return t("decisionReasons.overflow");
   return t("decisionReasons.other");
 }
 

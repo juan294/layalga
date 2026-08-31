@@ -24,23 +24,60 @@ insert into public.homes (
   true
 );
 
-insert into public.rooms (id, home_id, name, beds) values
+insert into public.rooms (
+  id,
+  home_id,
+  name,
+  beds,
+  guest_label,
+  floor_label,
+  sleeping_arrangement,
+  overflow_arrangement,
+  maximum_capacity,
+  inventory_state,
+  overflow_policy,
+  display_order
+) values
   (
     '00000000-0000-4000-8000-000000000101',
     '00000000-0000-4000-8000-000000000001',
     'Cuartu del Horreu',
-    2
+    2,
+    'Horreu Room',
+    'Upper floor',
+    'One double bed',
+    null,
+    2,
+    'available',
+    'none',
+    1
   ),
   (
     '00000000-0000-4000-8000-000000000102',
     '00000000-0000-4000-8000-000000000001',
     'Cuartu de la Fonte',
+    2,
+    'Fonte Room',
+    'Ground floor',
+    'One sofa bed',
+    'One double air mattress',
+    4,
+    'available',
+    'host_approval',
     2
   ),
   (
     '00000000-0000-4000-8000-000000000103',
     '00000000-0000-4000-8000-000000000001',
     'Cuartu del Teixu',
+    3,
+    'Teixu Room',
+    'Upper floor',
+    'One double bed',
+    null,
+    3,
+    'withheld',
+    'none',
     3
   );
 

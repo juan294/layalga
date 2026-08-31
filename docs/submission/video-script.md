@@ -4,88 +4,111 @@ Target length: 4:55. Hard limit: 5:00.
 
 ## Before recording
 
-- Run `pnpm run demo:e2e -- --base <target>` once, then reset the demo.
+- Run `pnpm run demo:e2e -- --base <target>` once, then reset the synthetic demo.
+- Confirm that the demo proof covers the private-room proposal, date opening, exact multi-room choice, overflow interrupt and resume, WebMCP registration, and private iCalendar output.
 - Open one Spanish host tab as Juan and one English host tab as Jordan.
-- Open the Vega guest link in Spanish and the Oteros guest link in English.
-- Close password managers, notifications, bookmarks, and unrelated tabs.
-- Set browser zoom so the host calendar, decisions, activity, and demo clock fit without horizontal scrolling.
+- Open the prepared guest invitation in a separate browser profile or private window.
+- Keep the host room ledger above the visit calendar and use a narrow second window for the guest flow.
 - Confirm that the banner says `Synthetic demo` and that the clock is visibly labeled.
-- Keep this script on a second screen. Do not show secrets, terminal history, cloud account numbers, or private guest-link tokens.
+- If the recording browser does not provide `document.modelContext`, use the automated WebMCP component proof. Do not enable an unreviewed polyfill or claim native browser execution.
+- Issue the demonstration calendar feed locally. Use only the local HTTP and parser proof. Do not subscribe a real Google, iCloud, or family calendar.
+- Close password managers, notifications, bookmarks, and unrelated tabs.
+- Keep this script on a second screen. Do not show secrets, terminal history, cloud account numbers, full guest links, calendar bearer URLs, or private source paths.
 
-## 0:00–0:45 — The problem and audience
+## 0:00-0:30 - The problem and authority boundary
 
-**On screen:** L’Ayalga title, then the empty host view shared by Juan and Jordan.
-
-**Narration:**
-
-“This is L’Ayalga, an AI hospitality coordinator for homes with more than one host. It grew from a familiar problem: invitations happen in messages, each host makes plans independently, and a calendar does not know whether two families can comfortably share a house.
-
-L’Ayalga turns an informal invitation into a private guest flow. It finds rooms for partial overlaps, follows up before arrival, and asks a person only for social judgment. The model coordinates, but code and Postgres own every booking decision.”
-
-## 0:45–1:30 — Beat 1: capture an informal invitation
-
-**On screen:** Juan’s Spanish host tab. Paste the prepared Familia Vega invitation and submit it. Briefly show the queued run state, then the structured party, flexible dates, and generated guest link. Do not expose the full token for longer than needed.
+**On screen:** L’Ayalga title, then the host room ledger and visit calendar.
 
 **Narration:**
 
-“Juan receives this Spanish message from Familia Vega. He pastes it as-is. The request enters a durable Postgres queue, and this page follows that exact run to completion. A Strands agent calls a typed capture tool, keeps the original message for audit, and structures the party: two adults, two children, Spanish locale, and flexible dates.
+“This is L’Ayalga, an AI hospitality coordinator for homes with more than one host. Invitations arrive in messages, but a calendar does not know which rooms are suitable, whether an overlap is comfortable, or when a person must decide.
 
-The result is tentative, not booked. L’Ayalga creates a high-entropy guest link and stores only its hash. Vega can now choose from dates that the deterministic booking engine says are possible.”
+L’Ayalga lets the agent interpret and prepare. Deterministic services and Postgres decide availability. People keep final authority over sensitive changes.”
 
-## 1:30–2:15 — Beat 2: guest selects and confirms
+## 0:30-1:10 - Real-room boundary and private use
 
-**On screen:** Vega’s Spanish guest tab. Find options, select the prepared stay, submit, show the confirmation and room count. Briefly return to the host calendar to show the confirmed visit.
-
-**Narration:**
-
-“Vega opens the link without an account. The page shows only their invitation. It never reveals room names or another family’s identity.
-
-When Vega submits these dates, the agent requests a temporary hold. Before the tool can run, a policy hook checks beds, children, and pets in that fixed order. PostgreSQL also has a range exclusion constraint, so two simultaneous requests cannot win the same room. This stay passes, the hold is placed, and the same run confirms it.”
-
-## 2:15–3:30 — Beat 3: interrupt, human decision, resume
-
-**On screen:** Jordan’s English host tab. Capture the Oteros invitation. Open their English guest page and submit the prepared overlapping dates with the ground-floor wheelchair-access request. Switch to Juan’s host view. Show the pending decision reason, select Approve, then show the completed visit and activity entry.
+**On screen:** Show the synthetic room ledger and its door states. Expand one room to show the guest label, floor, sleeping arrangement, standard capacity, maximum capacity, and inventory state. Submit the prepared host message that asks for one room to be reserved for private use. Show the pending proposal, then apply it. Do not enter a real person's name in the public label.
 
 **Narration:**
 
-“Jordan independently invites the Oteros. Their dates overlap Vega, but partial overlap is a first-class case: free rooms still exist, and the children and pets rules pass.
+“The repository contains synthetic rooms only. A host enters the real inventory here. A draft or incomplete room stays unavailable, and a withheld room needs an explicit date opening.
 
-The Oteros also need ground-floor wheelchair access. That is a social exception, so the policy hook interrupts the Strands run before the booking tool executes. The complete session snapshot and a separate pending decision are stored in Postgres.
+I asked the coordinator to reserve this room for private household use. The Strands tool did not block it. It prepared a bounded proposal with exact dates and room IDs. I can inspect the effect before I apply it. The private block now uses the same occupancy constraint as a guest visit, so this room disappears from guest options for these dates.”
 
-Juan sees what is at stake and approves. A new run restores the saved session, supplies his response to the exact interrupt, and continues the pending tool call. The decision stays approved; a `decision_applied` audit event records the consuming run. The booking tool executes once, even though the process stopped and resumed.”
+## 1:10-1:45 - Open a room for dates and select exact rooms
 
-## 3:30–4:20 — Beat 4: proactive follow-through
-
-**On screen:** Host view with the labeled synthetic clock. Use the first preset to move to T-3. Show the two party chase notifications. Do not reconfirm Oteros. Use the second preset to move 24 hours forward. Show one escalation for Juan and one for Jordan.
+**On screen:** In the host ledger, open the withheld synthetic room for the prepared range. Switch to the guest invitation, search with the prepared dates and party counts, and show that the private room is absent while the newly opened room is present. Select the prepared two-room recommendation and submit it.
 
 **Narration:**
 
-“Coordination does not end when dates are booked. I will use a clearly labeled synthetic clock so we can test time without pretending to wait three months.
+“This room is withheld by default. I am opening it only for the guest's complete stay. The guest search now shows the rooms that are safe for this invitation and date range.
 
-At three days before arrival, the same production state machine asks both parties to reconfirm. One party does not answer. Twenty-four hours later, one claimed scheduled job sends exactly one escalation to each host. Jobs and notifications carry idempotency keys, so a retry does not duplicate the alert.”
+The guest can accept the deterministic recommendation or select more than one exact room. They see only guest-facing labels and sleeping details. They never see hidden rooms, internal names, private notes, another family, or another family's room assignment. The booking transaction reads this exact selection again before it creates the hold.”
 
-## 4:20–4:50 — Architecture and technical choice
+## 1:45-2:25 - Overflow needs human approval
 
-**On screen:** `docs/architecture/layalga-architecture.svg`. Point to the policy hook and the interrupt/resume loop.
-
-**Narration:**
-
-“The selected build runs Next.js and a durable Strands work queue on Vercel, with Supabase Postgres as the system of record. Next.js starts work after the response, and Vercel Cron recovers leases, drains queued runs, and handles due jobs. Strands handles natural language and typed tool use. A pure TypeScript policy and database constraints remain authoritative.
-
-We also packaged and started the same agent in Bedrock AgentCore Runtime. An account-level Anthropic access gate blocked the model call, so the plan’s tested local fallback is active. The shared run interface and Postgres session store preserve that future path.”
-
-## 4:50–4:55 — Close
-
-**On screen:** Final calendar with both visits and the L’Ayalga title.
+**On screen:** Submit the prepared request that fits only at maximum capacity. Show the overflow notice with the exact room labels and sleeping arrangement. Switch to the host view, approve the pending decision, and show that the saved run completes once.
 
 **Narration:**
 
-“L’Ayalga turns hospitality from scattered messages into safe, human-centered follow-through: the agent coordinates, code decides, and people keep the judgment that matters.”
+“Normal capacity proceeds without extra review. This larger party fits only with the documented overflow arrangement. L’Ayalga does not hide that compromise in a bed count. The policy hook pauses before the booking tool writes anything and shows the host the exact rooms and sleeping arrangement.
+
+After approval, the run reloads current availability. It rejects a changed or stale arrangement. If the state is unchanged, it resumes the saved tool call once. A party above maximum capacity is denied instead of sent for approval.”
+
+## 2:25-3:00 - Browser agents prepare, people submit
+
+**On screen:** Show the WebMCP registration proof. Invoke one bounded read tool and one guest or host preparation tool. Return to the page and show the filled fields with the submit button still waiting for a person. If native WebMCP is unavailable, show the focused component test and then the unchanged normal page flow.
+
+**Narration:**
+
+“When the browser provides WebMCP, L’Ayalga registers tools from the page that the person already opened. The schema cannot supply a home ID, host ID, invitation token, or database record. Read output is bounded and marked as untrusted.
+
+The agent can fill this visible form, but it cannot submit a booking, private block, opening, or closure. WebMCP is progressive enhancement. The normal controls work without it.”
+
+## 3:00-3:35 - Revocable, private iCalendar proof
+
+**On screen:** Show the host calendar-feed controls and the issued feed label, but cover the subscription URL. Show the local parser result with generic all-day event summaries, guest count, and guest-visible room labels. Show the local assertion that private text is absent, then revoke the feed.
+
+**Narration:**
+
+“A host can issue separate calendar subscription capabilities and revoke each one. The database stores only a purpose-bound HMAC, not the bearer token.
+
+This is a local proof. The feed uses generic events such as Guest stay and Private room use. It includes dates, guest count, and guest-visible room labels. It excludes names, email, invitation text, special requests, arrival details, private notes, and tokens. We do not subscribe a real family calendar or write directly to Google Calendar or iCloud in this implementation.”
+
+## 3:35-4:20 - Durable coordination continues after booking
+
+**On screen:** Use the labeled synthetic clock to move to three days before arrival. Show the party reconfirmation notifications. Leave one unanswered, move the clock 24 hours, and show one escalation for each host.
+
+**Narration:**
+
+“Coordination does not end when the rooms are booked. I will move the clearly labeled synthetic clock so we can test time without pretending to wait months.
+
+At three days before arrival, the same state machine asks the parties to reconfirm. One party does not answer. Twenty-four hours later, one claimed scheduled job sends exactly one escalation to each host. Jobs and notifications use idempotency keys, so retries do not duplicate the alert.”
+
+## 4:20-4:50 - Architecture and agent-first choice
+
+**On screen:** `docs/architecture/layalga-architecture.svg`, then return to the room ledger.
+
+**Narration:**
+
+“Next.js accepts work into a durable run queue. Strands handles natural language and typed tool use. Supabase Postgres is authoritative for rooms, occupancies, proposals, visits, decisions, jobs, audit records, and calendar capabilities.
+
+Telegram and a remote MCP server are deliberate follow-ons. They first need identity binding, consent, OAuth resource checks, revocation, and rate limits. The current build proves the agent-first workflow without weakening the page, database, or human-confirmation boundaries.”
+
+## 4:50-4:55 - Close
+
+**On screen:** Final room ledger and L’Ayalga title.
+
+**Narration:**
+
+“The agent coordinates, code protects the home, and people keep the judgment that matters.”
 
 ## After recording
 
 - Confirm the file is under 300 seconds with `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 <video>`.
 - Watch once with sound and once muted. Check that every action is understandable in both modes.
 - Check that Spanish and English each appear at least once.
-- Check that no guest token, secret, personal notification, or cloud credential is readable.
+- Check that no guest token, calendar URL, secret, personal notification, private room note, or source path is readable.
+- Confirm that the WebMCP segment says whether it used the native browser API or the component proof.
+- Confirm that the calendar segment says local proof and does not imply a live family-calendar subscription or direct calendar write.
 - Record the final video URL in `docs/submission/devpost.md` only after upload authorization.

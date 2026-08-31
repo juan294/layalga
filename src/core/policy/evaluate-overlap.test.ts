@@ -61,7 +61,7 @@ describe("evaluateOverlap", () => {
       state: fixture(),
       decision: "allow",
       reason: undefined,
-      roomIds: ["teixu"],
+      roomIds: ["horreu"],
     },
     {
       name: "no overlap with a special request",
@@ -69,7 +69,7 @@ describe("evaluateOverlap", () => {
       state: fixture(),
       decision: "interrupt",
       reason: "special_request",
-      roomIds: ["teixu"],
+      roomIds: ["horreu"],
     },
     {
       name: "overlap with enough beds",
@@ -153,7 +153,7 @@ describe("evaluateOverlap", () => {
       state: fixture(),
       decision: "allow",
       reason: undefined,
-      roomIds: ["teixu", "horreu"],
+      roomIds: ["horreu", "fonte"],
     },
     {
       name: "a hold counts",

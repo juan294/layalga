@@ -35,6 +35,14 @@ export class TaskScriptedModel extends ScriptedModel {
       if (typeof result.error === "string") {
         return { text: result.error };
       }
+      if (this.task.task === "host_room_request") {
+        if (typeof result.proposalId === "string") {
+          return { text: scriptedOutcome("ledgerUpdated") };
+        }
+        if (Array.isArray(result.rooms)) {
+          return roomProposalStep(this.task, result.rooms);
+        }
+      }
       if (typeof result.invitationId === "string") {
         return { text: scriptedOutcome("invitationReady") };
       }
@@ -88,6 +96,21 @@ export class TaskScriptedModel extends ScriptedModel {
             arrivalTime: this.task.arrivalTime,
             specialRequests: this.task.notes ? [this.task.notes] : [],
           },
+        },
+      };
+    }
+
+    if (this.task.task === "host_room_request") {
+      const stay = roomRequestStay(this.task.rawMessage);
+      if (!stay) {
+        return {
+          text: "Include exact dates in YYYY-MM-DD format so the local demo can prepare the proposal.",
+        };
+      }
+      return {
+        toolUse: {
+          name: "list_guest_rooms",
+          input: {},
         },
       };
     }
@@ -154,6 +177,65 @@ export class TaskScriptedModel extends ScriptedModel {
       bodyEs: `${job.family_name} no ha reconfirmado. Revisa la visita ahora.`,
     });
   }
+}
+
+function roomProposalStep(
+  task: Extract<AgentTask, { task: "host_room_request" }>,
+  rawRooms: unknown[],
+): ScriptStep {
+  const rooms = rawRooms.filter(isScriptedRoom);
+  const stay = roomRequestStay(task.rawMessage);
+  if (!stay || rooms.length === 0) {
+    return { text: "No matching room is available for this proposal." };
+  }
+  const request = normalizedText(task.rawMessage);
+  const match =
+    rooms.find((room) => request.includes(normalizedText(room.guestLabel))) ??
+    rooms[0];
+  const kind = /\b(open|abre|abrir)\b/.test(request)
+    ? "open"
+    : /\b(close|cierra|cerrar)\b/.test(request)
+      ? "close"
+      : "private_block";
+  const summary =
+    kind === "open"
+      ? "Room available for selected dates"
+      : kind === "close"
+        ? "Room unavailable for selected dates"
+        : "Family room use";
+  return {
+    toolUse: {
+      name: "prepare_room_action",
+      input: { kind, stay, roomIds: [match.id], summary },
+    },
+  };
+}
+
+function roomRequestStay(message: string): [string, string] | null {
+  const dates = message.match(/\b\d{4}-\d{2}-\d{2}\b/g);
+  return dates?.length === 2 && dates[0]! < dates[1]!
+    ? [dates[0]!, dates[1]!]
+    : null;
+}
+
+function isScriptedRoom(value: unknown): value is {
+  id: string;
+  guestLabel: string;
+} {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { guestLabel?: unknown }).guestLabel === "string"
+  );
+}
+
+function normalizedText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
 }
 
 export function scriptedModelForTask(

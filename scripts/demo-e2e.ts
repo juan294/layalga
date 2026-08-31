@@ -27,6 +27,19 @@ export interface DemoE2EEvidence {
   hostEscalations: number;
   approvedDecisions: number;
   rawMessages: readonly [string, string];
+  roomCoordination: {
+    proposalCreated: true;
+    privateBlockApplied: true;
+    blockedRoomHidden: true;
+    withheldRoomOpened: true;
+    selectedRoomIds: readonly [string, string];
+    overflowInterrupted: true;
+    overflowApproved: true;
+    overflowAppliedOnce: true;
+    calendarFeedRead: true;
+    calendarPrivateDataAbsent: true;
+    calendarEventCount: number;
+  };
 }
 
 export async function runDemoE2E(
@@ -52,6 +65,15 @@ export async function runDemoE2E(
       firstReset,
       "two consecutive demo resets must return the same seeded identity",
     );
+
+    const roomCoordination = await runRoomCoordinationProof(
+      page,
+      options.baseUrl,
+      sql,
+    );
+    await resetDemo(page, options.baseUrl);
+    await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "en");
+    await openWithheldRoom(page, DEMO_SEED.roomProof.hospitalityOpening);
 
     await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "es");
     const vegaLink = await captureInvitation(page, rawMessages[0]);
@@ -110,7 +132,7 @@ export async function runDemoE2E(
       "expected escalation notifications for two distinct hosts",
     );
 
-    return {
+    const hospitalityEvidence = {
       baseUrl: options.baseUrl,
       invitationsCaptured: 2,
       visits: snapshot.visits.length,
@@ -123,12 +145,190 @@ export async function runDemoE2E(
         (decisionRow) => decisionRow.status === "approved",
       ).length,
       rawMessages,
-    };
+    } as const;
+
+    return { ...hospitalityEvidence, roomCoordination };
   } finally {
     await context.close();
     await browser.close();
     await sql.end({ timeout: 5 });
   }
+}
+
+async function runRoomCoordinationProof(
+  page: Page,
+  baseUrl: string,
+  sql: postgres.Sql,
+): Promise<DemoE2EEvidence["roomCoordination"]> {
+  const proof = DEMO_SEED.roomProof;
+  const guestLink = new URL(DEMO_SEED.parties[0].guestLink, baseUrl).toString();
+
+  await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
+  await requestRoomProposal(page, proof.privateBlock.request, "en");
+  const proposals = await sql<
+    { id: string; status: string; room_ids: string[] }[]
+  >`
+    select proposal.id, proposal.status,
+      array_agg(link.room_id::text order by link.room_id) as room_ids
+    from public.room_action_proposals proposal
+    join public.room_action_proposal_rooms link
+      on link.proposal_id = proposal.id
+    where proposal.home_id = ${DEMO_SEED.home.id}
+    group by proposal.id
+    order by proposal.created_at, proposal.id
+  `;
+  assert.equal(proposals.length, 1, "host message must create one proposal");
+  assert.equal(proposals[0]?.status, "pending");
+  assert.deepEqual(proposals[0]?.room_ids, [proof.privateBlock.roomId]);
+
+  await applyFirstRoomProposal(page);
+  const [appliedBlock] = await sql<
+    { proposal_status: string; block_status: string; room_id: string }[]
+  >`
+    select proposal.status as proposal_status, block.status as block_status,
+      occupancy.room_id::text as room_id
+    from public.room_action_proposals proposal
+    join public.private_room_blocks block
+      on block.home_id = proposal.home_id
+     and block.idempotency_key = 'proposal:' || proposal.id::text
+    join public.visit_rooms occupancy
+      on occupancy.private_block_id = block.id
+    where proposal.id = ${proposals[0]!.id}
+  `;
+  assert.deepEqual(appliedBlock, {
+    proposal_status: "applied",
+    block_status: "active",
+    room_id: proof.privateBlock.roomId,
+  });
+
+  const blockedRoomIds = await findGuestRoomIds(page, guestLink, {
+    from: proof.privateBlock.from,
+    to: proof.privateBlock.to,
+    nights: 2,
+    adults: 2,
+    children: 0,
+    pets: 0,
+  });
+  assert.ok(
+    !blockedRoomIds.includes(proof.privateBlock.roomId),
+    `an applied private block must remove its room from guest options; visible rooms: ${blockedRoomIds.join(", ")}`,
+  );
+
+  await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
+  await openWithheldRoom(page, proof.openedStay);
+  const [openedOverride] = await sql<{ action: string; room_id: string }[]>`
+    select action, room_id::text from public.room_availability_overrides
+    where home_id = ${DEMO_SEED.home.id}
+      and room_id = ${proof.openedStay.roomId}
+  `;
+  assert.deepEqual(openedOverride, {
+    action: "open",
+    room_id: proof.openedStay.roomId,
+  });
+
+  const openedRoomIds = await findGuestRoomIds(page, guestLink, {
+    ...proof.openedStay,
+    adults: proof.overflowGuest.adults,
+    children: proof.overflowGuest.children,
+    pets: proof.overflowGuest.pets,
+  });
+  assert.ok(
+    openedRoomIds.includes(proof.openedStay.roomId),
+    `the date-scoped opening must expose the withheld synthetic room; visible rooms: ${openedRoomIds.join(", ")}`,
+  );
+  await selectExactRoomsAndSubmit(page, proof.overflowGuest.selectedRoomIds);
+  await waitForRunStatus(page, "interrupted");
+
+  await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
+  const decision = page.getByTestId("pending-decision");
+  await decision.waitFor();
+  assert.equal(await decision.count(), 1, "expected one overflow decision");
+  assert.match(
+    (await decision.textContent()) ?? "",
+    /One double air mattress/,
+    "the host must see the exact overflow arrangement",
+  );
+  await approvePendingDecision(page, "en");
+
+  const [overflowResult] = await sql<
+    {
+      decision_status: string;
+      applied_run_id: string | null;
+      room_ids: string[];
+      application_count: number;
+    }[]
+  >`
+    select decision.status as decision_status,
+      decision.applied_run_id::text,
+      array_agg(occupancy.room_id::text order by occupancy.room_id) as room_ids,
+      (
+        select count(*)::integer from public.audit_events audit
+        where audit.home_id = decision.home_id
+          and audit.kind = 'decision_applied'
+          and audit.payload->>'pendingDecisionId' = decision.id::text
+      ) as application_count
+    from public.pending_decisions decision
+    join public.visits visit
+      on visit.home_id = decision.home_id
+     and visit.stay = daterange(
+       ${proof.openedStay.from}::date,
+       ${proof.openedStay.to}::date,
+       '[)'
+     )
+    join public.visit_rooms occupancy on occupancy.visit_id = visit.id
+    where decision.home_id = ${DEMO_SEED.home.id}
+    group by decision.id
+  `;
+  assert.equal(overflowResult?.decision_status, "approved");
+  assert.ok(overflowResult?.applied_run_id, "approved decision must resume");
+  assert.deepEqual(
+    overflowResult?.room_ids,
+    [...proof.overflowGuest.selectedRoomIds].sort(),
+    "the resumed visit must keep the guest's exact room IDs",
+  );
+  assert.equal(
+    overflowResult?.application_count,
+    1,
+    "overflow approval must apply exactly once",
+  );
+
+  const calendarRead = await issueAndReadCalendar(page);
+  const parsedCalendar = parseICalendar(calendarRead.body);
+  const calendarEventCount = parsedCalendar.events.length;
+  assert.equal(
+    calendarEventCount,
+    2,
+    "calendar must contain the block and visit",
+  );
+  assertCalendarPrivacy(calendarRead.body, [
+    calendarRead.token,
+    proof.privateBlock.privateMarker,
+    proof.privateBlock.request,
+    proof.openedStay.privateMarker,
+    ...DEMO_SEED.hosts.flatMap((host) => [host.displayName, ...host.emails]),
+    ...DEMO_SEED.parties.flatMap((party) => [
+      party.familyName,
+      party.guestLink.split("/").at(-1) ?? "",
+      party.invitation.rawMessage,
+      ...party.invitation.specialRequests,
+      ...party.invitation.roomAllocation,
+    ]),
+    ...DEMO_SEED.rooms.map((room) => room.name),
+  ]);
+
+  return {
+    proposalCreated: true,
+    privateBlockApplied: true,
+    blockedRoomHidden: true,
+    withheldRoomOpened: true,
+    selectedRoomIds: proof.overflowGuest.selectedRoomIds,
+    overflowInterrupted: true,
+    overflowApproved: true,
+    overflowAppliedOnce: true,
+    calendarFeedRead: true,
+    calendarPrivateDataAbsent: true,
+    calendarEventCount,
+  };
 }
 
 async function resetDemo(
@@ -196,6 +396,206 @@ export async function approvePendingDecision(
   await waitForCount(page, "[data-testid='pending-decision']", 0);
 }
 
+async function requestRoomProposal(
+  page: Page,
+  rawMessage: string,
+  locale: "en" | "es",
+): Promise<void> {
+  const form = page.locator("form[data-agent-room-request]");
+  await form.locator("textarea[name='rawMessage']").fill(rawMessage);
+  await form.locator("button[type='submit']").click();
+  await page.waitForURL(new RegExp(`/${locale}/runs/[0-9a-f-]+/status`));
+  await waitForRunStatus(page, "completed");
+  await page.getByTestId("run-return").click();
+  await page.waitForURL(new RegExp(`/${locale}/?(?:[?#].*)?$`));
+  await page
+    .locator("input[name='proposalId']")
+    .first()
+    .waitFor({ state: "attached" });
+}
+
+async function applyFirstRoomProposal(page: Page): Promise<void> {
+  const proposalForms = page.locator("form:has(input[name='proposalId'])");
+  assert.equal(await proposalForms.count(), 2, "expected one proposal row");
+  await proposalForms.first().locator("button[type='submit']").click();
+  await waitForCount(page, "input[name='proposalId']", 0);
+}
+
+async function openWithheldRoom(
+  page: Page,
+  opening: {
+    roomId: string;
+    from: string;
+    to: string;
+    privateMarker: string;
+  },
+): Promise<void> {
+  const form = page.locator("form[data-webmcp-room-control]");
+  await form.locator("select[name='roomId']").selectOption(opening.roomId);
+  await form.locator("select[name='action']").selectOption("open");
+  await form.locator("input[name='from']").fill(opening.from);
+  await form.locator("input[name='to']").fill(opening.to);
+  await form
+    .locator("textarea[name='privateNote']")
+    .fill(opening.privateMarker);
+  await form.locator("button[type='submit']").click();
+  await page
+    .locator("li", { hasText: opening.privateMarker })
+    .first()
+    .waitFor();
+}
+
+async function findGuestRoomIds(
+  page: Page,
+  guestLink: string,
+  search: {
+    from: string;
+    to: string;
+    nights: number;
+    adults: number;
+    children: number;
+    pets: number;
+  },
+): Promise<string[]> {
+  await page.goto(guestLink);
+  await waitForGuestSearchHydration(page);
+  await page.locator("input[name='from']").fill(search.from);
+  await page.locator("input[name='to']").fill(search.to);
+  await page.locator("input[name='nights']").fill(String(search.nights));
+  await page.locator("input[name='adults']").fill(String(search.adults));
+  await page.locator("input[name='children']").fill(String(search.children));
+  await page.locator("input[name='pets']").fill(String(search.pets));
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (candidate) =>
+        candidate.request().method() === "POST" &&
+        candidate.url().includes("/g/"),
+    ),
+    page.getByTestId("find-options").click(),
+  ]);
+  assert.ok(
+    response.ok(),
+    `room search failed with HTTP ${response.status()}`,
+  );
+  await page.getByTestId("guest-option").first().waitFor();
+  return page
+    .getByTestId("guest-room-option")
+    .evaluateAll((inputs) =>
+      inputs.map((input) => (input as HTMLInputElement).value),
+    );
+}
+
+async function selectExactRoomsAndSubmit(
+  page: Page,
+  roomIds: readonly string[],
+): Promise<void> {
+  const options = page.getByTestId("guest-room-option");
+  for (let index = 0; index < (await options.count()); index += 1) {
+    const option = options.nth(index);
+    if (await option.isChecked()) await option.uncheck();
+  }
+  for (const roomId of roomIds) {
+    await page.locator(`input[name='roomIds'][value='${roomId}']`).check();
+  }
+  const overflowConsent = page.locator("input[name='overflowConsent']");
+  await overflowConsent.waitFor();
+  await overflowConsent.check();
+  await page.getByTestId("guest-submit").click();
+  await page.waitForURL(/\/runs\/[0-9a-f-]+\/status/);
+  await page.getByTestId("run-status").waitFor();
+}
+
+async function issueAndReadCalendar(
+  page: Page,
+): Promise<{ body: string; token: string }> {
+  const form = page.locator("form:has(input[name='label'])");
+  await form
+    .locator("input[name='label']")
+    .fill(DEMO_SEED.roomProof.calendarFeedLabel);
+  await form.locator("button[type='submit']").click();
+  const subscription = page.locator("[role='status'] code");
+  await subscription.waitFor();
+  const feedUrl = (await subscription.textContent())?.trim();
+  assert.ok(feedUrl, "calendar issue did not reveal a subscription URL");
+  const token = new URL(feedUrl).pathname.split("/").at(-1);
+  assert.ok(token, "calendar issue did not reveal a bearer token");
+  const response = await page.request.get(feedUrl);
+  const body = await response.text();
+  assert.ok(
+    response.ok(),
+    `calendar read failed with HTTP ${response.status()}: ${body.slice(0, 500)}`,
+  );
+  assert.match(body, /^BEGIN:VCALENDAR\r?$/m);
+  return { body, token };
+}
+
+export function assertCalendarPrivacy(
+  body: string,
+  forbiddenValues: readonly string[],
+): void {
+  const parsed = parseICalendar(body);
+  const searchable = `${parsed.unfolded}\n${parsed.decodedText}`;
+  for (const value of forbiddenValues) {
+    if (!value) continue;
+    assert.ok(
+      !searchable.includes(value),
+      `calendar output exposed forbidden value: ${value}`,
+    );
+  }
+}
+
+export function parseICalendar(body: string): {
+  unfolded: string;
+  decodedText: string;
+  events: ReadonlyArray<Readonly<Record<string, string>>>;
+} {
+  assert.ok(body.endsWith("\r\n"), "calendar must end with CRLF");
+  assert.ok(
+    !body.replaceAll("\r\n", "").includes("\n"),
+    "calendar must not contain bare line feeds",
+  );
+  const unfolded = body.replace(/\r\n[ \t]/g, "");
+  const lines = unfolded.split("\r\n");
+  assert.equal(lines.pop(), "", "calendar must have one terminal CRLF");
+  assert.equal(lines[0], "BEGIN:VCALENDAR");
+  assert.equal(lines.at(-1), "END:VCALENDAR");
+
+  const events: Array<Record<string, string>> = [];
+  let event: Record<string, string> | undefined;
+  const decodedValues: string[] = [];
+  for (const line of lines.slice(1, -1)) {
+    if (line === "BEGIN:VEVENT") {
+      assert.equal(event, undefined, "calendar events must not be nested");
+      event = {};
+      continue;
+    }
+    if (line === "END:VEVENT") {
+      assert.ok(event, "calendar event end is missing its beginning");
+      for (const required of ["UID", "DTSTART", "DTEND", "SUMMARY", "STATUS"]) {
+        assert.ok(event[required], `calendar event is missing ${required}`);
+      }
+      events.push(event);
+      event = undefined;
+      continue;
+    }
+
+    const separator = line.indexOf(":");
+    assert.ok(separator > 0, `calendar property is invalid: ${line}`);
+    const property = line.slice(0, separator).split(";", 1)[0]!.toUpperCase();
+    const value = line.slice(separator + 1);
+    decodedValues.push(unescapeICalendarText(value));
+    if (event) event[property] = value;
+  }
+  assert.equal(event, undefined, "calendar event is not closed");
+  return { unfolded, decodedText: decodedValues.join("\n"), events };
+}
+
+function unescapeICalendarText(value: string): string {
+  return value.replace(/\\([\\,;nN])/g, (_match, escaped: string) =>
+    escaped === "n" || escaped === "N" ? "\n" : escaped,
+  );
+}
+
 async function submitGuest(
   page: Page,
   guestLink: string,
@@ -207,6 +607,7 @@ async function submitGuest(
   },
 ): Promise<void> {
   await page.goto(guestLink);
+  await waitForGuestSearchHydration(page);
   await page.locator("input[name='from']").fill(stay.from);
   await page.locator("input[name='to']").fill(stay.to);
   await page.locator("input[name='nights']").fill(String(stay.nights));
@@ -218,6 +619,12 @@ async function submitGuest(
   await page.waitForURL(/\/runs\/[0-9a-f-]+\/status/);
   await page.getByTestId("run-status").waitFor();
   await waitForRunStatus(page, stay.expectedRunStatus);
+}
+
+async function waitForGuestSearchHydration(page: Page): Promise<void> {
+  await page
+    .locator('form[data-webmcp-guest-search][data-hydrated="true"]')
+    .waitFor();
 }
 
 async function waitForRunStatus(

@@ -2,6 +2,26 @@
 
 All notable changes to L’Ayalga are documented in this file.
 
+## [Unreleased]
+
+## [0.2.0] - 2026-08-31
+
+### Added
+
+- Added a real room inventory model with capacities, sleeping arrangements, overflow policies, availability overrides, and private blocks.
+- Added agent-first room coordination with guest-safe room tools and host-approved room proposals.
+- Added WebMCP tools that read or prepare visible host and guest forms without submitting them.
+- Added revocable, privacy-preserving iCalendar feeds.
+- Added exact multi-room guest selection and host approval for overflow arrangements.
+
+### Fixed
+
+- Fixed the AgentCore package, runtime import boundary, advisory locking, and streaming response handling.
+
+### Changed
+
+- Generalized room occupancy records so they support guest visits and private household blocks.
+
 ## [0.1.2] - 2026-08-30
 
 ### Fixed

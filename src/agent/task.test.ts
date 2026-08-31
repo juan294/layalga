@@ -67,6 +67,15 @@ describe("agent task business limits", () => {
     ).toBe(false);
     expect(
       agentTaskSchema.safeParse({
+        task: "host_room_request",
+        homeId,
+        hostId: invitationId,
+        rawMessage: "h".repeat(MAX_HOST_MESSAGE_LENGTH + 1),
+        locale: "en",
+      }).success,
+    ).toBe(false);
+    expect(
+      agentTaskSchema.safeParse({
         task: "guest_change",
         homeId,
         visitId,
@@ -91,5 +100,17 @@ describe("agent task business limits", () => {
         ],
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts a bounded host room request", () => {
+    expect(
+      agentTaskSchema.safeParse({
+        task: "host_room_request",
+        homeId,
+        hostId: invitationId,
+        rawMessage: "Close the office from 2026-10-01 to 2026-10-03.",
+        locale: "en",
+      }).success,
+    ).toBe(true);
   });
 });

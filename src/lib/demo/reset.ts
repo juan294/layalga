@@ -16,16 +16,40 @@ export const DEMO_SEED = {
       id: "00000000-0000-4000-8000-000000000101",
       name: "Cuartu del Horreu",
       beds: 2,
+      guestLabel: "Horreu Room",
+      floorLabel: "Upper floor",
+      sleepingArrangement: "One double bed",
+      overflowArrangement: null,
+      maximumCapacity: 2,
+      inventoryState: "available",
+      overflowPolicy: "none",
+      displayOrder: 1,
     },
     {
       id: "00000000-0000-4000-8000-000000000102",
       name: "Cuartu de la Fonte",
       beds: 2,
+      guestLabel: "Fonte Room",
+      floorLabel: "Ground floor",
+      sleepingArrangement: "One sofa bed",
+      overflowArrangement: "One double air mattress",
+      maximumCapacity: 4,
+      inventoryState: "available",
+      overflowPolicy: "host_approval",
+      displayOrder: 2,
     },
     {
       id: "00000000-0000-4000-8000-000000000103",
       name: "Cuartu del Teixu",
       beds: 3,
+      guestLabel: "Teixu Room",
+      floorLabel: "Upper floor",
+      sleepingArrangement: "One double bed",
+      overflowArrangement: null,
+      maximumCapacity: 3,
+      inventoryState: "withheld",
+      overflowPolicy: "none",
+      displayOrder: 3,
     },
   ],
   hosts: [
@@ -89,6 +113,39 @@ export const DEMO_SEED = {
     chase: "2026-09-15T09:00:00+02:00",
     escalation: "2026-09-16T09:05:00+02:00",
   },
+  roomProof: {
+    hospitalityOpening: {
+      from: "2026-09-18",
+      to: "2026-09-21",
+      roomId: "00000000-0000-4000-8000-000000000103",
+      privateMarker: "DEMO-HOSPITALITY-ROOM-OPENING",
+    },
+    privateBlock: {
+      from: "2026-09-22",
+      to: "2026-09-24",
+      roomId: "00000000-0000-4000-8000-000000000101",
+      privateMarker: "DEMO-PRIVATE-ROOM-MARKER",
+      request:
+        "Reserve Horreu Room for family use from 2026-09-22 to 2026-09-24. DEMO-PRIVATE-ROOM-MARKER must stay private.",
+    },
+    openedStay: {
+      from: "2026-09-25",
+      to: "2026-09-28",
+      nights: 3,
+      roomId: "00000000-0000-4000-8000-000000000103",
+      privateMarker: "DEMO-PRIVATE-OVERRIDE-MARKER",
+    },
+    overflowGuest: {
+      adults: 5,
+      children: 0,
+      pets: 0,
+      selectedRoomIds: [
+        "00000000-0000-4000-8000-000000000101",
+        "00000000-0000-4000-8000-000000000102",
+      ],
+    },
+    calendarFeedLabel: "Synthetic room proof",
+  },
 } as const;
 
 export interface SeedDemoResult {
@@ -112,6 +169,7 @@ export async function resetDemoHome(
     await sql.begin(async (transaction) => {
       const demoSessionIds = [
         ...DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
+        ...DEMO_SEED.hosts.map((host) => `room_${host.id}`),
         ...DEMO_SEED.parties.map((party) => `inv_${party.invitation.id}`),
       ];
       await transaction`
@@ -153,8 +211,33 @@ export async function resetDemoHome(
 
       for (const room of DEMO_SEED.rooms) {
         await transaction`
-          insert into public.rooms (id, home_id, name, beds)
-          values (${room.id}, ${DEMO_SEED.home.id}, ${room.name}, ${room.beds})
+          insert into public.rooms (
+            id,
+            home_id,
+            name,
+            beds,
+            guest_label,
+            floor_label,
+            sleeping_arrangement,
+            overflow_arrangement,
+            maximum_capacity,
+            inventory_state,
+            overflow_policy,
+            display_order
+          ) values (
+            ${room.id},
+            ${DEMO_SEED.home.id},
+            ${room.name},
+            ${room.beds},
+            ${room.guestLabel},
+            ${room.floorLabel},
+            ${room.sleepingArrangement},
+            ${room.overflowArrangement},
+            ${room.maximumCapacity},
+            ${room.inventoryState},
+            ${room.overflowPolicy},
+            ${room.displayOrder}
+          )
         `;
       }
 

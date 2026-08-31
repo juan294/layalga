@@ -23,7 +23,14 @@ describe("agent reschedule policy", () => {
     await sql`delete from public.homes where id = ${homeId}`;
     await sql`delete from public.agent_sessions where session_id like 'inv_20000000%'`;
     await sql`insert into public.homes (id, name, timezone) values (${homeId}, 'Reschedule home', 'Europe/Madrid')`;
-    await sql`insert into public.rooms (home_id, name, beds) values (${homeId}, 'Large', 4), (${homeId}, 'Small', 2)`;
+    await sql`
+      insert into public.rooms (
+        home_id, name, beds, guest_label, floor_label, sleeping_arrangement,
+        maximum_capacity, inventory_state, display_order
+      ) values
+        (${homeId}, 'Large', 4, 'Large', 'Ground', 'Four beds', 4, 'available', 0),
+        (${homeId}, 'Small', 2, 'Small', 'Upper', 'Double bed', 2, 'available', 1)
+    `;
     await sql`insert into public.hosts (id, home_id, display_name, locale) values (${hostId}, ${homeId}, 'Nel', 'es')`;
     const vegaPartyId = "20000000-0000-4000-8000-000000000301";
     const oterosPartyId = "20000000-0000-4000-8000-000000000302";
@@ -183,13 +190,13 @@ describe("agent reschedule policy", () => {
             },
           },
           {
-            text: "Cannot move the visit because another family with children overlaps.",
+            text: "Cannot move the visit because its selected room is unavailable.",
           },
         ]),
       ),
     );
     expect(denied.status).toBe("completed");
-    expect(denied.summary).toContain("children");
+    expect(denied.summary).toContain("room");
     expect(await stay(third.visitId)).toEqual(["2026-09-25", "2026-09-27"]);
     expect(
       await sql`select id from public.pending_decisions where run_id = ${denied.runId}`,
@@ -203,7 +210,7 @@ describe("agent reschedule policy", () => {
     expect(verdict?.payload).toEqual({
       tool: "reschedule_visit",
       decision: "deny",
-      reason: "children",
+      reason: "selection",
     });
   }, 30_000);
 });
