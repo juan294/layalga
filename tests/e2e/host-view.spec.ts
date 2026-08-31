@@ -59,8 +59,10 @@ test("a special request waits for a host and resumes after approval", async ({
 
   await page.goto("/en");
   await expect(page.getByTestId("pending-decision")).toBeVisible();
-  await page.getByTestId("approve-decision").click();
-  await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
+  await Promise.all([
+    page.waitForURL(/\/en\/runs\/[0-9a-f-]+\/status/, { timeout: 30_000 }),
+    page.getByTestId("approve-decision").click(),
+  ]);
   await expect(page.getByTestId("run-status")).toHaveAttribute(
     "data-status",
     "completed",

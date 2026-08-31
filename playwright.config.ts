@@ -11,6 +11,15 @@ const e2eEnv = {
   DEMO_SESSION_SECRET:
     process.env.DEMO_SESSION_SECRET ?? "abcdef0123456789abcdef0123456789",
   TICK_SECRET: process.env.TICK_SECRET ?? "fedcba9876543210fedcba9876543210",
+  AGENT_ROUTE_SECRET:
+    process.env.AGENT_ROUTE_SECRET ?? "agent-route-0123456789abcdef0123456789",
+  CALENDAR_FEED_SECRET:
+    process.env.CALENDAR_FEED_SECRET ?? "calendar-0123456789abcdef012345678901",
+  NEXT_PUBLIC_SUPABASE_URL:
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54621",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
   APP_URL: process.env.APP_URL ?? e2eBaseUrl,
   DEMO_MODE: "true",
   AGENT_RUNTIME: "local",

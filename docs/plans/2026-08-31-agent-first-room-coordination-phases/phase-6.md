@@ -55,7 +55,7 @@ git diff --check
 
 ## Done when
 
-- [ ] Full sequential verification passes.
-- [ ] Simplify finds no remaining material reuse, quality, or efficiency issue.
-- [ ] Final plan-compliance review approves every automated and manual criterion that can be completed locally.
-- [ ] No push, remote migration, deploy, tag, release, or live calendar subscription has occurred.
+- [x] Full sequential verification passes.
+- [x] Simplify finds no remaining material reuse, quality, or efficiency issue.
+- [x] Final plan-compliance review approves every automated and manual criterion that can be completed locally.
+- [x] No push, remote migration, deploy, tag, release, or live calendar subscription has occurred.

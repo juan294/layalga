@@ -261,4 +261,51 @@ describe("host room operations", () => {
     },
     DB_TEST_TIMEOUT_MS,
   );
+
+  it(
+    "rejects a private-block proposal after its room becomes inactive",
+    async () => {
+      const data = await fixture();
+      try {
+        const [proposal] = await db<{ id: string }[]>`
+          insert into public.room_action_proposals (
+            home_id, requested_by_host_id, kind, stay, summary,
+            idempotency_key, request_hash
+          ) values (
+            ${data.homeId}, ${data.hostId}, 'private_block',
+            daterange('2027-01-10', '2027-01-12', '[)'),
+            'Stale room proposal', ${`test-${randomUUID()}`}, ${"b".repeat(64)}
+          ) returning id
+        `;
+        await db`
+          insert into public.room_action_proposal_rooms (
+            proposal_id, room_id, home_id
+          ) values (${proposal!.id}, ${data.openRoomId}, ${data.homeId})
+        `;
+        await db`
+          update public.rooms set inventory_state = 'inactive'
+          where id = ${data.openRoomId}
+        `;
+
+        await expect(
+          applyRoomActionProposal(db, {
+            homeId: data.homeId,
+            hostId: data.hostId,
+            proposalId: proposal!.id,
+          }),
+        ).rejects.toBeInstanceOf(RoomOperationConflictError);
+        const [result] = await db<{ status: string; block_count: number }[]>`
+          select proposal.status,
+            (select count(*)::integer from public.private_room_blocks block
+              where block.idempotency_key = ${`proposal:${proposal!.id}`}) as block_count
+          from public.room_action_proposals proposal
+          where proposal.id = ${proposal!.id}
+        `;
+        expect(result).toEqual({ status: "pending", block_count: 0 });
+      } finally {
+        await db`delete from public.homes where id = ${data.homeId}`;
+      }
+    },
+    DB_TEST_TIMEOUT_MS,
+  );
 });

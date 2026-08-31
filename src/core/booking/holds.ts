@@ -9,6 +9,7 @@ import {
   MAX_SPECIAL_REQUEST_LENGTH,
   MAX_SPECIAL_REQUESTS,
 } from "@/agent/task-limits";
+import { validateDateStay } from "@/core/date-stay";
 
 import type { Clock } from "../clock";
 import { sqlClient, type DatabaseClient } from "../db/client";
@@ -1036,13 +1037,7 @@ function validateParty(input: {
 }
 
 function validateStay(stay: DateStay): void {
-  const start = Date.parse(`${stay[0]}T00:00:00.000Z`);
-  const end = Date.parse(`${stay[1]}T00:00:00.000Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    throw new RangeError(
-      "Stay must be a valid, non-empty half-open date range",
-    );
-  }
+  validateDateStay(stay);
 }
 
 function dateBoundary(value: string | Date): string {

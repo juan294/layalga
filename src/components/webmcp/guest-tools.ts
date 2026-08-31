@@ -1,3 +1,5 @@
+import { MAX_GUEST_ROOM_INVENTORY } from "@/core/rooms/limits";
+
 import type { WebMcpTool } from "./types";
 import {
   boundedText,
@@ -10,7 +12,7 @@ import {
 } from "./contract";
 
 const MAX_OPTIONS = 12;
-const MAX_ROOMS = 20;
+const MAX_ROOMS = MAX_GUEST_ROOM_INVENTORY;
 
 export interface GuestWebMcpOption {
   stay: readonly [string, string];

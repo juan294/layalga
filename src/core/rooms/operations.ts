@@ -4,12 +4,19 @@ import { createHash } from "node:crypto";
 
 import type { TransactionSql } from "postgres";
 
+import { validateDateStay } from "@/core/date-stay";
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import type {
   RoomActionProposalKind,
   RoomAvailabilityAction,
   StayRange,
 } from "@/core/db/schema";
+import {
+  auditHostAction as audit,
+  lockHomeAndHost,
+} from "@/core/host-operations";
+
+import { MAX_ROOM_SELECTION } from "./limits";
 
 export class RoomOperationConflictError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -81,14 +88,6 @@ function requestHash(value: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
-function validateStay(stay: StayRange): void {
-  const start = Date.parse(`${stay[0]}T00:00:00Z`);
-  const end = Date.parse(`${stay[1]}T00:00:00Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    throw new RangeError("A room operation requires a valid half-open stay");
-  }
-}
-
 function normalizedInventory(input: RoomInventoryInput) {
   const name = input.name.trim();
   const guestLabel = input.guestLabel.trim();
@@ -121,6 +120,63 @@ function normalizedInventory(input: RoomInventoryInput) {
     overflowArrangement,
     privateNotes: input.privateNotes?.trim() || null,
   };
+}
+
+async function insertPrivateRoomBlock(
+  transaction: TransactionSql,
+  input: {
+    homeId: string;
+    hostId: string;
+    roomIds: readonly string[];
+    stay: StayRange;
+    publicLabel: string;
+    privateNote: string | null;
+    idempotencyKey: string;
+    requestHash: string;
+  },
+): Promise<string> {
+  if (
+    input.roomIds.length === 0 ||
+    input.roomIds.length > MAX_ROOM_SELECTION ||
+    new Set(input.roomIds).size !== input.roomIds.length
+  ) {
+    throw new RangeError(
+      `A private block requires 1 to ${MAX_ROOM_SELECTION} unique room IDs`,
+    );
+  }
+  const rooms = await transaction<{ id: string }[]>`
+    select id from public.rooms
+    where home_id = ${input.homeId}
+      and id in ${transaction([...input.roomIds])}
+      and inventory_state in ('available', 'withheld')
+    order by id
+  `;
+  if (rooms.length !== input.roomIds.length) {
+    throw new RoomOperationConflictError(
+      "A selected room is outside the home or cannot be blocked",
+    );
+  }
+  const [block] = await transaction<{ id: string }[]>`
+    insert into public.private_room_blocks (
+      home_id, stay, public_label, private_note, created_by_host_id,
+      idempotency_key, request_hash, calendar_eligible_at, calendar_updated_at
+    ) values (
+      ${input.homeId},
+      daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)'),
+      ${input.publicLabel}, ${input.privateNote}, ${input.hostId},
+      ${input.idempotencyKey}, ${input.requestHash}, now(), now()
+    ) returning id
+  `;
+  if (!block) throw new Error("Failed to create the private room block");
+  await transaction`
+    insert into public.visit_rooms (private_block_id, room_id, home_id, stay)
+    select
+      ${block.id}, selected.room_id, ${input.homeId},
+      daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)')
+    from unnest(${transaction.array([...input.roomIds])}::uuid[])
+      selected(room_id)
+  `;
+  return block.id;
 }
 
 export async function createRoomInventory(
@@ -187,41 +243,23 @@ export async function updateRoomInventory(
   });
 }
 
-async function lockHomeAndHost(
-  transaction: TransactionSql,
-  homeId: string,
-  hostId: string,
-): Promise<void> {
-  const [home] = await transaction<{ id: string }[]>`
-    select id from public.homes where id = ${homeId} for update
-  `;
-  if (!home) throw new Error(`Home not found: ${homeId}`);
-  const [host] = await transaction<{ id: string }[]>`
-    select id from public.hosts where id = ${hostId} and home_id = ${homeId}
-  `;
-  if (!host) throw new Error("Host does not belong to the room-operation home");
-}
-
-async function audit(
-  transaction: TransactionSql,
-  homeId: string,
-  kind: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  await transaction`
-    insert into public.audit_events (home_id, actor, kind, payload)
-    values (${homeId}, 'host', ${kind}, ${JSON.stringify(payload)}::text::jsonb)
-  `;
-}
-
 export async function createPrivateRoomBlock(
   database: DatabaseClient,
   input: CreatePrivateRoomBlockInput,
 ): Promise<PrivateRoomBlockResult> {
-  validateStay(input.stay);
+  validateDateStay(
+    input.stay,
+    "A room operation requires a valid half-open stay",
+  );
   const roomIds = [...new Set(input.roomIds)].sort();
-  if (roomIds.length === 0 || roomIds.length !== input.roomIds.length) {
-    throw new RangeError("A private block requires unique room IDs");
+  if (
+    roomIds.length === 0 ||
+    roomIds.length > MAX_ROOM_SELECTION ||
+    roomIds.length !== input.roomIds.length
+  ) {
+    throw new RangeError(
+      `A private block requires 1 to ${MAX_ROOM_SELECTION} unique room IDs`,
+    );
   }
   if (!input.publicLabel.trim() || !input.idempotencyKey.trim()) {
     throw new RangeError("A public label and idempotency key are required");
@@ -259,43 +297,22 @@ export async function createPrivateRoomBlock(
         };
       }
 
-      const rooms = await transaction<{ id: string }[]>`
-        select id from public.rooms
-        where home_id = ${input.homeId}
-          and id in ${transaction(roomIds)}
-          and inventory_state in ('available', 'withheld')
-        order by id
-      `;
-      if (rooms.length !== roomIds.length) {
-        throw new RoomOperationConflictError(
-          "A selected room is outside the home or cannot be blocked",
-        );
-      }
-      const [block] = await transaction<{ id: string }[]>`
-        insert into public.private_room_blocks (
-          home_id, stay, public_label, private_note, created_by_host_id,
-          idempotency_key, request_hash, calendar_eligible_at, calendar_updated_at
-        ) values (
-          ${input.homeId},
-          daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)'),
-          ${input.publicLabel.trim()}, ${input.privateNote ?? null}, ${input.hostId},
-          ${input.idempotencyKey}, ${hash}, now(), now()
-        ) returning id
-      `;
-      if (!block) throw new Error("Failed to create the private room block");
-      await transaction`
-        insert into public.visit_rooms (private_block_id, room_id, home_id, stay)
-        select
-          ${block.id}, selected.room_id, ${input.homeId},
-          daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)')
-        from unnest(${transaction.array(roomIds)}::uuid[]) selected(room_id)
-      `;
+      const blockId = await insertPrivateRoomBlock(transaction, {
+        homeId: input.homeId,
+        hostId: input.hostId,
+        roomIds,
+        stay: input.stay,
+        publicLabel: input.publicLabel.trim(),
+        privateNote: input.privateNote ?? null,
+        idempotencyKey: input.idempotencyKey,
+        requestHash: hash,
+      });
       await audit(transaction, input.homeId, "private_room_block_created", {
-        blockId: block.id,
+        blockId,
         roomIds,
         stay: input.stay,
       });
-      return { id: block.id, status: "active", roomIds };
+      return { id: blockId, status: "active", roomIds };
     });
   } catch (error) {
     if (isPostgresError(error, "23P01")) {
@@ -364,7 +381,10 @@ export async function createRoomAvailabilityOverride(
   database: DatabaseClient,
   input: CreateRoomOverrideInput,
 ): Promise<RoomOverrideResult> {
-  validateStay(input.stay);
+  validateDateStay(
+    input.stay,
+    "A room operation requires a valid half-open stay",
+  );
   if (!input.idempotencyKey.trim()) {
     throw new RangeError("An idempotency key is required");
   }
@@ -519,28 +539,16 @@ export async function applyRoomActionProposal(
           publicLabel: proposal.summary,
           privateNote: null,
         });
-        const [block] = await transaction<{ id: string }[]>`
-          insert into public.private_room_blocks (
-            home_id, stay, public_label, created_by_host_id,
-            idempotency_key, request_hash, calendar_eligible_at,
-            calendar_updated_at
-          ) values (
-            ${input.homeId},
-            daterange(${stay[0]}::date, ${stay[1]}::date, '[)'),
-            ${proposal.summary}, ${input.hostId}, ${key}, ${hash}, now(), now()
-          ) returning id
-        `;
-        if (!block)
-          throw new Error("Failed to apply the private-room proposal");
-        await transaction`
-          insert into public.visit_rooms (
-            private_block_id, room_id, home_id, stay
-          )
-          select
-            ${block.id}, selected.room_id, ${input.homeId},
-            daterange(${stay[0]}::date, ${stay[1]}::date, '[)')
-          from unnest(${transaction.array(roomIds)}::uuid[]) selected(room_id)
-        `;
+        await insertPrivateRoomBlock(transaction, {
+          homeId: input.homeId,
+          hostId: input.hostId,
+          roomIds,
+          stay,
+          publicLabel: proposal.summary,
+          privateNote: null,
+          idempotencyKey: key,
+          requestHash: hash,
+        });
       } else {
         if (roomIds.length !== 1) {
           throw new RoomOperationConflictError(

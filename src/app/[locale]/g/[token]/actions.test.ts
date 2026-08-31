@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   enqueue: vi.fn(),
   loadGuestInvitation: vi.fn(),
+  resolveGuestInvitationAuthority: vi.fn(),
   loadGuestRoomSearchWindow: vi.fn(),
   roomOptionsForStay: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("@/core/rooms/search", () => ({
 }));
 vi.mock("./guest-data", () => ({
   loadGuestInvitation: mocks.loadGuestInvitation,
+  resolveGuestInvitationAuthority: mocks.resolveGuestInvitationAuthority,
 }));
 
 import { findGuestOptions, submitGuestVisit } from "./actions";
@@ -39,6 +41,11 @@ describe("guest room actions", () => {
       id: invitationId,
       homeId,
       structured: {},
+    });
+    mocks.resolveGuestInvitationAuthority.mockResolvedValue({
+      id: invitationId,
+      homeId,
+      partyId: "00000000-0000-4000-8000-000000000004",
     });
     mocks.loadGuestRoomSearchWindow.mockResolvedValue({
       homeId,

@@ -4,11 +4,14 @@ import { createHash } from "node:crypto";
 
 import type { TransactionSql } from "postgres";
 
+import { validateDateStay } from "@/core/date-stay";
 import type { DatabaseClient } from "@/core/db/client";
 import { sqlClient } from "@/core/db/client";
 import type { RoomActionProposalKind, StayRange } from "@/core/db/schema";
 
-export const MAX_PROPOSAL_ROOMS = 20;
+import { MAX_ROOM_SELECTION } from "./limits";
+
+export const MAX_PROPOSAL_ROOMS = MAX_ROOM_SELECTION;
 export const MAX_PROPOSAL_SUMMARY_LENGTH = 500;
 
 export interface PrepareRoomActionProposalInput {
@@ -140,7 +143,10 @@ export async function prepareRoomActionProposal(
 function normalizeInput(
   input: PrepareRoomActionProposalInput,
 ): PrepareRoomActionProposalInput & { roomIds: string[]; summary: string } {
-  validateStay(input.stay);
+  validateDateStay(
+    input.stay,
+    "A room proposal requires a valid half-open stay",
+  );
   const roomIds = [...new Set(input.roomIds)].sort();
   if (
     roomIds.length === 0 ||
@@ -163,22 +169,6 @@ function normalizeInput(
     );
   }
   return { ...input, roomIds, summary };
-}
-
-function validateStay(stay: StayRange): void {
-  const [start, end] = stay;
-  if (!isIsoDate(start) || !isIsoDate(end) || start >= end) {
-    throw new RangeError("A room proposal requires a valid half-open stay");
-  }
-}
-
-function isIsoDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
-  );
 }
 
 function proposalRequestHash(input: PrepareRoomActionProposalInput): string {

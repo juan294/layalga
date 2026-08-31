@@ -20,6 +20,7 @@ const initialOptionState: GuestOptionState = {
   options: [],
 };
 const initialSubmitState: GuestSubmitState = { status: "idle" };
+const stayFormatters = new Map<string, Intl.DateTimeFormat>();
 
 interface GuestInviteFormProps {
   token: string;
@@ -461,11 +462,15 @@ export function shouldFocusGuestOptions(
 }
 
 function formatStay(stay: readonly [string, string], locale: string): string {
-  const format = new Intl.DateTimeFormat(locale, {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
+  let format = stayFormatters.get(locale);
+  if (!format) {
+    format = new Intl.DateTimeFormat(locale, {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+    stayFormatters.set(locale, format);
+  }
   return `${format.format(new Date(`${stay[0]}T00:00:00Z`))} – ${format.format(
     new Date(`${stay[1]}T00:00:00Z`),
   )}`;

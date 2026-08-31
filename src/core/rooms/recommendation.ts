@@ -36,28 +36,23 @@ export function recommendRooms(
 
   const rooms = [...options].sort(byDisplayOrder);
   let best: GuestRoomOption[] | null = null;
-
-  function search(
-    index: number,
-    selected: GuestRoomOption[],
-    capacity: number,
-  ) {
-    if (capacity >= partySize) {
-      if (!best || compareCandidate(selected, best, partySize) < 0) {
-        best = [...selected];
+  const partialByCapacity = new Map<number, GuestRoomOption[]>([[0, []]]);
+  for (const room of rooms) {
+    for (const [capacity, selected] of [...partialByCapacity]) {
+      const candidate = [...selected, room];
+      const nextCapacity = capacity + room.standardCapacity;
+      if (nextCapacity >= partySize) {
+        if (!best || compareCandidate(candidate, best, partySize) < 0) {
+          best = candidate;
+        }
+        continue;
       }
-      return;
+      const existing = partialByCapacity.get(nextCapacity);
+      if (!existing || compareCandidate(candidate, existing, partySize) < 0) {
+        partialByCapacity.set(nextCapacity, candidate);
+      }
     }
-    if (index >= rooms.length || (best && selected.length >= best.length))
-      return;
-
-    selected.push(rooms[index]);
-    search(index + 1, selected, capacity + rooms[index].standardCapacity);
-    selected.pop();
-    search(index + 1, selected, capacity);
   }
-
-  search(0, [], 0);
   return best ? [...best].sort(byDisplayOrder) : null;
 }
 

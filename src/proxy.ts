@@ -37,7 +37,9 @@ export default async function proxy(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("Content-Security-Policy", contentSecurityPolicy);
-  const requestWithNonce = new NextRequest(request, { headers: requestHeaders });
+  const requestWithNonce = new NextRequest(request, {
+    headers: requestHeaders,
+  });
   const response = await updateSession(
     requestWithNonce,
     handleI18nRouting(requestWithNonce),
@@ -48,5 +50,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: "/((?!api|auth|_next|_vercel|.*\\..*).*)",
+  matcher: "/((?!api|auth|calendar|_next|_vercel|.*\\..*).*)",
 };

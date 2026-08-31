@@ -42,8 +42,10 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   const approve = page.getByTestId("approve-decision");
   await expect(approve).toBeVisible();
   await expect(approve).toHaveCSS("min-height", "44px");
-  await approve.click();
-  await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
+  await Promise.all([
+    page.waitForURL(/\/en\/runs\/[0-9a-f-]+\/status/, { timeout: 30_000 }),
+    approve.click(),
+  ]);
   await expect(page.getByTestId("run-status")).toHaveAttribute(
     "data-status",
     "completed",

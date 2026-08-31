@@ -1,3 +1,5 @@
+import { isIsoDate } from "@/core/date-stay";
+
 import type { WebMcpInputSchema } from "./types";
 
 export const readAnnotations = {
@@ -26,14 +28,7 @@ export function stringArray(value: unknown): string[] {
 
 export function dateValue(value: unknown): string {
   const result = textValue(value, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(result)) throw new TypeError("Invalid date");
-  const parsed = new Date(`${result}T00:00:00.000Z`);
-  if (
-    Number.isNaN(parsed.getTime()) ||
-    parsed.toISOString().slice(0, 10) !== result
-  ) {
-    throw new TypeError("Invalid date");
-  }
+  if (!isIsoDate(result)) throw new TypeError("Invalid date");
   return result;
 }
 

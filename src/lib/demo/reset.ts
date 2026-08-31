@@ -113,6 +113,39 @@ export const DEMO_SEED = {
     chase: "2026-09-15T09:00:00+02:00",
     escalation: "2026-09-16T09:05:00+02:00",
   },
+  roomProof: {
+    hospitalityOpening: {
+      from: "2026-09-18",
+      to: "2026-09-21",
+      roomId: "00000000-0000-4000-8000-000000000103",
+      privateMarker: "DEMO-HOSPITALITY-ROOM-OPENING",
+    },
+    privateBlock: {
+      from: "2026-09-22",
+      to: "2026-09-24",
+      roomId: "00000000-0000-4000-8000-000000000101",
+      privateMarker: "DEMO-PRIVATE-ROOM-MARKER",
+      request:
+        "Reserve Horreu Room for family use from 2026-09-22 to 2026-09-24. DEMO-PRIVATE-ROOM-MARKER must stay private.",
+    },
+    openedStay: {
+      from: "2026-09-25",
+      to: "2026-09-28",
+      nights: 3,
+      roomId: "00000000-0000-4000-8000-000000000103",
+      privateMarker: "DEMO-PRIVATE-OVERRIDE-MARKER",
+    },
+    overflowGuest: {
+      adults: 5,
+      children: 0,
+      pets: 0,
+      selectedRoomIds: [
+        "00000000-0000-4000-8000-000000000101",
+        "00000000-0000-4000-8000-000000000102",
+      ],
+    },
+    calendarFeedLabel: "Synthetic room proof",
+  },
 } as const;
 
 export interface SeedDemoResult {
@@ -136,6 +169,7 @@ export async function resetDemoHome(
     await sql.begin(async (transaction) => {
       const demoSessionIds = [
         ...DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
+        ...DEMO_SEED.hosts.map((host) => `room_${host.id}`),
         ...DEMO_SEED.parties.map((party) => `inv_${party.invitation.id}`),
       ];
       await transaction`

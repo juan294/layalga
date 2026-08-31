@@ -16,6 +16,7 @@ vi.mock("@/app/[locale]/(host)/room-actions", () => ({
   createRoomOverrideAction: vi.fn(),
   dismissRoomProposalAction: vi.fn(),
   removeRoomOverrideAction: vi.fn(),
+  requestRoomProposalAction: vi.fn(),
   updateRoomInventoryAction: vi.fn(),
 }));
 vi.mock("./calendar-feed-controls", () => ({

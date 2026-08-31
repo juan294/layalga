@@ -2,6 +2,7 @@ import "@/core/server-only";
 
 import type { TransactionSql } from "postgres";
 
+import { validateDateStay } from "@/core/date-stay";
 import type { DatabaseClient } from "@/core/db/client";
 import type { RoomInventoryState, StayRange } from "@/core/db/schema";
 
@@ -65,14 +66,6 @@ export async function listGuestSafeRoomInventory(
   }));
 }
 
-function validateStay(stay: StayRange): void {
-  const start = Date.parse(`${stay[0]}T00:00:00Z`);
-  const end = Date.parse(`${stay[1]}T00:00:00Z`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-    throw new RangeError("Room availability requires a valid half-open stay");
-  }
-}
-
 function dateValue(value: string): number {
   return Date.parse(`${value}T00:00:00Z`);
 }
@@ -98,7 +91,10 @@ export function resolveGuestRoomOptions(input: {
   overrides: readonly RoomAvailabilityOverride[];
   occupancies: readonly RoomDateControl[];
 }): GuestRoomOption[] {
-  validateStay(input.stay);
+  validateDateStay(
+    input.stay,
+    "Room availability requires a valid half-open stay",
+  );
 
   return input.rooms
     .filter((room) => {
@@ -176,11 +172,19 @@ export async function listGuestRoomOptions(
   homeId: string,
   stay: StayRange,
   partySize: number,
-  options: { excludeVisitId?: string } = {},
+  options: { excludeVisitId?: string; limit?: number } = {},
 ): Promise<GuestRoomOption[]> {
-  validateStay(stay);
+  validateDateStay(stay, "Room availability requires a valid half-open stay");
   if (!Number.isInteger(partySize) || partySize <= 0) {
     throw new RangeError("Party size must be a positive integer");
+  }
+  if (
+    options.limit !== undefined &&
+    (!Number.isInteger(options.limit) ||
+      options.limit < 1 ||
+      options.limit > 100)
+  ) {
+    throw new RangeError("Room option limit must be between 1 and 100");
   }
 
   const sql = "$client" in database ? database.$client : database;
@@ -236,8 +240,9 @@ export async function listGuestRoomOptions(
               and override.stay @> daterange(${stay[0]}::date, ${stay[1]}::date, '[)')
           )
         )
-      )
+    )
     order by room.display_order, room.id
+    limit ${options.limit ?? 2_147_483_647}
   `;
 
   return rows.map((row) => ({

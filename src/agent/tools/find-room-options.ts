@@ -2,13 +2,15 @@ import { tool } from "@strands-agents/sdk";
 import { z } from "zod";
 
 import { listGuestRoomOptions } from "@/core/rooms/availability";
+import { MAX_GUEST_ROOM_INVENTORY } from "@/core/rooms/limits";
 import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
 
 import type { AgentDeps } from "../ports";
 import { staySchema } from "../schemas";
 import { audit, requireAuthority } from "./shared";
+import { boundedGuestRoom } from "./room-output";
 
-const MAX_TOOL_ROOMS = 20;
+const MAX_TOOL_ROOMS = MAX_GUEST_ROOM_INVENTORY;
 
 export function findRoomOptionsTool(deps: AgentDeps) {
   return tool({
@@ -26,6 +28,7 @@ export function findRoomOptionsTool(deps: AgentDeps) {
         homeId,
         input.stay,
         input.partySize,
+        { limit: MAX_TOOL_ROOMS + 1 },
       );
       const rooms = available.slice(0, MAX_TOOL_ROOMS);
       const recommendation = recommendRoomsWithOverflow(rooms, input.partySize);
@@ -38,8 +41,8 @@ export function findRoomOptionsTool(deps: AgentDeps) {
         requiresOverflowApproval: recommendation?.usesOverflow ?? false,
       });
       return {
-        rooms,
-        recommended,
+        rooms: rooms.map(boundedGuestRoom),
+        recommended: recommended.map(boundedGuestRoom),
         fits: Boolean(recommendation),
         requiresOverflowApproval: recommendation?.usesOverflow ?? false,
         truncated: available.length > MAX_TOOL_ROOMS,

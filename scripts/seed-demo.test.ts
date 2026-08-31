@@ -82,6 +82,40 @@ describe("seedDemo", () => {
     );
   });
 
+  it("restores the synthetic room proof inventory exactly", async () => {
+    await seedDemo(databaseUrl, "seed-demo-test-secret");
+
+    const rooms = await sql<
+      {
+        id: string;
+        guest_label: string;
+        beds: number;
+        maximum_capacity: number;
+        inventory_state: string;
+        overflow_policy: string;
+        overflow_arrangement: string | null;
+      }[]
+    >`
+      select id, guest_label, beds, maximum_capacity, inventory_state,
+        overflow_policy, overflow_arrangement
+      from public.rooms
+      where home_id = ${DEMO_SEED.home.id}
+      order by display_order, id
+    `;
+
+    expect(rooms).toEqual(
+      DEMO_SEED.rooms.map((room) => ({
+        id: room.id,
+        guest_label: room.guestLabel,
+        beds: room.beds,
+        maximum_capacity: room.maximumCapacity,
+        inventory_state: room.inventoryState,
+        overflow_policy: room.overflowPolicy,
+        overflow_arrangement: room.overflowArrangement,
+      })),
+    );
+  });
+
   it("seeds exactly the two real host identities", async () => {
     await seedDemo(databaseUrl, "seed-demo-test-secret");
 
@@ -129,11 +163,7 @@ describe("seedDemo", () => {
       `;
 
       expect(
-        await claimHostIdentity(
-          sql,
-          userId,
-          "jordanlynn5@gmail.com",
-        ),
+        await claimHostIdentity(sql, userId, "jordanlynn5@gmail.com"),
       ).toBe("00000000-0000-4000-8000-000000000202");
 
       await seedDemo(databaseUrl, "seed-demo-test-secret");

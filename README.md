@@ -5,16 +5,16 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6.svg)](https://www.typescriptlang.org/)
 [![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.15.0-232F3E.svg)](https://strandsagents.com/)
 
-Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds rooms for partially overlapping visits, confirms safe stays, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
+Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
 
 ![L’Ayalga architecture](docs/architecture/layalga-architecture.svg)
 
 ## Four-beat demo
 
 1. Juan pastes a Spanish invitation for Familia Vega. The agent structures the party and creates a private guest link.
-2. Vega selects dates. The deterministic booking engine allocates rooms, places a temporary hold, and confirms the visit.
-3. Jordan independently invites the Oteros for partly overlapping dates. Beds, children, and pets rules pass, but a wheelchair-access request pauses the Strands run. Juan approves it in the host view, and the saved run resumes without repeating the booking tool.
-4. The labeled synthetic clock moves to three days before arrival. L’Ayalga asks each party to reconfirm. When one party does not respond for 24 hours, it alerts both hosts.
+2. Juan asks the coordinator to reserve a room for private household use. The agent prepares a bounded proposal, Juan reviews and applies it, and the room leaves guest options for those dates.
+3. Vega selects dates and more than one exact room. A standard-capacity choice proceeds. A separate overflow-only choice pauses with the exact sleeping arrangement until a host approves it.
+4. The host issues a revocable household calendar feed and proves it with a local parser. The feed contains generic all-day events and guest-visible room labels, but no guest names, private notes, invitation data, or bearer tokens. The labeled synthetic clock then demonstrates reconfirmation and escalation.
 
 The guest names, messages, visits, and notifications in the demo are synthetic. Juan González and Jordan Lynn are the two real host operators.
 
@@ -67,6 +67,22 @@ agent.addHook(BeforeToolCallEvent, async (event) => {
 
 When the hook interrupts, Strands saves the pending tool execution in Postgres. A host records an `approved` or `declined` decision. A new run then restores the session, consumes the response, and writes a `decision_applied` audit event. The tool executes at most once.
 
+## Rooms, agents, and the household calendar
+
+The checked-in demo inventory is synthetic. The repository does not contain the real house plan, photographs, source paths, or a real household room list. A host enters real room facts in the authenticated room ledger: the guest label, floor label, sleeping arrangement, standard and maximum capacity, inventory state, and any overflow arrangement. A draft or incomplete room stays unavailable. A withheld room appears to guests only when a host opens it for the full requested stay.
+
+Guests search with dates and party counts, then select one or more exact rooms. Search and submission use the same deterministic room services. The booking transaction reads availability again before it writes the hold. A guest can see the guest-visible labels for the rooms assigned to their own visit. They cannot see hidden rooms, internal room names, private room notes, or another guest's assignment.
+
+Agent-first controls keep consequential work visible:
+
+- A host can describe a private block, opening, or closure in natural language. Strands resolves guest-safe room facts and creates a pending proposal. Only an authenticated host can review and apply it.
+- If the browser provides `document.modelContext`, the host and guest pages register bounded WebMCP tools. Read tools return visible, untrusted page data. Preparation tools fill the visible form but never submit it.
+- WebMCP is progressive enhancement. All normal host and guest controls work without browser support for the experimental API.
+
+The host can issue separate, revocable iCalendar subscription URLs. The database stores only a purpose-bound HMAC of each token. Calendar events use generic labels such as `Guest stay` and `Private room use`; they contain guest counts and guest-visible room labels only. This repository proves the feed with local tests and a local calendar parser. It does not subscribe a real family calendar, write directly to Google Calendar or iCloud, or perform two-way synchronization.
+
+Telegram and a remote MCP server are follow-ons. They need separate identity binding, consent, OAuth resource binding, revocation, and rate-limit designs before they can use the same services safely.
+
 ## Local setup
 
 Requirements: Node.js 24, pnpm 11, Docker, and Supabase CLI 2.116 or later.
@@ -93,6 +109,7 @@ LINK_TOKEN_SECRET=replace-with-at-least-32-random-bytes
 TICK_SECRET=replace-with-at-least-32-random-bytes
 AGENT_ROUTE_SECRET=replace-with-a-different-at-least-32-random-byte-secret
 CRON_SECRET=replace-with-at-least-32-random-bytes
+CALENDAR_FEED_SECRET=replace-with-a-different-at-least-32-random-byte-secret
 GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
@@ -127,7 +144,10 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 ## Safety contracts
 
 - Each guest URL is scoped to one invitation. URLs contain high-entropy tokens; only invitation-scoped HMACs are stored.
-- Guest views never reveal another party name or room name.
+- Guest views never reveal another party name or room assignment. A guest sees only the guest-visible room labels available to them and the labels assigned to their own visit.
+- Draft, inactive, incomplete, closed, occupied, and unopened withheld rooms fail closed in guest availability.
+- Private room notes, private block notes, internal room names, calendar feed tokens, and real house source material stay outside guest and agent outputs.
+- Calendar subscription URLs are bearer capabilities. Store them as secrets and revoke a feed if its URL is exposed.
 - Host access uses Supabase Google Auth, with a normalized email mapped to one explicit host and home. Synthetic demo cookies work only for demo homes when `DEMO_MODE=true`.
 - Public tables have RLS enabled and no direct client policies. Hosted web and agent processes use separate non-owner PostgreSQL roles with explicit object grants; migration and release operations use a separate administrative connection.
 - Policy runs before consequential tools, and the database independently enforces room exclusivity.

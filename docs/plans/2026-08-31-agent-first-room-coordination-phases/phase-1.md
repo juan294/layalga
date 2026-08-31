@@ -44,5 +44,5 @@ supabase db lint --local --level warning
 
 - [x] Red tests pass.
 - [x] Existing core booking tests still pass.
-- [ ] Local reset and advisors pass.
-- [ ] Plan-compliance review approves the schema and privacy grants.
+- [x] Local reset and advisors pass.
+- [x] Plan-compliance review approves the schema and privacy grants.

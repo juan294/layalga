@@ -10,6 +10,7 @@ import type {
 } from "@/core/db/schema";
 
 import { resolveGuestRoomOptions } from "./availability";
+import { MAX_GUEST_ROOM_INVENTORY } from "./limits";
 import type {
   GuestRoomOption,
   RoomAvailabilityOverride,
@@ -58,8 +59,16 @@ export async function loadGuestRoomSearchWindow(
         select id, guest_label, floor_label, sleeping_arrangement,
           overflow_arrangement, beds, maximum_capacity, inventory_state,
           overflow_policy, display_order
-        from public.rooms where home_id = ${homeId}
+        from public.rooms
+        where home_id = ${homeId}
+          and inventory_state in ('available', 'withheld')
+          and guest_label is not null
+          and floor_label is not null
+          and sleeping_arrangement is not null
+          and beds is not null
+          and maximum_capacity is not null
         order by display_order, id
+        limit ${MAX_GUEST_ROOM_INVENTORY + 1}
       `,
       sql<
         {
@@ -71,16 +80,30 @@ export async function loadGuestRoomSearchWindow(
       >`
         select room_id, lower(stay)::text as stay_start,
           upper(stay)::text as stay_end, action
-        from public.room_availability_overrides
-        where home_id = ${homeId}
-          and stay && daterange(${window[0]}::date, ${window[1]}::date, '[)')
+        from public.room_availability_overrides control
+        join public.rooms room on room.id = control.room_id
+        where control.home_id = ${homeId}
+          and room.inventory_state in ('available', 'withheld')
+          and room.guest_label is not null
+          and room.floor_label is not null
+          and room.sleeping_arrangement is not null
+          and room.beds is not null
+          and room.maximum_capacity is not null
+          and control.stay && daterange(${window[0]}::date, ${window[1]}::date, '[)')
       `,
       sql<{ room_id: string; stay_start: string; stay_end: string }[]>`
         select room_id, lower(stay)::text as stay_start,
-          upper(stay)::text as stay_end
-        from public.visit_rooms
-        where home_id = ${homeId}
-          and stay && daterange(${window[0]}::date, ${window[1]}::date, '[)')
+          upper(occupancy.stay)::text as stay_end
+        from public.visit_rooms occupancy
+        join public.rooms room on room.id = occupancy.room_id
+        where occupancy.home_id = ${homeId}
+          and room.inventory_state in ('available', 'withheld')
+          and room.guest_label is not null
+          and room.floor_label is not null
+          and room.sleeping_arrangement is not null
+          and room.beds is not null
+          and room.maximum_capacity is not null
+          and occupancy.stay && daterange(${window[0]}::date, ${window[1]}::date, '[)')
       `,
       sql<
         {
@@ -110,6 +133,11 @@ export async function loadGuestRoomSearchWindow(
     ]);
   const home = homeRows[0];
   if (!home) throw new Error(`Home not found: ${homeId}`);
+  if (roomRows.length > MAX_GUEST_ROOM_INVENTORY) {
+    throw new RangeError(
+      `Guest search supports at most ${MAX_GUEST_ROOM_INVENTORY} active rooms`,
+    );
+  }
   return {
     homeId,
     home: {

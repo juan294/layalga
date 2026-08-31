@@ -51,4 +51,19 @@ describe("recommendRooms", () => {
       usesOverflow: true,
     });
   });
+
+  it("keeps recommendation work bounded as room count grows", () => {
+    const options = Array.from({ length: 100 }, (_, index) =>
+      room(`room-${String(index).padStart(3, "0")}`, (index % 4) + 1, index),
+    );
+
+    expect(recommendRooms(options, 24)?.map(({ id }) => id)).toEqual([
+      "room-003",
+      "room-007",
+      "room-011",
+      "room-015",
+      "room-019",
+      "room-023",
+    ]);
+  });
 });

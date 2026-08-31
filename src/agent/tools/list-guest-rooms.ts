@@ -2,11 +2,13 @@ import { tool } from "@strands-agents/sdk";
 import { z } from "zod";
 
 import { listGuestSafeRoomInventory } from "@/core/rooms/availability";
+import { MAX_GUEST_ROOM_INVENTORY } from "@/core/rooms/limits";
 
 import type { AgentDeps } from "../ports";
 import { audit, requireAuthority } from "./shared";
+import { boundedGuestRoom } from "./room-output";
 
-const MAX_TOOL_ROOMS = 20;
+const MAX_TOOL_ROOMS = MAX_GUEST_ROOM_INVENTORY;
 
 export function listGuestRoomsTool(deps: AgentDeps) {
   return tool({
@@ -26,7 +28,10 @@ export function listGuestRoomsTool(deps: AgentDeps) {
         name: "list_guest_rooms",
         roomCount: rooms.length,
       });
-      return { rooms, truncated: available.length > MAX_TOOL_ROOMS };
+      return {
+        rooms: rooms.map(boundedGuestRoom),
+        truncated: available.length > MAX_TOOL_ROOMS,
+      };
     },
   });
 }

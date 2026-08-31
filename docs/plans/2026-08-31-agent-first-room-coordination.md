@@ -1,6 +1,6 @@
 # Agent-First Room Coordination Implementation Plan
 
-> Status: ready for implementation
+> Status: completed locally
 > Baseline: local `develop` at `d80fda4`
 > Research: `docs/research/2026-08-31-room-inventory-allocation-and-agent-surfaces.md`
 > Design brief: `docs/research/2026-08-31-agent-first-room-coordination-brief.md`
@@ -120,7 +120,7 @@ Confirmed, reconfirmation, and escalated visits plus active private blocks becom
 - [x] Phase 3 `[batch-eligible after Phase 1]`: revocable iCalendar feed
 - [x] Phase 4: host and guest room interfaces
 - [x] Phase 5: Strands room coordination and WebMCP preparation
-- [ ] Phase 6: demo proof, documentation, and full validation
+- [x] Phase 6: demo proof, documentation, and full validation
 
 Phases 2 and 3 have separate files and may run in parallel only after Phase 1. This implementation run will execute them sequentially unless a separate batch workflow is authorized.
 

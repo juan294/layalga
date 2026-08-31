@@ -20,6 +20,7 @@ import {
 } from "@/core/booking/option-window";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
+import { MAX_ROOM_SELECTION } from "@/core/rooms/limits";
 import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
 import {
   loadGuestRoomSearchWindow,
@@ -35,7 +36,10 @@ import {
   reportedActionError,
 } from "@/lib/server/action-errors";
 
-import { loadGuestInvitation } from "./guest-data";
+import {
+  loadGuestInvitation,
+  resolveGuestInvitationAuthority,
+} from "./guest-data";
 
 const optionInput = z
   .object({
@@ -60,7 +64,7 @@ const submitInput = z.object({
   adults: z.coerce.number().int().min(1).max(MAX_ADULTS),
   children: z.coerce.number().int().min(0).max(MAX_CHILDREN),
   pets: z.coerce.number().int().min(0).max(MAX_PETS),
-  roomIds: z.array(z.uuid()).min(1).max(20),
+  roomIds: z.array(z.uuid()).min(1).max(MAX_ROOM_SELECTION),
   overflowConsent: z.boolean(),
   arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
   notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
@@ -114,7 +118,7 @@ export async function findGuestOptions(
 async function findGuestOptionsForInput(
   input: z.infer<typeof optionInput>,
 ): Promise<GuestOptionState> {
-  const invitation = await loadGuestInvitation(input.token, input.locale);
+  const invitation = await resolveGuestInvitationAuthority(input.token);
   if (!invitation) {
     return { status: "error", options: [], error: "not_found" };
   }
@@ -215,10 +219,7 @@ export async function submitGuestVisit(
   });
   if (!parsed.success) return { status: "error", error: "invalid" };
 
-  const invitation = await loadGuestInvitation(
-    parsed.data.token,
-    parsed.data.locale,
-  );
+  const invitation = await resolveGuestInvitationAuthority(parsed.data.token);
   if (!invitation) return { status: "error", error: "not_found" };
 
   const [start, end] = parsed.data.stay.split("|") as [string, string];

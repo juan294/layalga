@@ -1,9 +1,11 @@
 import "@/core/server-only";
 
-import type { TransactionSql } from "postgres";
-
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import type { Locale, StayRange } from "@/core/db/schema";
+import {
+  auditHostAction as audit,
+  lockHomeAndHost,
+} from "@/core/host-operations";
 
 import { hashCalendarFeedToken, issueCalendarFeedToken } from "./feed-token";
 import type { CalendarDocument, CalendarEvent } from "./ical";
@@ -34,6 +36,8 @@ interface EventRow {
   guest_count: number | null;
   room_labels: string[];
 }
+
+export const MAX_CALENDAR_EVENTS = 500;
 
 export async function issueCalendarFeed(
   database: DatabaseClient,
@@ -117,65 +121,71 @@ export async function loadCalendarFeed(
     if (!feed) return null;
 
     const rows = await transaction<EventRow[]>`
-    select
-      visit.id,
-      'visit'::text as kind,
-      lower(visit.stay)::text as stay_start,
-      upper(visit.stay)::text as stay_end,
-      case when visit.status = 'cancelled'
-        then 'cancelled' else 'confirmed' end as event_status,
-      visit.calendar_sequence,
-      coalesce(
-        visit.calendar_updated_at,
-        visit.calendar_eligible_at,
-        visit.confirmed_at,
-        visit.created_at
-      ) as calendar_updated_at,
-      (visit.adults + visit.children)::integer as guest_count,
-      coalesce(
-        array_agg(room.guest_label order by room.display_order, room.id)
-          filter (where room.guest_label is not null),
-        '{}'::text[]
-      ) as room_labels
-    from public.visits visit
-    left join public.visit_rooms occupancy on occupancy.visit_id = visit.id
-    left join public.rooms room on room.id = occupancy.room_id
-    where visit.home_id = ${feed.home_id}
-      and visit.calendar_eligible_at is not null
-      and visit.status in (
-        'confirmed', 'reconfirm_pending', 'reconfirmed', 'escalated', 'cancelled'
+      with candidate_events as (
+        select
+          visit.id,
+          'visit'::text as kind,
+          lower(visit.stay)::text as stay_start,
+          upper(visit.stay)::text as stay_end,
+          case when visit.status = 'cancelled'
+            then 'cancelled' else 'confirmed' end as event_status,
+          visit.calendar_sequence,
+          coalesce(
+            visit.calendar_updated_at,
+            visit.calendar_eligible_at,
+            visit.confirmed_at,
+            visit.created_at
+          ) as calendar_updated_at,
+          (visit.adults + visit.children)::integer as guest_count
+        from public.visits visit
+        where visit.home_id = ${feed.home_id}
+          and visit.calendar_eligible_at is not null
+          and visit.status in (
+            'confirmed', 'reconfirm_pending', 'reconfirmed', 'escalated',
+            'cancelled'
+          )
+
+        union all
+
+        select
+          block.id,
+          'private_block'::text as kind,
+          lower(block.stay)::text as stay_start,
+          upper(block.stay)::text as stay_end,
+          case when block.status = 'cancelled'
+            then 'cancelled' else 'confirmed' end as event_status,
+          block.calendar_sequence,
+          coalesce(
+            block.calendar_updated_at,
+            block.calendar_eligible_at,
+            block.created_at
+          ) as calendar_updated_at,
+          null::integer as guest_count
+        from public.private_room_blocks block
+        where block.home_id = ${feed.home_id}
+          and block.calendar_eligible_at is not null
+          and block.status in ('active', 'cancelled')
+
+        order by stay_start desc, kind, id
+        limit ${MAX_CALENDAR_EVENTS}
       )
-    group by visit.id
-
-    union all
-
-    select
-      block.id,
-      'private_block'::text as kind,
-      lower(block.stay)::text as stay_start,
-      upper(block.stay)::text as stay_end,
-      case when block.status = 'cancelled'
-        then 'cancelled' else 'confirmed' end as event_status,
-      block.calendar_sequence,
-      coalesce(
-        block.calendar_updated_at,
-        block.calendar_eligible_at,
-        block.created_at
-      ) as calendar_updated_at,
-      null::integer as guest_count,
-      coalesce(
-        array_agg(room.guest_label order by room.display_order, room.id)
-          filter (where room.guest_label is not null),
-        '{}'::text[]
-      ) as room_labels
-    from public.private_room_blocks block
-    left join public.visit_rooms occupancy
-      on occupancy.private_block_id = block.id
-    left join public.rooms room on room.id = occupancy.room_id
-    where block.home_id = ${feed.home_id}
-      and block.calendar_eligible_at is not null
-      and block.status in ('active', 'cancelled')
-    group by block.id
+      select candidate.*,
+        coalesce(assigned.room_labels, '{}'::text[]) as room_labels
+      from candidate_events candidate
+      left join lateral (
+        select array_agg(
+          room.guest_label order by room.display_order, room.id
+        ) filter (where room.guest_label is not null) as room_labels
+        from public.visit_rooms occupancy
+        join public.rooms room on room.id = occupancy.room_id
+        where (
+          candidate.kind = 'visit' and occupancy.visit_id = candidate.id
+        ) or (
+          candidate.kind = 'private_block'
+          and occupancy.private_block_id = candidate.id
+        )
+      ) assigned on true
+      order by candidate.stay_start desc, candidate.kind, candidate.id
     `;
 
     return {
@@ -197,31 +207,4 @@ export async function loadCalendarFeed(
       })),
     };
   });
-}
-
-async function lockHomeAndHost(
-  transaction: TransactionSql,
-  homeId: string,
-  hostId: string,
-): Promise<void> {
-  const [home] = await transaction<{ id: string }[]>`
-    select id from public.homes where id = ${homeId} for update
-  `;
-  if (!home) throw new Error(`Home not found: ${homeId}`);
-  const [host] = await transaction<{ id: string }[]>`
-    select id from public.hosts where id = ${hostId} and home_id = ${homeId}
-  `;
-  if (!host) throw new Error("Host does not belong to the calendar-feed home");
-}
-
-async function audit(
-  transaction: TransactionSql,
-  homeId: string,
-  kind: string,
-  payload: Record<string, unknown>,
-): Promise<void> {
-  await transaction`
-    insert into public.audit_events (home_id, actor, kind, payload)
-    values (${homeId}, 'host', ${kind}, ${JSON.stringify(payload)}::text::jsonb)
-  `;
 }

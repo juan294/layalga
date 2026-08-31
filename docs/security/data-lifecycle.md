@@ -29,3 +29,41 @@ The retention function is in the unexposed `private` schema. The web and agent r
 An accepted agent request creates a `runs` row before execution. Queued and running rows retain the minimum task envelope, lease, attempt count, and idempotency key needed for recovery. Terminal prompt and session data follows the retention rules above. Audit metadata remains so an operator can explain the outcome without retaining private message text.
 
 Invitation URLs are capabilities. The database stores an invitation-scoped HMAC, not a reusable plaintext token. Reissuing a link invalidates the prior capability. Claiming an invitation to an authenticated guest account adds a durable identity relationship but does not copy the link token into account data.
+
+## Room inventory and guest disclosure
+
+The public repository and synthetic demo do not define the real household layout. They do not contain real house plans, photographs, source paths, GPS data, or a real room list. A host enters real inventory later through the authenticated room ledger. Until the host supplies complete guest-facing room facts and makes the room available, it remains draft and fails closed.
+
+Room data has separate disclosure levels:
+
+| Audience                    | Room data                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host web view               | Internal and guest labels, floor and sleeping details, capacities, inventory state, overflow policy, date controls, and private notes         |
+| Guest invitation            | Guest label, floor label, sleeping arrangement, capacities, overflow arrangement when relevant, and availability for that invitation's search |
+| Guest visit record          | Guest-visible labels for that guest's own assigned rooms                                                                                      |
+| Agent and WebMCP read tools | Bounded, non-private fields only; database-derived text is marked as untrusted                                                                |
+| Calendar feed               | Guest-visible room labels and guest count only                                                                                                |
+
+A guest does not receive hidden or unavailable rooms, internal room names, private room notes, private block notes, another party's identity, or another party's room assignment. Search results are not booking authority. Hold and reschedule transactions read the exact room IDs and availability again under the home lock before they write shared occupancy rows.
+
+## Private household use and proposals
+
+A private room block uses the same room and date exclusion constraint as a guest visit. Its public-safe label and private note are separate. The private note stays in the host boundary and is not copied to agent prompts, guest DTOs, WebMCP results, audit payloads, or calendar events.
+
+The Strands coordinator can prepare a bounded room-action proposal from a host request. It cannot apply the proposal. A host-authenticated Server Action reloads the proposal, verifies its home scope and current room state, and applies it once. This keeps natural-language assistance separate from write authority.
+
+WebMCP follows the same rule. Page tools can read bounded visible state or prepare a visible form. They do not accept home, host, invitation, or database authority in their schemas, and they do not submit a booking, block, opening, or closure. The person reviews and submits through the normal application control.
+
+## Calendar feed capabilities
+
+An iCalendar URL is a bearer capability. Each feed uses a different 32-byte random token. The database stores a purpose-bound HMAC under `CALENDAR_FEED_SECRET`, not the plaintext token. The host sees the subscription URL when the feed is issued and can revoke that feed independently. Unknown and revoked tokens return the same not-found response.
+
+The feed publishes at most the 500 most recent eligible all-day events, ordered by stay before deterministic rendering, with generic summaries. It can include the guest count and guest-visible room labels. It excludes guest and host names, email addresses, invitation content, special requests, arrival details, private notes, raw proposal text, and all capability tokens. Reading the feed does not mutate application state.
+
+Phase 6 verifies iCalendar generation and privacy with local fixtures, HTTP reads, and a local parser. It does not subscribe a real family calendar or write to Google Calendar or iCloud. Treat any issued URL as a secret even during local testing, and revoke it after accidental disclosure.
+
+## Deferred channels
+
+Telegram is not an implemented notification or booking channel. It needs an explicit account-to-person binding, consent, replay protection, and a safe way to move from a message to visible confirmation.
+
+A remote MCP server is also not implemented. Browser WebMCP uses the authority of the page that a person already opened. A remote MCP service would need OAuth resource and audience binding, PKCE where applicable, token revocation, rate limits, and the same host or invitation checks as the web application. Direct Google Calendar or iCloud writes and two-way synchronization need a separate authorization and conflict model.

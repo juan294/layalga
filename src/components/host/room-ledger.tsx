@@ -235,7 +235,11 @@ export async function RoomLedger({
       <section className={styles.controlSection}>
         <h3>{t("agentRequestTitle")}</h3>
         <p>{t("agentRequestHelp")}</p>
-        <form action={requestRoomProposalAction} className={styles.stackForm}>
+        <form
+          action={requestRoomProposalAction}
+          className={styles.stackForm}
+          data-agent-room-request
+        >
           <input name="locale" type="hidden" value={locale} />
           <label>
             <span>{t("agentRequestLabel")}</span>

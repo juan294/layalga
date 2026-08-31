@@ -9,6 +9,7 @@ import { z } from "zod";
 import { getAgentClient } from "@/agent/client";
 import { MAX_HOST_MESSAGE_LENGTH } from "@/agent/task-limits";
 import { getDatabaseConnection } from "@/core/db/client";
+import { MAX_ROOM_SELECTION } from "@/core/rooms/limits";
 import {
   applyRoomActionProposal,
   cancelPrivateRoomBlock,
@@ -82,7 +83,7 @@ export async function createPrivateBlockAction(formData: FormData) {
       to: z.iso.date(),
       publicLabel: z.string().trim().min(1).max(160),
       privateNote: z.string().trim().max(2_000).optional(),
-      roomIds: z.array(z.uuid()).min(1).max(20),
+      roomIds: z.array(z.uuid()).min(1).max(MAX_ROOM_SELECTION),
     })
     .safeParse({
       ...Object.fromEntries(formData),

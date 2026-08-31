@@ -36,12 +36,34 @@ export interface GuestInvitationData {
   visit: GuestVisit | null;
 }
 
+export interface GuestInvitationAuthority {
+  id: string;
+  homeId: string;
+  partyId: string;
+}
+
 export function partyDefaults(structured: Record<string, unknown>) {
   return {
     adults: count(structured.adults, 1),
     children: count(structured.children, 0),
     pets: count(structured.pets, 0),
   };
+}
+
+export async function resolveGuestInvitationAuthority(
+  token: string,
+): Promise<GuestInvitationAuthority | null> {
+  const invitation = await findInvitationByToken(
+    getDatabaseConnection().db,
+    token,
+  );
+  return invitation
+    ? {
+        id: invitation.id,
+        homeId: invitation.homeId,
+        partyId: invitation.partyId,
+      }
+    : null;
 }
 
 export async function loadGuestInvitation(

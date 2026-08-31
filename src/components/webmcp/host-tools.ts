@@ -1,4 +1,5 @@
 import type { WebMcpTool } from "./types";
+import { MAX_ROOM_SELECTION } from "@/core/rooms/limits";
 import {
   boundedText,
   dateValue,
@@ -9,7 +10,7 @@ import {
   textValue,
 } from "./contract";
 
-const MAX_ROOMS = 20;
+const MAX_ROOMS = MAX_ROOM_SELECTION;
 
 export interface HostWebMcpRoom {
   id: string;
