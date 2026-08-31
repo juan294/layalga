@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 import {
   issueCalendarFeed,
@@ -13,7 +14,7 @@ import { parseServerEnvironment } from "@/lib/server/env";
 
 export type CalendarFeedActionState =
   | { status: "idle" }
-  | { status: "success"; feedId: string; subscriptionUrl: string }
+  | { status: "success"; subscriptionUrl: string }
   | { status: "error" };
 
 export async function issueCalendarFeedAction(
@@ -35,9 +36,9 @@ export async function issueCalendarFeedAction(
       secret,
     });
     const appUrl = parseServerEnvironment().appUrl.replace(/\/$/, "");
+    revalidatePath(`/${locale}`);
     return {
       status: "success",
-      feedId: feed.id,
       subscriptionUrl: `${appUrl}/calendar/${feed.token}`,
     };
   } catch (error) {
@@ -60,6 +61,7 @@ export async function revokeCalendarFeedAction(
       hostId: host.id,
       feedId: feedId.data,
     });
+    revalidatePath(`/${locale}`);
   } catch (error) {
     reportActionError("calendar_feed_revoke_failed", error);
   }

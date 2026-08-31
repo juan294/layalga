@@ -14,20 +14,28 @@ import {
   MAX_PETS,
 } from "@/agent/task-limits";
 import { DbDemoClock, SystemClock } from "@/core/clock";
-import { loadHouseState } from "@/core/booking/house-state";
 import {
   MAX_VISIT_OPTIONS,
   optionWindowIsAllowed,
 } from "@/core/booking/option-window";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
+import { recommendRooms } from "@/core/rooms/recommendation";
+import {
+  loadGuestRoomSearchWindow,
+  roomOptionsForStay,
+} from "@/core/rooms/search";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
+import {
+  toGuestRoomChoice,
+  type GuestRoomChoice,
+} from "@/components/guest/guest-room-contract";
 import {
   reportActionError,
   reportedActionError,
 } from "@/lib/server/action-errors";
 
-import { loadGuestInvitation, partyDefaults } from "./guest-data";
+import { loadGuestInvitation } from "./guest-data";
 
 const optionInput = z
   .object({
@@ -36,6 +44,9 @@ const optionInput = z
     from: z.iso.date(),
     to: z.iso.date(),
     nights: z.coerce.number().int().min(1).max(30),
+    adults: z.coerce.number().int().min(1).max(MAX_ADULTS),
+    children: z.coerce.number().int().min(0).max(MAX_CHILDREN),
+    pets: z.coerce.number().int().min(0).max(MAX_PETS),
   })
   .refine(({ from, to }) => optionWindowIsAllowed(from, to), {
     message: "Date window exceeds the maximum",
@@ -49,19 +60,32 @@ const submitInput = z.object({
   adults: z.coerce.number().int().min(1).max(MAX_ADULTS),
   children: z.coerce.number().int().min(0).max(MAX_CHILDREN),
   pets: z.coerce.number().int().min(0).max(MAX_PETS),
+  roomIds: z.array(z.uuid()).min(1).max(20),
+  overflowConsent: z.boolean(),
   arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
   notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
 });
 
 export interface GuestOption {
   stay: readonly [string, string];
-  roomCount: number;
+  rooms: GuestRoomChoice[];
+  recommendedRoomIds: string[];
   hasOverlap: boolean;
+}
+
+export interface GuestSearchCriteria {
+  from: string;
+  to: string;
+  nights: number;
+  adults: number;
+  children: number;
+  pets: number;
 }
 
 export interface GuestOptionState {
   status: "idle" | "success" | "error";
   options: GuestOption[];
+  criteria?: GuestSearchCriteria;
   error?: "invalid" | "not_found" | "none";
 }
 
@@ -95,22 +119,23 @@ async function findGuestOptionsForInput(
     return { status: "error", options: [], error: "not_found" };
   }
 
-  const defaults = partyDefaults(invitation.structured);
   const connection = getDatabaseConnection();
   const clock = new SystemClock();
   const broadDraft = {
     stay: [input.from, input.to] as const,
-    ...defaults,
+    adults: input.adults,
+    children: input.children,
+    pets: input.pets,
     specialRequests: [] as string[],
   };
-  const state = await loadHouseState(
+  const options: GuestOption[] = [];
+  const lastDeparture = utcDate(input.to);
+  const windowState = await loadGuestRoomSearchWindow(
     connection.db,
     clock,
     invitation.homeId,
-    broadDraft,
+    [input.from, input.to],
   );
-  const options: GuestOption[] = [];
-  const lastDeparture = utcDate(input.to);
 
   for (
     let start = utcDate(input.from);
@@ -119,11 +144,49 @@ async function findGuestOptionsForInput(
     start = addDays(start, 1)
   ) {
     const stay = [isoDay(start), isoDay(addDays(start, input.nights))] as const;
-    const verdict = evaluateOverlap({ ...broadDraft, stay }, state);
-    if (verdict.decision !== "deny") {
+    const draft = { ...broadDraft, stay };
+    const state = {
+      home: windowState.home,
+      rooms: [] as { id: string; name: string; beds: number }[],
+      visits: windowState.visits,
+    };
+    const availableRooms = roomOptionsForStay(windowState, stay);
+    state.rooms = availableRooms.map((room) => ({
+      id: room.id,
+      name: room.guestLabel,
+      beds: room.standardCapacity,
+    }));
+    const verdict = evaluateOverlap(draft, state);
+    const partySize = input.adults + input.children;
+    const standardRecommendation = recommendRooms(availableRooms, partySize);
+    const overflowRecommendation = standardRecommendation
+      ? null
+      : recommendRooms(
+          availableRooms.map((room) => ({
+            ...room,
+            standardCapacity: room.maximumCapacity,
+          })),
+          partySize,
+        );
+    const recommendation = standardRecommendation ?? overflowRecommendation;
+    const effectiveVerdict =
+      verdict.decision === "deny" &&
+      verdict.reason === "beds" &&
+      overflowRecommendation
+        ? evaluateOverlap(draft, {
+            ...state,
+            rooms: availableRooms.map((room) => ({
+              id: room.id,
+              name: room.guestLabel,
+              beds: room.maximumCapacity,
+            })),
+          })
+        : verdict;
+    if (effectiveVerdict.decision !== "deny" && recommendation) {
       options.push({
         stay,
-        roomCount: verdict.allocation.length,
+        rooms: availableRooms.map(toGuestRoomChoice),
+        recommendedRoomIds: recommendation.map(({ id }) => id),
         hasOverlap: state.visits.some(
           (visit) =>
             visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),
@@ -133,7 +196,18 @@ async function findGuestOptionsForInput(
   }
 
   return options.length > 0
-    ? { status: "success", options }
+    ? {
+        status: "success",
+        options,
+        criteria: {
+          from: input.from,
+          to: input.to,
+          nights: input.nights,
+          adults: input.adults,
+          children: input.children,
+          pets: input.pets,
+        },
+      }
     : { status: "error", options: [], error: "none" };
 }
 
@@ -141,7 +215,11 @@ export async function submitGuestVisit(
   _previous: GuestSubmitState,
   formData: FormData,
 ): Promise<GuestSubmitState> {
-  const parsed = submitInput.safeParse(Object.fromEntries(formData));
+  const parsed = submitInput.safeParse({
+    ...Object.fromEntries(formData),
+    roomIds: formData.getAll("roomIds").map(String),
+    overflowConsent: formData.get("overflowConsent") === "on",
+  });
   if (!parsed.success) return { status: "error", error: "invalid" };
 
   const invitation = await loadGuestInvitation(
@@ -160,6 +238,8 @@ export async function submitGuestVisit(
       adults: parsed.data.adults,
       children: parsed.data.children,
       pets: parsed.data.pets,
+      roomIds: parsed.data.roomIds,
+      ...(parsed.data.overflowConsent ? { overflowConsent: true } : {}),
       arrivalTime: clean(parsed.data.arrivalTime),
       notes: clean(parsed.data.notes),
       locale: parsed.data.locale,

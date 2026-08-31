@@ -8,7 +8,15 @@ export type ActionErrorCode =
   | "guest_reconfirm_failed"
   | "guest_submit_failed"
   | "host_capture_failed"
-  | "host_decision_failed";
+  | "host_decision_failed"
+  | "private_room_block_cancel_failed"
+  | "private_room_block_create_failed"
+  | "room_inventory_create_failed"
+  | "room_inventory_update_failed"
+  | "room_override_create_failed"
+  | "room_override_remove_failed"
+  | "room_proposal_apply_failed"
+  | "room_proposal_dismiss_failed";
 
 export function reportActionError(
   code: ActionErrorCode,

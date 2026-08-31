@@ -5,6 +5,7 @@ import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
 
 const oterosToken = "o".repeat(43);
 const nelHostId = "00000000-0000-4000-8000-000000000201";
+test.setTimeout(90_000);
 
 test("@mobile guest link reaches a touch-safe host decision", async ({
   context,
@@ -28,6 +29,8 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   await page.goto(`/en/g/${oterosToken}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await page.getByTestId("find-options").click();
+  await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
+  await expect(page.getByTestId("guest-room-option").first()).toBeChecked();
   await page.getByTestId("guest-option").first().check();
   await page.getByTestId("guest-submit").click();
   await expect(page.getByTestId("run-status")).toHaveAttribute(

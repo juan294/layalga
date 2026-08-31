@@ -543,7 +543,7 @@ export function stayApprovalHash(draft: VisitDraft): string {
         pets: draft.pets,
         specialRequests: [...draft.specialRequests],
         roomIds: draft.roomIds ? [...draft.roomIds].sort() : undefined,
-        overflowConsent: draft.overflowConsent,
+        overflowConsent: draft.overflowConsent === true,
       }),
     )
     .digest("hex");

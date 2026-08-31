@@ -45,7 +45,7 @@ pnpm exec playwright test --grep 'room|guest|host'
 
 ## Done when
 
-- [ ] Red tests pass in English and Spanish.
-- [ ] Exact room selection persists through the real hold path.
-- [ ] Private data does not cross a client DTO boundary.
-- [ ] Plan-compliance and visual reviews approve the interface.
+- [x] Red tests pass in English and Spanish.
+- [x] Exact room selection persists through the real hold path.
+- [x] Private data does not cross a client DTO boundary.
+- [x] Plan-compliance and visual reviews approve the interface.

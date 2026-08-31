@@ -1,11 +1,18 @@
 import { expect, test } from "@playwright/test";
 
+import { seedDemo } from "../../scripts/seed-demo";
 import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
 
 const oterosToken = "o".repeat(43);
 const nelHostId = "00000000-0000-4000-8000-000000000201";
+test.setTimeout(90_000);
 
 test.beforeEach(async ({ context, page }) => {
+  const databaseUrl = process.env.DATABASE_URL;
+  const tokenSecret = process.env.LINK_TOKEN_SECRET;
+  if (!databaseUrl || !tokenSecret)
+    throw new Error("E2E database settings are missing");
+  await seedDemo(databaseUrl, tokenSecret);
   await context.addCookies([
     {
       httpOnly: true,
@@ -73,4 +80,38 @@ test("switches the host view to Spanish", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).not.toHaveText(
     englishHeading ?? "",
   );
+});
+
+test("shows the room ledger before the visit calendar with visible door states", async ({
+  page,
+}) => {
+  const roomLedger = page.getByTestId("room-ledger");
+  const visitCalendar = page.getByRole("heading", {
+    level: 2,
+    name: "Visit calendar",
+  });
+  await expect(roomLedger).toBeVisible();
+  await expect(roomLedger.locator("[data-door-state]")).toHaveCount(3);
+  await expect(
+    roomLedger.locator('[data-door-state="withheld"]'),
+  ).toContainText("Withheld");
+  await expect(visitCalendar).toBeVisible();
+  const headings = await page
+    .getByRole("heading", { level: 2 })
+    .allTextContents();
+  expect(headings.indexOf("Room ledger")).toBeLessThan(
+    headings.indexOf("Visit calendar"),
+  );
+});
+
+test("shows localized room states in Spanish", async ({ page }) => {
+  await page.goto("/es");
+  const ledger = page.getByTestId("room-ledger");
+  await expect(ledger).toBeVisible();
+  await expect(ledger.locator('[data-door-state="withheld"]')).toContainText(
+    "Reservada",
+  );
+  await expect(
+    page.getByRole("heading", { name: "Libro de habitaciones" }),
+  ).toBeVisible();
 });
