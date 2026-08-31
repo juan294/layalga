@@ -425,7 +425,7 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
     input;
   return sql.begin(async (transaction) => {
     await transaction`
-      select id from public.homes where id = ${task.homeId} for update
+      select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))
     `;
     const [existing] = await transaction<
       {

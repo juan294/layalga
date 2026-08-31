@@ -44,7 +44,7 @@ The agent uses the Strands Agents TypeScript SDK with seven typed tools. Natural
 
 Strands session snapshots live in Postgres. When the hook calls `event.interrupt`, the SDK preserves the pending tool execution. A host decision is stored separately. A new process restores the session, supplies an `InterruptResponseContent`, and records which run consumed the response.
 
-The selected hackathon deployment path uses a durable Postgres run queue and the local `runAgentTask` worker in Next.js on Vercel. Next.js `after()` starts work opportunistically. A per-minute Vercel Cron route recovers expired leases, drains at most two runs, and claims due scheduled jobs. We also built and deployed a Node 22 direct-code package to Amazon Bedrock AgentCore Runtime, and proved that the runtime reached `READY` and started the application. The first model request was blocked by an AWS account-level Anthropic use-case gate, so we followed our written fallback decision and retained the same run interface locally. The AgentCore adapter now accepts an `execute_run` envelope for an existing queued run and uses AgentCore asynchronous-task accounting. The agent is configured for Amazon Bedrock Sonnet 4.5 when that account access is active. The test and demo paths use a deterministic scripted model.
+The selected hackathon deployment path uses a durable Postgres run queue and the local `runAgentTask` worker in Next.js on Vercel. Next.js `after()` starts work opportunistically. A per-minute Vercel Cron route recovers expired leases, drains at most two runs, and claims due scheduled jobs. We also built and deployed a Node 22 direct-code package to Amazon Bedrock AgentCore Runtime. After the AWS account's Anthropic use case was accepted, the runtime completed a Sonnet 4.5 run, called the typed `capture_invitation` tool, created the private invitation, wrote its audit event, and saved its Strands session through the restricted `layalga_agent` database role. The AgentCore adapter also accepts an `execute_run` envelope for an existing queued run and uses AgentCore asynchronous-task accounting. The deterministic test and demo paths retain a scripted model.
 
 ## Challenges
 
@@ -64,7 +64,7 @@ The same recovery rule now applies to interactive agent work. Accepted requests 
 
 ### Cloud runtime gates
 
-The AgentCore package reached a healthy runtime, but the AWS account rejected the first Anthropic model request before any tool call. A direct Bedrock control call returned the same error. Because the build plan defined a fail-closed local verdict, we did not claim a successful AgentCore model run. We kept the package, IAM shape, adapter, and evidence for a later retry.
+The first AgentCore package reached a healthy runtime, but the AWS account rejected the initial Anthropic model request before any tool call. We followed the build plan's fail-closed local verdict and did not claim success. After the Anthropic use case was accepted, a direct Bedrock `Converse` request succeeded. The AgentCore retry exposed three additional integration boundaries: pnpm symlink expansion in ZIP artifacts, a Vercel-only `next/server` import in the runtime graph, and a PostgreSQL row lock that required more authority than the agent role should have. We fixed the package layout, removed the cross-runtime import, replaced the row lock with a transaction advisory lock, and completed the model-and-tool proof without granting the agent permission to change home policy.
 
 ## Accomplishments that we are proud of
 
@@ -76,6 +76,7 @@ The AgentCore package reached a healthy runtime, but the AWS account rejected th
 - Eight executable release probes cover identity, capture, confirmation, concurrency, interrupt/resume, proactive follow-through, guest isolation, and cleanup.
 - Host and guest requests survive web-request termination through exact-run polling and lease recovery.
 - Runtime database access is split between non-owner web and agent roles with explicit grants.
+- A live AgentCore Runtime completed a Sonnet 4.5 run and left matching invitation, tool-audit, and session records in Postgres.
 
 ## What we learned
 
@@ -88,7 +89,7 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 ## What is next
 
 - Verify Google host and optional guest sign-in against the deployed production candidate.
-- Retry Bedrock and AgentCore after the AWS account’s Anthropic use-case access is active.
+- Run the full interrupt-and-resume acceptance sequence on the verified AgentCore runtime before selecting it for production dispatch.
 - Add real notification channels only after consent, delivery, and privacy contracts are defined.
 - Let hosts tune house rules while retaining a deterministic, versioned policy.
 - Add per-night room packing for stays that need guests to move rooms.
@@ -96,8 +97,8 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 
 ## Built with
 
-- Amazon Bedrock AgentCore Runtime, direct-code Node 22 spike
-- Amazon Bedrock, Claude Sonnet 4.5 configuration
+- Amazon Bedrock AgentCore Runtime, direct-code Node 22 runtime
+- Amazon Bedrock, Claude Sonnet 4.5
 - AWS SDK for JavaScript
 - Strands Agents SDK for TypeScript
 - Next.js 16

@@ -20,9 +20,9 @@ The guest names, messages, visits, and notifications in the demo are synthetic. 
 
 ## How it works
 
-[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected hackathon path. Next.js runs the web UI and accepts work into a durable Postgres run queue. A local worker started with Next.js `after()` can claim that work without holding the request open. The per-minute Vercel Cron route also recovers expired leases, drains at most two runs at a time, and claims due scheduled jobs. Supabase Postgres is authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events. Strands can use Amazon Bedrock Sonnet 4.5 when the AWS account has model access; tests and the deterministic demo driver use a scripted model.
+[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected hackathon path. Next.js runs the web UI and accepts work into a durable Postgres run queue. A local worker started with Next.js `after()` can claim that work without holding the request open. The per-minute Vercel Cron route also recovers expired leases, drains at most two runs at a time, and claims due scheduled jobs. Supabase Postgres is authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events. Strands uses Amazon Bedrock Sonnet 4.5 for real model runs; tests and the deterministic demo driver use a scripted model.
 
-Amazon Bedrock AgentCore Runtime was packaged and started successfully during the Phase 0 spike. The account-level Anthropic use-case gate blocked the first model call, so the approved fallback is `AGENT_RUNTIME=local`. The same `runAgentTask` interface and Postgres session storage keep a future AgentCore retry possible without changing the product flow. See [ADR 0002](docs/decisions/0002-agent-runtime.md).
+Amazon Bedrock AgentCore Runtime now has a live Node 22 direct-code version that completed a Sonnet 4.5 run and called the typed `capture_invitation` tool. The first Phase 0 attempt was blocked by the account-level Anthropic use-case gate; after the use case was accepted, the retry produced a completed run, a private invitation, a `tool_call` audit event, and a durable Strands session. The selected production setting remains `AGENT_RUNTIME=local` until a separate runtime-switch and release decision. See [ADR 0002](docs/decisions/0002-agent-runtime.md).
 
 ### Deterministic policy, model-driven coordination
 
@@ -120,7 +120,7 @@ The [release verification playbook](docs/release/e2e-pro-playbook.md) contains t
 
 ## Deployment shape
 
-The selected configuration uses Vercel for Next.js, a durable Postgres queue for local `runAgentTask` execution, and a per-minute Vercel Cron recovery trigger. The web process uses the non-owner `layalga_web` database login. A future AgentCore worker uses the separately granted `layalga_agent` login. Supabase Postgres remains the system of record. The repository also contains the tested AgentCore direct-code bundle and EventBridge Scheduler adapters for a later retry after Bedrock model access is active.
+The selected configuration uses Vercel for Next.js, a durable Postgres queue for local `runAgentTask` execution, and a per-minute Vercel Cron recovery trigger. The web process uses the non-owner `layalga_web` database login. The verified AgentCore runtime uses the separately granted `layalga_agent` login. Supabase Postgres remains the system of record. The repository also contains the tested AgentCore direct-code bundle and EventBridge Scheduler adapters. Switching the production web path to AgentCore is a separate release decision.
 
 Deployment, DNS changes, publication, and release tags require explicit owner authorization. A successful local build does not authorize any of those actions.
 

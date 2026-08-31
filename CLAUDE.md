@@ -15,12 +15,12 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
 - Strands Agents SDK with durable queued runs and a local `runAgentTask` worker
-- Amazon Bedrock Sonnet 4.5 when the account model gate is active; a scripted model for deterministic demo and test runs
+- Amazon Bedrock Sonnet 4.5, verified through a completed AgentCore model-and-tool run; a scripted model for deterministic demo and test runs
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
 - Vercel `after()` for opportunistic local dispatch and Vercel Cron for lease recovery, bounded queue draining, and due jobs; an EventBridge Scheduler adapter for a future AgentCore retry
 - Supabase Auth with Google OAuth, optional guest invitation claims, and signed synthetic-demo sessions
 
-ADR 0002 records why the AgentCore package reached `READY` but the selected hackathon runtime remains local: the AWS account rejected the first Anthropic model request before any tool call.
+ADR 0002 records the initial Anthropic access failure, the later successful AgentCore model-and-tool proof, and why the selected production runtime remains local until a separate runtime-switch decision.
 
 ## Product Safety Contracts
 

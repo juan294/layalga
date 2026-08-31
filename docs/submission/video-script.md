@@ -72,7 +72,7 @@ At three days before arrival, the same production state machine asks both partie
 
 “The selected build runs Next.js and a durable Strands work queue on Vercel, with Supabase Postgres as the system of record. Next.js starts work after the response, and Vercel Cron recovers leases, drains queued runs, and handles due jobs. Strands handles natural language and typed tool use. A pure TypeScript policy and database constraints remain authoritative.
 
-We also packaged and started the same agent in Bedrock AgentCore Runtime. An account-level Anthropic access gate blocked the model call, so the plan’s tested local fallback is active. The shared run interface and Postgres session store preserve that future path.”
+We also deployed the same agent to Bedrock AgentCore Runtime. After resolving the account-level Anthropic access gate, Sonnet completed a live run, called our typed invitation tool, and left matching run, invitation, audit, and session records in Postgres through a restricted database role. The selected production path remains local until we complete the full interrupt-and-resume cloud gate.”
 
 ## 4:50–4:55 — Close
 
