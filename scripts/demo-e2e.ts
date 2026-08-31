@@ -211,7 +211,7 @@ async function runRoomCoordinationProof(
   });
   assert.ok(
     !blockedRoomIds.includes(proof.privateBlock.roomId),
-    "an applied private block must remove its room from guest options",
+    `an applied private block must remove its room from guest options; visible rooms: ${blockedRoomIds.join(", ")}`,
   );
 
   await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
@@ -458,6 +458,7 @@ async function findGuestRoomIds(
   },
 ): Promise<string[]> {
   await page.goto(guestLink);
+  await waitForGuestSearchHydration(page);
   await page.locator("input[name='from']").fill(search.from);
   await page.locator("input[name='to']").fill(search.to);
   await page.locator("input[name='nights']").fill(String(search.nights));
@@ -606,6 +607,7 @@ async function submitGuest(
   },
 ): Promise<void> {
   await page.goto(guestLink);
+  await waitForGuestSearchHydration(page);
   await page.locator("input[name='from']").fill(stay.from);
   await page.locator("input[name='to']").fill(stay.to);
   await page.locator("input[name='nights']").fill(String(stay.nights));
@@ -617,6 +619,12 @@ async function submitGuest(
   await page.waitForURL(/\/runs\/[0-9a-f-]+\/status/);
   await page.getByTestId("run-status").waitFor();
   await waitForRunStatus(page, stay.expectedRunStatus);
+}
+
+async function waitForGuestSearchHydration(page: Page): Promise<void> {
+  await page
+    .locator('form[data-webmcp-guest-search][data-hydrated="true"]')
+    .waitFor();
 }
 
 async function waitForRunStatus(

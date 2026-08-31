@@ -20,6 +20,9 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
     "data-status",
     "invited",
   );
+  await expect(
+    page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
+  ).toBeVisible();
   await page.getByTestId("find-options").click();
   await expect(page.getByTestId("guest-option")).toHaveCount(1);
   await page.getByTestId("guest-option").first().check();
@@ -48,6 +51,9 @@ test("supports Spanish keyboard room selection and focuses fresh results", async
   page,
 }) => {
   await page.goto(`/es/g/${vegaToken}`);
+  await expect(
+    page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
+  ).toBeVisible();
   await page.getByTestId("find-options").click();
   await expect(
     page.getByRole("heading", { name: "Elige tus habitaciones exactas" }),

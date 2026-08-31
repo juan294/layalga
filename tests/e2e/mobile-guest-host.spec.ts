@@ -28,6 +28,9 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   ]);
   await page.goto(`/en/g/${oterosToken}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
+  await expect(
+    page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
+  ).toBeVisible();
   await page.getByTestId("find-options").click();
   await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
   await expect(page.getByTestId("guest-room-option").first()).toBeChecked();

@@ -4,21 +4,23 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-31
+
 ### Added
 
-- Added a real room inventory model with capacity, sleeping arrangement, overflow policy, and host-controlled availability overrides and private blocks.
-- Added agent-first room coordination: guest-safe room-availability and room-listing tools, and a host tool that only prepares a pending room-inventory change for separate human approval.
-- Added a WebMCP surface so a host's or guest's own browser page can register read-only and prepare-only tools that reuse the page's existing session authority.
-- Added a revocable, per-locale iCal household calendar feed with a bearer-token URL that exposes only generic event kinds, status, guest count, and guest-visible room labels.
-- Added a room-selection branch to the policy hook, independent of the existing stay-overlap verdict, that interrupts for host approval on overflow selections and cancels a stale approval if the room arrangement changes while it is pending.
+- Added a real room inventory model with capacities, sleeping arrangements, overflow policies, availability overrides, and private blocks.
+- Added agent-first room coordination with guest-safe room tools and host-approved room proposals.
+- Added WebMCP tools that read or prepare visible host and guest forms without submitting them.
+- Added revocable, privacy-preserving iCalendar feeds.
+- Added exact multi-room guest selection and host approval for overflow arrangements.
 
 ### Fixed
 
-- Fixed the AgentCore package for the retried runtime proof: reduced the deployment bundle from 275MB/113k entries to 62.7MB/17.4k entries, removed a `next/server` import leak from the runtime entrypoint, replaced a permission-conflicting row lock with a transaction-scoped advisory lock, and fixed the client to request a streaming response instead of a non-streaming object.
+- Fixed the AgentCore package, runtime import boundary, advisory locking, and streaming response handling.
 
 ### Changed
 
-- Renamed the `visitRooms` export to `roomOccupancies` and made the underlying occupancy row polymorphic, so it can back either a guest visit or a host's private room block.
+- Generalized room occupancy records so they support guest visits and private household blocks.
 
 ## [0.1.2] - 2026-08-30
 

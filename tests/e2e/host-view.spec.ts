@@ -49,6 +49,9 @@ test("a special request waits for a host and resumes after approval", async ({
   page,
 }) => {
   await page.goto(`/en/g/${oterosToken}`);
+  await expect(
+    page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
+  ).toBeVisible();
   await page.getByTestId("find-options").click();
   await page.getByTestId("guest-option").first().check();
   await page.getByTestId("guest-submit").click();

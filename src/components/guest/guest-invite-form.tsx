@@ -67,6 +67,7 @@ export function GuestInviteForm({
   const optionsVisible =
     optionState.status === "success" && !searchDirty && !finding;
   const optionsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const searchFormRef = useRef<HTMLFormElement>(null);
   const optionsWereVisible = useRef(optionsVisible);
   const changeText =
     (field: "from" | "to") => (event: React.ChangeEvent<HTMLInputElement>) =>
@@ -78,6 +79,10 @@ export function GuestInviteForm({
         ...current,
         [field]: Number(event.target.value),
       }));
+
+  useEffect(() => {
+    searchFormRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
 
   useEffect(() => {
     if (shouldFocusGuestOptions(optionsWereVisible.current, optionsVisible)) {
@@ -94,7 +99,9 @@ export function GuestInviteForm({
       <form
         action={findAction}
         className={styles.ruledForm}
+        data-hydrated="false"
         data-webmcp-guest-search
+        ref={searchFormRef}
       >
         <input name="token" type="hidden" value={token} />
         <input name="locale" type="hidden" value={locale} />
