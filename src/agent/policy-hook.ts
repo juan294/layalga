@@ -82,7 +82,11 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
     const response = event.interrupt<HostDecision>({
       name: "host_decision",
       reason: (overflowInterrupt
-        ? hostOverflowDecisionReason(draft, selection.overflowArrangements)
+        ? hostOverflowDecisionReason(
+            draft,
+            selection.rooms,
+            selection.overflowArrangements,
+          )
         : hostDecisionReason(
             draft,
             verdict as Extract<PolicyVerdict, { decision: "interrupt" }>,
@@ -108,8 +112,8 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
     if (
       overflowInterrupt &&
       refreshedSelection?.decision === "interrupt" &&
-      JSON.stringify(refreshedSelection.overflowArrangements) !==
-        JSON.stringify(selection.overflowArrangements)
+      overflowReviewFingerprint(refreshedSelection) !==
+        overflowReviewFingerprint(selection)
     ) {
       event.cancel =
         "The overflow sleeping arrangement changed while approval was pending. Review the updated room choice.";
@@ -120,6 +124,15 @@ export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
       return;
     }
     event.toolUse.input = { ...sanitizedInput, approvedBy: response.hostId };
+  });
+}
+
+function overflowReviewFingerprint(
+  selection: Extract<RoomSelectionVerdict, { decision: "interrupt" }>,
+): string {
+  return JSON.stringify({
+    rooms: selection.rooms.map(({ id, guestLabel }) => ({ id, guestLabel })),
+    overflowArrangements: selection.overflowArrangements,
   });
 }
 

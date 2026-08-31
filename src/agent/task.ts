@@ -28,6 +28,13 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
     locale,
   }),
   z.object({
+    task: z.literal("host_room_request"),
+    homeId: z.uuid(),
+    hostId: z.uuid(),
+    rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
+    locale,
+  }),
+  z.object({
     task: z.literal("guest_submit"),
     homeId: z.uuid(),
     invitationId: z.uuid(),

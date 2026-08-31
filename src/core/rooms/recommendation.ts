@@ -60,3 +60,24 @@ export function recommendRooms(
   search(0, [], 0);
   return best ? [...best].sort(byDisplayOrder) : null;
 }
+
+export function recommendRoomsWithOverflow(
+  options: readonly GuestRoomOption[],
+  partySize: number,
+): { rooms: GuestRoomOption[]; usesOverflow: boolean } | null {
+  const standard = recommendRooms(options, partySize);
+  if (standard) return { rooms: standard, usesOverflow: false };
+  const overflow = recommendRooms(
+    options.map((room) => ({
+      ...room,
+      standardCapacity: room.maximumCapacity,
+    })),
+    partySize,
+  );
+  if (!overflow) return null;
+  const selectedIds = new Set(overflow.map(({ id }) => id));
+  return {
+    rooms: options.filter(({ id }) => selectedIds.has(id)),
+    usesOverflow: true,
+  };
+}

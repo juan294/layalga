@@ -43,7 +43,7 @@ pnpm run build
 
 ## Done when
 
-- [ ] Agent and WebMCP red tests pass.
-- [ ] Existing authority, tenant, interrupt, and run-safety tests pass.
-- [ ] No model or browser tool can commit a room write without visible confirmation.
-- [ ] Plan-compliance review approves the agent-first boundary.
+- [x] Agent and WebMCP red tests pass.
+- [x] Existing authority, tenant, interrupt, and run-safety tests pass.
+- [x] No model or browser tool can commit a room write without visible confirmation.
+- [x] Plan-compliance review approves the agent-first boundary.

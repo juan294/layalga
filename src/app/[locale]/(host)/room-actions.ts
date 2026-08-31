@@ -3,8 +3,11 @@
 import { randomUUID } from "node:crypto";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { getAgentClient } from "@/agent/client";
+import { MAX_HOST_MESSAGE_LENGTH } from "@/agent/task-limits";
 import { getDatabaseConnection } from "@/core/db/client";
 import {
   applyRoomActionProposal,
@@ -197,6 +200,36 @@ export async function dismissRoomProposalAction(formData: FormData) {
   } catch (error) {
     reportActionError("room_proposal_dismiss_failed", error);
   }
+}
+
+export async function requestRoomProposalAction(formData: FormData) {
+  const locale = localeValue(formData);
+  const host = await requireHost(locale);
+  const rawMessage = z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_HOST_MESSAGE_LENGTH)
+    .safeParse(formData.get("rawMessage"));
+  if (!rawMessage.success) return;
+
+  let runId: string;
+  try {
+    const run = await getAgentClient().enqueue({
+      task: "host_room_request",
+      homeId: host.homeId,
+      hostId: host.id,
+      rawMessage: rawMessage.data,
+      locale,
+    });
+    runId = run.runId;
+  } catch (error) {
+    reportActionError("room_proposal_request_failed", error);
+    return;
+  }
+  redirect(
+    `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}`)}`,
+  );
 }
 
 function localeValue(formData: FormData): "en" | "es" {

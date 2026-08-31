@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GuestRoomOption } from "./types";
-import { recommendRooms } from "./recommendation";
+import { recommendRooms, recommendRoomsWithOverflow } from "./recommendation";
 
 function room(
   id: string,
@@ -46,5 +46,9 @@ describe("recommendRooms", () => {
     };
 
     expect(recommendRooms([option], 3)).toBeNull();
+    expect(recommendRoomsWithOverflow([option], 3)).toMatchObject({
+      rooms: [{ id: "overflow" }],
+      usesOverflow: true,
+    });
   });
 });

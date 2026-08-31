@@ -216,7 +216,16 @@ export default async function HostPage({
           })
         : t("decisions.contextUnavailable"),
       reason: reasonLabel(decision.reason, t),
-      requestDetail: context?.specialRequests.join("; ") || null,
+      requestDetail: context
+        ? context.overflowRooms && context.overflowArrangements
+          ? t("decisions.overflowDetail", {
+              rooms: context.overflowRooms
+                .map(({ guestLabel }) => guestLabel)
+                .join(", "),
+              arrangements: context.overflowArrangements.join("; "),
+            })
+          : context.specialRequests.join("; ") || null
+        : null,
       overlapSummary:
         context && decision.overlap_count > 0
           ? t("decisions.overlapSummary", { count: decision.overlap_count })
@@ -511,6 +520,7 @@ function reasonLabel(
   if (code === "children") return t("decisionReasons.children");
   if (code === "pets") return t("decisionReasons.pets");
   if (code === "beds") return t("decisionReasons.beds");
+  if (code === "overflow") return t("decisionReasons.overflow");
   return t("decisionReasons.other");
 }
 

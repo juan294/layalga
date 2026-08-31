@@ -16,6 +16,10 @@ export interface GuestRoomOption {
   displayOrder: number;
 }
 
+export interface GuestSafeRoomInventory extends GuestRoomOption {
+  inventoryState: "available" | "withheld";
+}
+
 export interface RoomInventoryRecord {
   id: string;
   homeId: string;

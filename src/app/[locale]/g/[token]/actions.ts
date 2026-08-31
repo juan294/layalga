@@ -20,7 +20,7 @@ import {
 } from "@/core/booking/option-window";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
-import { recommendRooms } from "@/core/rooms/recommendation";
+import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
 import {
   loadGuestRoomSearchWindow,
   roomOptionsForStay,
@@ -158,21 +158,14 @@ async function findGuestOptionsForInput(
     }));
     const verdict = evaluateOverlap(draft, state);
     const partySize = input.adults + input.children;
-    const standardRecommendation = recommendRooms(availableRooms, partySize);
-    const overflowRecommendation = standardRecommendation
-      ? null
-      : recommendRooms(
-          availableRooms.map((room) => ({
-            ...room,
-            standardCapacity: room.maximumCapacity,
-          })),
-          partySize,
-        );
-    const recommendation = standardRecommendation ?? overflowRecommendation;
+    const recommendation = recommendRoomsWithOverflow(
+      availableRooms,
+      partySize,
+    );
     const effectiveVerdict =
       verdict.decision === "deny" &&
       verdict.reason === "beds" &&
-      overflowRecommendation
+      recommendation?.usesOverflow
         ? evaluateOverlap(draft, {
             ...state,
             rooms: availableRooms.map((room) => ({
@@ -186,7 +179,7 @@ async function findGuestOptionsForInput(
       options.push({
         stay,
         rooms: availableRooms.map(toGuestRoomChoice),
-        recommendedRoomIds: recommendation.map(({ id }) => id),
+        recommendedRoomIds: recommendation.rooms.map(({ id }) => id),
         hasOverlap: state.visits.some(
           (visit) =>
             visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),

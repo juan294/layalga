@@ -16,7 +16,8 @@ export type ActionErrorCode =
   | "room_override_create_failed"
   | "room_override_remove_failed"
   | "room_proposal_apply_failed"
-  | "room_proposal_dismiss_failed";
+  | "room_proposal_dismiss_failed"
+  | "room_proposal_request_failed";
 
 export function reportActionError(
   code: ActionErrorCode,

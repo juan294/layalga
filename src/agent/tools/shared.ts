@@ -180,7 +180,6 @@ export async function loadDraftForTool(
     sanitizedInput.roomIds = visit.room_ids;
   }
   if (
-    name === "confirm_visit" &&
     visit.uses_overflow &&
     visit.approval_stay_hash ===
       stayApprovalHash({ ...draft, overflowConsent: true })

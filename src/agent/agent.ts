@@ -14,21 +14,30 @@ import { installPolicyHook } from "./policy-hook";
 import { PromptMinimizingModel } from "./prompt-minimization";
 import { PostgresStorage } from "./storage/postgres-storage";
 import { systemPrompts } from "./system-prompt";
+import type { AgentTask } from "./task";
 
 export interface BuildAgentOptions {
   sessionId: string;
   deps: AgentDeps;
+  task: AgentTask["task"];
   model?: Model<BaseModelConfig>;
 }
 
-export function buildAgent({ sessionId, deps, model }: BuildAgentOptions): Agent {
+export function buildAgent({
+  sessionId,
+  deps,
+  task,
+  model,
+}: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
   const agent = new Agent({
     model: selectedModel,
-    tools: buildTools(deps),
+    tools: buildTools(deps, task),
     sessionManager: new SessionManager({
       sessionId,
-      storage: new PostgresStorage(sqlClient(deps.db), sessionId).namespace("session"),
+      storage: new PostgresStorage(sqlClient(deps.db), sessionId).namespace(
+        "session",
+      ),
       saveLatestOn: "message",
     }),
     systemPrompt: systemPrompts[deps.locale],

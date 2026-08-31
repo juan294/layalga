@@ -9,6 +9,13 @@ export interface VerifiedHostDecisionContext {
   specialRequests: readonly string[];
   roomIds?: readonly string[];
   overflowConsent?: boolean;
+  overflowRooms?: readonly HostOverflowRoomDetail[];
+  overflowArrangements?: readonly string[];
+}
+
+export interface HostOverflowRoomDetail {
+  id: string;
+  guestLabel: string;
 }
 
 export function hostDecisionReason(
@@ -27,11 +34,13 @@ export function hostDecisionReason(
 
 export function hostOverflowDecisionReason(
   draft: VisitDraft,
+  rooms: readonly HostOverflowRoomDetail[],
   overflowArrangements: readonly string[],
 ) {
   return {
     decision: "interrupt",
     reason: "overflow",
+    rooms: rooms.map(({ id, guestLabel }) => ({ id, guestLabel })),
     overflowArrangements: [...overflowArrangements],
     requestedDraft: requestedDraft(draft),
     stayApprovalHash: stayApprovalHash(draft),
@@ -47,6 +56,8 @@ export function verifiedHostDecisionContext(
   const specialRequests = draft?.specialRequests;
   const roomIds = draft?.roomIds;
   const overflowConsent = draft?.overflowConsent;
+  const overflowRooms = reason?.rooms;
+  const overflowArrangements = reason?.overflowArrangements;
   if (
     typeof reason?.stayApprovalHash !== "string" ||
     !/^[0-9a-f]{64}$/.test(reason.stayApprovalHash) ||
@@ -66,7 +77,25 @@ export function verifiedHostDecisionContext(
         roomIds.length > 20 ||
         new Set(roomIds).size !== roomIds.length ||
         !roomIds.every(isUuid))) ||
-    (overflowConsent !== undefined && typeof overflowConsent !== "boolean")
+    (overflowConsent !== undefined && typeof overflowConsent !== "boolean") ||
+    (reason?.reason === "overflow" &&
+      (!Array.isArray(overflowRooms) ||
+        overflowRooms.length === 0 ||
+        overflowRooms.length > 20 ||
+        !overflowRooms.every(isOverflowRoom) ||
+        !Array.isArray(overflowArrangements) ||
+        overflowArrangements.length === 0 ||
+        overflowArrangements.length > 20 ||
+        !overflowArrangements.every(
+          (arrangement) =>
+            typeof arrangement === "string" &&
+            arrangement.trim().length > 0 &&
+            arrangement.length <= 240,
+        ) ||
+        !sameStrings(
+          roomIds as string[] | undefined,
+          overflowRooms.map((room) => room.id),
+        )))
   ) {
     return null;
   }
@@ -79,6 +108,12 @@ export function verifiedHostDecisionContext(
     specialRequests,
     ...(roomIds ? { roomIds: roomIds as string[] } : {}),
     ...(typeof overflowConsent === "boolean" ? { overflowConsent } : {}),
+    ...(reason.reason === "overflow"
+      ? {
+          overflowRooms: overflowRooms as HostOverflowRoomDetail[],
+          overflowArrangements: overflowArrangements as string[],
+        }
+      : {}),
   };
   return stayApprovalHash(context) === reason.stayApprovalHash ? context : null;
 }
@@ -125,6 +160,24 @@ function isUuid(value: unknown): value is string {
       value,
     )
   );
+}
+
+function isOverflowRoom(value: unknown): value is HostOverflowRoomDetail {
+  const room = record(value);
+  return (
+    isUuid(room?.id) &&
+    typeof room?.guestLabel === "string" &&
+    room.guestLabel.trim().length > 0 &&
+    room.guestLabel.length <= 120
+  );
+}
+
+function sameStrings(
+  left: readonly string[] | undefined,
+  right: readonly string[],
+): boolean {
+  if (!left) return false;
+  return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
 }
 
 function record(value: unknown): Record<string, unknown> | null {

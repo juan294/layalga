@@ -7,6 +7,7 @@ import type { RoomInventoryState, StayRange } from "@/core/db/schema";
 
 import type {
   GuestRoomOption,
+  GuestSafeRoomInventory,
   RoomAvailabilityOverride,
   RoomDateControl,
   RoomInventoryRecord,
@@ -23,6 +24,45 @@ interface GuestRoomRow {
   inventory_state: RoomInventoryState;
   overflow_policy: GuestRoomOption["overflowPolicy"];
   display_order: number;
+}
+
+export async function listGuestSafeRoomInventory(
+  database: DatabaseClient | TransactionSql,
+  homeId: string,
+  limit = 21,
+): Promise<GuestSafeRoomInventory[]> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new RangeError("Room inventory limit must be between 1 and 100");
+  }
+  const sql = "$client" in database ? database.$client : database;
+  const rows = await sql<GuestRoomRow[]>`
+    select
+      id, guest_label, floor_label, sleeping_arrangement,
+      overflow_arrangement, beds, maximum_capacity, inventory_state,
+      overflow_policy, display_order
+    from public.rooms
+    where home_id = ${homeId}
+      and inventory_state in ('available', 'withheld')
+      and guest_label is not null
+      and floor_label is not null
+      and sleeping_arrangement is not null
+      and beds is not null
+      and maximum_capacity is not null
+    order by display_order, id
+    limit ${limit}
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    guestLabel: row.guest_label!,
+    floorLabel: row.floor_label!,
+    sleepingArrangement: row.sleeping_arrangement!,
+    overflowArrangement: row.overflow_arrangement,
+    standardCapacity: row.beds!,
+    maximumCapacity: row.maximum_capacity!,
+    overflowPolicy: row.overflow_policy,
+    displayOrder: row.display_order,
+    inventoryState: row.inventory_state as "available" | "withheld",
+  }));
 }
 
 function validateStay(stay: StayRange): void {

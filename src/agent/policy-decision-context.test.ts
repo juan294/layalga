@@ -85,13 +85,17 @@ describe("host decision context", () => {
       roomIds: [roomId],
       overflowConsent: true,
     };
-    const reason = hostOverflowDecisionReason(proposed, [
-      "One double air mattress",
-    ]);
+    const reason = hostOverflowDecisionReason(
+      proposed,
+      [{ id: roomId, guestLabel: "Lower room" }],
+      ["One double air mattress"],
+    );
 
     expect(verifiedHostDecisionContext(reason)).toMatchObject({
       roomIds: [roomId],
       overflowConsent: true,
+      overflowRooms: [{ id: roomId, guestLabel: "Lower room" }],
+      overflowArrangements: ["One double air mattress"],
     });
     expect(
       verifiedHostDecisionContext({

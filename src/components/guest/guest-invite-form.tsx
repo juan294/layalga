@@ -13,6 +13,7 @@ import {
 
 import styles from "./guest-ledger.module.css";
 import { Field } from "./field";
+import { GuestWebMcpRegistration } from "@/components/webmcp/guest-registration";
 
 const initialOptionState: GuestOptionState = {
   status: "idle",
@@ -86,7 +87,14 @@ export function GuestInviteForm({
 
   return (
     <div className={styles.formStack}>
-      <form action={findAction} className={styles.ruledForm}>
+      <GuestWebMcpRegistration
+        options={optionsVisible ? optionState.options : []}
+      />
+      <form
+        action={findAction}
+        className={styles.ruledForm}
+        data-webmcp-guest-search
+      >
         <input name="token" type="hidden" value={token} />
         <input name="locale" type="hidden" value={locale} />
         <div className={styles.formHeading}>
@@ -275,6 +283,7 @@ function GuestRoomReview({
     <form
       action={submitAction}
       className={styles.ruledForm}
+      data-webmcp-guest-options
       data-testid="guest-submit-form"
     >
       <input name="token" type="hidden" value={token} />

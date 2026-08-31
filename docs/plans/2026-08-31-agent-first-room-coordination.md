@@ -119,7 +119,7 @@ Confirmed, reconfirmation, and escalated visits plus active private blocks becom
 - [x] Phase 2 `[batch-eligible after Phase 1]`: deterministic room operations and exact selection
 - [x] Phase 3 `[batch-eligible after Phase 1]`: revocable iCalendar feed
 - [x] Phase 4: host and guest room interfaces
-- [ ] Phase 5: Strands room coordination and WebMCP preparation
+- [x] Phase 5: Strands room coordination and WebMCP preparation
 - [ ] Phase 6: demo proof, documentation, and full validation
 
 Phases 2 and 3 have separate files and may run in parallel only after Phase 1. This implementation run will execute them sequentially unless a separate batch workflow is authorized.

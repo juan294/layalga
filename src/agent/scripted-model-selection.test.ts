@@ -48,4 +48,68 @@ describe("TaskScriptedModel", () => {
       { type: "modelMessageStopEvent", stopReason: "endTurn" },
     ]);
   });
+
+  it("prepares a room proposal in the default scripted runtime", async () => {
+    const roomId = "00000000-0000-4000-8000-000000000010";
+    const model = new TaskScriptedModel(
+      {
+        task: "host_room_request",
+        homeId: "00000000-0000-4000-8000-000000000001",
+        hostId: "00000000-0000-4000-8000-000000000002",
+        rawMessage:
+          "Block Garden room for family use from 2026-09-18 to 2026-09-20.",
+        locale: "en",
+      },
+      {} as AgentDeps,
+    );
+    const firstEvents = [];
+    for await (const event of model.stream([])) firstEvents.push(event);
+    expect(firstEvents).toContainEqual(
+      expect.objectContaining({
+        type: "modelContentBlockStartEvent",
+        start: expect.objectContaining({
+          type: "toolUseStart",
+          name: "list_guest_rooms",
+        }),
+      }),
+    );
+
+    const roomResult = new Message({
+      role: "user",
+      content: [
+        new ToolResultBlock({
+          toolUseId: "rooms",
+          status: "success",
+          content: [
+            new TextBlock(
+              JSON.stringify({
+                rooms: [{ id: roomId, guestLabel: "Garden room" }],
+              }),
+            ),
+          ],
+        }),
+      ],
+    });
+    const secondEvents = [];
+    for await (const event of model.stream([roomResult])) {
+      secondEvents.push(event);
+    }
+    expect(secondEvents).toContainEqual(
+      expect.objectContaining({
+        type: "modelContentBlockStartEvent",
+        start: expect.objectContaining({
+          type: "toolUseStart",
+          name: "prepare_room_action",
+        }),
+      }),
+    );
+    expect(secondEvents).toContainEqual(
+      expect.objectContaining({
+        type: "modelContentBlockDeltaEvent",
+        delta: expect.objectContaining({
+          input: expect.stringContaining(roomId),
+        }),
+      }),
+    );
+  });
 });

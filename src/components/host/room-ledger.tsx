@@ -8,12 +8,14 @@ import {
   createRoomOverrideAction,
   dismissRoomProposalAction,
   removeRoomOverrideAction,
+  requestRoomProposalAction,
   updateRoomInventoryAction,
 } from "@/app/[locale]/(host)/room-actions";
 import type { HostRoomLedgerData } from "@/app/[locale]/(host)/room-data";
 import { formatDateStay } from "@/components/frontend-utils";
 
 import { CalendarFeedControls } from "./calendar-feed-controls";
+import { HostWebMcpRegistration } from "@/components/webmcp/host-registration";
 import styles from "./room-ledger.module.css";
 
 export async function RoomLedger({
@@ -50,6 +52,17 @@ export async function RoomLedger({
   const manageableRooms = data.rooms.filter(isManageableRoom);
   return (
     <div className={styles.ledger} data-testid="room-ledger">
+      <HostWebMcpRegistration
+        rooms={manageableRooms.slice(0, 20).map((room) => ({
+          id: room.id,
+          guestLabel: roomDisplayName(room),
+          floorLabel: room.floorLabel,
+          sleepingArrangement: room.sleepingArrangement,
+          standardCapacity: room.standardCapacity,
+          maximumCapacity: room.maximumCapacity,
+          state: room.doorStates.join(" + "),
+        }))}
+      />
       <div className={styles.doorStrip} aria-label={t("doorStripLabel")}>
         {data.rooms.map((room) => (
           <div
@@ -111,7 +124,11 @@ export async function RoomLedger({
         <section className={styles.controlSection}>
           <h3>{t("privateBlockTitle")}</h3>
           <p>{t("privateBlockHelp")}</p>
-          <form action={createPrivateBlockAction} className={styles.stackForm}>
+          <form
+            action={createPrivateBlockAction}
+            className={styles.stackForm}
+            data-webmcp-host-block
+          >
             <input name="locale" type="hidden" value={locale} />
             <DateFields fromLabel={t("from")} toLabel={t("to")} />
             <fieldset>
@@ -159,7 +176,11 @@ export async function RoomLedger({
         <section className={styles.controlSection}>
           <h3>{t("dateControlTitle")}</h3>
           <p>{t("dateControlHelp")}</p>
-          <form action={createRoomOverrideAction} className={styles.stackForm}>
+          <form
+            action={createRoomOverrideAction}
+            className={styles.stackForm}
+            data-webmcp-room-control
+          >
             <input name="locale" type="hidden" value={locale} />
             <label>
               <span>{t("room")}</span>
@@ -210,6 +231,25 @@ export async function RoomLedger({
           </ul>
         </section>
       </div>
+
+      <section className={styles.controlSection}>
+        <h3>{t("agentRequestTitle")}</h3>
+        <p>{t("agentRequestHelp")}</p>
+        <form action={requestRoomProposalAction} className={styles.stackForm}>
+          <input name="locale" type="hidden" value={locale} />
+          <label>
+            <span>{t("agentRequestLabel")}</span>
+            <textarea
+              maxLength={2_000}
+              name="rawMessage"
+              placeholder={t("agentRequestPlaceholder")}
+              required
+              rows={3}
+            />
+          </label>
+          <button type="submit">{t("agentRequestSubmit")}</button>
+        </form>
+      </section>
 
       <section className={styles.controlSection}>
         <h3>{t("proposalTitle")}</h3>

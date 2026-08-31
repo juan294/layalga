@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  enqueue: vi.fn(),
   revalidatePath: vi.fn(),
+  redirect: vi.fn(() => {
+    throw { digest: "NEXT_REDIRECT;test" };
+  }),
   reportActionError: vi.fn(),
   requireHost: vi.fn(),
   updateRoomInventory: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("@/agent/client", () => ({
+  getAgentClient: () => ({ enqueue: mocks.enqueue }),
+}));
 vi.mock("@/lib/auth/current-host", () => ({ requireHost: mocks.requireHost }));
 vi.mock("@/lib/server/action-errors", () => ({
   reportActionError: mocks.reportActionError,
@@ -26,7 +34,10 @@ vi.mock("@/core/rooms/operations", () => ({
   updateRoomInventory: mocks.updateRoomInventory,
 }));
 
-import { updateRoomInventoryAction } from "./room-actions";
+import {
+  requestRoomProposalAction,
+  updateRoomInventoryAction,
+} from "./room-actions";
 
 const host = {
   id: "00000000-0000-4000-8000-000000000001",
@@ -84,5 +95,31 @@ describe("host room actions", () => {
       expect.any(Error),
     );
     expect(mocks.revalidatePath).toHaveBeenCalledTimes(1);
+  });
+
+  test("queues a home-scoped room request and leaves application to the host", async () => {
+    mocks.enqueue.mockResolvedValue({ runId: "run-room-1" });
+    const form = new FormData();
+    form.set("locale", "es");
+    form.set(
+      "rawMessage",
+      "Bloquea la habitación del jardín del 18 al 20 de septiembre.",
+    );
+
+    await expect(requestRoomProposalAction(form)).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;test",
+    });
+    expect(mocks.requireHost).toHaveBeenCalledWith("es");
+    expect(mocks.enqueue).toHaveBeenCalledWith({
+      task: "host_room_request",
+      homeId: host.homeId,
+      hostId: host.id,
+      rawMessage:
+        "Bloquea la habitación del jardín del 18 al 20 de septiembre.",
+      locale: "es",
+    });
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/es/runs/run-room-1/status?returnTo=%2Fes",
+    );
   });
 });
