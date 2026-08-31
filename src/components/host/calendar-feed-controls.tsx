@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -25,11 +25,23 @@ export function CalendarFeedControls({
     issueCalendarFeedAction,
     initialState,
   );
+  const issueFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    issueFormRef.current?.setAttribute("data-hydrated", "true");
+  }, []);
+
   return (
     <section className={styles.controlSection}>
       <h3>{t("feedsTitle")}</h3>
       <p>{t("feedsHelp")}</p>
-      <form action={action} className={styles.inlineForm}>
+      <form
+        action={action}
+        className={styles.inlineForm}
+        data-calendar-feed-issue
+        data-hydrated="false"
+        ref={issueFormRef}
+      >
         <input name="locale" type="hidden" value={locale} />
         <label>
           <span>{t("feedLabel")}</span>

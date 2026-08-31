@@ -508,7 +508,10 @@ async function selectExactRoomsAndSubmit(
 async function issueAndReadCalendar(
   page: Page,
 ): Promise<{ body: string; token: string }> {
-  const form = page.locator("form:has(input[name='label'])");
+  const form = page.locator(
+    'form[data-calendar-feed-issue][data-hydrated="true"]',
+  );
+  await form.waitFor();
   await form
     .locator("input[name='label']")
     .fill(DEMO_SEED.roomProof.calendarFeedLabel);
