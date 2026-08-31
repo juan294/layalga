@@ -43,7 +43,7 @@ display_order integer
 private_notes text null
 ```
 
-Checks enforce positive capacities, `maximum_capacity >= beds`, complete guest data for `available` and `withheld`, and an overflow arrangement when maximum exceeds standard. `draft` and `inactive` never enter guest availability. Existing rooms backfill to available, no-overflow inventory so the migration is compatible.
+Checks enforce positive capacities, `maximum_capacity >= beds`, complete guest data for `available` and `withheld`, and an overflow arrangement when maximum exceeds standard. `draft` and `inactive` never enter guest availability. Existing demo rooms backfill to available, no-overflow inventory. Existing non-demo rooms backfill to draft until a host completes and reviews the inventory.
 
 The synthetic demo will show:
 
@@ -115,7 +115,7 @@ Confirmed, reconfirmation, and escalated visits plus active private blocks becom
 
 ## Delivery phases
 
-- [ ] Phase 1: authoritative inventory and occupancy migration
+- [x] Phase 1: authoritative inventory and occupancy migration
 - [ ] Phase 2 `[batch-eligible after Phase 1]`: deterministic room operations and exact selection
 - [ ] Phase 3 `[batch-eligible after Phase 1]`: revocable iCalendar feed
 - [ ] Phase 4: host and guest room interfaces

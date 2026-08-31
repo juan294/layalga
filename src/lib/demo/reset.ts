@@ -16,16 +16,40 @@ export const DEMO_SEED = {
       id: "00000000-0000-4000-8000-000000000101",
       name: "Cuartu del Horreu",
       beds: 2,
+      guestLabel: "Horreu Room",
+      floorLabel: "Upper floor",
+      sleepingArrangement: "One double bed",
+      overflowArrangement: null,
+      maximumCapacity: 2,
+      inventoryState: "available",
+      overflowPolicy: "none",
+      displayOrder: 1,
     },
     {
       id: "00000000-0000-4000-8000-000000000102",
       name: "Cuartu de la Fonte",
       beds: 2,
+      guestLabel: "Fonte Room",
+      floorLabel: "Ground floor",
+      sleepingArrangement: "One sofa bed",
+      overflowArrangement: "One double air mattress",
+      maximumCapacity: 4,
+      inventoryState: "available",
+      overflowPolicy: "host_approval",
+      displayOrder: 2,
     },
     {
       id: "00000000-0000-4000-8000-000000000103",
       name: "Cuartu del Teixu",
       beds: 3,
+      guestLabel: "Teixu Room",
+      floorLabel: "Upper floor",
+      sleepingArrangement: "One double bed",
+      overflowArrangement: null,
+      maximumCapacity: 3,
+      inventoryState: "withheld",
+      overflowPolicy: "none",
+      displayOrder: 3,
     },
   ],
   hosts: [
@@ -153,8 +177,33 @@ export async function resetDemoHome(
 
       for (const room of DEMO_SEED.rooms) {
         await transaction`
-          insert into public.rooms (id, home_id, name, beds)
-          values (${room.id}, ${DEMO_SEED.home.id}, ${room.name}, ${room.beds})
+          insert into public.rooms (
+            id,
+            home_id,
+            name,
+            beds,
+            guest_label,
+            floor_label,
+            sleeping_arrangement,
+            overflow_arrangement,
+            maximum_capacity,
+            inventory_state,
+            overflow_policy,
+            display_order
+          ) values (
+            ${room.id},
+            ${DEMO_SEED.home.id},
+            ${room.name},
+            ${room.beds},
+            ${room.guestLabel},
+            ${room.floorLabel},
+            ${room.sleepingArrangement},
+            ${room.overflowArrangement},
+            ${room.maximumCapacity},
+            ${room.inventoryState},
+            ${room.overflowPolicy},
+            ${room.displayOrder}
+          )
         `;
       }
 
