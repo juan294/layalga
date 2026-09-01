@@ -6,8 +6,10 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 
+import { SeasonSync } from "@/components/season-sync";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
+import { currentSeason } from "@/lib/season";
 
 import "../globals.css";
 
@@ -56,10 +58,17 @@ export default async function LocaleLayout({
   const t = await getTranslations({ locale, namespace: "Brand" });
 
   return (
-    <html lang={locale} data-scroll-behavior="smooth">
+    <html
+      lang={locale}
+      data-scroll-behavior="smooth"
+      data-season={currentSeason()}
+    >
       <body
         className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable}`}
       >
+        <Suspense fallback={null}>
+          <SeasonSync />
+        </Suspense>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <div className="site-shell">
             <header className="site-header">
