@@ -9,7 +9,10 @@
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 .door {
-  --door-state: var(--state-closed);
+  /* Graphite, not --state-closed: an unrecognised state must not claim the
+     room is closed. Graphite owns no door state, so it reads as "no known
+     state", matching its muted-text meaning elsewhere. */
+  --door-state: var(--graphite);
   align-items: center;
   border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   display: grid;
