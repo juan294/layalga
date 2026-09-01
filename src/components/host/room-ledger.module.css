@@ -149,6 +149,26 @@
   padding: 0.55rem;
   width: 100%;
 }
+/* Safari clamps a menulist control to its intrinsic height and ignores
+   min-height, which left these selects at 25px on iOS. Removing the native
+   appearance restores the 44px target; the caret is redrawn from two gradients
+   so it tracks --ink through the seasonal and dark palettes, which an SVG
+   data URI could not. */
+.inventoryForm select,
+.stackForm select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:
+    right 1.05rem center,
+    right 0.7rem center;
+  background-repeat: no-repeat;
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem;
+  padding-right: 2rem;
+}
 .inventoryForm button,
 .stackForm button,
 .inlineForm button,
