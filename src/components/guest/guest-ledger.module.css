@@ -9,6 +9,7 @@
   background: var(--guest-paper);
   color: var(--guest-ink);
   min-height: 100vh;
+  min-height: 100dvh;
   padding: clamp(1.25rem, 5vw, 4.5rem);
 }
 

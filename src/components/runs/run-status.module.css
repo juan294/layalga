@@ -8,6 +8,7 @@
   color: var(--run-ink);
   display: grid;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 1.5rem;
   place-items: center;
 }
@@ -35,6 +36,7 @@
   cursor: pointer;
   font-weight: 750;
   margin-top: 1rem;
+  min-height: var(--interactive-target, 2.75rem);
   padding: 0.7rem 0.9rem;
 }
 
@@ -106,13 +108,16 @@
 }
 
 .returnLink {
-  border-bottom: 2px solid var(--run-teal);
+  align-items: center;
   color: var(--run-teal);
-  display: inline-block;
+  display: inline-flex;
   font-weight: 750;
   margin-top: 1.5rem;
-  padding-bottom: 0.18rem;
-  text-decoration: none;
+  min-height: var(--interactive-target, 2.75rem);
+  text-decoration: underline;
+  text-decoration-color: var(--run-teal);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18rem;
 }
 
 .returnLink:focus-visible {
