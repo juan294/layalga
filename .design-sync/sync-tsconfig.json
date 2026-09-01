@@ -12,7 +12,15 @@
     "baseUrl": "..",
     "paths": {
       "@/app/[locale]/(host)/actions": ["./.design-sync/shims/host-actions.ts"],
-      "@/app/[locale]/g/[token]/actions": ["./.design-sync/shims/guest-actions.ts"],
+      "@/app/[locale]/(host)/room-actions": [
+        "./.design-sync/shims/room-actions.ts"
+      ],
+      "@/app/[locale]/(host)/calendar-actions": [
+        "./.design-sync/shims/calendar-actions.ts"
+      ],
+      "@/app/[locale]/g/[token]/actions": [
+        "./.design-sync/shims/guest-actions.ts"
+      ],
       "next/navigation": ["./.design-sync/shims/next-navigation.ts"],
       "next-intl/server": ["./.design-sync/shims/next-intl-server.ts"],
       "@/*": ["./src/*"]

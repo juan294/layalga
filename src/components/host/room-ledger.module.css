@@ -9,6 +9,9 @@
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 .door {
+  /* Graphite, not --state-closed: an unrecognised state must not claim the
+     room is closed. Graphite owns no door state, so it reads as "no known
+     state", matching its muted-text meaning elsewhere. */
   --door-state: var(--graphite);
   align-items: center;
   border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
@@ -19,17 +22,17 @@
   padding: 0.75rem;
 }
 .door[data-door-state="available"] {
-  --door-state: var(--teal);
+  --door-state: var(--state-available);
 }
 .door[data-door-state="occupied"] {
-  --door-state: #a14a2c;
+  --door-state: var(--state-occupied);
 }
 .door[data-door-state="private"] {
-  --door-state: #72508f;
+  --door-state: var(--state-private);
 }
 .door[data-door-state="closed"],
 .door[data-door-state="withheld"] {
-  --door-state: var(--graphite);
+  --door-state: var(--state-closed);
 }
 .doorShape {
   border: 2px solid var(--door-state);
@@ -39,6 +42,14 @@
   height: 2.5rem;
   position: relative;
   width: 1.1rem;
+}
+.door[data-door-state="closed"] .doorShape,
+.door[data-door-state="withheld"] .doorShape {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--door-state) 45%, transparent) 3px 5px
+  );
 }
 .doorShape::after {
   background: var(--door-state);
@@ -137,6 +148,26 @@
   min-height: var(--interactive-target);
   padding: 0.55rem;
   width: 100%;
+}
+/* Safari clamps a menulist control to its intrinsic height and ignores
+   min-height, which left these selects at 25px on iOS. Removing the native
+   appearance restores the 44px target; the caret is redrawn from two gradients
+   so it tracks --ink through the seasonal and dark palettes, which an SVG
+   data URI could not. */
+.inventoryForm select,
+.stackForm select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:
+    right 1.05rem center,
+    right 0.7rem center;
+  background-repeat: no-repeat;
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem;
+  padding-right: 2rem;
 }
 .inventoryForm button,
 .stackForm button,

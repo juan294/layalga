@@ -41,7 +41,7 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-jq -e '.lastSyncCommit == "2229ac2c3e0830e333dfec5b25033311b7d4dd0a" and .blueprintVersion == "v1.28.2"' .claude/cc-rpi-sync.json >/dev/null
+jq -e '.lastSyncCommit == "a423402540808c92292e0d7a6b4af80304594902" and .blueprintVersion == "v1.29.0"' .claude/cc-rpi-sync.json >/dev/null
 jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .permissions.allow' .claude/settings.json >/dev/null
 jq -e '.engines.node == "24.x" and .scripts.typecheck == "next typegen && tsc --noEmit" and .scripts.lint == "eslint ." and (.scripts.test | startswith("vitest run"))' package.json >/dev/null
 

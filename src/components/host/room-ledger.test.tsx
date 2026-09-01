@@ -3,11 +3,6 @@ import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
-vi.mock("next-intl/server", () => ({
-  getTranslations:
-    async () => (key: string, values?: Record<string, unknown>) =>
-      values ? `${key}:${JSON.stringify(values)}` : key,
-}));
 vi.mock("@/app/[locale]/(host)/room-actions", () => ({
   applyRoomProposalAction: vi.fn(),
   cancelPrivateBlockAction: vi.fn(),
@@ -23,11 +18,82 @@ vi.mock("./calendar-feed-controls", () => ({
   CalendarFeedControls: () => <div data-testid="feed-controls" />,
 }));
 
-import { RoomLedger } from "./room-ledger";
+import { RoomLedger, type RoomLedgerLabels } from "./room-ledger";
+
+/* Every label echoes its message key, so an assertion on "states.withheld"
+   still proves that the withheld door state reached the markup - the same
+   thing the previous translator mock proved, now through the props. */
+const LABELS: RoomLedgerLabels = {
+  doorStripLabel: "doorStripLabel",
+  inventoryTitle: "inventoryTitle",
+  inventoryHelp: "inventoryHelp",
+  addRoom: "addRoom",
+  privateBlockTitle: "privateBlockTitle",
+  privateBlockHelp: "privateBlockHelp",
+  roomsLabel: "roomsLabel",
+  publicLabel: "publicLabel",
+  privateNote: "privateNote",
+  createBlock: "createBlock",
+  cancel: "cancel",
+  from: "from",
+  to: "to",
+  dateControlTitle: "dateControlTitle",
+  dateControlHelp: "dateControlHelp",
+  room: "room",
+  chooseRoom: "chooseRoom",
+  action: "action",
+  close: "close",
+  open: "open",
+  saveControl: "saveControl",
+  remove: "remove",
+  agentRequestTitle: "agentRequestTitle",
+  agentRequestHelp: "agentRequestHelp",
+  agentRequestLabel: "agentRequestLabel",
+  agentRequestPlaceholder: "agentRequestPlaceholder",
+  agentRequestSubmit: "agentRequestSubmit",
+  proposalTitle: "proposalTitle",
+  proposalHelp: "proposalHelp",
+  apply: "apply",
+  dismiss: "dismiss",
+  noProposals: "noProposals",
+  capacity: (standard, maximum) => `capacity:${standard}:${maximum}`,
+  states: {
+    available: "states.available",
+    occupied: "states.occupied",
+    private: "states.private",
+    closed: "states.closed",
+    withheld: "states.withheld",
+    inactive: "states.inactive",
+    draft: "states.draft",
+  },
+  actions: {
+    open: "open",
+    close: "close",
+    private_block: "private_block",
+  },
+  inventory: {
+    internalName: "internalName",
+    guestLabel: "guestLabel",
+    floor: "floor",
+    sleepingArrangement: "sleepingArrangement",
+    standardCapacity: "standardCapacity",
+    maximumCapacity: "maximumCapacity",
+    inventoryState: "inventoryState",
+    overflowPolicy: "overflowPolicy",
+    overflowArrangement: "overflowArrangement",
+    displayOrder: "displayOrder",
+    privateNotes: "privateNotes",
+    none: "none",
+    hostApproval: "hostApproval",
+    save: "save",
+    create: "create",
+  },
+};
 
 describe("host room ledger", () => {
   test("renders plan-like doors with text states and host-private details", async () => {
-    const element = await RoomLedger({
+    const element = RoomLedger({
+      labels: LABELS,
       locale: "en",
       data: {
         rooms: [

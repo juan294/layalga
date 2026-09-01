@@ -71,13 +71,24 @@ if [[ "$COMMAND" == *"git pull"* ]] && [[ "$COMMAND" == *"--rebase"* ]]; then
 fi
 
 
+# segment_for <needle> — echo only the chained segments of $COMMAND that contain
+# <needle>. A guard that inspects the whole command string reads arguments
+# belonging to unrelated chained commands: `git push -u origin feature/x &&
+# gh pr create --base develop` looks like a push to develop. Splitting on the
+# shell's chaining operators keeps each guard's regex on its own command.
+segment_for() {
+  printf '%s\n' "$COMMAND" | tr ';&|' '\n' | grep -F -- "$1"
+}
+
+
 # ─── Guards: git push risks (Error #44, Error #48) ───────────────────────
 # Consolidated: both guards share the outer "git push" check.
 if [[ "$COMMAND" == *"git push"* ]]; then
+  PUSH_SEGMENT=$(segment_for "git push")
 
   # Error #44: --tags pushes ALL local tags, not just the new one.
   # Old tags that already exist on remote cause a non-zero exit code.
-  if [[ "$COMMAND" == *"--tags"* ]] && [[ "$COMMAND" != *"--follow-tags"* ]]; then
+  if [[ "$PUSH_SEGMENT" == *"--tags"* ]] && [[ "$PUSH_SEGMENT" != *"--follow-tags"* ]]; then
     emit_block "guard-bash.sh" "Error #44: --tags pushes all local tags" \
       "--tags pushes every tag, not just new ones; old tags cause failures." \
       "  git push origin main && git push origin v1.0.0
@@ -88,11 +99,12 @@ if [[ "$COMMAND" == *"git push"* ]]; then
 
   # Error #48: direct push to a protected branch (develop is integration,
   # main is production) instead of a feature branch plus PR.
-  # Matches the branch name anywhere in the push args (handles flags like -u
-  # appearing before the remote name: git push -u origin main).
+  # Matches the branch name anywhere in the push segment (handles flags like -u
+  # appearing before the remote name: git push -u origin main), but not in a
+  # command chained after it, such as gh pr create --base develop.
   # Allows --follow-tags (release flow).
-  if [[ "$COMMAND" =~ (^|[[:space:]])(main|master|develop)($|[[:space:]]|:) ]] \
-     && [[ "$COMMAND" != *"--follow-tags"* ]]; then
+  if [[ "$PUSH_SEGMENT" =~ (^|[[:space:]]|:)(main|master|develop)($|[[:space:]]|:) ]] \
+     && [[ "$PUSH_SEGMENT" != *"--follow-tags"* ]]; then
     emit_block "guard-bash.sh" "Error #48: direct push to protected branch" \
       "Pushing directly to develop/main is a high-stakes action; open a PR." \
       "  git push -u origin feature/my-change    # then: gh pr create --base develop

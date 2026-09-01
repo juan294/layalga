@@ -1,17 +1,61 @@
+/* One brand, four seasonal lights. The base never changes; only the accent
+   pair and the paper tint rotate. src/lib/season.ts picks the season and the
+   locale layout stamps it on <html data-season>; the values here are the verano
+   defaults so a document without the attribute still renders on-brand. */
 :root {
   color-scheme: light dark;
-  --paper: #f2efe6;
-  --sheet: #fbf8ef;
-  --ink: #20231f;
-  --graphite: #60645f;
-  --teal: #0c615b;
-  --rule: rgb(32 35 31 / 22%);
-  --focus: #087f75;
+  --sheet: #fdfcf6;
+  --ink: #182225;
+  --graphite: #4f5f63;
+  --rule: color-mix(in srgb, var(--ink) 24%, transparent);
+  --paper: #f2f0e9;
+  --teal: #14596b;
+  --accent-soft: #3f9e94;
+  --focus: var(--teal);
+  /* Door states are deliberately season-independent: "available" must mean the
+     same colour in July and November. Hue-separated from each other and from
+     all four seasonal accents. */
+  --state-available: #2c7d75;
+  --state-occupied: #8e4256;
+  --state-private: #72508f;
+  --state-closed: #8a8478;
   --interactive-target: 2.75rem;
   --interactive-target-compact: 2.25rem;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-inter), Arial, sans-serif;
+}
+
+/* --teal keeps its name because every component already reads it; it now means
+   "the seasonal accent". --accent-soft is decorative or large text only -- it
+   is not contrast-safe for body copy or small labels. */
+
+/* Primavera -- meadow & olive stair wall (Mar 21 - Jun 20) */
+html[data-season="primavera"] {
+  --paper: #f1f0e4;
+  --teal: #5d7026;
+  --accent-soft: #6a9c3f;
+}
+
+/* Verano -- Cantabrico & turquoise cove (Jun 21 - Sep 20) */
+html[data-season="verano"] {
+  --paper: #f2f0e9;
+  --teal: #14596b;
+  --accent-soft: #3f9e94;
+}
+
+/* Otono -- coral dining wall & roof tile (Sep 21 - Dec 20) */
+html[data-season="otono"] {
+  --paper: #f5efe6;
+  --teal: #b3572f;
+  --accent-soft: #d07a58;
+}
+
+/* Invierno -- slate terrace & winter sky (Dec 21 - Mar 20) */
+html[data-season="invierno"] {
+  --paper: #efefea;
+  --teal: #3a4e58;
+  --accent-soft: #7ea8c4;
 }
 
 * {
@@ -47,6 +91,7 @@ a {
 
 .site-shell {
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .site-header {
@@ -107,6 +152,7 @@ a {
 .auth-shell {
   display: grid;
   min-height: calc(100vh - 4rem);
+  min-height: calc(100dvh - 4rem);
   padding: clamp(1.25rem, 6vw, 6rem);
   place-items: center;
 }
@@ -207,6 +253,7 @@ a {
 .route-state-shell {
   display: grid;
   min-height: calc(100vh - 4rem);
+  min-height: calc(100dvh - 4rem);
   padding: clamp(1.25rem, 6vw, 6rem);
   place-items: center;
 }
@@ -251,6 +298,7 @@ a {
   color: var(--sheet);
   cursor: pointer;
   font-weight: 750;
+  min-height: var(--interactive-target);
   padding: 0.75rem 1rem;
 }
 
@@ -270,14 +318,42 @@ a {
 }
 
 @media (prefers-color-scheme: dark) {
+  /* html[data-season] matches the seasonal blocks' specificity so the dark base
+     wins over the light paper tint they set. --rule and --focus derive from
+     --ink and --teal, so they follow without their own dark values. */
+  :root,
+  html[data-season] {
+    --paper: #101617;
+    --sheet: #171f21;
+    --ink: #edefe9;
+    --graphite: #aeb8b6;
+    --teal: #6fbdc8;
+  }
+
+  /* --accent-soft keeps its light value in dark. */
+  html[data-season="primavera"] {
+    --teal: #b9c46a;
+  }
+
+  html[data-season="verano"] {
+    --teal: #6fbdc8;
+  }
+
+  html[data-season="otono"] {
+    --teal: #e08a63;
+  }
+
+  html[data-season="invierno"] {
+    --teal: #8fb3c9;
+  }
+
+  /* Door states lift ~20% L for the dark ground. No seasonal blocks declare
+     them, so a plain :root is enough. */
   :root {
-    --paper: #171b19;
-    --sheet: #202522;
-    --ink: #f0eee4;
-    --graphite: #b5b8b2;
-    --teal: #72c9bd;
-    --rule: rgb(240 238 228 / 22%);
-    --focus: #86e0d2;
+    --state-available: #5faaa1;
+    --state-occupied: #b77083;
+    --state-private: #a183bf;
+    --state-closed: #a9a296;
   }
 }
 
