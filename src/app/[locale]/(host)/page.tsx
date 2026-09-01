@@ -257,7 +257,7 @@ export default async function HostPage({
         color: ink,
         display: "block",
         fontFamily: "var(--font-inter, Arial, sans-serif)",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         padding: "clamp(1rem, 4vw, 4rem)",
         textAlign: "left",
       }}
