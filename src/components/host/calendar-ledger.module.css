@@ -14,9 +14,13 @@
 }
 
 .navigation a {
+  align-items: center;
   border-bottom: 2px solid var(--teal);
   color: var(--teal);
+  display: inline-flex;
   font-weight: 750;
+  justify-content: center;
+  min-height: var(--interactive-target);
   padding: 0.5rem;
   text-decoration: none;
 }

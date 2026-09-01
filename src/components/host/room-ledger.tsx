@@ -1,5 +1,3 @@
-import { getTranslations } from "next-intl/server";
-
 import {
   applyRoomProposalAction,
   cancelPrivateBlockAction,
@@ -11,44 +9,30 @@ import {
   requestRoomProposalAction,
   updateRoomInventoryAction,
 } from "@/app/[locale]/(host)/room-actions";
-import type { HostRoomLedgerData } from "@/app/[locale]/(host)/room-data";
+import type {
+  DoorState,
+  HostRoomLedgerData,
+} from "@/app/[locale]/(host)/room-data";
 import { formatDateStay } from "@/components/frontend-utils";
 
 import { CalendarFeedControls } from "./calendar-feed-controls";
 import { HostWebMcpRegistration } from "@/components/webmcp/host-registration";
 import styles from "./room-ledger.module.css";
 
-export async function RoomLedger({
+/* Presentational by contract: every string arrives through `labels`, so the
+   component renders identically in the app and in a design-system preview
+   card, which has no next-intl request scope to resolve copy from. The host
+   page owns the translation, the same way it already does for CalendarLedger
+   and PendingDecisions. */
+export function RoomLedger({
   locale,
   data,
+  labels,
 }: {
   locale: "en" | "es";
   data: HostRoomLedgerData;
+  labels: RoomLedgerLabels;
 }) {
-  const t = await getTranslations({ locale, namespace: "Host.rooms" });
-  const inventoryLabels = {
-    internalName: t("internalName"),
-    guestLabel: t("guestLabel"),
-    floor: t("floor"),
-    sleepingArrangement: t("sleepingArrangement"),
-    standardCapacity: t("standardCapacity"),
-    maximumCapacity: t("maximumCapacity"),
-    inventoryState: t("inventoryState"),
-    overflowPolicy: t("overflowPolicy"),
-    overflowArrangement: t("overflowArrangementField"),
-    displayOrder: t("displayOrder"),
-    privateNotes: t("privateNotes"),
-    none: t("none"),
-    hostApproval: t("hostApproval"),
-    save: t("saveRoom"),
-    create: t("createRoom"),
-    states: {
-      draft: t("states.draft"),
-      available: t("states.available"),
-      withheld: t("states.withheld"),
-      inactive: t("states.inactive"),
-    },
-  };
   const manageableRooms = data.rooms.filter(isManageableRoom);
   return (
     <div className={styles.ledger} data-testid="room-ledger">
@@ -63,7 +47,7 @@ export async function RoomLedger({
           state: room.doorStates.join(" + "),
         }))}
       />
-      <div className={styles.doorStrip} aria-label={t("doorStripLabel")}>
+      <div className={styles.doorStrip} aria-label={labels.doorStripLabel}>
         {data.rooms.map((room) => (
           <div
             className={styles.door}
@@ -73,15 +57,15 @@ export async function RoomLedger({
             <span className={styles.doorShape} aria-hidden="true" />
             <strong>{roomDisplayName(room)}</strong>
             <small>
-              {room.doorStates.map((state) => t(`states.${state}`)).join(" · ")}
+              {room.doorStates.map((state) => labels.states[state]).join(" · ")}
             </small>
           </div>
         ))}
       </div>
 
       <section className={styles.controlSection}>
-        <h3>{t("inventoryTitle")}</h3>
-        <p>{t("inventoryHelp")}</p>
+        <h3>{labels.inventoryTitle}</h3>
+        <p>{labels.inventoryHelp}</p>
         <div className={styles.roomRows}>
           {data.rooms.map((room) => (
             <details className={styles.roomRow} key={room.id}>
@@ -92,47 +76,49 @@ export async function RoomLedger({
                 </span>
                 <span>
                   {room.doorStates
-                    .map((state) => t(`states.${state}`))
+                    .map((state) => labels.states[state])
                     .join(" · ")}
                 </span>
               </summary>
               <p>
                 {room.sleepingArrangement} ·{" "}
-                {t("capacity", {
-                  standard: room.standardCapacity,
-                  maximum: room.maximumCapacity,
-                })}
+                {labels.capacity(room.standardCapacity, room.maximumCapacity)}
               </p>
               {room.privateNotes ? (
                 <p className={styles.privateNote}>{room.privateNotes}</p>
               ) : null}
               <RoomInventoryForm
-                labels={inventoryLabels}
+                labels={labels.inventory}
                 locale={locale}
                 room={room}
+                stateLabels={labels.states}
               />
             </details>
           ))}
         </div>
         <details className={styles.addRoom}>
-          <summary>{t("addRoom")}</summary>
-          <RoomInventoryForm labels={inventoryLabels} locale={locale} />
+          <summary>{labels.addRoom}</summary>
+          <RoomInventoryForm
+            labels={labels.inventory}
+            locale={locale}
+            stateLabels={labels.states}
+          />
         </details>
       </section>
 
       <div className={styles.controlGrid}>
         <section className={styles.controlSection}>
-          <h3>{t("privateBlockTitle")}</h3>
-          <p>{t("privateBlockHelp")}</p>
+          <h3>{labels.privateBlockTitle}</h3>
+          <p>{labels.privateBlockHelp}</p>
           <form
             action={createPrivateBlockAction}
             className={styles.stackForm}
             data-webmcp-host-block
           >
             <input name="locale" type="hidden" value={locale} />
-            <DateFields fromLabel={t("from")} toLabel={t("to")} />
+            <DateFields fromLabel={labels.from} toLabel={labels.to} />
             <fieldset>
-              <legend>{t("roomsLabel")}</legend>
+              <legend>{labels.roomsLabel}</legend>
               {manageableRooms.map((room) => (
                 <label className={styles.checkRow} key={room.id}>
                   <input name="roomIds" type="checkbox" value={room.id} />
@@ -141,14 +127,14 @@ export async function RoomLedger({
               ))}
             </fieldset>
             <label>
-              <span>{t("publicLabel")}</span>
+              <span>{labels.publicLabel}</span>
               <input maxLength={160} name="publicLabel" required />
             </label>
             <label>
-              <span>{t("privateNote")}</span>
+              <span>{labels.privateNote}</span>
               <textarea maxLength={2000} name="privateNote" rows={2} />
             </label>
-            <button type="submit">{t("createBlock")}</button>
+            <button type="submit">{labels.createBlock}</button>
           </form>
           <ul className={styles.compactList}>
             {data.blocks.map((block) => (
@@ -166,7 +152,7 @@ export async function RoomLedger({
                 <form action={cancelPrivateBlockAction}>
                   <input name="locale" type="hidden" value={locale} />
                   <input name="blockId" type="hidden" value={block.id} />
-                  <button type="submit">{t("cancel")}</button>
+                  <button type="submit">{labels.cancel}</button>
                 </form>
               </li>
             ))}
@@ -174,8 +160,8 @@ export async function RoomLedger({
         </section>
 
         <section className={styles.controlSection}>
-          <h3>{t("dateControlTitle")}</h3>
-          <p>{t("dateControlHelp")}</p>
+          <h3>{labels.dateControlTitle}</h3>
+          <p>{labels.dateControlHelp}</p>
           <form
             action={createRoomOverrideAction}
             className={styles.stackForm}
@@ -183,9 +169,9 @@ export async function RoomLedger({
           >
             <input name="locale" type="hidden" value={locale} />
             <label>
-              <span>{t("room")}</span>
+              <span>{labels.room}</span>
               <select name="roomId" required>
-                <option value="">{t("chooseRoom")}</option>
+                <option value="">{labels.chooseRoom}</option>
                 {manageableRooms.map((room) => (
                   <option key={room.id} value={room.id}>
                     {roomDisplayName(room)}
@@ -194,25 +180,25 @@ export async function RoomLedger({
               </select>
             </label>
             <label>
-              <span>{t("action")}</span>
+              <span>{labels.action}</span>
               <select name="action" required>
-                <option value="close">{t("close")}</option>
-                <option value="open">{t("open")}</option>
+                <option value="close">{labels.close}</option>
+                <option value="open">{labels.open}</option>
               </select>
             </label>
-            <DateFields fromLabel={t("from")} toLabel={t("to")} />
+            <DateFields fromLabel={labels.from} toLabel={labels.to} />
             <label>
-              <span>{t("privateNote")}</span>
+              <span>{labels.privateNote}</span>
               <textarea maxLength={2000} name="privateNote" rows={2} />
             </label>
-            <button type="submit">{t("saveControl")}</button>
+            <button type="submit">{labels.saveControl}</button>
           </form>
           <ul className={styles.compactList}>
             {data.overrides.map((control) => (
               <li key={control.id}>
                 <span>
                   <strong>
-                    {control.roomLabel} · {t(control.action)}
+                    {control.roomLabel} · {labels.actions[control.action]}
                   </strong>
                   <small>
                     {formatDateStay([control.start, control.end], locale)}
@@ -224,7 +210,7 @@ export async function RoomLedger({
                 <form action={removeRoomOverrideAction}>
                   <input name="locale" type="hidden" value={locale} />
                   <input name="overrideId" type="hidden" value={control.id} />
-                  <button type="submit">{t("remove")}</button>
+                  <button type="submit">{labels.remove}</button>
                 </form>
               </li>
             ))}
@@ -233,8 +219,8 @@ export async function RoomLedger({
       </div>
 
       <section className={styles.controlSection}>
-        <h3>{t("agentRequestTitle")}</h3>
-        <p>{t("agentRequestHelp")}</p>
+        <h3>{labels.agentRequestTitle}</h3>
+        <p>{labels.agentRequestHelp}</p>
         <form
           action={requestRoomProposalAction}
           className={styles.stackForm}
@@ -242,22 +228,22 @@ export async function RoomLedger({
         >
           <input name="locale" type="hidden" value={locale} />
           <label>
-            <span>{t("agentRequestLabel")}</span>
+            <span>{labels.agentRequestLabel}</span>
             <textarea
               maxLength={2_000}
               name="rawMessage"
-              placeholder={t("agentRequestPlaceholder")}
+              placeholder={labels.agentRequestPlaceholder}
               required
               rows={3}
             />
           </label>
-          <button type="submit">{t("agentRequestSubmit")}</button>
+          <button type="submit">{labels.agentRequestSubmit}</button>
         </form>
       </section>
 
       <section className={styles.controlSection}>
-        <h3>{t("proposalTitle")}</h3>
-        <p>{t("proposalHelp")}</p>
+        <h3>{labels.proposalTitle}</h3>
+        <p>{labels.proposalHelp}</p>
         {data.proposals.length ? (
           <ul className={styles.proposals}>
             {data.proposals.map((proposal) => (
@@ -265,7 +251,7 @@ export async function RoomLedger({
                 <div>
                   <strong>{proposal.summary}</strong>
                   <p>
-                    {t(proposal.kind)} ·{" "}
+                    {labels.actions[proposal.kind]} ·{" "}
                     {formatDateStay([proposal.start, proposal.end], locale)} ·{" "}
                     {proposal.roomLabels.join(", ")}
                   </p>
@@ -278,7 +264,7 @@ export async function RoomLedger({
                       type="hidden"
                       value={proposal.id}
                     />
-                    <button type="submit">{t("apply")}</button>
+                    <button type="submit">{labels.apply}</button>
                   </form>
                   <form action={dismissRoomProposalAction}>
                     <input name="locale" type="hidden" value={locale} />
@@ -287,20 +273,65 @@ export async function RoomLedger({
                       type="hidden"
                       value={proposal.id}
                     />
-                    <button type="submit">{t("dismiss")}</button>
+                    <button type="submit">{labels.dismiss}</button>
                   </form>
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p>{t("noProposals")}</p>
+          <p>{labels.noProposals}</p>
         )}
       </section>
 
       <CalendarFeedControls feeds={data.feeds} locale={locale} />
     </div>
   );
+}
+
+export interface RoomLedgerLabels {
+  doorStripLabel: string;
+  inventoryTitle: string;
+  inventoryHelp: string;
+  addRoom: string;
+  privateBlockTitle: string;
+  privateBlockHelp: string;
+  roomsLabel: string;
+  publicLabel: string;
+  privateNote: string;
+  createBlock: string;
+  cancel: string;
+  from: string;
+  to: string;
+  dateControlTitle: string;
+  dateControlHelp: string;
+  room: string;
+  chooseRoom: string;
+  action: string;
+  close: string;
+  open: string;
+  saveControl: string;
+  remove: string;
+  agentRequestTitle: string;
+  agentRequestHelp: string;
+  agentRequestLabel: string;
+  agentRequestPlaceholder: string;
+  agentRequestSubmit: string;
+  proposalTitle: string;
+  proposalHelp: string;
+  apply: string;
+  dismiss: string;
+  noProposals: string;
+  /* Parameterised copy stays a function so the caller keeps ownership of
+     pluralisation; a preview card supplies a plain formatter. */
+  capacity: (standard: number, maximum: number) => string;
+  /* Keyed by door state so the strip can label any state the loader emits,
+     and reused by the inventory form's four selectable states. */
+  states: Record<DoorState, string>;
+  /* Shared by the override rows and the proposal rows, which name the same
+     three verbs. */
+  actions: Record<"open" | "close" | "private_block", string>;
+  inventory: InventoryLabels;
 }
 
 interface InventoryLabels {
@@ -319,22 +350,18 @@ interface InventoryLabels {
   hostApproval: string;
   save: string;
   create: string;
-  states: {
-    draft: string;
-    available: string;
-    withheld: string;
-    inactive: string;
-  };
 }
 
 function RoomInventoryForm({
   locale,
   room,
   labels,
+  stateLabels,
 }: {
   locale: "en" | "es";
   room?: HostRoomLedgerData["rooms"][number];
   labels: InventoryLabels;
+  stateLabels: Record<DoorState, string>;
 }) {
   return (
     <form
@@ -400,10 +427,10 @@ function RoomInventoryForm({
           defaultValue={room?.inventoryState ?? "draft"}
           name="inventoryState"
         >
-          <option value="draft">{labels.states.draft}</option>
-          <option value="available">{labels.states.available}</option>
-          <option value="withheld">{labels.states.withheld}</option>
-          <option value="inactive">{labels.states.inactive}</option>
+          <option value="draft">{stateLabels.draft}</option>
+          <option value="available">{stateLabels.available}</option>
+          <option value="withheld">{stateLabels.withheld}</option>
+          <option value="inactive">{stateLabels.inactive}</option>
         </select>
       </label>
       <label>
