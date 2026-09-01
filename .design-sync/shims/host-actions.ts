@@ -4,14 +4,24 @@
 // types below mirror the real exports exactly (types are re-imported from the
 // real file, so drift is a typecheck error, not a silent lie). The bodies are
 // inert because static preview cards never submit.
-import type { CaptureState } from "../../src/app/[locale]/(host)/actions";
+import type {
+  CaptureResultState,
+  CaptureState,
+} from "../../src/app/[locale]/(host)/actions";
 
-export type { CaptureState };
+export type { CaptureResultState, CaptureState };
 
 export async function captureInvitationAction(
   _previous: CaptureState,
   _formData: FormData,
 ): Promise<CaptureState> {
+  return { status: "idle" };
+}
+
+export async function revealCapturedInvitationAction(
+  _previous: CaptureResultState,
+  _formData: FormData,
+): Promise<CaptureResultState> {
   return { status: "idle" };
 }
 

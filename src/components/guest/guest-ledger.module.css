@@ -5,6 +5,7 @@
   --guest-muted: var(--graphite, #5d625f);
   --guest-rule: color-mix(in srgb, var(--guest-ink) 24%, transparent);
   --guest-teal: var(--teal, #0c615b);
+  --guest-accent-soft: var(--accent-soft, #3f9e94);
   background: var(--guest-paper);
   color: var(--guest-ink);
   min-height: 100vh;
@@ -22,8 +23,9 @@
   position: relative;
 }
 
+/* Decorative only -- the soft accent is not contrast-safe for text. */
 .ledger::before {
-  background: var(--guest-teal);
+  background: var(--guest-accent-soft);
   content: "";
   inset: 0 auto 0 clamp(0.7rem, 2vw, 1.4rem);
   position: absolute;
@@ -347,15 +349,5 @@
 
   .ledger {
     box-shadow: none;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .shell {
-    --guest-paper: #111615;
-    --guest-sheet: #19201e;
-    --guest-ink: #f0eee7;
-    --guest-muted: #b9c0bc;
-    --guest-teal: #70bdb6;
   }
 }

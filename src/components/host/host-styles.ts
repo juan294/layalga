@@ -10,7 +10,7 @@ export const rule = "var(--rule)";
 export const panelStyle: CSSProperties = {
   background: sheet,
   border: `1px solid ${ink}`,
-  boxShadow: "4px 4px 0 rgba(32, 35, 31, 0.12)",
+  boxShadow: "4px 4px 0 color-mix(in srgb, var(--ink) 12%, transparent)",
   padding: "clamp(1rem, 3vw, 1.75rem)",
 };
 

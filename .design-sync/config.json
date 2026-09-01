@@ -7,9 +7,7 @@
   "srcDir": "src/components",
   "tsconfig": ".design-sync/sync-tsconfig.json",
   "cssEntry": "src/app/globals.css",
-  "extraFonts": [
-    ".design-sync/fonts/layalga-fonts.css"
-  ],
+  "extraFonts": [".design-sync/fonts/layalga-fonts.css"],
   "componentSrcMap": {
     "CalendarLedger": "src/components/host/calendar-ledger.tsx",
     "CaptureInvitationForm": "src/components/host/capture-invitation-form.tsx",
@@ -32,7 +30,7 @@
     }
   },
   "dtsPropsFor": {
-    "CalendarLedger": "locale: string;\nmonth: Date;\nvisits: { id: string; familyName: string; start: string; end: string; status: string; rooms: string[] }[];\nstatusLabels: Record<string, string>;\nemptyLabel: string;\nroomsLabel: string;",
+    "CalendarLedger": "locale: string;\nmonth: Date;\nvisits: { id: string; familyName: string; start: string; end: string; status: string; rooms: string[] }[];\nstatusLabels: Record<string, string>;\nemptyLabel: string;\nroomsLabel: string;\nnavigation: { previousHref: string; previousLabel: string; nextHref: string; nextLabel: string; visitCountLabel: string };",
     "PendingDecisions": "decisions: { id: string; status: \"pending\" | \"approved\" | \"declined\"; partyName: string; partySummary: string; reason: string; note: string | null; applicationFailed: boolean; requestedAt: string }[];\nlocale: string;\nlabels: { empty: string; reason: string; requested: string; note: string; notePlaceholder: string; approve: string; decline: string; retryApproved: string; retryDeclined: string; retryHelp: string };",
     "CaptureInvitationForm": "locale: string;\nlabels: { message: string; placeholder: string; submit: string; pending: string; result: string; structured: string; guestLink: string; copy: string; copied: string; copyFailed: string; emptyError: string; failedError: string };",
     "DemoClockPanel": "current: string;\nhomeId: string;\nlocale: string;\ntimeZone: string;\nlabels: { current: string; chase: string; escalation: string; custom: string; set: string; working: string; error: string };",

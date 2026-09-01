@@ -132,13 +132,3 @@
     animation: none;
   }
 }
-
-@media (prefers-color-scheme: dark) {
-  .shell {
-    --run-paper: #111615;
-    --run-sheet: #19201e;
-    --run-ink: #f0eee7;
-    --run-muted: #b9c0bc;
-    --run-teal: #70bdb6;
-  }
-}
