@@ -9,7 +9,7 @@
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
 }
 .door {
-  --door-state: var(--graphite);
+  --door-state: var(--state-closed);
   align-items: center;
   border-right: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   display: grid;
@@ -19,17 +19,17 @@
   padding: 0.75rem;
 }
 .door[data-door-state="available"] {
-  --door-state: var(--teal);
+  --door-state: var(--state-available);
 }
 .door[data-door-state="occupied"] {
-  --door-state: #a14a2c;
+  --door-state: var(--state-occupied);
 }
 .door[data-door-state="private"] {
-  --door-state: #72508f;
+  --door-state: var(--state-private);
 }
 .door[data-door-state="closed"],
 .door[data-door-state="withheld"] {
-  --door-state: var(--graphite);
+  --door-state: var(--state-closed);
 }
 .doorShape {
   border: 2px solid var(--door-state);
@@ -39,6 +39,14 @@
   height: 2.5rem;
   position: relative;
   width: 1.1rem;
+}
+.door[data-door-state="closed"] .doorShape,
+.door[data-door-state="withheld"] .doorShape {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0 3px,
+    color-mix(in srgb, var(--door-state) 45%, transparent) 3px 5px
+  );
 }
 .doorShape::after {
   background: var(--door-state);

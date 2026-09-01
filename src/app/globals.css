@@ -12,6 +12,13 @@
   --teal: #14596b;
   --accent-soft: #3f9e94;
   --focus: var(--teal);
+  /* Door states are deliberately season-independent: "available" must mean the
+     same colour in July and November. Hue-separated from each other and from
+     all four seasonal accents. */
+  --state-available: #2c7d75;
+  --state-occupied: #8e4256;
+  --state-private: #72508f;
+  --state-closed: #8a8478;
   --interactive-target: 2.75rem;
   --interactive-target-compact: 2.25rem;
   background: var(--paper);
@@ -334,6 +341,15 @@ a {
 
   html[data-season="invierno"] {
     --teal: #8fb3c9;
+  }
+
+  /* Door states lift ~20% L for the dark ground. No seasonal blocks declare
+     them, so a plain :root is enough. */
+  :root {
+    --state-available: #5faaa1;
+    --state-occupied: #b77083;
+    --state-private: #a183bf;
+    --state-closed: #a9a296;
   }
 }
 
