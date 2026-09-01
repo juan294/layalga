@@ -4,6 +4,26 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-01
+
+### Added
+
+- Added a seasonal palette that rotates the interface accent through the year.
+- Added a dependency and security baseline with issue templates, a pull request template, Dependabot, CodeQL, and dependency review.
+
+### Fixed
+
+- Decoupled door states from the seasonal accent so status colour never shifts with the season.
+- Kept the unknown door state visually neutral.
+- Fixed mobile viewport units and tap targets across the host and guest journeys.
+- Restored 44px touch targets on selects and guest fields.
+- Scoped the push accountability hook guards to the git push segment so unrelated commands are no longer intercepted.
+
+### Changed
+
+- Made the host RoomLedger a presentational design-system component.
+- Consolidated the September dependency updates.
+
 ## [0.2.0] - 2026-08-31
 
 ### Added
