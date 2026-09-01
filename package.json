@@ -40,7 +40,7 @@
     "drizzle-orm": "0.45.2",
     "fastify": "5.12.1",
     "next": "16.3.3",
-    "next-intl": "4.13.7",
+    "next-intl": "4.14.1",
     "postgres": "3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
