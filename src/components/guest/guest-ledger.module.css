@@ -154,6 +154,7 @@
   border-radius: 0;
   color: var(--guest-ink);
   font: inherit;
+  min-height: var(--interactive-target);
   min-width: 0;
   padding: 0.68rem 0.72rem;
   width: 100%;
