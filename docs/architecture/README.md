@@ -49,3 +49,20 @@ Calendar text is deliberately generic. It can contain guest counts and guest-vis
 ## Real-house setup boundary
 
 The repository contains synthetic room fixtures only. A host adds real room facts through the authenticated room ledger. Incomplete inventory remains draft and unavailable. Real house plans, photographs, source paths, and private notes do not belong in the repository, prompts, guest output, WebMCP output, audit payloads, or calendar text.
+
+## Draw.io diagram
+
+`layalga-architecture.drawio` is a second, more detailed view of the same
+system, drawn as native draw.io XML. It names the concrete routes, tools,
+tables and roles rather than the boxes-and-labels summary above.
+
+`layalga-architecture.drawio.png` is the paired export. It embeds the full
+diagram XML, so opening the PNG in draw.io recovers the editable source.
+Regenerate it after editing the XML:
+
+```bash
+/Applications/draw.io.app/Contents/MacOS/draw.io \
+  -x -f png -e -b 16 -s 1.5 \
+  -o docs/architecture/layalga-architecture.drawio.png \
+  docs/architecture/layalga-architecture.drawio
+```
