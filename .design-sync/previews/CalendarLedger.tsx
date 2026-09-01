@@ -12,12 +12,30 @@ const STATUS_LABELS = {
 
 const SEPTEMBER = new Date(Date.UTC(2026, 8, 1));
 
+// The real page builds these hrefs from the ?month= query parameter; a static
+// preview card only needs them to be shaped like the real ones.
+function navigationFor(visitCount: number) {
+  return {
+    previousHref: "/en?month=2026-08",
+    previousLabel: "Previous month",
+    nextHref: "/en?month=2026-10",
+    nextLabel: "Next month",
+    visitCountLabel:
+      visitCount === 0
+        ? "No visits this month"
+        : visitCount === 1
+          ? "1 visit this month"
+          : `${visitCount} visits this month`,
+  };
+}
+
 export function BookedMonth() {
   return (
     <CalendarLedger
       emptyLabel="No visits this month"
       locale="en"
       month={SEPTEMBER}
+      navigation={navigationFor(2)}
       roomsLabel="Rooms"
       statusLabels={STATUS_LABELS}
       visits={[
@@ -51,6 +69,7 @@ export function OverlappingStays() {
       emptyLabel="No visits this month"
       locale="en"
       month={SEPTEMBER}
+      navigation={navigationFor(3)}
       roomsLabel="Rooms"
       statusLabels={STATUS_LABELS}
       visits={[
@@ -89,6 +108,7 @@ export function EmptyMonth() {
       emptyLabel="No visits this month"
       locale="en"
       month={SEPTEMBER}
+      navigation={navigationFor(0)}
       roomsLabel="Rooms"
       statusLabels={STATUS_LABELS}
       visits={[]}
