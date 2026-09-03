@@ -163,7 +163,7 @@ describe("agent-first room schema", () => {
 
     expect(room).toEqual({
       beds: 2,
-      guest_label: "Horreu Room",
+      guest_label: "Guest Room",
       inventory_state: "available",
       maximum_capacity: 2,
     });

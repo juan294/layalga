@@ -59,7 +59,7 @@ describe("durable demo browser flows", () => {
       "DTEND;VALUE=DATE:20260924",
       "STATUS:CONFIRMED",
       "SUMMARY:Private room use",
-      "DESCRIPTION:Rooms: Horreu Room",
+      "DESCRIPTION:Rooms: Guest Room",
       "END:VEVENT",
       "END:VCALENDAR",
       "",
@@ -69,12 +69,12 @@ describe("durable demo browser flows", () => {
     expect(() =>
       assertCalendarPrivacy(safeCalendar, [
         "DEMO-PRIVATE-ROOM-MARKER",
-        "Cuartu del Horreu",
+        "Upstairs guest room",
         "private@example.com",
       ]),
     ).not.toThrow();
     const foldedLeak = safeCalendar.replace(
-      "DESCRIPTION:Rooms: Horreu Room",
+      "DESCRIPTION:Rooms: Guest Room",
       "DESCRIPTION:Private\\, mar\r\n ker\\;with\\\\slash",
     );
     expect(() =>
