@@ -20,14 +20,17 @@ export interface AgentClient {
 
 export class LocalAgentClient implements AgentClient {
   async run(payload: AgentTask): Promise<RunResult> {
-    return runAgentTask(payload, await runtimeDeps(payload));
+    return runAgentTask(
+      payload,
+      await runtimeDeps(payload, { executionRuntime: "local" }),
+    );
   }
 
   async enqueue(
     payload: AgentTask,
     options: { opportunistic?: boolean } = {},
   ): Promise<RunResult> {
-    const deps = await runtimeDeps(payload);
+    const deps = await runtimeDeps(payload, { executionRuntime: "local" });
     const result = await enqueueAgentTask(payload, deps);
     if (result.status === "queued" && options.opportunistic !== false) {
       after(() =>
@@ -43,6 +46,9 @@ export class LocalAgentClient implements AgentClient {
   }
 
   async executeQueued(runId: string, payload: AgentTask): Promise<RunResult> {
-    return executeQueuedAgentRun(runId, await runtimeDeps(payload));
+    return executeQueuedAgentRun(
+      runId,
+      await runtimeDeps(payload, { executionRuntime: "local" }),
+    );
   }
 }

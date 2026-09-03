@@ -16,17 +16,36 @@ import {
 } from "@/core/reconfirmation/jobs";
 
 import { buildAgent } from "./agent";
-import type { AgentAuthority, AgentDeps } from "./deps";
-import { agentTaskSchema, type AgentTask, type RunResult } from "./task";
+import type { AgentAuthority, AgentDeps, ExecutionRuntime } from "./deps";
+import {
+  agentTaskSchema,
+  parseStoredRunResult,
+  type AgentTask,
+  type RunResult,
+} from "./task";
 
 export interface RunAgentDeps extends AgentDeps {
   model?: Model<BaseModelConfig>;
+  executionRuntime?: ExecutionRuntime;
 }
 
 const AGENT_EXECUTION_FAILURE = {
   code: "agent_execution_failed",
   summary: "The agent could not complete this request.",
 } as const;
+
+/** Resolves the execution runtime for a deps object exactly once per entry point. */
+function runtimeOf(deps: RunAgentDeps): ExecutionRuntime {
+  return deps.executionRuntime ?? "local";
+}
+
+/** The `{ summary, executedOn }` shape every terminal run-result write carries. */
+function terminalResultJson(
+  summary: string,
+  executedOn: ExecutionRuntime,
+): { summary: string; executedOn: ExecutionRuntime } {
+  return { summary, executedOn };
+}
 
 export async function runAgentTask(
   payload: AgentTask,
@@ -72,6 +91,7 @@ export async function executeQueuedAgentRun(
   runId: string,
   deps: RunAgentDeps,
 ): Promise<RunResult> {
+  const executedOn = runtimeOf(deps);
   const sql = sqlClient(deps.db);
   const claimed = await claimQueuedRun(sql, runId, deps.clock.now());
   if (!claimed) {
@@ -102,12 +122,12 @@ export async function executeQueuedAgentRun(
 
   const parsed = agentTaskSchema.safeParse(claimed.payload);
   if (!parsed.success) {
-    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    await failClaimedRun(sql, runId, claimed.queue_claim_token, executedOn);
     throw new Error("Persisted agent task is invalid");
   }
   const task = parsed.data;
   if (task.homeId !== claimed.home_id) {
-    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    await failClaimedRun(sql, runId, claimed.queue_claim_token, executedOn);
     throw new Error("Persisted agent task is outside its run home");
   }
 
@@ -120,7 +140,7 @@ export async function executeQueuedAgentRun(
       claimed.session_id,
     );
   } catch (error) {
-    await failClaimedRun(sql, runId, claimed.queue_claim_token);
+    await failClaimedRun(sql, runId, claimed.queue_claim_token, executedOn);
     throw error;
   }
 }
@@ -132,6 +152,7 @@ async function executeClaimedAgentTask(
   sessionId: string,
 ): Promise<RunResult> {
   const sql = sqlClient(deps.db);
+  const executedOn = runtimeOf(deps);
 
   try {
     if (task.task === "guest_reconfirm" && task.answer === "yes") {
@@ -150,6 +171,7 @@ async function executeClaimedAgentTask(
         "Reconfirmed",
         deps.clock.now(),
         run.claimToken,
+        executedOn,
       );
     }
 
@@ -241,9 +263,7 @@ async function executeClaimedAgentTask(
       }
       await sql`
         update public.runs set status = 'interrupted', result = ${JSON.stringify(
-          {
-            summary: result.toString(),
-          },
+          terminalResultJson(result.toString(), executedOn),
         )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()},
           queue_claim_token = null, queue_claimed_at = null, last_error = null
         where id = ${run.id} and status = 'running'
@@ -255,6 +275,7 @@ async function executeClaimedAgentTask(
         sessionId,
         pendingDecisionIds: ids,
         summary: result.toString(),
+        executedOn,
       };
     }
 
@@ -297,13 +318,15 @@ async function executeClaimedAgentTask(
       result.toString(),
       deps.clock.now(),
       run.claimToken,
+      executedOn,
     );
   } catch (error) {
     const summary = error instanceof Error ? error.message : String(error);
     await sql`
-      update public.runs set status = 'failed', result = ${JSON.stringify(
-        AGENT_EXECUTION_FAILURE,
-      )}::text::jsonb,
+      update public.runs set status = 'failed', result = ${JSON.stringify({
+        ...AGENT_EXECUTION_FAILURE,
+        ...terminalResultJson(AGENT_EXECUTION_FAILURE.summary, executedOn),
+      })}::text::jsonb,
         finished_at = ${deps.clock.now().toISOString()},
         queue_claim_token = null, queue_claimed_at = null,
         last_error = 'Agent execution failed'
@@ -399,11 +422,15 @@ async function failClaimedRun(
   sql: ReturnType<typeof sqlClient>,
   runId: string,
   claimToken: string,
+  executedOn: ExecutionRuntime,
 ): Promise<void> {
   await sql`
     update public.runs
     set status = 'failed', finished_at = now(),
-      result = ${JSON.stringify(AGENT_EXECUTION_FAILURE)}::text::jsonb,
+      result = ${JSON.stringify({
+        ...AGENT_EXECUTION_FAILURE,
+        ...terminalResultJson(AGENT_EXECUTION_FAILURE.summary, executedOn),
+      })}::text::jsonb,
       queue_claimed_at = null, queue_claim_token = null,
       last_error = 'Agent execution failed'
     where id = ${runId} and status = 'running'
@@ -567,7 +594,8 @@ async function storedRunResult(
   status: "completed" | "interrupted" | "failed",
   storedResult: unknown,
 ): Promise<RunResult> {
-  const summary = objectString(storedResult, "summary") ?? "Agent run finished";
+  const { summary = "Agent run finished", executedOn } =
+    parseStoredRunResult(storedResult);
   const pendingDecisionIds =
     status === "interrupted"
       ? (
@@ -578,22 +606,7 @@ async function storedRunResult(
           `
         ).map(({ id }) => id)
       : [];
-  return { runId, sessionId, status, pendingDecisionIds, summary };
-}
-
-function objectString(value: unknown, key: string): string | undefined {
-  if (typeof value === "string") {
-    try {
-      return objectString(JSON.parse(value), key);
-    } catch {
-      return undefined;
-    }
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return undefined;
-  }
-  const candidate = (value as Record<string, unknown>)[key];
-  return typeof candidate === "string" ? candidate : undefined;
+  return { runId, sessionId, status, pendingDecisionIds, summary, executedOn };
 }
 
 function actorKeyForTask(task: AgentTask): string {
@@ -663,9 +676,12 @@ async function finish(
   summary: string,
   now: Date,
   claimToken: string,
+  executedOn: ExecutionRuntime,
 ): Promise<RunResult> {
   const [completed] = await sql<{ id: string }[]>`
-    update public.runs set status = 'completed', result = ${JSON.stringify({ summary })}::text::jsonb,
+    update public.runs set status = 'completed', result = ${JSON.stringify(
+      terminalResultJson(summary, executedOn),
+    )}::text::jsonb,
       finished_at = ${now.toISOString()}, heartbeat_at = ${now.toISOString()},
       queue_claimed_at = null, queue_claim_token = null, last_error = null
       where id = ${runId} and status = 'running'
@@ -679,6 +695,7 @@ async function finish(
     sessionId,
     pendingDecisionIds: [],
     summary,
+    executedOn,
   };
 }
 

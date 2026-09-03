@@ -91,6 +91,7 @@ describe("durable agent queue", () => {
         result: {
           code: "agent_execution_failed",
           summary: "The agent could not complete this request.",
+          executedOn: "local",
         },
       });
     } finally {

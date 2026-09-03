@@ -10,6 +10,7 @@ const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
   VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
   AGENT_RUNTIME: z.string().optional(),
+  AGENT_EXECUTION_RUNTIME: z.string().optional(),
   MODEL: z.string().optional(),
   SCHEDULER: z.string().optional(),
   APP_URL: z.string().optional(),
@@ -29,6 +30,13 @@ const rawEnvironmentSchema = z.object({
 
 export interface ServerEnvironment {
   production: boolean;
+  /**
+   * True inside the AgentCore container process itself (distinguished by
+   * `AGENT_EXECUTION_RUNTIME=agentcore`), as opposed to the Vercel web app.
+   * The agent process validates a narrower production contract: it never
+   * dispatches to itself and carries none of the web app's own secrets.
+   */
+  agentProcess: boolean;
   agentRuntime: z.infer<typeof agentRuntimeSchema>;
   model: z.infer<typeof modelSchema>;
   scheduler: z.infer<typeof schedulerSchema>;
@@ -56,10 +64,16 @@ export function parseServerEnvironment(
   const raw = rawEnvironmentSchema.parse(environment);
   const production =
     raw.VERCEL_ENV === "production" || raw.NODE_ENV === "production";
+  const agentProcess = parseAgentProcessFlag(raw.AGENT_EXECUTION_RUNTIME);
+  // The AgentCore container runs with NODE_ENV=production but is not the web
+  // app: it never dispatches to itself and carries none of the web app's own
+  // secrets, so only this narrower slice of the production contract applies.
+  const productionWebContract = production && !agentProcess;
+
   const agentRuntime = parseMode(
     agentRuntimeSchema,
     raw.AGENT_RUNTIME,
-    production ? undefined : "local",
+    productionWebContract ? undefined : "local",
     "AGENT_RUNTIME",
   );
   const model = parseMode(
@@ -71,7 +85,7 @@ export function parseServerEnvironment(
   const scheduler = parseMode(
     schedulerSchema,
     raw.SCHEDULER,
-    production ? undefined : "none",
+    productionWebContract ? undefined : "none",
     "SCHEDULER",
   );
   const appUrl = requiredValue(
@@ -85,22 +99,24 @@ export function parseServerEnvironment(
   }
 
   if (production) {
+    requireLength(raw.DATABASE_URL, 1, "DATABASE_URL");
+    requireLength(raw.LINK_TOKEN_SECRET, 32, "LINK_TOKEN_SECRET");
+    requireUrl(raw.DATABASE_URL, "DATABASE_URL");
+  }
+  if (productionWebContract) {
     for (const [key, value, minimum] of [
-      ["DATABASE_URL", raw.DATABASE_URL, 1],
       ["NEXT_PUBLIC_SUPABASE_URL", raw.NEXT_PUBLIC_SUPABASE_URL, 1],
       [
         "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
         raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         1,
       ],
-      ["LINK_TOKEN_SECRET", raw.LINK_TOKEN_SECRET, 32],
       ["CALENDAR_FEED_SECRET", raw.CALENDAR_FEED_SECRET, 32],
       ["AGENT_ROUTE_SECRET", raw.AGENT_ROUTE_SECRET, 32],
       ["CRON_SECRET", raw.CRON_SECRET, 32],
     ] as const) {
       requireLength(value, minimum, key);
     }
-    requireUrl(raw.DATABASE_URL, "DATABASE_URL");
     requireHttpsUrl(raw.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL");
   }
 
@@ -123,6 +139,7 @@ export function parseServerEnvironment(
 
   return {
     production,
+    agentProcess,
     agentRuntime,
     model,
     scheduler,
@@ -154,13 +171,24 @@ export function serverEnvironmentReadiness(
   const issues = new Map<string, EnvironmentIssue>();
   const add = (key: string, code: EnvironmentIssue["code"]) =>
     issues.set(key, { key, code });
+
+  let agentProcess = false;
+  if (values.AGENT_EXECUTION_RUNTIME) {
+    if (values.AGENT_EXECUTION_RUNTIME === "agentcore") agentProcess = true;
+    else add("AGENT_EXECUTION_RUNTIME", "invalid");
+  }
+  // See parseServerEnvironment: the AgentCore container process validates a
+  // narrower production contract than the web app.
+  const productionWebContract = production && !agentProcess;
+
   const mode = <T extends string>(
     key: string,
     value: string | undefined,
     allowed: readonly T[],
     fallback: T,
+    requireExplicit: boolean,
   ): T | undefined => {
-    const candidate = value ?? (production ? undefined : fallback);
+    const candidate = value ?? (requireExplicit ? undefined : fallback);
     if (!candidate) {
       add(key, "missing");
       return undefined;
@@ -176,13 +204,21 @@ export function serverEnvironmentReadiness(
     values.AGENT_RUNTIME,
     agentRuntimeSchema.options,
     "local",
+    productionWebContract,
   );
-  const model = mode("MODEL", values.MODEL, modelSchema.options, "scripted");
+  const model = mode(
+    "MODEL",
+    values.MODEL,
+    modelSchema.options,
+    "scripted",
+    production,
+  );
   const scheduler = mode(
     "SCHEDULER",
     values.SCHEDULER,
     schedulerSchema.options,
     "none",
+    productionWebContract,
   );
   const appUrl =
     values.APP_URL ?? (production ? undefined : "http://localhost:3008");
@@ -200,18 +236,20 @@ export function serverEnvironmentReadiness(
   };
   if (production) {
     require("DATABASE_URL");
-    require("NEXT_PUBLIC_SUPABASE_URL");
-    require("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
     require("LINK_TOKEN_SECRET", 32);
-    require("CALENDAR_FEED_SECRET", 32);
-    require("AGENT_ROUTE_SECRET", 32);
-    require("CRON_SECRET", 32);
     if (
       values.DATABASE_URL &&
       !z.url().safeParse(values.DATABASE_URL).success
     ) {
       add("DATABASE_URL", "invalid");
     }
+  }
+  if (productionWebContract) {
+    require("NEXT_PUBLIC_SUPABASE_URL");
+    require("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+    require("CALENDAR_FEED_SECRET", 32);
+    require("AGENT_ROUTE_SECRET", 32);
+    require("CRON_SECRET", 32);
     if (
       values.NEXT_PUBLIC_SUPABASE_URL &&
       (!z.url().safeParse(values.NEXT_PUBLIC_SUPABASE_URL).success ||
@@ -231,6 +269,19 @@ export function serverEnvironmentReadiness(
     require("SCHEDULER_DLQ_ARN");
   }
   return { ready: issues.size === 0, issues: [...issues.values()] };
+}
+
+/**
+ * `AGENT_EXECUTION_RUNTIME` selects the agent-process profile. Unset or
+ * empty means "not the agent process"; any value other than "agentcore" is
+ * a configuration mistake, not an unrecognized mode.
+ */
+function parseAgentProcessFlag(value: string | undefined): boolean {
+  if (!value) return false;
+  if (value !== "agentcore") {
+    throw fieldError("AGENT_EXECUTION_RUNTIME", "Invalid enum value");
+  }
+  return true;
 }
 
 function parseMode<T extends z.ZodType<string>>(

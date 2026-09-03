@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertDemoSnapshot,
+  markerSuffix,
   normalizeBaseUrl,
   parseReleaseCliOptions,
   safeErrorMessage,
@@ -96,7 +97,41 @@ describe("parseReleaseCliOptions", () => {
       baseUrl: "http://localhost:3008",
       expectedCommit: undefined,
       headed: false,
+      expectedRuntime: undefined,
     });
+  });
+
+  it("parses --expect-runtime local or agentcore", () => {
+    expect(
+      parseReleaseCliOptions(["--expect-runtime", "agentcore"], {}),
+    ).toMatchObject({ expectedRuntime: "agentcore" });
+    expect(
+      parseReleaseCliOptions(["--expect-runtime", "local"], {}),
+    ).toMatchObject({ expectedRuntime: "local" });
+  });
+
+  it("rejects an unknown --expect-runtime value", () => {
+    expect(() =>
+      parseReleaseCliOptions(["--expect-runtime", "bogus"], {}),
+    ).toThrow(/must be "local" or "agentcore"/);
+  });
+
+  it("requires a value for --expect-runtime", () => {
+    expect(() => parseReleaseCliOptions(["--expect-runtime"], {})).toThrow(
+      /requires a value/,
+    );
+  });
+});
+
+describe("markerSuffix", () => {
+  it("wraps the marker in a leading space and brackets", () => {
+    expect(markerSuffix("release-probe:abc")).toBe(" [release-probe:abc]");
+  });
+
+  it("produces a suffix a tagged raw message ends with", () => {
+    const marker = "agentcore-smoke:abc-123";
+    const rawMessage = `Some message${markerSuffix(marker)}`;
+    expect(rawMessage.endsWith(markerSuffix(marker))).toBe(true);
   });
 });
 

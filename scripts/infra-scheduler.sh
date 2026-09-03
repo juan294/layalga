@@ -2,14 +2,6 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-runtime_adr="$repository_root/docs/decisions/0002-agent-runtime.md"
-
-# Phase 0 selected the local runtime. Check this before every AWS command so
-# running the Phase 4 bootstrap is a safe, documented no-op for that verdict.
-if grep -Eq 'Use the local Next\.js runtime path|AGENT_RUNTIME=local' "$runtime_adr"; then
-  echo "SKIP: Phase 0 selected AGENT_RUNTIME=local; no Scheduler, SQS, or IAM resources were created."
-  exit 0
-fi
 
 : "${AGENTCORE_RUNTIME_ARN:?AGENTCORE_RUNTIME_ARN is required for the AgentCore scheduler path}"
 

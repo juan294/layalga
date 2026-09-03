@@ -24,6 +24,14 @@ describe("agent request safety", () => {
     const task = hostTask(fixture, "Invite the Vega family next weekend.");
     try {
       const first = await runAgentTask(task, deps(model, clock));
+      expect(first).toMatchObject({
+        status: "completed",
+        executedOn: "local",
+      });
+      const [storedResult] = await sql<{ result: unknown }[]>`
+        select result from public.runs where id = ${first.runId}
+      `;
+      expect(storedResult?.result).toMatchObject({ executedOn: "local" });
       const replay = await runAgentTask(task, deps(model, clock));
 
       expect(replay).toEqual(first);

@@ -11,6 +11,24 @@ const task: AgentTask = {
 };
 const runId = "33333333-3333-4333-8333-333333333333";
 
+describe("AgentCoreClient", () => {
+  it("resolves a bare tick task to the terminal RunResult AgentCore returns", async () => {
+    const runResult = {
+      runId,
+      status: "completed" as const,
+      sessionId: `tick_${task.jobId}`,
+      pendingDecisionIds: [],
+      summary: "Tick complete.",
+      executedOn: "agentcore" as const,
+    };
+    const invoke = vi.fn(async () => runResult);
+    const client = new AgentCoreClient("runtime", "eu-west-1", { invoke });
+
+    await expect(client.run(task)).resolves.toEqual(runResult);
+    expect(invoke).toHaveBeenCalledWith(task);
+  });
+});
+
 describe("AgentCoreClient durable queue", () => {
   it("persists once and dispatches the same run ID", async () => {
     const persist = vi.fn(async () => ({

@@ -33,4 +33,28 @@ describe("AgentCore request boundary", () => {
       runId: "33333333-3333-4333-8333-333333333333",
     });
   });
+
+  it("parses a scheduled-tick envelope", () => {
+    expect(
+      parseAgentCoreRequest({
+        operation: "scheduled_tick",
+        homeId: "11111111-1111-4111-8111-111111111111",
+        jobId: "22222222-2222-4222-8222-222222222222",
+      }),
+    ).toMatchObject({
+      operation: "scheduled_tick",
+      homeId: "11111111-1111-4111-8111-111111111111",
+      jobId: "22222222-2222-4222-8222-222222222222",
+    });
+  });
+
+  it("rejects an unknown operation", () => {
+    expect(() =>
+      parseAgentCoreRequest({
+        operation: "unknown",
+        homeId: "11111111-1111-4111-8111-111111111111",
+        jobId: "22222222-2222-4222-8222-222222222222",
+      }),
+    ).toThrow();
+  });
 });

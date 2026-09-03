@@ -104,4 +104,66 @@ describe("server environment", () => {
       code: "missing",
     });
   });
+
+  describe("agent-process profile", () => {
+    function agentProfileEnv(
+      overrides: Record<string, string | undefined> = {},
+    ) {
+      return {
+        NODE_ENV: "production" as const,
+        AGENT_EXECUTION_RUNTIME: "agentcore",
+        DATABASE_URL: "postgresql://database.example/postgres",
+        APP_URL: "https://layalga.example",
+        LINK_TOKEN_SECRET: "l".repeat(32),
+        MODEL: "bedrock",
+        BEDROCK_MODEL_ID: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+        AWS_REGION: "us-east-1",
+        ...overrides,
+      };
+    }
+
+    it("validates the AgentCore process against a narrower production contract", () => {
+      expect(parseServerEnvironment(agentProfileEnv())).toMatchObject({
+        agentProcess: true,
+        agentRuntime: "local",
+        scheduler: "none",
+      });
+    });
+
+    it("keeps requiring AGENT_RUNTIME for the web app when the flag is absent", () => {
+      expect(() =>
+        parseServerEnvironment(
+          agentProfileEnv({ AGENT_EXECUTION_RUNTIME: undefined }),
+        ),
+      ).toThrow(/AGENT_RUNTIME/);
+    });
+
+    it("rejects an unrecognized AGENT_EXECUTION_RUNTIME value", () => {
+      expect(() =>
+        parseServerEnvironment(
+          agentProfileEnv({ AGENT_EXECUTION_RUNTIME: "bogus" }),
+        ),
+      ).toThrow(/AGENT_EXECUTION_RUNTIME/);
+    });
+
+    it("still requires LINK_TOKEN_SECRET and an https APP_URL for the agent process", () => {
+      expect(() =>
+        parseServerEnvironment(
+          agentProfileEnv({ LINK_TOKEN_SECRET: undefined }),
+        ),
+      ).toThrow(/LINK_TOKEN_SECRET/);
+      expect(() =>
+        parseServerEnvironment(
+          agentProfileEnv({ APP_URL: "http://layalga.example" }),
+        ),
+      ).toThrow(/APP_URL/);
+    });
+
+    it("mirrors the agent-process profile in readiness checks", () => {
+      expect(serverEnvironmentReadiness(agentProfileEnv())).toEqual({
+        ready: true,
+        issues: [],
+      });
+    });
+  });
 });

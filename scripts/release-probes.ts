@@ -6,10 +6,13 @@ import { z } from "zod";
 
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { hashLinkToken } from "../src/core/booking/invitations";
+import { parseStoredRunResult } from "../src/agent/task";
 import { DEMO_SEED, seedDemo } from "./seed-demo";
 import { runDemoE2E } from "./demo-e2e";
 import {
+  cleanupTaggedRunArtifacts,
   isDirectExecution,
+  markerSuffix,
   parseReleaseCliOptions,
   requiredEnvironment,
   responseJson,
@@ -42,7 +45,6 @@ const storedRunSchema = z.object({
   status: z.enum(["queued", "running", "completed", "interrupted", "failed"]),
   result: z.unknown().nullable(),
 });
-const storedResultSchema = z.object({ summary: z.string() });
 const roomCoordinationProofSchema = z.object({
   proposalCreated: z.literal(true),
   privateBlockApplied: z.literal(true),
@@ -66,6 +68,7 @@ interface TerminalProbeRunResult {
   runId: string;
   status: "completed" | "interrupted" | "failed";
   summary: string;
+  executedOn?: "local" | "agentcore";
 }
 
 export async function runReleaseProbes(
@@ -102,8 +105,19 @@ export async function runReleaseProbes(
       2,
       "host capture must create one tagged tentative invitation per host",
     );
+    await assertCaptureRunsExecutedOn(
+      sql,
+      options.expectedRuntime,
+      demo.rawMessages,
+    );
     evidence.push(
-      pass(2, "host capture", "two tagged tentative invitations created"),
+      pass(
+        2,
+        "host capture",
+        options.expectedRuntime
+          ? `two tagged tentative invitations created; host capture executed on ${options.expectedRuntime}`
+          : "two tagged tentative invitations created",
+      ),
     );
 
     await probeGuestConfirmation(sql, demo.rawMessages[0]);
@@ -124,8 +138,19 @@ export async function runReleaseProbes(
     );
 
     await probeInterruptResume(sql, demo.rawMessages[1]);
+    await assertResumeRunExecutedOn(
+      sql,
+      options.expectedRuntime,
+      DEMO_SEED.home.id,
+    );
     evidence.push(
-      pass(5, "interrupt and resume", "one decision approved and applied once"),
+      pass(
+        5,
+        "interrupt and resume",
+        options.expectedRuntime
+          ? `one decision approved and applied once; resume run executed on ${options.expectedRuntime}`
+          : "one decision approved and applied once",
+      ),
     );
 
     assert.equal(demo.visits, 2);
@@ -219,6 +244,73 @@ async function probeHealth(options: ReleaseCliOptions): Promise<void> {
       "deployed commit does not match the release candidate",
     );
   }
+}
+
+/**
+ * Asserts every row's stored run result executed on `expectedRuntime`, doing
+ * nothing when no runtime is asserted. `describe` renders the failure
+ * message for a given row label.
+ */
+function assertExecutedOn(
+  rows: readonly { label: string; result: unknown }[],
+  expectedRuntime: "local" | "agentcore" | undefined,
+  describe: (label: string, expectedRuntime: "local" | "agentcore") => string,
+): void {
+  if (!expectedRuntime) return;
+  for (const row of rows) {
+    const result = parseStoredRunResult(row.result);
+    assert.equal(
+      result.executedOn,
+      expectedRuntime,
+      describe(row.label, expectedRuntime),
+    );
+  }
+}
+
+async function assertCaptureRunsExecutedOn(
+  sql: Sql,
+  expectedRuntime: "local" | "agentcore" | undefined,
+  rawMessages: readonly [string, string],
+): Promise<void> {
+  if (!expectedRuntime) return;
+  const rows = await sql<{ raw_message: string; result: unknown }[]>`
+    select payload->>'rawMessage' as raw_message, result
+    from public.runs
+    where home_id = ${DEMO_SEED.home.id}
+      and task = 'host_capture'
+      and payload->>'rawMessage' = any(${sql.array([...rawMessages])})
+  `;
+  assert.equal(
+    rows.length,
+    2,
+    "expected one host_capture run per tagged invitation",
+  );
+  assertExecutedOn(
+    rows.map((row) => ({ label: row.raw_message, result: row.result })),
+    expectedRuntime,
+    (label, runtime) =>
+      `host capture run for "${label}" must execute on ${runtime}`,
+  );
+}
+
+async function assertResumeRunExecutedOn(
+  sql: Sql,
+  expectedRuntime: "local" | "agentcore" | undefined,
+  homeId: string,
+): Promise<void> {
+  if (!expectedRuntime) return;
+  const [row] = await sql<{ result: unknown }[]>`
+    select run.result
+    from public.runs run
+    join public.pending_decisions decision on decision.applied_run_id = run.id
+    where decision.home_id = ${homeId} and decision.status = 'approved'
+  `;
+  assert.ok(row, "resume run not found for the approved pending decision");
+  assertExecutedOn(
+    [{ label: "resume", result: row.result }],
+    expectedRuntime,
+    (_label, runtime) => `resume run must execute on ${runtime}`,
+  );
 }
 
 async function probeGuestConfirmation(
@@ -427,37 +519,52 @@ export async function drainAndCollectTerminalRunResults(
   runIds: readonly string[],
   drain: () => Promise<void>,
   load: (runIds: readonly string[]) => Promise<readonly unknown[]>,
-  options: { attempts?: number; intervalMs?: number } = {},
+  options: { timeoutMs?: number; pollMs?: number; redrainMs?: number } = {},
 ): Promise<TerminalProbeRunResult[]> {
-  const attempts = options.attempts ?? 40;
-  const intervalMs = options.intervalMs ?? 250;
-  assert.ok(attempts > 0, "terminal run polling needs at least one attempt");
-  await drain();
+  const timeoutMs = options.timeoutMs ?? 90_000;
+  const pollMs = options.pollMs ?? 250;
+  const redrainMs = options.redrainMs ?? 15_000;
+  assert.ok(timeoutMs > 0, "terminal run polling needs a positive timeout");
 
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+  const deadline = Date.now() + timeoutMs;
+  await drain();
+  let lastDrainAt = Date.now();
+
+  for (;;) {
     const rows = (await load(runIds)).map((row) => storedRunSchema.parse(row));
     const rowsById = new Map(rows.map((row) => [row.id, row]));
     const exactRows = runIds.map((runId) => rowsById.get(runId));
     if (exactRows.every(isTerminalStoredRun)) {
       return exactRows.map((row, index) => {
-        const result = storedResultSchema.parse(row.result);
+        const result = parseStoredRunResult(row.result);
         const runId = runIds[index];
         assert.ok(runId, "terminal run result ID is missing");
+        assert.ok(
+          result.summary !== undefined,
+          `terminal run ${runId} is missing a summary`,
+        );
         return {
           runId,
           status: row.status,
           summary: result.summary,
+          executedOn: result.executedOn,
         };
       });
     }
-    if (attempt + 1 < attempts) {
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `queued probe runs did not reach terminal status: ${runIds.join(", ")}`,
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+
+    if (Date.now() - lastDrainAt >= redrainMs) {
+      await drain();
+      lastDrainAt = Date.now();
     }
   }
-
-  throw new Error(
-    `queued probe runs did not reach terminal status: ${runIds.join(", ")}`,
-  );
 }
 
 function isTerminalStoredRun(
@@ -552,115 +659,26 @@ async function cleanupDemoArtifacts(
   runMarker: string,
   linkTokenSecret: string,
 ): Promise<void> {
-  const suffix = ` [${runMarker}]`;
-  const cleanedSessionIds = await sql.begin(async (transaction) => {
-    const invitations = await transaction<{ id: string }[]>`
-      select id
-      from public.invitations
-      where home_id = ${DEMO_SEED.home.id}
-        and right(raw_message, length(${suffix})) = ${suffix}
-      for update
-    `;
-    const invitationIds = invitations.map(({ id }) => id);
-    const visits =
-      invitationIds.length > 0
-        ? await transaction<{ id: string }[]>`
-            select id from public.visits
-            where invitation_id = any(${transaction.array(invitationIds)}::uuid[])
-          `
-        : [];
-    const visitIds = visits.map(({ id }) => id);
-    const jobs =
-      visitIds.length > 0
-        ? await transaction<{ id: string }[]>`
-            select id from public.scheduled_jobs
-            where visit_id = any(${transaction.array(visitIds)}::uuid[])
-          `
-        : [];
-    const sessionIds = [
-      ...DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
-      ...invitationIds.map((id) => `inv_${id}`),
-      ...jobs.map(({ id }) => `tick_${id}`),
-    ];
-    const runs = await transaction<{ id: string }[]>`
-      select id
-      from public.runs
-      where home_id = ${DEMO_SEED.home.id}
-        and (
-          session_id = any(${transaction.array(sessionIds)}::text[])
-          or right(payload->>'rawMessage', length(${suffix})) = ${suffix}
-        )
-    `;
-    const runIds = runs.map(({ id }) => id);
-
-    if (runIds.length > 0) {
-      await transaction`
-        delete from public.audit_events
-        where run_id = any(${transaction.array(runIds)}::uuid[])
-      `;
-      await transaction`
-        delete from public.runs
-        where id = any(${transaction.array(runIds)}::uuid[])
-      `;
-    }
-    if (sessionIds.length > 0) {
-      await transaction`
-        delete from public.agent_sessions
-        where session_id = any(${transaction.array(sessionIds)}::text[])
-      `;
-    }
-    if (invitationIds.length > 0) {
-      await transaction`
-        delete from public.invitations
-        where id = any(${transaction.array(invitationIds)}::uuid[])
-      `;
-    }
-
-    for (const party of DEMO_SEED.parties) {
-      const token = party.guestLink.split("/").at(-1);
-      assert.ok(token, `seed token missing for ${party.familyName}`);
-      await transaction`
-        update public.parties
-        set locale = ${party.locale},
-          link_token = ${hashLinkToken(token, linkTokenSecret)},
-          link_token_expires_at = ${party.linkTokenExpiresAt}
-        where id = ${party.id} and home_id = ${DEMO_SEED.home.id}
-      `;
-    }
-    return sessionIds;
-  });
-
-  const [remaining] = await sql<
+  await cleanupTaggedRunArtifacts(
+    sql,
+    DEMO_SEED.home.id,
+    markerSuffix(runMarker),
     {
-      invitations: number;
-      runs: number;
-      sessions: number;
-    }[]
-  >`
-    select
-      (
-        select count(*)::integer from public.invitations
-        where home_id = ${DEMO_SEED.home.id}
-          and right(raw_message, length(${suffix})) = ${suffix}
-      ) as invitations,
-      (
-        select count(*)::integer from public.runs
-        where home_id = ${DEMO_SEED.home.id}
-          and (
-            right(payload->>'rawMessage', length(${suffix})) = ${suffix}
-            or session_id = any(${sql.array(cleanedSessionIds)}::text[])
-          )
-      ) as runs,
-      (
-        select count(*)::integer from public.agent_sessions
-        where session_id = any(${sql.array(cleanedSessionIds)}::text[])
-      ) as sessions
-  `;
-  assert.deepEqual(
-    remaining,
-    { invitations: 0, runs: 0, sessions: 0 },
-    "tagged demo cleanup was incomplete",
+      extraSessionIds: DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
+    },
   );
+
+  for (const party of DEMO_SEED.parties) {
+    const token = party.guestLink.split("/").at(-1);
+    assert.ok(token, `seed token missing for ${party.familyName}`);
+    await sql`
+      update public.parties
+      set locale = ${party.locale},
+        link_token = ${hashLinkToken(token, linkTokenSecret)},
+        link_token_expires_at = ${party.linkTokenExpiresAt}
+      where id = ${party.id} and home_id = ${DEMO_SEED.home.id}
+    `;
+  }
 }
 
 function pass(probe: number, name: string, detail: string): ProbeEvidence {

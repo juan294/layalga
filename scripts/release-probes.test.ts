@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RunResult } from "../src/agent/task";
 import {
@@ -27,6 +27,10 @@ describe("durable release probe runs", () => {
     ).toThrow(/distinct run ids/i);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("drains once and polls the exact queued runs to terminal results", async () => {
     const drain = vi.fn(async () => undefined);
     const load = vi
@@ -45,23 +49,109 @@ describe("durable release probe runs", () => {
         [firstRunId, secondRunId],
         drain,
         load,
-        { attempts: 2, intervalMs: 0 },
+        { timeoutMs: 10_000, pollMs: 0, redrainMs: 10_000 },
       ),
     ).resolves.toEqual([
       {
         runId: firstRunId,
         status: "completed",
         summary: "Visit confirmed",
+        executedOn: undefined,
       },
       {
         runId: secondRunId,
         status: "completed",
         summary: "No free beds",
+        executedOn: undefined,
       },
     ]);
     expect(drain).toHaveBeenCalledTimes(1);
     expect(load).toHaveBeenCalledTimes(2);
     expect(load).toHaveBeenNthCalledWith(1, [firstRunId, secondRunId]);
+  });
+
+  it("carries the executedOn field through to the terminal result", async () => {
+    const drain = vi.fn(async () => undefined);
+    const load = vi.fn().mockResolvedValueOnce([
+      {
+        id: firstRunId,
+        status: "completed",
+        result: { summary: "Visit confirmed", executedOn: "agentcore" },
+      },
+    ]);
+
+    await expect(
+      drainAndCollectTerminalRunResults([firstRunId], drain, load, {
+        timeoutMs: 1_000,
+        pollMs: 0,
+      }),
+    ).resolves.toEqual([
+      {
+        runId: firstRunId,
+        status: "completed",
+        summary: "Visit confirmed",
+        executedOn: "agentcore",
+      },
+    ]);
+  });
+
+  it("redrains once the redrain interval elapses while waiting", async () => {
+    vi.useFakeTimers();
+    const drain = vi.fn(async () => undefined);
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce([
+        { id: firstRunId, status: "queued", result: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: firstRunId, status: "queued", result: null },
+      ])
+      .mockResolvedValueOnce([
+        { id: firstRunId, status: "queued", result: null },
+      ])
+      .mockResolvedValueOnce([
+        terminalRow(firstRunId, "completed", "Visit confirmed"),
+      ]);
+
+    const resultPromise = drainAndCollectTerminalRunResults(
+      [firstRunId],
+      drain,
+      load,
+      { timeoutMs: 10_000, pollMs: 10, redrainMs: 25 },
+    );
+    await vi.runAllTimersAsync();
+    await expect(resultPromise).resolves.toEqual([
+      {
+        runId: firstRunId,
+        status: "completed",
+        summary: "Visit confirmed",
+        executedOn: undefined,
+      },
+    ]);
+    // One drain before polling, plus at least one redrain triggered by the
+    // elapsed redrainMs interval.
+    expect(drain.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(load).toHaveBeenCalledTimes(4);
+  });
+
+  it("gives up once the timeout elapses without a terminal result", async () => {
+    vi.useFakeTimers();
+    const drain = vi.fn(async () => undefined);
+    const load = vi.fn(async () => [
+      { id: firstRunId, status: "queued", result: null },
+    ]);
+
+    const resultPromise = drainAndCollectTerminalRunResults(
+      [firstRunId],
+      drain,
+      load,
+      { timeoutMs: 50, pollMs: 10, redrainMs: 1_000 },
+    );
+    const assertion = expect(resultPromise).rejects.toThrow(
+      /did not reach terminal status/i,
+    );
+    await vi.runAllTimersAsync();
+    await assertion;
   });
 
   it("requires complete, fixture-bound room coordination evidence", () => {

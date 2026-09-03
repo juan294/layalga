@@ -15,7 +15,7 @@ import type { AgentTask } from "./task";
 
 export { NoopScheduler } from "./scheduler";
 export type { Scheduler } from "./scheduler";
-export type { AgentAuthority, AgentDeps } from "./ports";
+export type { AgentAuthority, AgentDeps, ExecutionRuntime } from "./ports";
 
 export function buildTools(deps: AgentDeps, task: AgentTask["task"]): Tool[] {
   if (task === "host_room_request") {
