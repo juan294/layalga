@@ -41,9 +41,9 @@ insert into public.rooms (
   (
     '00000000-0000-4000-8000-000000000101',
     '00000000-0000-4000-8000-000000000001',
-    'Cuartu del Horreu',
+    'Upstairs guest room',
     2,
-    'Horreu Room',
+    'Guest Room',
     'Upper floor',
     'One double bed',
     null,
@@ -55,9 +55,9 @@ insert into public.rooms (
   (
     '00000000-0000-4000-8000-000000000102',
     '00000000-0000-4000-8000-000000000001',
-    'Cuartu de la Fonte',
+    'Garage conversion',
     2,
-    'Fonte Room',
+    'Garage Room',
     'Ground floor',
     'One sofa bed',
     'One double air mattress',
@@ -69,9 +69,9 @@ insert into public.rooms (
   (
     '00000000-0000-4000-8000-000000000103',
     '00000000-0000-4000-8000-000000000001',
-    'Cuartu del Teixu',
+    'Home office',
     3,
-    'Teixu Room',
+    'Office Room',
     'Upper floor',
     'One double bed',
     null,
@@ -145,7 +145,7 @@ insert into public.invitations (
       'pets', 0,
       'specialRequests', jsonb_build_array(),
       'preferredStay', jsonb_build_array('2026-09-18', '2026-09-21'),
-      'roomAllocation', jsonb_build_array('Cuartu del Teixu', 'Cuartu del Horreu')
+      'roomAllocation', jsonb_build_array('Home office', 'Upstairs guest room')
     ),
     'tentative',
     'a604963ba84cd3d54ed02d284ed2adf8c81aed6273a401cd4ae2edd8c9c0a639',
@@ -165,7 +165,7 @@ insert into public.invitations (
         'Ana''s mother uses a wheelchair and needs ground-floor access'
       ),
       'preferredStay', jsonb_build_array('2026-09-19', '2026-09-21'),
-      'roomAllocation', jsonb_build_array('Cuartu de la Fonte')
+      'roomAllocation', jsonb_build_array('Garage conversion')
     ),
     'tentative',
     'c4d65b4dc4a6da10c484c54ad1f550b803916ce5a9a7669e0ebce9c12a49c25e',

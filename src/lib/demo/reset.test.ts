@@ -20,14 +20,14 @@ describe("demo reset boundary", () => {
     );
     expect(DEMO_SEED.rooms).toEqual([
       expect.objectContaining({
-        guestLabel: "Horreu Room",
+        guestLabel: "Guest Room",
         beds: 2,
         maximumCapacity: 2,
         inventoryState: "available",
         overflowPolicy: "none",
       }),
       expect.objectContaining({
-        guestLabel: "Fonte Room",
+        guestLabel: "Garage Room",
         beds: 2,
         maximumCapacity: 4,
         inventoryState: "available",
@@ -35,7 +35,7 @@ describe("demo reset boundary", () => {
         overflowArrangement: "One double air mattress",
       }),
       expect.objectContaining({
-        guestLabel: "Teixu Room",
+        guestLabel: "Office Room",
         beds: 3,
         maximumCapacity: 3,
         inventoryState: "withheld",
