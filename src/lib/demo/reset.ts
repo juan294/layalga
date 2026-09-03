@@ -14,9 +14,9 @@ export const DEMO_SEED = {
   rooms: [
     {
       id: "00000000-0000-4000-8000-000000000101",
-      name: "Cuartu del Horreu",
+      name: "Upstairs guest room",
       beds: 2,
-      guestLabel: "Horreu Room",
+      guestLabel: "Guest Room",
       floorLabel: "Upper floor",
       sleepingArrangement: "One double bed",
       overflowArrangement: null,
@@ -27,9 +27,9 @@ export const DEMO_SEED = {
     },
     {
       id: "00000000-0000-4000-8000-000000000102",
-      name: "Cuartu de la Fonte",
+      name: "Garage conversion",
       beds: 2,
-      guestLabel: "Fonte Room",
+      guestLabel: "Garage Room",
       floorLabel: "Ground floor",
       sleepingArrangement: "One sofa bed",
       overflowArrangement: "One double air mattress",
@@ -40,9 +40,9 @@ export const DEMO_SEED = {
     },
     {
       id: "00000000-0000-4000-8000-000000000103",
-      name: "Cuartu del Teixu",
+      name: "Home office",
       beds: 3,
-      guestLabel: "Teixu Room",
+      guestLabel: "Office Room",
       floorLabel: "Upper floor",
       sleepingArrangement: "One double bed",
       overflowArrangement: null,
@@ -83,7 +83,7 @@ export const DEMO_SEED = {
         pets: 0,
         specialRequests: [],
         preferredStay: ["2026-09-18", "2026-09-21"],
-        roomAllocation: ["Cuartu del Teixu", "Cuartu del Horreu"],
+        roomAllocation: ["Home office", "Upstairs guest room"],
       },
     },
     {
@@ -104,7 +104,7 @@ export const DEMO_SEED = {
           "Ana's mother uses a wheelchair and needs ground-floor access",
         ],
         preferredStay: ["2026-09-19", "2026-09-21"],
-        roomAllocation: ["Cuartu de la Fonte"],
+        roomAllocation: ["Garage conversion"],
       },
     },
   ],
@@ -126,7 +126,7 @@ export const DEMO_SEED = {
       roomId: "00000000-0000-4000-8000-000000000101",
       privateMarker: "DEMO-PRIVATE-ROOM-MARKER",
       request:
-        "Reserve Horreu Room for family use from 2026-09-22 to 2026-09-24. DEMO-PRIVATE-ROOM-MARKER must stay private.",
+        "Reserve the Guest Room for family use from 2026-09-22 to 2026-09-24. DEMO-PRIVATE-ROOM-MARKER must stay private.",
     },
     openedStay: {
       from: "2026-09-25",
