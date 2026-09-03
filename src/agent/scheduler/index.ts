@@ -54,31 +54,32 @@ export class EventBridgeScheduler implements Scheduler {
     try {
       await this.client.send(
         new CreateScheduleCommand({
-        Name: name,
-        ScheduleExpression: `at(${utcScheduleTime(job.dueAt)})`,
-        ScheduleExpressionTimezone: "UTC",
-        FlexibleTimeWindow: { Mode: "OFF" },
-        ActionAfterCompletion: "DELETE",
-        Target: {
-          Arn: "arn:aws:scheduler:::aws-sdk:bedrockagentcore:invokeAgentRuntime",
-          RoleArn: this.roleArn,
-          Input: JSON.stringify({
-            AgentRuntimeArn: this.runtimeArn,
-            Qualifier: "DEFAULT",
-            ContentType: "application/json",
-            Payload: JSON.stringify({
-              task: "tick",
-              homeId: job.homeId,
-              jobId: job.id,
+          Name: name,
+          ScheduleExpression: `at(${utcScheduleTime(job.dueAt)})`,
+          ScheduleExpressionTimezone: "UTC",
+          FlexibleTimeWindow: { Mode: "OFF" },
+          ActionAfterCompletion: "DELETE",
+          Target: {
+            Arn: "arn:aws:scheduler:::aws-sdk:bedrockagentcore:invokeAgentRuntime",
+            RoleArn: this.roleArn,
+            Input: JSON.stringify({
+              AgentRuntimeArn: this.runtimeArn,
+              Qualifier: "DEFAULT",
+              ContentType: "application/json",
+              Payload: JSON.stringify({
+                operation: "scheduled_tick",
+                homeId: job.homeId,
+                jobId: job.id,
+              }),
             }),
-          }),
-          RetryPolicy: { MaximumRetryAttempts: 2 },
-          DeadLetterConfig: { Arn: this.dlqArn },
-        },
+            RetryPolicy: { MaximumRetryAttempts: 2 },
+            DeadLetterConfig: { Arn: this.dlqArn },
+          },
         }),
       );
     } catch (error) {
-      if (!isAwsError(error, ConflictException, "ConflictException")) throw error;
+      if (!isAwsError(error, ConflictException, "ConflictException"))
+        throw error;
     }
     return name;
   }
@@ -87,7 +88,13 @@ export class EventBridgeScheduler implements Scheduler {
     try {
       await this.client.send(new DeleteScheduleCommand({ Name: ref }));
     } catch (error) {
-      if (!isAwsError(error, ResourceNotFoundException, "ResourceNotFoundException")) {
+      if (
+        !isAwsError(
+          error,
+          ResourceNotFoundException,
+          "ResourceNotFoundException",
+        )
+      ) {
         throw error;
       }
     }
@@ -159,6 +166,9 @@ function isAwsError(
 ): boolean {
   return (
     error instanceof errorClass ||
-    (typeof error === "object" && error !== null && "name" in error && error.name === name)
+    (typeof error === "object" &&
+      error !== null &&
+      "name" in error &&
+      error.name === name)
   );
 }

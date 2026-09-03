@@ -7,6 +7,7 @@ import { DEMO_SEED } from "./seed-demo";
 import {
   assertDemoSnapshot,
   isDirectExecution,
+  markerSuffix,
   parseReleaseCliOptions,
   requiredEnvironment,
   safeErrorMessage,
@@ -50,7 +51,7 @@ export async function runDemoE2E(
   const browser = await chromium.launch({ headless: !options.headed });
   const context = await browser.newContext({ baseURL: options.baseUrl });
   const page = await context.newPage();
-  const marker = options.runMarker ? ` [${options.runMarker}]` : "";
+  const marker = options.runMarker ? markerSuffix(options.runMarker) : "";
   const rawMessages = [
     `${DEMO_SEED.parties[0].invitation.rawMessage}${marker}`,
     `${DEMO_SEED.parties[1].invitation.rawMessage}${marker}`,
@@ -473,10 +474,7 @@ async function findGuestRoomIds(
     ),
     page.getByTestId("find-options").click(),
   ]);
-  assert.ok(
-    response.ok(),
-    `room search failed with HTTP ${response.status()}`,
-  );
+  assert.ok(response.ok(), `room search failed with HTTP ${response.status()}`);
   await page.getByTestId("guest-option").first().waitFor();
   return page
     .getByTestId("guest-room-option")

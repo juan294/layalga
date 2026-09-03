@@ -16,6 +16,15 @@
       ]
     },
     {
+      "Sid": "InvokeLayalgaAgentRuntime",
+      "Effect": "Allow",
+      "Action": "bedrock-agentcore:InvokeAgentRuntime",
+      "Resource": [
+        "arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-*",
+        "arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-*/*"
+      ]
+    },
+    {
       "Sid": "DenyAgentCoreWorkloadIdentity",
       "Effect": "Deny",
       "Action": "bedrock-agentcore:GetWorkloadAccessTokenForUserId",

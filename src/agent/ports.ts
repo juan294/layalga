@@ -3,6 +3,8 @@ import type { DatabaseClient } from "@/core/db/client";
 
 import type { Scheduler } from "./scheduler";
 
+export type ExecutionRuntime = "local" | "agentcore";
+
 export interface AgentDeps {
   db: DatabaseClient;
   clock: Clock;

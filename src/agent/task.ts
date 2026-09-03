@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { ExecutionRuntime } from "./ports";
 import { staySchema } from "./schemas";
 import {
   MAX_ADULTS,
@@ -91,4 +92,31 @@ export interface RunResult {
   sessionId: string;
   pendingDecisionIds: string[];
   summary: string;
+  executedOn?: ExecutionRuntime;
+}
+
+const executionRuntimeSchema = z.enum(["local", "agentcore"]);
+
+/** The JSON written to `public.runs.result` when a run reaches a terminal state. */
+export const storedRunResultSchema = z.object({
+  summary: z.string().optional().catch(undefined),
+  executedOn: executionRuntimeSchema.optional().catch(undefined),
+});
+
+export type StoredRunResult = z.infer<typeof storedRunResultSchema>;
+
+/**
+ * Reads a stored run result, unwrapping string-encoded JSON. A plain string
+ * that is not JSON is treated as the summary itself.
+ */
+export function parseStoredRunResult(value: unknown): StoredRunResult {
+  if (typeof value === "string") {
+    try {
+      return parseStoredRunResult(JSON.parse(value));
+    } catch {
+      return { summary: value };
+    }
+  }
+  const parsed = storedRunResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : {};
 }

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
+import type { Sql } from "postgres";
+
 export interface DemoSnapshot {
   visits: { id: string; status: string }[];
   notifications: {
@@ -15,6 +17,7 @@ export interface ReleaseCliOptions {
   baseUrl: string;
   expectedCommit?: string;
   headed: boolean;
+  expectedRuntime?: "local" | "agentcore";
 }
 
 export function assertDemoSnapshot(snapshot: DemoSnapshot): void {
@@ -81,6 +84,7 @@ export function parseReleaseCliOptions(
   let baseUrl = env.APP_URL ?? "http://127.0.0.1:3008";
   let expectedCommit = env.EXPECTED_COMMIT_SHA;
   let headed = false;
+  let expectedRuntime: "local" | "agentcore" | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -97,6 +101,16 @@ export function parseReleaseCliOptions(
       index += 1;
       continue;
     }
+    if (argument === "--expect-runtime") {
+      const value = argv[index + 1];
+      if (!value) throw new Error(`${argument} requires a value`);
+      if (value !== "local" && value !== "agentcore") {
+        throw new Error(`${argument} must be "local" or "agentcore"`);
+      }
+      expectedRuntime = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`Unknown argument: ${argument}`);
   }
 
@@ -104,6 +118,7 @@ export function parseReleaseCliOptions(
     baseUrl: normalizeBaseUrl(baseUrl),
     expectedCommit,
     headed,
+    expectedRuntime,
   };
 }
 
@@ -131,10 +146,146 @@ export function safeErrorMessage(error: unknown): string {
 }
 
 export function requiredEnvironment(
-  name: "DATABASE_URL" | "LINK_TOKEN_SECRET" | "TICK_SECRET",
+  name:
+    | "DATABASE_URL"
+    | "LINK_TOKEN_SECRET"
+    | "TICK_SECRET"
+    | "AGENTCORE_RUNTIME_ARN",
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
   const value = env[name];
   if (!value) throw new Error(`${name} is required`);
   return value;
+}
+
+export interface TaggedArtifactCounts {
+  invitations: number;
+  runs: number;
+  sessions: number;
+}
+
+export interface CleanupTaggedRunArtifactsOptions {
+  /**
+   * Durable agent session IDs to delete alongside the ones derived from the
+   * tagged invitations, e.g. a `capture_<hostId>` session that a host_capture
+   * run writes into regardless of which raw message triggered it.
+   */
+  extraSessionIds?: readonly string[];
+}
+
+/** Builds the raw-message suffix used to tag and later find synthetic data. */
+export function markerSuffix(marker: string): string {
+  return ` [${marker}]`;
+}
+
+/**
+ * Deletes invitations whose `raw_message` ends with `suffix`, together with
+ * the runs, audit events, and durable agent sessions those invitations
+ * produced (through their visits' scheduled jobs, through a run payload that
+ * carries the same tagged raw message, or through `extraSessionIds`).
+ * Verifies zero rows remain for the tag before returning. Shared by scripts
+ * that synthesize disposable, marker-tagged demo data and must prove they
+ * clean up after themselves.
+ */
+export async function cleanupTaggedRunArtifacts(
+  sql: Sql,
+  homeId: string,
+  suffix: string,
+  options: CleanupTaggedRunArtifactsOptions = {},
+): Promise<TaggedArtifactCounts> {
+  const extraSessionIds = options.extraSessionIds ?? [];
+  const sessionIds = await sql.begin(async (transaction) => {
+    const invitations = await transaction<{ id: string }[]>`
+      select id
+      from public.invitations
+      where home_id = ${homeId}
+        and right(raw_message, length(${suffix})) = ${suffix}
+      for update
+    `;
+    const invitationIds = invitations.map(({ id }) => id);
+    const visits =
+      invitationIds.length > 0
+        ? await transaction<{ id: string }[]>`
+            select id from public.visits
+            where invitation_id = any(${transaction.array(invitationIds)}::uuid[])
+          `
+        : [];
+    const visitIds = visits.map(({ id }) => id);
+    const jobs =
+      visitIds.length > 0
+        ? await transaction<{ id: string }[]>`
+            select id from public.scheduled_jobs
+            where visit_id = any(${transaction.array(visitIds)}::uuid[])
+          `
+        : [];
+    const ids = [
+      ...extraSessionIds,
+      ...invitationIds.map((id) => `inv_${id}`),
+      ...jobs.map(({ id }) => `tick_${id}`),
+    ];
+    const runs = await transaction<{ id: string }[]>`
+      select id
+      from public.runs
+      where home_id = ${homeId}
+        and (
+          session_id = any(${transaction.array(ids)}::text[])
+          or right(payload->>'rawMessage', length(${suffix})) = ${suffix}
+        )
+    `;
+    const runIds = runs.map(({ id }) => id);
+
+    if (runIds.length > 0) {
+      await transaction`
+        delete from public.audit_events
+        where run_id = any(${transaction.array(runIds)}::uuid[])
+      `;
+      await transaction`
+        delete from public.runs
+        where id = any(${transaction.array(runIds)}::uuid[])
+      `;
+    }
+    if (ids.length > 0) {
+      await transaction`
+        delete from public.agent_sessions
+        where session_id = any(${transaction.array(ids)}::text[])
+      `;
+    }
+    if (invitationIds.length > 0) {
+      await transaction`
+        delete from public.invitations
+        where id = any(${transaction.array(invitationIds)}::uuid[])
+      `;
+    }
+    return ids;
+  });
+
+  const [remaining] = await sql<TaggedArtifactCounts[]>`
+    select
+      (
+        select count(*)::integer from public.invitations
+        where home_id = ${homeId}
+          and right(raw_message, length(${suffix})) = ${suffix}
+      ) as invitations,
+      (
+        select count(*)::integer from public.runs
+        where home_id = ${homeId}
+          and (
+            right(payload->>'rawMessage', length(${suffix})) = ${suffix}
+            or session_id = any(${sql.array(sessionIds)}::text[])
+          )
+      ) as runs,
+      (
+        select count(*)::integer from public.agent_sessions
+        where session_id = any(${sql.array(sessionIds)}::text[])
+      ) as sessions
+  `;
+  const counts = remaining ?? { invitations: 0, runs: 0, sessions: 0 };
+  if (counts.invitations !== 0 || counts.runs !== 0 || counts.sessions !== 0) {
+    throw new Error(
+      `Tagged run cleanup was incomplete for suffix "${suffix}": ${JSON.stringify(
+        counts,
+      )}`,
+    );
+  }
+  return counts;
 }
