@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 
 import { AgentCoreClient } from "../src/agent/client";
+import { closeDatabase } from "../src/core/db/client";
 import { DEMO_SEED } from "./seed-demo";
 import { drainAndCollectTerminalRunResults } from "./release-probes";
 import {
@@ -43,6 +44,10 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
   const suffix = markerSuffix(marker);
   const host = DEMO_SEED.hosts[0];
   const rawMessage = `Smoke check: a synthetic family is asking about a September weekend visit.${suffix}`;
+  // The host capture session is shared by every capture run for this host.
+  // Deleting it while the runtime is still executing removes the run row
+  // under the runtime's feet, so it is only removed once the run is terminal.
+  let reachedTerminal = false;
 
   try {
     const client = new AgentCoreClient(runtimeArn, region);
@@ -65,11 +70,12 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
       (runIds) => sql`
         select id, status, result
         from public.runs
-        where id = any(${sql.array([...runIds])}::uuid[])
+        where id in ${sql([...runIds])}
       `,
       { pollMs: POLL_INTERVAL_MS, timeoutMs: POLL_TIMEOUT_MS },
     );
     assert.ok(terminal, "AgentCore smoke run result is missing");
+    reachedTerminal = true;
     assert.equal(
       terminal.status,
       "completed",
@@ -84,11 +90,18 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
     return terminal;
   } finally {
     try {
+      if (!reachedTerminal) {
+        console.warn(
+          `[AGENTCORE_SMOKE] run did not reach a terminal state; leaving session capture_${host.id} in place`,
+        );
+      }
       await cleanupTaggedRunArtifacts(sql, DEMO_SEED.home.id, suffix, {
-        extraSessionIds: [`capture_${host.id}`],
+        extraSessionIds: reachedTerminal ? [`capture_${host.id}`] : [],
       });
     } finally {
-      await sql.end({ timeout: 5 });
+      // enqueue() opened the application's singleton pool through runtimeDeps;
+      // close both so the process can exit.
+      await Promise.all([sql.end({ timeout: 5 }), closeDatabase()]);
     }
   }
 }

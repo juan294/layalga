@@ -75,7 +75,6 @@ required_keys=(
   MODEL
   APP_URL
   LINK_TOKEN_SECRET
-  CALENDAR_FEED_SECRET
 )
 
 env_json_file=""

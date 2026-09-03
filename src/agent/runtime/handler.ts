@@ -70,10 +70,10 @@ export async function handleAgentCoreRequest(
                 }),
               ),
             track: trackAgentCoreTask,
-            reportFailure: (runId, errorName) => {
+            reportFailure: (runId, error) => {
               console.error("[AGENTCORE_QUEUE_EXECUTION_FAILED]", {
                 runId,
-                errorName,
+                ...describeError(error),
               });
             },
           });
@@ -100,7 +100,7 @@ export async function handleAgentCoreRequest(
             .catch((error: unknown) => {
               console.error("[AGENTCORE_TICK_FAILED]", {
                 jobId: tickTask.jobId,
-                errorName: error instanceof Error ? error.name : "UnknownError",
+                ...describeError(error),
               });
             })
             .finally(() => {
@@ -126,14 +126,51 @@ export async function handleAgentCoreRequest(
       await runtimeDeps(parsed, { executionRuntime: "agentcore" }),
     );
   } catch (error) {
-    const detail = {
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      errorCode: errorCode(error),
-      errorMessage: error instanceof Error ? error.message : "Unknown failure",
-    };
-    log.error(detail, "AgentCore invocation failed");
+    log.error(describeError(error), "AgentCore invocation failed");
     throw error;
   }
+}
+
+type ErrorDetail = {
+  errorName: string;
+  errorCode?: string;
+  errorMessage: string;
+  issues?: { code: string; path: string; message: string }[];
+};
+
+/**
+ * Describe a thrown value for logs. Zod errors built with `new ZodError` are
+ * not `Error` instances, so read `name`, `message`, and `issues` from any
+ * object; never include issue inputs, which may carry values.
+ */
+function describeError(error: unknown): ErrorDetail {
+  const record =
+    error !== null && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : {};
+  const issues = Array.isArray(record.issues)
+    ? record.issues
+        .filter((issue) => issue !== null && typeof issue === "object")
+        .map((issue) => {
+          const entry = issue as Record<string, unknown>;
+          return {
+            code: String(entry.code ?? "unknown"),
+            path: Array.isArray(entry.path) ? entry.path.join(".") : "",
+            message: String(entry.message ?? ""),
+          };
+        })
+    : undefined;
+  const detail: ErrorDetail = {
+    errorName: typeof record.name === "string" ? record.name : "UnknownError",
+    errorCode: errorCode(error),
+    errorMessage: issues
+      ? issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ")
+      : typeof record.message === "string"
+        ? record.message
+        : "Unknown failure",
+  };
+  if (issues) detail.issues = issues;
+  return detail;
 }
 
 function trackAgentCoreTask(execution: Promise<void>): void {
