@@ -22,6 +22,7 @@ supabase/.temp/
 .claude/settings.local.json
 CLAUDE.local.md
 .claude/metrics/
+.claude/worktrees/
 
 # Public-repository operational output
 docs/agents/

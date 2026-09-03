@@ -9,7 +9,7 @@ export function SignInButton({
   locale,
   nextPath = `/${locale}`,
   label,
-  className = "auth-ledger__action",
+  className = "postcard__button postcard__button--primary",
 }: {
   locale: AppLocale;
   nextPath?: string;
@@ -57,7 +57,7 @@ export function SignInButton({
         {pending ? t("connecting") : (label ?? t("googleAction"))}
       </button>
       {error ? (
-        <p className="auth-ledger__error" role="alert">
+        <p className="postcard__error" role="alert">
           {t("startError")}
         </p>
       ) : null}
