@@ -13,8 +13,7 @@
     "es": "Español"
   },
   "SignIn": {
-    "folio": "House book · Host access",
-    "eyebrow": "For the people who keep the door open",
+    "tagline": "ayalga — Asturian for a treasure found",
     "title": "Take your place at the ledger.",
     "description": "Sign in to review invitations, settle questions, and keep every stay clear for the household.",
     "googleAction": "Continue with Google",
@@ -22,7 +21,15 @@
     "privacyNote": "Access is limited to the host addresses recorded for this house.",
     "startError": "Google sign-in could not start. Try again.",
     "callbackError": "Google sign-in could not be completed. Try again.",
-    "notHostError": "This Google account is not on the host list for this house."
+    "notHostError": "This Google account is not on the host list for this house.",
+    "imageAlt": "Illustration of the house above the Cantábrico, {season}",
+    "footerLead": "Planning days out around the house? Local ideas at "
+  },
+  "Season": {
+    "primavera": "spring",
+    "verano": "summer",
+    "otono": "autumn",
+    "invierno": "winter"
   },
   "DemoHost": {
     "enterAs": "Enter as {name}"

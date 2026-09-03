@@ -149,105 +149,145 @@ a {
   color: var(--teal);
 }
 
-.auth-shell {
-  display: grid;
-  min-height: calc(100vh - 4rem);
-  min-height: calc(100dvh - 4rem);
-  padding: clamp(1.25rem, 6vw, 6rem);
-  place-items: center;
+/* Sign-in postcard: an artistic house illustration (left) beside a paper
+   sign-in panel (right). Full-viewport, so it hides the shared site header
+   instead of sitting below it -- see the .postcard rule below. */
+body:has(.postcard) .site-header {
+  display: none;
 }
 
-.auth-ledger {
-  background: var(--sheet);
-  border: 1px solid var(--ink);
-  box-shadow: 7px 7px 0 color-mix(in srgb, var(--ink) 12%, transparent);
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.7fr);
-  max-width: 62rem;
+.postcard {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.postcard__art {
+  flex: 0 0 55%;
   position: relative;
+}
+
+.postcard__art img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
   width: 100%;
 }
 
-.auth-ledger::before {
-  border-left: 1px solid var(--rule);
-  content: "";
-  inset: 0 auto 0 3.1rem;
-  pointer-events: none;
-  position: absolute;
-}
-
-.auth-ledger__folio {
-  border-bottom: 1px solid var(--rule);
+.postcard__stamp {
+  background: color-mix(in srgb, var(--sheet) 92%, transparent);
+  bottom: 0.75rem;
+  color: var(--ink);
   font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 0.75rem;
-  grid-column: 1 / -1;
-  letter-spacing: 0.1em;
+  font-size: 0.625rem;
+  left: 0.75rem;
+  letter-spacing: 0.14em;
   margin: 0;
-  padding: 0.7rem 1rem 0.7rem 4.4rem;
+  padding: 0.56rem 0.85rem;
+  position: absolute;
   text-transform: uppercase;
 }
 
-.auth-ledger__entry,
-.auth-ledger__sign-in {
-  padding: clamp(2rem, 6vw, 5rem);
+.postcard__panel {
+  display: flex;
+  flex: 0 0 45%;
+  flex-direction: column;
+  padding: clamp(1.5rem, 4vw, 3.25rem) clamp(1.5rem, 4vw, 3.5rem);
 }
 
-.auth-ledger__entry {
-  border-right: 1px solid var(--rule);
-  padding-left: clamp(4.4rem, 8vw, 7rem);
+.postcard__topline {
+  align-items: baseline;
+  display: flex;
+  justify-content: space-between;
 }
 
-.auth-ledger__eyebrow,
-.auth-ledger__note {
-  color: var(--graphite);
-  font-family: var(--font-jetbrains-mono), monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.auth-ledger h1 {
+.postcard__wordmark {
   font-family: var(--font-fraunces), Georgia, serif;
-  font-size: clamp(2.7rem, 7vw, 5.7rem);
-  font-weight: 560;
-  letter-spacing: -0.06em;
-  line-height: 0.92;
-  margin: 1rem 0 1.4rem;
+  font-size: 2.125rem;
+  font-weight: 600;
 }
 
-.auth-ledger__entry > p:last-child {
+.postcard__tagline {
+  color: var(--teal);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  margin: 0.6rem 0 0;
+  text-transform: uppercase;
+}
+
+.postcard h1 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(2rem, 3.4vw, 2.875rem);
+  font-weight: 600;
+  line-height: 1.05;
+  margin: 4rem 0 0;
+}
+
+.postcard__lead {
   color: var(--graphite);
-  line-height: 1.65;
-  max-width: 38rem;
+  line-height: 1.6;
+  margin: 1rem 0 0;
+  max-width: 40ch;
 }
 
-.auth-ledger__sign-in {
-  align-content: center;
+.postcard__actions {
   display: grid;
-  gap: 1rem;
+  gap: 0.625rem;
+  margin-top: 2.25rem;
 }
 
-.auth-ledger__sign-in button {
-  background: var(--ink);
-  border: 1px solid var(--ink);
+.postcard__button {
   border-radius: 0;
-  color: var(--sheet);
   cursor: pointer;
-  font-weight: 750;
-  padding: 0.85rem 1rem;
+  font-weight: 700;
+  min-height: var(--interactive-target);
+  padding: 0.75rem 1rem;
   width: 100%;
 }
 
-.auth-ledger__sign-in .auth-ledger__demo-action {
+.postcard__button--primary {
+  background: var(--teal);
+  border: 1px solid var(--teal);
+  color: var(--sheet);
+}
+
+.postcard__button--secondary {
   background: transparent;
+  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
   color: var(--ink);
 }
 
-.auth-ledger__error {
+.postcard__error {
   border-left: 3px solid var(--teal);
   font-weight: 700;
   margin: 0;
   padding-left: 0.7rem;
+}
+
+.postcard__note {
+  color: var(--graphite);
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  margin-top: 1rem;
+  text-transform: uppercase;
+}
+
+.postcard__footer {
+  border-top: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  color: var(--graphite);
+  font-size: 0.8125rem;
+  margin-top: auto;
+  padding-top: 0.875rem;
+}
+
+.postcard__footer p {
+  margin: 0;
+}
+
+.postcard__footer a {
+  color: var(--teal);
 }
 
 .route-state-shell {
@@ -306,14 +346,33 @@ a {
   .site-header__strapline {
     display: none;
   }
+}
 
-  .auth-ledger {
-    grid-template-columns: 1fr;
+@media (max-width: 767px) {
+  .postcard {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
-  .auth-ledger__entry {
-    border-bottom: 1px solid var(--rule);
-    border-right: 0;
+  .postcard__art {
+    flex-basis: 42vh;
+    flex-basis: 42dvh;
+  }
+
+  .postcard__panel {
+    flex-basis: auto;
+    padding: 1.5rem;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .postcard h1 {
+    margin-top: 2rem;
+  }
+
+  .postcard__footer {
+    margin-top: 2rem;
   }
 }
 
