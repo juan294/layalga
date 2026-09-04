@@ -15,6 +15,9 @@ import {
   type ReleaseCliOptions,
 } from "./release-helpers";
 
+/** Upper bound for one agent run to surface in the browser, cold start included. */
+const RUN_WAIT_TIMEOUT_MS = 120_000;
+
 export interface DemoE2EOptions extends ReleaseCliOptions {
   runMarker?: string;
 }
@@ -51,6 +54,9 @@ export async function runDemoE2E(
   const browser = await chromium.launch({ headless: !options.headed });
   const context = await browser.newContext({ baseURL: options.baseUrl });
   const page = await context.newPage();
+  // Runs on the AgentCore runtime with a real model take a cold start plus
+  // model latency; Playwright's 30 s default wait is shorter than that.
+  page.setDefaultTimeout(RUN_WAIT_TIMEOUT_MS);
   const marker = options.runMarker ? markerSuffix(options.runMarker) : "";
   const rawMessages = [
     `${DEMO_SEED.parties[0].invitation.rawMessage}${marker}`,
