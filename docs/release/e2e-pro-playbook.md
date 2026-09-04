@@ -2,34 +2,34 @@
 
 ## Status
 
-Local release automation is implemented. Real Google authentication has passed against local Supabase. Preview and production environment values are configured in Vercel, but no candidate deployment has been verified. Production verification remains blocked until the owner authorizes deployment. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority.
+Release automation is implemented and has run once. v0.4.0 (main `0935fed`) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 12 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore`. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
 
 ## Project adaptation profile
 
-| Area                           | Project value                                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Project                        | L’Ayalga                                                                                         |
-| Intended repository visibility | Public                                                                                           |
-| Product type                   | Web application with an agent runtime                                                            |
-| Package and build system       | pnpm 11 and Next.js 16                                                                           |
-| Integration branch             | `develop`                                                                                        |
-| Production branch              | `main`; promoted from `develop` by pull request                                                  |
-| Merge strategy                 | Squash pull requests                                                                             |
-| Release artifact               | Exact Git commit plus matching web and agent deployments                                         |
-| Web deployment                 | Vercel configured; no candidate deployment verified                                              |
-| Agent deployment               | Local Next.js runtime selected by ADR 0002                                                       |
-| Local target                   | Application, local Supabase, demo auth, and scripted model                                       |
-| Preview target                 | Vercel environment configured; no candidate deployment verified                                  |
-| Staging target                 | None                                                                                             |
-| Production target              | `https://layalga.thecreativetoken.com`; environment configured, no candidate deployment verified |
-| Tests                          | Vitest, local Supabase integration tests, and Playwright                                         |
-| Primary datastore              | PostgreSQL through Supabase                                                                      |
-| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery              |
-| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                  |
-| Notifications                  | In-app bilingual notifications; no WhatsApp or Twilio                                            |
-| Other vendors                  | Strands scripted locally; real Bedrock use remains unverified                                    |
-| Release approver               | Product owner                                                                                    |
-| Rollback authority             | Product owner                                                                                    |
+| Area                           | Project value                                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Project                        | L’Ayalga                                                                                                   |
+| Intended repository visibility | Public                                                                                                     |
+| Product type                   | Web application with an agent runtime                                                                      |
+| Package and build system       | pnpm 11 and Next.js 16                                                                                     |
+| Integration branch             | `develop`                                                                                                  |
+| Production branch              | `main`; promoted from `develop` by pull request                                                            |
+| Merge strategy                 | Squash pull requests                                                                                       |
+| Release artifact               | Exact Git commit plus matching web and agent deployments                                                   |
+| Web deployment                 | Vercel production from `main`; v0.4.0 verified                                                             |
+| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh` |
+| Local target                   | Application, local Supabase, demo auth, and scripted model                                                 |
+| Preview target                 | Vercel environment configured; no candidate deployment verified                                            |
+| Staging target                 | None                                                                                                       |
+| Production target              | `https://layalga.thecreativetoken.com`; v0.4.0 verified with nine probes on AgentCore                      |
+| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                   |
+| Primary datastore              | PostgreSQL through Supabase                                                                                |
+| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                        |
+| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                            |
+| Notifications                  | In-app bilingual notifications; no WhatsApp or Twilio                                                      |
+| Other vendors                  | Strands scripted locally; real Bedrock use remains unverified                                              |
+| Release approver               | Product owner                                                                                              |
+| Rollback authority             | Product owner                                                                                              |
 
 ## Environment truth
 
@@ -144,7 +144,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Current release decision
 
-BLOCKED before publication. All eight local probes pass, and Preview and Production environment values include `CRON_SECRET`, the separate `AGENT_ROUTE_SECRET`, and `CALENDAR_FEED_SECRET`. Release still requires terminal candidate CI, production migration and database-role proof, deployed identity, one complete production demo and probe run, and verified cleanup.
+RELEASED. v0.4.0 passed every gate on 2026-09-04: candidate CI green, both deployment identities on `0935fed`, agent database role verified, nine production probes passed with the AgentCore runtime asserted, cleanup verified, tag pushed last. The next release repeats the procedure on a new candidate; the measured budget for this first run was about 45 minutes from release PR to tag, dominated by three candidate rebuilds after production-only findings (agent role lock, agent bundle identity, reconfirmation delivery).
 
 ## Rollback
 

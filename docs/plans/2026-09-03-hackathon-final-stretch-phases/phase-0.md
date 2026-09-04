@@ -17,19 +17,22 @@ A live `layalga_agent` runtime executes every production run through the `execut
 - [x] 0.6 Agent database credential. If the `layalga_agent` pooled URL is not available locally, reset the role password through the administrative connection per `docs/release/runtime-database-and-identity.md:16-22` and build the pooled URL. Verify with the evidence SQL at `:26-56` (`current_user = layalga_agent`).
 - [x] 0.7 Deploy. Run `scripts/deploy-agentcore.sh --profile archy`. Invoke once with a synthetic `host_capture` through `AgentCoreClient` from a local script (`scripts/agentcore-smoke.ts`, reads `AGENTCORE_RUNTIME_ARN`), confirm a completed run with `executedOn = "agentcore"`, then delete the smoke invitation through the existing demo reset.
 - [x] 0.8 Probe hardening. In `scripts/release-probes.ts`: `drainAndCollectTerminalRunResults` re-drains every 15 s up to 90 s; add `--expect-runtime local|agentcore` (`scripts/release-helpers.ts`) and assert `executedOn` on the probe 5 resume run and the probe 2 capture run when given.
-- [ ] 0.9 Switch production. `vercel env add AGENT_RUNTIME production` = `agentcore`, `AGENTCORE_RUNTIME_ARN` = new ARN (owner runs the two commands if the classifier blocks them), `vercel redeploy <current prod deployment> --target production`, health `ok`.
-- [ ] 0.10 Production gate. `pnpm run release:probes -- --base https://layalga.thecreativetoken.com --commit <sha> --expect-runtime agentcore` (needs the five production secrets in `.env.production.local`, owner-provided). Then `aws logs tail /aws/bedrock-agentcore/runtimes/<id>-DEFAULT --since 30m` shows the resume run.
-- [ ] 0.11 ADR 0002 addendum dated 2026-09-04: runtime ARN, S3 key and version, env names, IAM change, probe evidence, and the decision `AGENT_RUNTIME=agentcore` for production with rollback `AGENT_RUNTIME=local`. Update `scripts/infra-scheduler.sh:9-12` grep so it no longer short-circuits.
+- [x] 0.9 Switch production. `vercel env add AGENT_RUNTIME production` = `agentcore`, `AGENTCORE_RUNTIME_ARN` = new ARN (owner runs the two commands if the classifier blocks them), `vercel redeploy <current prod deployment> --target production`, health `ok`.
+- [x] 0.10 Production gate. `pnpm run release:probes -- --base https://layalga.thecreativetoken.com --commit <sha> --expect-runtime agentcore` (needs the five production secrets in `.env.production.local`, owner-provided). Then `aws logs tail /aws/bedrock-agentcore/runtimes/<id>-DEFAULT --since 30m` shows the resume run.
+- [x] 0.11 ADR 0002 addendum dated 2026-09-04: runtime ARN, S3 key and version, env names, IAM change, probe evidence, and the decision `AGENT_RUNTIME=agentcore` for production with rollback `AGENT_RUNTIME=local`. Update `scripts/infra-scheduler.sh:9-12` grep so it no longer short-circuits.
 
 ## Pseudocode
 
 ```ts
 // src/agent/runtime/agentcore.ts
-if (request.operation === "scheduled_tick") { /* existing async branch, returns accepted */ }
-if (task.task === "tick") {                  // bare task from AgentCoreClient.run
+if (request.operation === "scheduled_tick") {
+  /* existing async branch, returns accepted */
+}
+if (task.task === "tick") {
+  // bare task from AgentCoreClient.run
   const deps = await runtimeDeps(task);
   await runJob(deps.db, deps.clock, tickAgent, task.jobId, deps.scheduler);
-  return runResultForJob(deps.db, task.jobId);   // { runId, status, executedOn: "agentcore" }
+  return runResultForJob(deps.db, task.jobId); // { runId, status, executedOn: "agentcore" }
 }
 ```
 
@@ -47,7 +50,7 @@ result: { summary, executedOn: deps.executionRuntime ?? "local", usage: metricsF
 
 ## Done when
 
-- [ ] Runtime `READY`, smoke run `executedOn = "agentcore"`.
-- [ ] Production health `ok` with `AGENT_RUNTIME=agentcore`.
-- [ ] Nine probes pass on production with `--expect-runtime agentcore`; CloudWatch log shows the resume run.
-- [ ] PR open against `develop`; CI green.
+- [x] Runtime `READY`, smoke run `executedOn = "agentcore"`.
+- [x] Production health `ok` with `AGENT_RUNTIME=agentcore`.
+- [x] Nine probes pass on production with `--expect-runtime agentcore`; CloudWatch log shows the resume run.
+- [x] PR open against `develop`; CI green.

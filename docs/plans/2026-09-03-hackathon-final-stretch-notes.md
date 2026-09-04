@@ -41,3 +41,9 @@ Implementation notes for the plan `2026-09-03-hackathon-final-stretch`. Deviatio
    - Found: the guard matched ADR 0002 text that stays in the file for history.
    - Chose: removed the guard; the script now requires `AGENTCORE_RUNTIME_ARN` unconditionally.
    - Why: the ADR addendum records the runtime decision; the script should not parse prose.
+
+7. Production gate findings and the release shape
+   - Plan said: task 0.9 switches production and task 0.10 runs the probes once against the deployed commit.
+   - Found: the first probe run exposed three production-only defects: the approved-hold path locked `homes` with `select ... for update`, which the agent role cannot do; the agent bundle had not been rebuilt from the candidate, so the web and agent identities diverged; and the tick agent under the real model sometimes skipped a required `notify`.
+   - Chose: advisory lock for every hold path with an agent-role regression test; the playbook now deploys both targets from the candidate; the job engine guarantees chase and escalation delivery with a `notification_fallback` audit event. v0.4.0 shipped on the fourth candidate.
+   - Why: local verification runs as the database owner with the scripted model, so grant boundaries and model nondeterminism only surface on the production gate.
