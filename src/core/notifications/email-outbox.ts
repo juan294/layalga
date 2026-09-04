@@ -362,7 +362,10 @@ const REASON_PHRASES: Record<
   ReturnType<typeof decisionReasonKey>,
   { en: string; es: string }
 > = {
-  specialRequest: { en: "a special request", es: "una solicitud especial" },
+  specialRequest: {
+    en: "approval for a special request",
+    es: "aprobación para una petición especial",
+  },
   children: { en: "children in the party", es: "niños en el grupo" },
   pets: { en: "pets", es: "mascotas" },
   beds: { en: "the number of beds", es: "el número de camas" },
@@ -370,7 +373,7 @@ const REASON_PHRASES: Record<
     en: "an overflow arrangement",
     es: "un arreglo de desbordamiento",
   },
-  other: { en: "a request", es: "una solicitud" },
+  other: { en: "approval for a request", es: "aprobación para una solicitud" },
 };
 
 export function renderPing(

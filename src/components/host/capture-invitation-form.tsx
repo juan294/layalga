@@ -12,6 +12,7 @@ import {
 import { copyText } from "@/components/frontend-utils";
 import { RunStatusPoller } from "@/components/runs/run-status-poller";
 import type { RunSnapshot } from "@/app/api/runs/run-data";
+import { invitationRememberedContext } from "@/lib/json-object";
 
 import {
   buttonStyle,
@@ -34,6 +35,7 @@ interface CaptureInvitationFormProps {
     pending: string;
     result: string;
     structured: string;
+    remembered: string;
     guestLink: string;
     copy: string;
     copied: string;
@@ -265,10 +267,16 @@ function CaptureResult({
   labels: CaptureLabels;
   state: Extract<CaptureResultState, { status: "success" }>;
 }) {
+  const remembered = invitationRememberedContext(state.structured);
   return (
     <div style={{ marginTop: "1rem" }}>
       <CaptureSuccessAnnouncement label={labels.result} />
       <p style={{ ...labelStyle, color: teal }}>{labels.result}</p>
+      {remembered.length > 0 ? (
+        <p data-testid="capture-remembered" style={{ margin: "0.5rem 0" }}>
+          <strong>{labels.remembered}:</strong> {remembered.join("; ")}
+        </p>
+      ) : null}
       <details
         data-testid="structured-invitation"
         style={{ marginTop: "0.8rem" }}
