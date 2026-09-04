@@ -134,7 +134,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 4. Run typecheck, lint, targeted tests, full tests, and build sequentially.
 5. Stop if no required check passed or any required check failed or skipped.
 6. Apply the candidate migrations and verify the separate runtime database roles.
-7. Deploy the exact candidate to the authorized production target.
+7. Deploy the exact candidate to both authorized production targets: the Vercel web deployment from `main`, and the AgentCore runtime bundle built from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate.
 8. Verify the deployed identity against the candidate.
 9. Run all required probes with synthetic, run-scoped data.
 10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.

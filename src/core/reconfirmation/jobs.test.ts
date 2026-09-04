@@ -84,6 +84,7 @@ describe("reconfirmation jobs", () => {
     expect(await hostNotificationRecipientIds()).toEqual([...hostIds].sort());
     expect(await runDueJobs(sql, clock, invoker, homeId)).toEqual([]);
     expect(await notificationCount()).toBe(3);
+    expect(await fallbackAuditCount()).toBe(0);
   });
 
   it("does not escalate after the guest reconfirms", async () => {
@@ -166,7 +167,7 @@ describe("reconfirmation jobs", () => {
     expect(await runDueJobs(sql, clock, retryingInvoker, homeId)).toEqual([]);
   });
 
-  it("retries an escalation that did not notify every host", async () => {
+  it("delivers to a host the model skipped without needing a retry", async () => {
     const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
     await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
     clock.set(new Date("2026-09-16T09:05:00+02:00"));
@@ -195,15 +196,15 @@ describe("reconfirmation jobs", () => {
       },
     };
 
-    await expect(
-      runDueJobs(sql, clock, incompleteInvoker, homeId),
-    ).rejects.toThrow("One or more reconfirmation jobs failed");
-    expect(await hostNotificationRecipientIds()).toEqual([hostIds[0]]);
+    const [runResult] = await runDueJobs(sql, clock, incompleteInvoker, homeId);
+
+    expect(runResult).toMatchObject({ action: "escalate", status: "done" });
+    expect(await hostNotificationRecipientIds()).toEqual([...hostIds].sort());
     const [job] = await sql<{ status: string }[]>`
       select status from public.scheduled_jobs
       where visit_id = ${visitId} and kind = 'reconfirm_escalate'
     `;
-    expect(job?.status).toBe("scheduled");
+    expect(job?.status).toBe("done");
   });
 
   it("backs off persistent faults, quarantines them, and supports explicit replay", async () => {
@@ -371,6 +372,89 @@ describe("reconfirmation jobs", () => {
 
     await runDueJobs(sql, clock, invoker, homeId);
     expect(await notificationCount("party")).toBe(2);
+  });
+
+  it("falls back to a deterministic chase notification when the model writes nothing", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const silentInvoker: AgentInvoker = {
+      async run() {
+        // The real model sometimes stops without calling notify, e.g. it
+        // asks for more information instead of acting.
+      },
+    };
+
+    const [runResult] = await runDueJobs(sql, clock, silentInvoker, homeId);
+
+    expect(runResult).toMatchObject({ action: "chase", status: "done" });
+    const [notification] = await sql<
+      { recipient_id: string; body_en: string; body_es: string }[]
+    >`
+      select recipient_id, body_en, body_es from public.notifications
+      where visit_id = ${visitId} and recipient_kind = 'party'
+    `;
+    expect(notification).toEqual({
+      recipient_id: partyId,
+      body_en: "Please confirm whether Vega is still coming.",
+      body_es: "Confirma si Vega todavía va a venir.",
+    });
+    expect(await notificationCount("party")).toBe(1);
+    const [audit] = await sql<{ payload: Record<string, unknown> }[]>`
+      select payload from public.audit_events
+      where home_id = ${homeId} and kind = 'notification_fallback'
+    `;
+    expect(audit?.payload).toMatchObject({
+      jobId: chaseJobId,
+      kind: "reconfirm_chase",
+      inserted: 1,
+      recipients: [partyId],
+    });
+    expect(await fallbackAuditCount()).toBe(1);
+  });
+
+  it("falls back to deterministic escalation delivery for hosts the model skipped", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
+    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    const partialInvoker: AgentInvoker = {
+      async run(task) {
+        await runAgentTask(
+          task as AgentTask,
+          agentDeps(
+            clock,
+            new ScriptedModel([
+              {
+                toolUse: {
+                  name: "notify",
+                  input: notificationInput(
+                    "host",
+                    hostIds[0],
+                    "reconfirm_escalation",
+                    task.jobId,
+                  ),
+                },
+              },
+              { text: "I need more information before continuing." },
+            ]),
+          ),
+        );
+      },
+    };
+
+    const [runResult] = await runDueJobs(sql, clock, partialInvoker, homeId);
+
+    expect(runResult).toMatchObject({ action: "escalate", status: "done" });
+    expect(await hostNotificationRecipientIds()).toEqual([...hostIds].sort());
+    expect(await notificationCount("host")).toBe(2);
+    const [audit] = await sql<{ payload: Record<string, unknown> }[]>`
+      select payload from public.audit_events
+      where home_id = ${homeId} and kind = 'notification_fallback'
+    `;
+    expect(audit?.payload).toMatchObject({
+      kind: "reconfirm_escalate",
+      inserted: 1,
+      recipients: [hostIds[1]],
+    });
+    expect(await fallbackAuditCount()).toBe(1);
   });
 
   it("reclaims only an expired job lease", async () => {
@@ -606,4 +690,12 @@ async function hostNotificationRecipientIds(): Promise<string[]> {
     order by recipient_id
   `;
   return rows.map(({ recipient_id: recipientId }) => recipientId);
+}
+
+async function fallbackAuditCount(): Promise<number> {
+  const [row] = await sql<{ count: number }[]>`
+    select count(*)::integer as count from public.audit_events
+    where home_id = ${homeId} and kind = 'notification_fallback'
+  `;
+  return row?.count ?? 0;
 }

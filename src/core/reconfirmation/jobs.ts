@@ -345,9 +345,16 @@ async function executeClaimedJob(
         jobId: job.id,
       });
       if (!(await deliveryIsComplete(database, job))) {
-        throw new Error(
-          `The ${job.kind} job did not reach every required recipient`,
-        );
+        // The model sometimes does not call notify for every required
+        // recipient (e.g. it asks for more information instead). Fall back
+        // to writing the same deterministic notification the scripted model
+        // uses before treating the run as a failed delivery.
+        await deliverRequiredNotifications(database, job);
+        if (!(await deliveryIsComplete(database, job))) {
+          throw new Error(
+            `The ${job.kind} job did not reach every required recipient`,
+          );
+        }
       }
     }
 
@@ -357,6 +364,102 @@ async function executeClaimedJob(
     await recordJobFailure(database, clock.now(), job);
     throw error;
   }
+}
+
+/**
+ * Deterministically writes the reconfirmation notifications the agent was
+ * expected to write but did not, so a run that stalls or under-delivers
+ * still reaches every required recipient. Uses the same bodies as the
+ * scripted model in src/agent/scripted-model-selection.ts and the same
+ * `on conflict do nothing` pattern as src/agent/tools/notify.ts, so it is
+ * safe to call even when the agent already wrote some of the notifications.
+ */
+async function deliverRequiredNotifications(
+  database: DatabaseClient,
+  job: JobRow,
+): Promise<{ inserted: number }> {
+  const sql = sqlClient(database);
+  const [visit] = await sql<{ party_id: string; family_name: string }[]>`
+    select visit.party_id, party.family_name
+    from public.visits visit
+    join public.parties party on party.id = visit.party_id
+    where visit.id = ${job.visit_id}
+  `;
+  if (!visit) return { inserted: 0 };
+
+  if (job.kind === "reconfirm_chase") {
+    const [row] = await sql<{ id: string }[]>`
+      insert into public.notifications (
+        home_id, recipient_kind, recipient_id, visit_id, scheduled_job_id,
+        kind, body_en, body_es
+      ) values (
+        ${job.home_id}, 'party', ${visit.party_id}, ${job.visit_id}, ${job.id},
+        'reconfirm_chase',
+        ${`Please confirm whether ${visit.family_name} is still coming.`},
+        ${`Confirma si ${visit.family_name} todavía va a venir.`}
+      )
+      on conflict do nothing
+      returning id
+    `;
+    if (!row) return { inserted: 0 };
+    await recordFallbackAudit(database, job, [visit.party_id]);
+    return { inserted: 1 };
+  }
+
+  const missingHosts = await sql<{ id: string }[]>`
+    select host.id
+    from public.hosts host
+    where host.home_id = ${job.home_id}
+      and not exists (
+        select 1 from public.notifications notification
+        where notification.scheduled_job_id = ${job.id}
+          and notification.recipient_kind = 'host'
+          and notification.recipient_id = host.id
+          and notification.kind = 'reconfirm_escalation'
+      )
+    order by host.created_at, host.id
+  `;
+  const insertedRecipientIds: string[] = [];
+  for (const host of missingHosts) {
+    const [row] = await sql<{ id: string }[]>`
+      insert into public.notifications (
+        home_id, recipient_kind, recipient_id, visit_id, scheduled_job_id,
+        kind, body_en, body_es
+      ) values (
+        ${job.home_id}, 'host', ${host.id}, ${job.visit_id}, ${job.id},
+        'reconfirm_escalation',
+        ${`${visit.family_name} has not reconfirmed. Review the visit now.`},
+        ${`${visit.family_name} no ha reconfirmado. Revisa la visita ahora.`}
+      )
+      on conflict do nothing
+      returning id
+    `;
+    if (row) insertedRecipientIds.push(host.id);
+  }
+  if (insertedRecipientIds.length > 0) {
+    await recordFallbackAudit(database, job, insertedRecipientIds);
+  }
+  return { inserted: insertedRecipientIds.length };
+}
+
+async function recordFallbackAudit(
+  database: DatabaseClient,
+  job: JobRow,
+  recipients: readonly string[],
+): Promise<void> {
+  const sql = sqlClient(database);
+  await sql`
+    insert into public.audit_events (home_id, run_id, actor, kind, payload)
+    values (
+      ${job.home_id}, ${job.run_id}, 'agent', 'notification_fallback',
+      ${JSON.stringify({
+        jobId: job.id,
+        kind: job.kind,
+        inserted: recipients.length,
+        recipients,
+      })}::text::jsonb
+    )
+  `;
 }
 
 async function prepareClaimedJob(
