@@ -27,14 +27,16 @@ export default async function SignInPage({
   const demoT = await getTranslations({ locale, namespace: "DemoHost" });
   const { error } = await searchParams;
   const callbackError =
-    error === "not_a_host" ? t("notHostError") : error ? t("callbackError") : null;
+    error === "not_a_host"
+      ? t("notHostError")
+      : error
+        ? t("callbackError")
+        : null;
   const demoMode = process.env.DEMO_MODE === "true";
   const demoHost = demoMode
     ? (
-        await getDatabaseConnection().sql<
-          { id: string; display_name: string }[]
-        >`
-          select host.id, host.display_name
+        await getDatabaseConnection().sql<{ id: string }[]>`
+          select host.id
           from public.hosts as host
           join public.homes as home on home.id = host.home_id
           where home.demo = true
@@ -46,9 +48,7 @@ export default async function SignInPage({
   const demoGuestInvitation =
     demoMode && demoHost
       ? (
-          await getDatabaseConnection().sql<
-            { invitation_id: string }[]
-          >`
+          await getDatabaseConnection().sql<{ invitation_id: string }[]>`
             select invitation.id as invitation_id
             from public.invitations as invitation
             join public.homes as home on home.id = invitation.home_id
@@ -84,7 +84,7 @@ export default async function SignInPage({
                 data-testid="demo-enter-host"
                 type="submit"
               >
-                {demoT("enterAs", { name: demoHost.display_name })}
+                {demoT("enterAsHost")}
               </button>
             </form>
           ) : null}

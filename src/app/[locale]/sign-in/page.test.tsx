@@ -10,18 +10,11 @@ vi.mock("next-intl", () => ({
     locales.includes(locale),
 }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async ({
-    locale,
-    namespace,
-  }: {
-    locale: "en" | "es";
-    namespace: string;
-  }) =>
-    (key: string, values?: { name?: string }) => {
-      if (namespace === "DemoHost" && key === "enterAs") {
-        return locale === "es"
-          ? `Entrar como ${values?.name}`
-          : `Enter as ${values?.name}`;
+  getTranslations:
+    async ({ locale, namespace }: { locale: "en" | "es"; namespace: string }) =>
+    (key: string) => {
+      if (namespace === "DemoHost" && key === "enterAsHost") {
+        return locale === "es" ? "Entrar como anfitrión" : "Enter as Host";
       }
       if (namespace === "DemoHost" && key === "enterAsGuest") {
         return locale === "es" ? "Entrar como invitado" : "Enter as Guest";
@@ -74,15 +67,13 @@ describe("sign-in page", () => {
     expect(html).toContain('data-testid="demo-enter-host"');
     expect(html).toContain('data-testid="demo-enter-guest"');
     expect(html).not.toContain('data-testid="google-sign-in"');
-    expect(html).toContain("Enter as Juan González");
+    expect(html).toContain("Enter as Host");
+    expect(html).not.toContain("Juan González");
     expect(html).toContain("Enter as Guest");
 
     const guestQuery = mocks.sql.mock.calls[1]?.[0] as
-      | TemplateStringsArray
-      | undefined;
-    expect(guestQuery?.join(" ")).toContain(
-      "invitation.status <> 'cancelled'",
-    );
+      TemplateStringsArray | undefined;
+    expect(guestQuery?.join(" ")).toContain("invitation.status <> 'cancelled'");
     expect(guestQuery?.join(" ")).not.toContain("party.family_name");
   });
 
@@ -97,9 +88,10 @@ describe("sign-in page", () => {
     expect(mocks.sql).not.toHaveBeenCalled();
   });
 
-  it("renders the Spanish guest label", async () => {
+  it("renders the Spanish host and guest labels", async () => {
     const html = await renderPage("es");
 
+    expect(html).toContain("Entrar como anfitrión");
     expect(html).toContain("Entrar como invitado");
   });
 });
