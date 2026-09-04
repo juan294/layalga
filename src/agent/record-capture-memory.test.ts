@@ -83,6 +83,14 @@ describe("recordCaptureMemory", () => {
       expect(events[0]!.text).toContain("2 adults");
       expect(events[0]!.text).toContain("a weekend in September");
       expect(events[0]!.text).toContain("step-free access");
+      // Noise, not a household fact: neither the invitation id nor the run
+      // id (nor any other uuid) belongs in what becomes a searchable
+      // long-term memory record.
+      expect(events[0]!.text).not.toContain(fixture.invitationId);
+      expect(events[0]!.text).not.toContain(fixture.runId);
+      expect(events[0]!.text).not.toMatch(
+        /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,
+      );
 
       const [audit] = await sql<
         { actor: string; kind: string; payload: unknown }[]

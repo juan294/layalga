@@ -134,6 +134,106 @@ describe("forgetPartyMemory", () => {
     }
   });
 
+  it("sweeps records from both strategy namespaces and events from the capture and seed sessions", async () => {
+    const [home] = await sql<{ id: string }[]>`
+      insert into public.homes (name, timezone) values ('Forget sweep', 'Europe/Madrid')
+      returning id
+    `;
+    const homeId = home!.id;
+    const partyId = "44444444-4444-4444-8444-444444444444";
+    const memoryId = "mem-test";
+    const expectedActorId = `home-${homeId}/party-${partyId}`;
+    const expectedNamespacePath = `/parties/${expectedActorId}`;
+    const hostId = "55555555-5555-4555-8555-555555555555";
+
+    // A record from each strategy's own sub-namespace under the party's
+    // subtree: `forgetPartyMemory` lists by the *parent* `namespacePath`
+    // (hierarchical), so one page spanning both proves neither strategy's
+    // namespace is missed without the code needing to know their names.
+    const records = [
+      // Conceptually under `${expectedNamespacePath}/preferences`.
+      {
+        memoryRecordId: "pref-1",
+        text: JSON.stringify({ preference: "Prefers the ground floor room." }),
+        createdAt: new Date(),
+      },
+      // Conceptually under `${expectedNamespacePath}/facts`.
+      {
+        memoryRecordId: "fact-1",
+        text: "This family travels with one small dog.",
+        createdAt: new Date(),
+      },
+    ];
+    // Three sessions actually seen in production for this actor: the
+    // deterministic host_capture write (`recordCaptureMemory`), a guest
+    // conversation, and `scripts/seed-memory.ts`'s own seeded session.
+    const sessionIds = [
+      `capture_${hostId}`,
+      "inv_66666666-...",
+      "seed_memory_vega",
+    ];
+    const eventsBySession: Record<string, string[]> = {
+      [`capture_${hostId}`]: ["event-capture-1"],
+      "inv_66666666-...": ["event-guest-1", "event-guest-2"],
+      seed_memory_vega: ["event-seed-1", "event-seed-2", "event-seed-3"],
+    };
+
+    const requestedNamespaces: string[] = [];
+    const deletedRecordIds: string[] = [];
+    const deletedEvents: { sessionId: string; eventId: string }[] = [];
+
+    const fakeClient: MemoryClient = {
+      createEvent: async () => {
+        throw new Error("createEvent should not be called by forget");
+      },
+      listMemoryRecords: async ({ namespacePath }) => {
+        requestedNamespaces.push(namespacePath);
+        return { items: records, nextToken: undefined };
+      },
+      batchDeleteMemoryRecords: async ({ memoryRecordIds }) => {
+        deletedRecordIds.push(...memoryRecordIds);
+      },
+      listSessions: async () => ({ items: sessionIds, nextToken: undefined }),
+      listEvents: async ({ sessionId }) => ({
+        items: eventsBySession[sessionId] ?? [],
+        nextToken: undefined,
+      }),
+      deleteEvent: async ({ sessionId, eventId }) => {
+        deletedEvents.push({ sessionId, eventId });
+      },
+    };
+
+    try {
+      const result = await forgetPartyMemory(
+        sql,
+        homeId,
+        partyId,
+        memoryId,
+        "us-east-1",
+        fakeClient,
+      );
+
+      // The parent namespacePath is requested, not one per strategy: the
+      // service resolves it hierarchically to cover /preferences and
+      // /facts both.
+      expect(requestedNamespaces).toEqual([expectedNamespacePath]);
+      expect(deletedRecordIds.sort()).toEqual(["fact-1", "pref-1"]);
+      expect(result.deletedRecords).toBe(2);
+
+      expect(deletedEvents).toEqual([
+        { sessionId: `capture_${hostId}`, eventId: "event-capture-1" },
+        { sessionId: "inv_66666666-...", eventId: "event-guest-1" },
+        { sessionId: "inv_66666666-...", eventId: "event-guest-2" },
+        { sessionId: "seed_memory_vega", eventId: "event-seed-1" },
+        { sessionId: "seed_memory_vega", eventId: "event-seed-2" },
+        { sessionId: "seed_memory_vega", eventId: "event-seed-3" },
+      ]);
+      expect(result.deletedEvents).toBe(6);
+    } finally {
+      await sql`delete from public.homes where id = ${homeId}`;
+    }
+  });
+
   it("writes an audit row with zero counts when nothing is remembered", async () => {
     const [home] = await sql<{ id: string }[]>`
       insert into public.homes (name, timezone) values ('Forget empty', 'Europe/Madrid')

@@ -9,12 +9,9 @@ import {
   quietButtonStyle,
   rule,
 } from "./host-styles";
+import { displayRecords, type MemoryRecordItem } from "./memory-record-display";
 
-export interface MemoryRecordItem {
-  id: string;
-  text: string;
-  createdAtLabel: string;
-}
+export type { MemoryRecordItem };
 
 export interface MemoryPartyRecords {
   partyId: string;
@@ -87,18 +84,20 @@ export function MemoryPanel({
               <ul
                 style={{ listStyle: "none", margin: "0.5rem 0 0", padding: 0 }}
               >
-                {party.records.map((record) => (
+                {displayRecords(party.records).map((record) => (
                   <li
                     key={record.id}
                     style={{
-                      color: graphite,
-                      lineHeight: 1.5,
-                      margin: "0.35rem 0",
+                      borderTop: `1px solid ${rule}`,
+                      padding: "0.5rem 0",
                     }}
                   >
-                    {record.text}
-                    <br />
-                    <small style={labelStyle}>{record.createdAtLabel}</small>
+                    <div style={{ color: graphite, lineHeight: 1.5 }}>
+                      {record.text}
+                    </div>
+                    <div style={{ ...labelStyle, marginTop: "0.2rem" }}>
+                      {record.createdAtLabel}
+                    </div>
                   </li>
                 ))}
               </ul>

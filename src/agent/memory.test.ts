@@ -52,8 +52,13 @@ describe("memoryStoresForTask", () => {
     }
   });
 
-  it("attaches a read-only family store for guest_reconfirm, tick, and resume", () => {
-    for (const task of ["guest_reconfirm", "tick", "resume"] as const) {
+  it("attaches a read-only family store for guest_reconfirm, tick, resume, and host_capture", () => {
+    for (const task of [
+      "guest_reconfirm",
+      "tick",
+      "resume",
+      "host_capture",
+    ] as const) {
       const [store] = memoryStoresForTask(
         task,
         partyAuthority,
@@ -66,15 +71,24 @@ describe("memoryStoresForTask", () => {
     }
   });
 
-  it("attaches a writable family store for a matched host_capture", () => {
-    const [store] = memoryStoresForTask(
+  it("never extraction-backs host_capture, matched party or not (D7)", () => {
+    const [matched] = memoryStoresForTask(
       "host_capture",
       partyAuthority,
       "capture_1",
       config,
     );
-    expect(store!.writable).toBe(true);
-    expect(store!.extraction).toBeTruthy();
+    expect(matched!.writable).toBe(false);
+    expect(matched!.extraction).toBeFalsy();
+
+    const [unmatched] = memoryStoresForTask(
+      "host_capture",
+      homeAuthority,
+      "capture_1",
+      config,
+    );
+    expect(unmatched!.writable).toBe(false);
+    expect(unmatched!.extraction).toBeFalsy();
   });
 
   it("attaches a read-only household store for an unmatched host_capture", () => {
