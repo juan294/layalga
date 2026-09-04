@@ -110,13 +110,22 @@ export async function runReleaseProbes(
       options.expectedRuntime,
       demo.rawMessages,
     );
+    if (options.expectMemory) {
+      await assertCaptureRunSearchedMemory(sql, demo.rawMessages[0]);
+    }
     evidence.push(
       pass(
         2,
         "host capture",
-        options.expectedRuntime
-          ? `two tagged tentative invitations created; host capture executed on ${options.expectedRuntime}`
-          : "two tagged tentative invitations created",
+        [
+          "two tagged tentative invitations created",
+          options.expectedRuntime
+            ? `host capture executed on ${options.expectedRuntime}`
+            : null,
+          options.expectMemory ? "the capture run searched memory" : null,
+        ]
+          .filter(Boolean)
+          .join("; "),
       ),
     );
 
@@ -316,6 +325,35 @@ async function assertResumeRunExecutedOn(
     [{ label: "resume", result: row.result }],
     expectedRuntime,
     (_label, runtime) => `resume run must execute on ${runtime}`,
+  );
+}
+
+/**
+ * Asserts the tagged Vega `host_capture` run called `search_memory` at
+ * least once. Only meaningful with `--expect-memory`, and only for the
+ * Vega raw message: `scripts/seed-memory.ts` seeds that party's memory
+ * before the demo runs, and `authorityForTask`'s deterministic pre-match
+ * (`src/agent/party-match.ts`) finds the existing "Familia Vega" party from
+ * the raw message's "Vega" mention, so this is the one capture run a
+ * matched party's memory tools are actually attached to.
+ */
+async function assertCaptureRunSearchedMemory(
+  sql: Sql,
+  vegaRawMessage: string,
+): Promise<void> {
+  const [row] = await sql<{ count: number }[]>`
+    select count(*)::integer as count
+    from public.audit_events audit
+    join public.runs run on run.id = audit.run_id
+    where run.home_id = ${DEMO_SEED.home.id}
+      and run.task = 'host_capture'
+      and run.payload->>'rawMessage' = ${vegaRawMessage}
+      and audit.kind = 'tool_call'
+      and audit.payload->>'name' = 'search_memory'
+  `;
+  assert.ok(
+    (row?.count ?? 0) > 0,
+    "expected the matched Vega host_capture run to call search_memory",
   );
 }
 

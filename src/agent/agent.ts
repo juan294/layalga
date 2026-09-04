@@ -10,6 +10,7 @@ import { sqlClient } from "@/core/db/client";
 import { parseServerEnvironment } from "@/lib/server/env";
 
 import { buildTools, type AgentDeps } from "./deps";
+import { installMemorySearchAudit, memoryConfigForTask } from "./memory";
 import { installPolicyHook } from "./policy-hook";
 import { PromptMinimizingModel } from "./prompt-minimization";
 import { PostgresStorage } from "./storage/postgres-storage";
@@ -32,6 +33,7 @@ export function buildAgent({
   model,
 }: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
+  const memoryManager = memoryConfigForTask(task, deps.authority, sessionId);
   const agent = new Agent({
     model: selectedModel,
     tools: buildTools(deps, task),
@@ -52,8 +54,13 @@ export function buildAgent({
       "layalga.task": task,
       "session.id": sessionId,
     },
+    // `undefined` when MEMORY=none or no store applies to this task, so
+    // agent construction stays byte-identical to before Phase 3 in that
+    // case (see `memoryConfigForTask`).
+    ...(memoryManager ? { memoryManager } : {}),
   });
   installPolicyHook(agent, deps);
+  if (memoryManager) installMemorySearchAudit(agent, deps);
   return agent;
 }
 

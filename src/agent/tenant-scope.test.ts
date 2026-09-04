@@ -4,7 +4,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { FakeClock } from "@/core/clock";
 
 import { NoopScheduler } from "./deps";
-import { runAgentTask } from "./run-task";
+import { memoryStoresForTask } from "./memory";
+import { matchedPartyIdForCapture, runAgentTask } from "./run-task";
 import { ScriptedModel } from "./scripted-model";
 
 const url =
@@ -514,6 +515,86 @@ describe("agent task authority", () => {
           )
         `,
       ).rejects.toMatchObject({ code: "23503" });
+    } finally {
+      await sql`delete from public.homes where id in (${homeA.homeId}, ${homeB.homeId})`;
+    }
+  });
+
+  it("only matches an existing party's family name within its own home (A7)", async () => {
+    const [homeA, homeB] = await Promise.all([
+      seedHome("Memory scope A"),
+      seedHome("Memory scope B"),
+    ]);
+    try {
+      await sql`
+        update public.parties set family_name = 'Familia Vega' where id in (
+          select party_id from public.invitations where id = ${homeA.invitationId}
+        )
+      `;
+      await sql`
+        update public.parties set family_name = 'The Oteros' where id in (
+          select party_id from public.invitations where id = ${homeB.invitationId}
+        )
+      `;
+      const [vegaPartyId] = await sql<{ party_id: string }[]>`
+        select party_id from public.invitations where id = ${homeA.invitationId}
+      `;
+
+      // homeA's raw message names a party that only exists in homeB: no match.
+      await expect(
+        matchedPartyIdForCapture(
+          sql,
+          homeA.homeId,
+          "Inviting the Oteros for a visit",
+        ),
+      ).resolves.toBeUndefined();
+
+      // homeA's raw message names its own party: matches, scoped to homeA.
+      await expect(
+        matchedPartyIdForCapture(sql, homeA.homeId, "Oye, los Vega vienen"),
+      ).resolves.toBe(vegaPartyId!.party_id);
+    } finally {
+      await sql`delete from public.homes where id in (${homeA.homeId}, ${homeB.homeId})`;
+    }
+  });
+
+  it("never scopes a guest task's memory store to another party (A7)", async () => {
+    const [homeA, homeB] = await Promise.all([
+      seedHome("Store scope A"),
+      seedHome("Store scope B"),
+    ]);
+    try {
+      const [partyA] = await sql<{ party_id: string }[]>`
+        select party_id from public.invitations where id = ${homeA.invitationId}
+      `;
+      const [partyB] = await sql<{ party_id: string }[]>`
+        select party_id from public.invitations where id = ${homeB.invitationId}
+      `;
+      const config = {
+        memory: "agentcore" as const,
+        memoryId: "mem-test",
+        awsRegion: "us-east-1",
+      };
+      const [storeA] = memoryStoresForTask(
+        "guest_submit",
+        { homeId: homeA.homeId, partyId: partyA!.party_id },
+        "inv_1",
+        config,
+      );
+      const [storeB] = memoryStoresForTask(
+        "guest_submit",
+        { homeId: homeB.homeId, partyId: partyB!.party_id },
+        "inv_2",
+        config,
+      );
+      const namespaceOf = (store: unknown) =>
+        String((store as { resolvedNamespace: string }).resolvedNamespace);
+
+      expect(namespaceOf(storeA)).toContain(partyA!.party_id);
+      expect(namespaceOf(storeA)).not.toContain(partyB!.party_id);
+      expect(namespaceOf(storeB)).toContain(partyB!.party_id);
+      expect(namespaceOf(storeB)).not.toContain(partyA!.party_id);
+      expect(namespaceOf(storeA)).not.toBe(namespaceOf(storeB));
     } finally {
       await sql`delete from public.homes where id in (${homeA.homeId}, ${homeB.homeId})`;
     }

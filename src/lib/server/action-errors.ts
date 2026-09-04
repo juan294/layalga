@@ -10,6 +10,7 @@ export type ActionErrorCode =
   | "guest_submit_failed"
   | "host_capture_failed"
   | "host_decision_failed"
+  | "memory_forget_failed"
   | "private_room_block_cancel_failed"
   | "private_room_block_create_failed"
   | "room_inventory_create_failed"

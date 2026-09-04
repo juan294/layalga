@@ -15,6 +15,8 @@ describe("activityKindLabelKey", () => {
     expect(activityKindLabelKey("reconfirm_escalation")).toBe(
       "reconfirmEscalation",
     );
+    expect(activityKindLabelKey("memory_written")).toBe("memoryWritten");
+    expect(activityKindLabelKey("memory_forgotten")).toBe("memoryForgotten");
   });
 
   test("returns null for an unrecognized kind", () => {
@@ -23,7 +25,7 @@ describe("activityKindLabelKey", () => {
 });
 
 describe("activityToolLabelKey", () => {
-  test("maps all ten agent tool names", () => {
+  test("maps all eleven agent tool names", () => {
     const tools = [
       "capture_invitation",
       "confirm_visit",
@@ -35,6 +37,7 @@ describe("activityToolLabelKey", () => {
       "prepare_room_action",
       "list_guest_rooms",
       "find_room_options",
+      "search_memory",
     ];
     for (const tool of tools) {
       expect(activityToolLabelKey(tool)).not.toBeNull();
