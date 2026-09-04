@@ -75,6 +75,13 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
         }),
       )
       .min(1),
+    // The deciding host's own locale, so the resumed run's final summary is
+    // written in the language of the host reading the run status page --
+    // not the guest session's language the resumed conversation continues
+    // from. Optional for backward compatibility with an already-queued
+    // resume payload from before this field existed; runtimeDeps falls
+    // back to "en" when absent.
+    locale: locale.optional(),
   }),
   z.object({
     task: z.literal("tick"),

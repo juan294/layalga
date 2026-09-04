@@ -14,7 +14,7 @@ import { installMemorySearchAudit, memoryConfigForTask } from "./memory";
 import { installPolicyHook } from "./policy-hook";
 import { PromptMinimizingModel } from "./prompt-minimization";
 import { PostgresStorage } from "./storage/postgres-storage";
-import { systemPrompts } from "./system-prompt";
+import { RESUME_SYSTEM_PROMPT_SUFFIX, systemPrompts } from "./system-prompt";
 import type { AgentTask } from "./task";
 
 export interface BuildAgentOptions {
@@ -34,6 +34,13 @@ export function buildAgent({
 }: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
   const memoryManager = memoryConfigForTask(task, deps.authority, sessionId);
+  // A resumed run has no user-turn text prompt of its own to carry the
+  // language/no-notify steer other tasks get from `buildPrompt`
+  // (`src/agent/run-task.ts`), so it rides the system prompt instead.
+  const systemPrompt =
+    task === "resume"
+      ? `${systemPrompts[deps.locale]}${RESUME_SYSTEM_PROMPT_SUFFIX[deps.locale]}`
+      : systemPrompts[deps.locale];
   const agent = new Agent({
     model: selectedModel,
     tools: buildTools(deps, task),
@@ -44,7 +51,7 @@ export function buildAgent({
       ),
       saveLatestOn: "message",
     }),
-    systemPrompt: systemPrompts[deps.locale],
+    systemPrompt,
     printer: false,
     toolExecutor: "sequential",
     // Ids only, never guest or host names: prompt minimization strips

@@ -100,6 +100,53 @@ describe("recordCaptureMemory", () => {
     }
   });
 
+  it("never echoes rememberedContext back into the memory event (no feedback loop)", async () => {
+    const fixture = await seedCapturedInvitation({
+      adults: 2,
+      children: 2,
+      pets: 0,
+      flexibleDates: { text: "mediados de septiembre" },
+      specialRequests: [],
+      rememberedContext: [
+        "prefers the ground floor room",
+        "arrives late on Friday evenings",
+      ],
+    });
+    const events: { text: string }[] = [];
+    const fakeClient: MemoryClient = {
+      createEvent: async (input) => {
+        events.push({ text: input.text });
+      },
+      listMemoryRecords: async () => ({ items: [] }),
+      batchDeleteMemoryRecords: async () => undefined,
+      listSessions: async () => ({ items: [] }),
+      listEvents: async () => ({ items: [] }),
+      deleteEvent: async () => undefined,
+    };
+
+    try {
+      await recordCaptureMemory(
+        {
+          db: sql,
+          clock: new FakeClock(new Date("2026-09-01T10:00:00Z")),
+          scheduler: new NoopScheduler(),
+          appUrl: "http://localhost:3008",
+          locale: "en",
+        },
+        fixture.runId,
+        fixture.sessionId,
+        fixture.homeId,
+        fakeClient,
+      );
+
+      expect(events).toHaveLength(1);
+      expect(events[0]!.text).not.toContain("ground floor");
+      expect(events[0]!.text).not.toContain("Friday evenings");
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+
   it("does nothing when the run never captured an invitation", async () => {
     const [home] = await sql<{ id: string }[]>`
       insert into public.homes (name, timezone) values ('No capture', 'Europe/Madrid')

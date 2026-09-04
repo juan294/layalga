@@ -952,9 +952,43 @@ function uniqueStrings(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
-/** Appended to a prompt to ask the model to recall a matched party's memory first (D7 / task 3.6). */
+/**
+ * Appended to a prompt to ask the model to recall a matched party's memory
+ * first (D7 / task 3.6), and to bound what that recall may affect: recalled
+ * facts inform the host, they never overwrite what the host's own message
+ * states. A recalled fact that changed adults, children, pets, dates,
+ * arrival time, or specialRequests is exactly the bug this bounds against
+ * (a demo run once turned a remembered "ground floor room" preference into
+ * a specialRequests entry that interrupted for host approval the family
+ * never asked to trigger).
+ */
 const SEARCH_MEMORY_INSTRUCTION =
-  " Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account.";
+  " Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account. Facts from search_memory never change adults, children, pets, dates, arrival time, or specialRequests: only what the message you were given states goes into those fields.";
+
+/** Appended only to the host_capture search instruction (task 3.6 / D7 continued): where a recalled fact belongs. */
+const REMEMBERED_CONTEXT_INSTRUCTION =
+  " Put what the house remembers into rememberedContext and mention it in the one-line summary.";
+
+/**
+ * Appended to the guest_submit and guest_change prompts: `notify` is for
+ * telling a host something, never a guest, so a call aimed at the party is
+ * always refused by the tool (a production run once tried it anyway and
+ * surfaced the refusal in the guest-facing summary). The application
+ * itself is what tells the guest the outcome, through the private link.
+ */
+const NO_NOTIFY_INSTRUCTION =
+  " Do not call notify. The application delivers the outcome through the private link.";
+
+// A `resume` invocation carries no text prompt of its own (see the
+// `InterruptResponseContent` branch in `executeClaimedAgentTask` below) --
+// it continues the same agent session as the original guest interaction,
+// so there is no per-turn string to append an instruction to the way the
+// other tasks above do. That resume-only language and no-notify steer
+// instead lives on the system prompt, appended in `buildAgent`
+// (`src/agent/agent.ts`) from `RESUME_SYSTEM_PROMPT_SUFFIX`
+// (`src/agent/system-prompt.ts`) -- kept out of this module specifically
+// to avoid a circular import (`agent.ts` already imports `buildAgent` from
+// this file).
 
 async function buildPrompt(
   task: Exclude<AgentTask, { task: "resume" }>,
@@ -967,7 +1001,9 @@ async function buildPrompt(
     // "pasted this invitation" regex is now a no-op for this text, kept for
     // the older shape any in-flight session snapshot may still carry.
     const searchInstruction =
-      memoryEnabled && deps.authority?.partyId ? SEARCH_MEMORY_INSTRUCTION : "";
+      memoryEnabled && deps.authority?.partyId
+        ? SEARCH_MEMORY_INSTRUCTION + REMEMBERED_CONTEXT_INSTRUCTION
+        : "";
     return `The host pasted this invitation (locale ${task.locale}): """${task.rawMessage}""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.${searchInstruction}`;
   }
   if (task.task === "host_room_request") {
@@ -978,7 +1014,7 @@ async function buildPrompt(
     // "Party ... chose" regex is now a no-op for this text, kept for the
     // older shape any in-flight session snapshot may still carry.
     const searchInstruction = memoryEnabled ? SEARCH_MEMORY_INSTRUCTION : "";
-    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}`;
+    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (
     task.task === "guest_change" ||
@@ -987,7 +1023,7 @@ async function buildPrompt(
     // The family name never enters the prompt (D7): the minimizer's
     // "Party ... asks to change" regex is now a no-op for this text, kept
     // for the older shape any in-flight session snapshot may still carry.
-    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.`;
+    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.${NO_NOTIFY_INSTRUCTION}`;
   }
   if (task.task === "guest_reconfirm") return "Record the reconfirmation.";
   const [job] = await sql<

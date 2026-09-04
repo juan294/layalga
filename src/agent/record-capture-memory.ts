@@ -74,7 +74,11 @@ export async function recordCaptureMemory(
  * Renders the invitation's structured facts as a name-free USER turn.
  * Mirrors the fields `capture_invitation` stores (`src/agent/tools/capture-invitation.ts`):
  * party size, flexible dates text, arrival time, special requests, pets —
- * deliberately never `partyName`.
+ * deliberately never `partyName`, and deliberately never
+ * `structured.rememberedContext`: that field is what search_memory already
+ * recalled, so echoing it back would create a feedback loop that reinforces
+ * (and eventually invents) household memory instead of recording what the
+ * host actually stated this time.
  */
 function invitationFactsText(structured: unknown): string | null {
   const value = objectValue(structured) as {

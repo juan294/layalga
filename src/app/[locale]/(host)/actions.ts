@@ -163,6 +163,11 @@ export async function decideAction(formData: FormData): Promise<void> {
       task: "resume",
       homeId: host.homeId,
       sessionId: decision.agent_session_id,
+      // The deciding host's own locale, so the resumed run's final summary
+      // is written in the language of the host reading the run status
+      // page, not the guest session's language the resumed conversation
+      // continues from (see RESUME_SYSTEM_PROMPT_SUFFIX).
+      locale: host.locale,
       responses: [
         {
           interruptId: decision.interrupt_id,
