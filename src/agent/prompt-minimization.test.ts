@@ -88,6 +88,22 @@ describe("external model prompt minimization", () => {
     expect(guestChangePrompt).not.toMatch(/\b(Vega|Marta|Nel)\b/);
   });
 
+  it("leaves the name-free memory-name-steer instruction unchanged on guest_submit and guest_change prompts", () => {
+    const nameSteerInstruction =
+      ' Memory search results and earlier turns in this conversation may contain personal names. In your own reply, refer to this family only as "this family", never by name.';
+    const noNotifyInstruction =
+      " Do not call notify. The application delivers the outcome through the private link.";
+    const guestSubmitPrompt = `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets, arrival not given, notes: none. Place a hold, then confirm it, and tell the guest what happens next in their language.${nameSteerInstruction}${noNotifyInstruction}`;
+    const guestChangePrompt = `The invited party asks to change visit visit-1: """Move us one day later""". Use find_visit_options if dates are unclear, then reschedule_visit.${nameSteerInstruction}${noNotifyInstruction}`;
+
+    expect(minimizeProviderPrompt(guestSubmitPrompt)).toBe(
+      `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets. Place a hold, then confirm it, and tell the guest what happens next in their language.${nameSteerInstruction}${noNotifyInstruction}`,
+    );
+    expect(minimizeProviderPrompt(guestChangePrompt)).toBe(guestChangePrompt);
+    expect(guestSubmitPrompt).not.toMatch(/\b(Vega|Marta|Nel)\b/);
+    expect(guestChangePrompt).not.toMatch(/\b(Vega|Marta|Nel)\b/);
+  });
+
   it("still strips arrival and notes from a name-free guest_submit prompt", () => {
     const prompt =
       "The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets, arrival 18:00, notes: Marta needs step-free access. Place a hold, then confirm it, and tell the guest what happens next in their language.";

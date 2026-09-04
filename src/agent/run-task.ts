@@ -970,6 +970,21 @@ const REMEMBERED_CONTEXT_INSTRUCTION =
   " Put what the house remembers into rememberedContext and mention it in the one-line summary.";
 
 /**
+ * Appended to the guest_submit and guest_change prompts whenever memory is
+ * on (a steer, since extraction reads the conversation regardless of what
+ * this text says): those two tasks keep an extraction-backed writable
+ * store (unlike host_capture, which never is -- see `src/agent/memory.ts`),
+ * so anything the model writes in its own reply becomes part of what
+ * extraction can turn into a long-term record. Memory search results and
+ * earlier turns in the same session may already contain a personal name;
+ * without this steer the model could repeat one back in its own message,
+ * and that gets re-extracted, compounding the leak. It cannot erase a name
+ * already in the conversation, only stop the model from reintroducing one.
+ */
+const MEMORY_NAME_STEER_INSTRUCTION =
+  ' Memory search results and earlier turns in this conversation may contain personal names. In your own reply, refer to this family only as "this family", never by name.';
+
+/**
  * Appended to the guest_submit and guest_change prompts: a steer, not the
  * enforcement. `notify` is for telling a host something, never a guest (a
  * production run once tried it anyway and surfaced the tool's refusal in
@@ -1018,7 +1033,8 @@ async function buildPrompt(
     // "Party ... chose" regex is now a no-op for this text, kept for the
     // older shape any in-flight session snapshot may still carry.
     const searchInstruction = memoryEnabled ? SEARCH_MEMORY_INSTRUCTION : "";
-    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}${NO_NOTIFY_INSTRUCTION}`;
+    const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
+    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (
     task.task === "guest_change" ||
@@ -1027,7 +1043,8 @@ async function buildPrompt(
     // The family name never enters the prompt (D7): the minimizer's
     // "Party ... asks to change" regex is now a no-op for this text, kept
     // for the older shape any in-flight session snapshot may still carry.
-    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.${NO_NOTIFY_INSTRUCTION}`;
+    const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
+    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (task.task === "guest_reconfirm") return "Record the reconfirmation.";
   const [job] = await sql<
