@@ -13,8 +13,7 @@
     "es": "Español"
   },
   "SignIn": {
-    "folio": "Libro de la casa · Acceso de anfitriones",
-    "eyebrow": "Para quienes mantienen la puerta abierta",
+    "tagline": "ayalga — asturianu: un tesoru atopáu",
     "title": "Ocupa tu lugar en el libro.",
     "description": "Inicia sesión para revisar invitaciones, resolver dudas y dejar clara cada estancia para toda la casa.",
     "googleAction": "Continuar con Google",
@@ -22,7 +21,15 @@
     "privacyNote": "El acceso está limitado a las direcciones de los anfitriones registradas para esta casa.",
     "startError": "No se pudo iniciar la sesión con Google. Inténtalo de nuevo.",
     "callbackError": "No se pudo completar la sesión con Google. Inténtalo de nuevo.",
-    "notHostError": "Esta cuenta de Google no está en la lista de anfitriones de esta casa."
+    "notHostError": "Esta cuenta de Google no está en la lista de anfitriones de esta casa.",
+    "imageAlt": "Ilustración de la casa sobre el Cantábrico, {season}",
+    "footerLead": "¿Planes por la zona? Ideas en "
+  },
+  "Season": {
+    "primavera": "primavera",
+    "verano": "verano",
+    "otono": "otoño",
+    "invierno": "invierno"
   },
   "DemoHost": {
     "enterAs": "Entrar como {name}"

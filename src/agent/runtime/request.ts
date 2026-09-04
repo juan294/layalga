@@ -11,7 +11,22 @@ export const executeAgentRunRequestSchema = z.object({
 export type ExecuteAgentRunRequest = z.infer<
   typeof executeAgentRunRequestSchema
 >;
-export type AgentCoreRequest = AgentTask | ExecuteAgentRunRequest;
+
+export const scheduledTickRequestSchema = z.object({
+  operation: z.literal("scheduled_tick"),
+  homeId: z.uuid(),
+  jobId: z.uuid(),
+});
+
+export type ScheduledTickRequest = z.infer<typeof scheduledTickRequestSchema>;
+
+const agentCoreEnvelopeSchema = z.discriminatedUnion("operation", [
+  executeAgentRunRequestSchema,
+  scheduledTickRequestSchema,
+]);
+
+export type AgentCoreRequest =
+  AgentTask | ExecuteAgentRunRequest | ScheduledTickRequest;
 
 /**
  * Keep AgentCore's bundled Zod version out of the application type boundary.
@@ -21,12 +36,6 @@ export function parseAgentCoreRequest(request: unknown): AgentCoreRequest {
   return request !== null &&
     typeof request === "object" &&
     "operation" in request
-    ? executeAgentRunRequestSchema.parse(request)
+    ? agentCoreEnvelopeSchema.parse(request)
     : agentTaskSchema.parse(request);
-}
-
-export function isExecuteAgentRunRequest(
-  request: AgentCoreRequest,
-): request is ExecuteAgentRunRequest {
-  return "operation" in request;
 }

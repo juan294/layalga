@@ -1,5 +1,7 @@
 import { getDatabaseConnection, sqlClient } from "@/core/db/client";
 import { findInvitationByToken } from "@/core/booking/invitations";
+import type { ExecutionRuntime } from "@/agent/deps";
+import { parseStoredRunResult } from "@/agent/task";
 import { getCurrentHost } from "@/lib/auth/current-host";
 
 export type RunStatus =
@@ -10,6 +12,7 @@ export interface RunSnapshot {
   status: RunStatus;
   summary: string | null;
   finishedAt: string | null;
+  executedOn?: ExecutionRuntime;
 }
 
 export async function getAuthorizedRunSnapshot(
@@ -55,25 +58,14 @@ export async function getAuthorizedRunSnapshot(
   }
   if (!authorized) return null;
 
+  const stored = parseStoredRunResult(run.result);
   return {
     id: run.id,
     status: run.status,
-    summary: summaryFrom(run.result),
+    summary: stored.summary ?? null,
     finishedAt: run.finished_at
       ? new Date(run.finished_at).toISOString()
       : null,
+    executedOn: stored.executedOn,
   };
-}
-
-function summaryFrom(value: unknown): string | null {
-  if (typeof value === "string") {
-    try {
-      return summaryFrom(JSON.parse(value));
-    } catch {
-      return value;
-    }
-  }
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const summary = (value as Record<string, unknown>).summary;
-  return typeof summary === "string" ? summary : null;
 }

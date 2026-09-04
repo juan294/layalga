@@ -58,7 +58,7 @@ describe("EventBridgeScheduler", () => {
           Qualifier: "DEFAULT",
           ContentType: "application/json",
           Payload: JSON.stringify({
-            task: "tick",
+            operation: "scheduled_tick",
             homeId: job.homeId,
             jobId: job.id,
           }),

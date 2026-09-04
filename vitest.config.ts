@@ -18,6 +18,11 @@ export default defineConfig({
       },
     },
     environment: "node",
-    exclude: [...configDefaults.exclude, "dist/**", "tests/e2e/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      "dist/**",
+      "tests/e2e/**",
+      ".claude/worktrees/**",
+    ],
   },
 });

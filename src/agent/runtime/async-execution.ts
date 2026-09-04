@@ -11,7 +11,7 @@ interface AsyncRunRuntime {
   completeAsyncTask(taskId: number): void;
   execute(request: ExecuteAgentRunRequest): Promise<RunResult>;
   track(execution: Promise<void>): void;
-  reportFailure(runId: string, errorName: string): void;
+  reportFailure(runId: string, error: unknown): void;
 }
 
 /**
@@ -27,10 +27,7 @@ export function acceptAgentRunExecution(
     .then(() => runtime.execute(request))
     .then(() => undefined)
     .catch((error: unknown) => {
-      runtime.reportFailure(
-        request.runId,
-        error instanceof Error ? error.name : "UnknownError",
-      );
+      runtime.reportFailure(request.runId, error);
     })
     .finally(() => runtime.completeAsyncTask(taskId));
   runtime.track(execution);

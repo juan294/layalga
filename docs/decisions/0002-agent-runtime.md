@@ -157,3 +157,18 @@ The retry found and fixed four runtime boundaries:
 Runtime `arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-mONXXjFms4`, version 7, reached `READY`. One synthetic `host_capture` invocation returned completed run `07397d2b-f104-4ca6-a98a-877f6e0c4e68`. Independent PostgreSQL evidence showed invitation `133cd1bb-249d-411c-bff4-723df4ebe359`, an `agent` audit event with kind `tool_call` and name `capture_invitation`, one durable session record, and no run error. The runtime connected as the non-owner `layalga_agent` role; checks confirmed no `auth` schema usage, no `CREATE` on `public`, and the required invitation DML grant.
 
 This proves a real AgentCore model-and-tool run. It does not replace the original fail-closed production selection. `AGENT_RUNTIME=local` remains the selected production setting until the full interrupt-and-resume cloud sequence passes and the owner separately authorizes the runtime switch and release.
+
+## Production runtime addendum: 2026-09-03
+
+Phase 0 of the final-stretch plan made the AgentCore runtime the production execution path for agent runs.
+
+Deployment. `scripts/deploy-agentcore.sh` bundles `src/agent/runtime/agentcore.ts`, uploads `agentcore/deployment_package.zip` to `layalga-agent-bundles-106403001709`, and updates the existing runtime `arn:aws:bedrock-agentcore:us-east-1:106403001709:runtime/layalga_agent-mONXXjFms4`. Version 10 (S3 object version `byTP4ImjthsdFf5jArtwq2U55Av_1Kzq`) reached `READY`. The runtime environment carries `DATABASE_URL` for the `layalga_agent` login, `BEDROCK_MODEL_ID`, `AWS_REGION`, `MODEL=bedrock`, `APP_URL`, `LINK_TOKEN_SECRET`, and `AGENT_EXECUTION_RUNTIME=agentcore`. The web IAM user `layalga-web` gained `bedrock-agentcore:InvokeAgentRuntime` on `layalga_agent-*` runtimes; the model allow and the workload-identity deny are unchanged.
+
+Boundaries found and fixed:
+
+- The AgentCore container runs with `NODE_ENV=production`, so the shared environment validator applied the web contract and rejected the runtime with `AGENT_RUNTIME: Required`. `AGENT_EXECUTION_RUNTIME=agentcore` now selects an agent-process profile that validates only the database URL, the https application URL, the link secret, and the model settings.
+- A bare `tick` task sent by the demo clock or the cron path executes synchronously through `runAgentTask`; the caller already holds the job claim. The EventBridge target sends a `scheduled_tick` envelope that keeps the claim-and-run path.
+- Every terminal run result records `executedOn` (`local` or `agentcore`), so a run record proves where it executed.
+- Hand-built `ZodError` values are not `Error` instances; the handler now logs structured error detail including issue paths.
+
+Evidence. `scripts/agentcore-smoke.ts` enqueued a synthetic `host_capture` through `AgentCoreClient` and observed completed run `c05759c1-49ae-4823-8b62-5482dae356a0` with `executedOn = "agentcore"` and a structured invitation summary, then removed its tagged rows. The runtime connected as `layalga_agent`; the identity evidence query returned no role capabilities, no `auth` schema usage, no `CREATE` on `public`, invitation DML granted, and no identity-claim column privileges.
