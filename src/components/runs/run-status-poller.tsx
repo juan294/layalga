@@ -11,17 +11,27 @@ import {
   pollDelay,
   steadyPollDelay,
 } from "@/components/frontend-utils";
+import { RunTimeline } from "@/components/runs/run-timeline";
 
 import styles from "./run-status.module.css";
 
 const TERMINAL = new Set(["completed", "interrupted", "failed"]);
 const POLL_INTERVAL_MS = 1_500;
 const FALLBACK_POLL_DEADLINE_MS = 6 * 60_000;
+const runTimelineEventSchema = z.object({
+  at: z.iso.datetime(),
+  kind: z.enum(["tool_call", "policy_verdict", "decision_applied"]),
+  name: z.string().optional(),
+  decision: z.enum(["allow", "deny", "interrupt"]).optional(),
+});
 const runSnapshotSchema = z.object({
   id: z.uuid(),
   status: z.enum(["queued", "running", "completed", "interrupted", "failed"]),
   summary: z.string().nullable(),
   finishedAt: z.iso.datetime().nullable(),
+  executedOn: z.enum(["local", "agentcore"]).optional(),
+  usage: z.object({ tokens: z.number(), tools: z.number() }).optional(),
+  events: z.array(runTimelineEventSchema).default([]),
 });
 
 interface RunStatusPollerProps {
@@ -148,6 +158,13 @@ export function RunStatusPoller({
           )}
         </p>
       </div>
+      <RunTimeline
+        events={run.events}
+        executedOn={run.executedOn}
+        locale={locale}
+        timeZone={timeZone}
+        usage={run.usage}
+      />
       {run.summary ? (
         <div className={styles.summary}>
           <span>{t("summaryLabel")}</span>
@@ -187,10 +204,15 @@ export function RunStatusPoller({
   );
 }
 
-function localizedSummary(
+export function localizedSummary(
   summary: string,
   t: ReturnType<typeof useTranslations>,
 ): string {
   const key = scriptedOutcomeKey(summary);
-  return key ? t(`outcomes.${key}`) : summary;
+  return key ? t(`outcomes.${key}`) : stripMarkdownEmphasis(summary);
+}
+
+/** Strips `**` markdown emphasis markers a live model may include verbatim. */
+function stripMarkdownEmphasis(text: string): string {
+  return text.replace(/\*\*/g, "");
 }

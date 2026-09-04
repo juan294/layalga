@@ -4,6 +4,7 @@ import { verifiedHostDecisionContext } from "@/agent/host-decision-context";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { requireHost } from "@/lib/auth/current-host";
+import { objectValue } from "@/lib/json-object";
 import {
   calendarMonthFromSearch,
   calendarMonthValue,
@@ -28,6 +29,7 @@ import {
   type PendingDecisionItem,
 } from "@/components/host/pending-decisions";
 import {
+  activityKindLabelKey,
   activityPolicyLabelKey,
   activityToolLabelKey,
 } from "@/components/host/activity-labels";
@@ -494,7 +496,11 @@ export default async function HostPage({
                     )}
                   </time>
                   <div>
-                    <strong>{activityKind(activity.kind, t)}</strong>
+                    <strong>
+                      {t(
+                        `activityKinds.${activityKindLabelKey(activity.kind) ?? "other"}`,
+                      )}
+                    </strong>
                     <p
                       style={{
                         color: graphite,
@@ -602,19 +608,6 @@ function reasonLabel(
   return t("decisionReasons.other");
 }
 
-function activityKind(
-  kind: string,
-  t: Awaited<ReturnType<typeof getTranslations>>,
-): string {
-  if (kind === "tool_call") return t("activityKinds.toolCall");
-  if (kind === "policy_verdict") return t("activityKinds.policyVerdict");
-  if (kind === "decision_applied") return t("activityKinds.decisionApplied");
-  if (kind === "reconfirm_chase") return t("activityKinds.reconfirmChase");
-  if (kind === "reconfirm_escalation")
-    return t("activityKinds.reconfirmEscalation");
-  return t("activityKinds.other");
-}
-
 function activityDetail(
   activity: ActivityRow,
   locale: string,
@@ -643,17 +636,4 @@ function activityDetail(
   return `${t("activity.noDetail")} · ${new Intl.DateTimeFormat(locale, {
     timeStyle: "short",
   }).format(new Date(activity.created_at))}`;
-}
-
-function objectValue(value: unknown): Record<string, unknown> | null {
-  if (typeof value === "string") {
-    try {
-      return objectValue(JSON.parse(value));
-    } catch {
-      return null;
-    }
-  }
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }

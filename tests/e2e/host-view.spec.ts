@@ -37,6 +37,7 @@ test("captures an invitation and exposes its private guest link", async ({
   await page.getByTestId("host-capture-submit").click();
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
+  await expect(page.getByTestId("run-timeline-event").first()).toBeVisible();
   await page.getByTestId("capture-reveal").click();
   await expect(page.getByTestId("structured-invitation")).toBeVisible();
   await expect(page.getByTestId("guest-link")).toHaveAttribute(
@@ -59,6 +60,8 @@ test("a special request waits for a host and resumes after approval", async ({
     "data-status",
     "interrupted",
   );
+  // The guest-token branch of /api/runs/[id] must see its own run's timeline.
+  await expect(page.getByTestId("run-timeline-event").first()).toBeVisible();
 
   await page.goto("/en");
   await expect(page.getByTestId("pending-decision")).toBeVisible();
