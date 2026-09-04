@@ -970,11 +970,15 @@ const REMEMBERED_CONTEXT_INSTRUCTION =
   " Put what the house remembers into rememberedContext and mention it in the one-line summary.";
 
 /**
- * Appended to the guest_submit and guest_change prompts: `notify` is for
- * telling a host something, never a guest, so a call aimed at the party is
- * always refused by the tool (a production run once tried it anyway and
- * surfaced the refusal in the guest-facing summary). The application
- * itself is what tells the guest the outcome, through the private link.
+ * Appended to the guest_submit and guest_change prompts: a steer, not the
+ * enforcement. `notify` is for telling a host something, never a guest (a
+ * production run once tried it anyway and surfaced the tool's refusal in
+ * the guest-facing summary); this text asks the model not to bother trying.
+ * The actual rule is enforced deterministically in the tool itself
+ * (`assertGuestNotificationChannel`, `src/agent/tools/notify.ts`), which
+ * refuses a `party` recipient for any `kind` but `reconfirm_chase`
+ * regardless of what the model attempts. The application itself is what
+ * tells the guest the outcome, through the private link.
  */
 const NO_NOTIFY_INSTRUCTION =
   " Do not call notify. The application delivers the outcome through the private link.";

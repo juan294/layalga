@@ -61,7 +61,12 @@ export function captureInvitationTool(deps: AgentDeps) {
       const rememberedContext = input.rememberedContext ?? [];
       // Deterministic guard: a specialRequest that only echoes a recalled
       // fact (case/diacritic-insensitive exact match) is not something the
-      // host's message stated, so it must not reach booking policy.
+      // host's message stated, so it must not reach booking policy. This is
+      // an exact match, not a substring or fuzzy one: an entry the host
+      // restated in this exact wording is still treated as remembered (and
+      // dropped), but a policy-relevant request that differs in wording --
+      // even about the same topic -- is not caught by this filter and
+      // survives into specialRequests, exactly as the host wrote it.
       const foldedRemembered = new Set(rememberedContext.map(foldText));
       const specialRequests = input.specialRequests.filter(
         (request) => !foldedRemembered.has(foldText(request)),

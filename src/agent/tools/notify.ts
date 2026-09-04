@@ -31,6 +31,7 @@ export function notifyTool(deps: AgentDeps) {
         );
       }
       assertReconfirmationRecipientKind(input.kind, input.recipientKind);
+      assertGuestNotificationChannel(input.kind, input.recipientKind);
       const sql = sqlClient(deps.db);
       if (authority.jobId && input.scheduledJobId !== authority.jobId) {
         throw new Error("Scheduled job is outside the agent task scope");
@@ -113,6 +114,26 @@ export function assertReconfirmationRecipientKind(
     (kind === "reconfirm_escalation" && recipientKind !== "host")
   ) {
     throw new Error("Notification recipient kind does not match the job");
+  }
+}
+
+/**
+ * Deterministic enforcement of "guests get outcomes through their private
+ * link, never an in-app notification" (D5-adjacent; see
+ * `NO_NOTIFY_INSTRUCTION` in `src/agent/run-task.ts`, the prompt-level
+ * steer this backs up). `reconfirm_chase` is the one product path that
+ * messages a family in-app -- the reconfirmation reminder before arrival --
+ * so it is the only `kind` a `party` recipient is allowed for. Every other
+ * `kind` must target a `host`.
+ */
+export function assertGuestNotificationChannel(
+  kind: string,
+  recipientKind: "host" | "party",
+): void {
+  if (recipientKind === "party" && kind !== "reconfirm_chase") {
+    throw new Error(
+      "Guests receive outcomes through their private link; notify only hosts here",
+    );
   }
 }
 
