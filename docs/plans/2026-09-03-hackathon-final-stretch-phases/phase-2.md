@@ -26,7 +26,7 @@ When a run pauses for a host decision, and when a reconfirmation escalates, each
 - [x] 2.3 `src/core/notifications/email-outbox.ts`: `selectPendingPings`, `dispatchHostEmailPings`, `renderPing(kind, locale, context)`.
 - [x] 2.4 Wire: `/api/ticks` after the queue drain; `/api/demo/clock` after `runDueJobs`; host page `after(() => dispatchHostEmailPings(...))`.
 - [x] 2.5 Consent UI: a `panelStyle` section "Email pings" on the host page with a toggle form and the masked address (`j***@gmail.com`); Server Action `updateEmailPingsAction` in `src/app/[locale]/(host)/actions.ts`; new `ActionErrorCode` `email_settings_update_failed`; i18n keys `Host.emailPings.*`.
-- [ ] 2.6 AWS: identity creation, DKIM records, recipient verification, IAM policy, `EMAIL=ses` and `SES_FROM_ADDRESS` in Vercel production; redeploy.
+- [x] 2.6 AWS: identity creation, DKIM records, recipient verification, IAM policy (`infra/iam/web-ses-policy.json`, applied), `EMAIL=ses` and `SES_FROM_ADDRESS` in Vercel production (set). The production email proof — both hosts actually receiving a decision and an escalation email on the deployed candidate — happens at release, per the "Done when" items below.
 - [x] 2.7 Demo driver: `scripts/demo-e2e.ts` asserts two `sent` ping rows per beat (one per host) after approval and after escalation when `EMAIL=ses`, else zero rows; release probe 6 adds the same count with `--expect-email`.
 - [x] 2.8 `docs/security/data-lifecycle.md`: email content, retention of `host_email_pings` (90 days in the retention function), SES sandbox note.
 
@@ -47,10 +47,16 @@ export async function dispatchHostEmailPings(db, clock, send = sesSend) {
     where coalesce(st.email_pings, true)
       and not exists (select 1 from host_email_pings p where p.kind = s.kind and p.source_id = s.source_id and p.host_id = s.host_id and p.status <> 'failed')`;
   for (const c of candidates) {
-    const [row] = await sql`insert into host_email_pings (...) values (...) on conflict do nothing returning id`;
+    const [row] =
+      await sql`insert into host_email_pings (...) values (...) on conflict do nothing returning id`;
     if (!row) continue;
-    try { const { messageId } = await send(renderPing(c)); await sql`update ... set status='sent', message_id=..., sent_at=now()`; }
-    catch (e) { await sql`update ... set status='failed', error_name=${name(e)}`; console.error("[EMAIL_PING_FAILED]", { id: row.id, errorName }); }
+    try {
+      const { messageId } = await send(renderPing(c));
+      await sql`update ... set status='sent', message_id=..., sent_at=now()`;
+    } catch (e) {
+      await sql`update ... set status='failed', error_name=${name(e)}`;
+      console.error("[EMAIL_PING_FAILED]", { id: row.id, errorName });
+    }
   }
 }
 ```

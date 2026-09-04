@@ -20,7 +20,7 @@ An external scheduler is a trigger, not the source of truth. Each confirmed visi
 - Did it finish, fail, or get cancelled?
 - Which visit and reconfirmation cycle does it belong to?
 
-For the selected local runtime, Vercel Cron calls `/api/ticks` every minute. The route claims due rows and enqueues the same tick task used by tests and the demo clock. It also recovers expired agent-run leases and drains at most two queued runs per invocation. The repository contains an EventBridge Scheduler adapter for the AgentCore path evaluated during the runtime spike.
+Vercel Cron calls `/api/ticks` every minute. The route claims due rows and enqueues the same tick task used by tests and the demo clock. It also recovers expired agent-run leases and drains queued runs. Production dispatch now sends every one of those runs, ticks included, to a live Amazon Bedrock AgentCore Runtime rather than executing in the Vercel process; the caller still owns the claim, so a bare tick is awaited straight through to completion instead of claimed twice. The repository also contains an EventBridge Scheduler adapter, not yet the selected trigger, for a future retry path.
 
 ## Claim before delivery
 

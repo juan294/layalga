@@ -4,27 +4,33 @@ flowchart LR
   guestAccount["Optional guest account<br/>claim • /visits • sign out"]
   calendarApp["Host's calendar app<br/>iCal subscription"]
 
-  subgraph vercel["Vercel • selected runtime"]
+  subgraph vercel["Vercel"]
     web["Next.js 16<br/>English + Spanish<br/>layalga_web role"]
-    cron["Cron /api/ticks<br/>recover • drain 2 • due jobs"]
+    cron["Cron /api/ticks<br/>recover • drain • due jobs"]
     dispatch["after() dispatch"]
-    worker["runAgentTask worker<br/>Strands • 10 typed tools"]
-    policy["Policy hook<br/>beds → children → pets<br/>→ room selection → human exception"]
-    rooms["Room services<br/>availability • occupancy<br/>proposals • recommendation"]
     webmcp["WebMCP guest/host tools<br/>page-registered • prepare-only"]
     calendarFeed["Calendar feed route<br/>/calendar/[token] • HMAC token"]
+    emailOutbox["Email outbox<br/>dispatchHostEmailPings"]
+  end
+
+  subgraph agentcore["AgentCore Runtime • selected • layalga_agent role"]
+    worker["Strands Agent<br/>10 typed tools"]
+    policy["Policy hook<br/>beds → children → pets<br/>→ room selection → human exception"]
+    rooms["Room services<br/>availability • occupancy<br/>proposals • recommendation"]
+    otel["ADOT for Node<br/>→ CloudWatch GenAI Observability"]
   end
 
   subgraph data["Supabase Postgres • authority"]
     identity["Identity claims<br/>hosts + guests"]
     queue["Runs queue<br/>leases • attempts • idempotency"]
     state["Invitations • visits • rooms<br/>sessions • decisions • audit"]
-    jobs["Jobs • notifications<br/>retry 1m / 5m • quarantine after 3"]
+    jobs["Jobs • notifications<br/>host_email_pings<br/>retry 1m / 5m • quarantine after 3"]
   end
 
-  models["Configured model<br/>scripted demo or Bedrock Sonnet 4.5"]
-  agentcore["AgentCore execute_run<br/>proven model + tool run<br/>layalga_agent role • not selected"]
-  eventbridge["EventBridge Scheduler<br/>future trigger"]
+  models["Amazon Bedrock<br/>Sonnet 4.5<br/>scripted for tests + demo driver"]
+  memory["AgentCore Memory<br/>household preferences • facts"]
+  ses["Amazon SES<br/>host-only email pings"]
+  eventbridge["EventBridge Scheduler<br/>future retry trigger"]
 
   host --> web
   guest --> web
@@ -34,33 +40,38 @@ flowchart LR
   webmcp -. "reuses page authority" .-> web
   web --> identity
   web -- "enqueue + acknowledge" --> queue
-  web --> dispatch --> worker
+  web --> dispatch
+  dispatch -- "InvokeAgentRuntime<br/>execute_run" --> worker
   cron --> queue
   cron --> jobs
+  cron --> emailOutbox
   jobs -- "enqueue tick" --> queue
-  queue -- "claim exact run" --> worker
+  queue -- "InvokeAgentRuntime<br/>claim exact run" --> worker
   worker --> policy
   worker --> rooms
+  worker -- "search_memory" --> memory
+  worker --> models
+  worker --> otel
   policy -- "authorized state change<br/>or interrupt snapshot" --> state
   rooms --> state
   host --> calendarFeed
   calendarFeed -- "bearer token read" --> state
   calendarFeed --> calendarApp
   worker --> jobs
-  worker -.-> models
-  queue -. "execute_run" .-> agentcore
-  eventbridge -.-> agentcore
-  agentcore -.-> models
+  jobs -- "pending decision •<br/>escalation" --> emailOutbox
+  emailOutbox --> ses
+  web -- "list • Forget" --> memory
+  eventbridge -.-> worker
 
   classDef person fill:#f6f0e4,stroke:#143f3b,color:#15201f,stroke-width:2px;
   classDef app fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px;
   classDef core fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px;
   classDef store fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px;
   classDef future fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
-  classDef proven fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:2px,stroke-dasharray: 3 3;
+  classDef selected fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:3px;
   class host,guest,guestAccount,calendarApp person;
-  class web,dispatch,worker,cron,webmcp,calendarFeed app;
+  class web,dispatch,cron,webmcp,calendarFeed,emailOutbox app;
   class policy,models,rooms core;
   class identity,queue,state,jobs store;
-  class agentcore proven;
+  class worker,otel,memory,ses selected;
   class eventbridge future;
