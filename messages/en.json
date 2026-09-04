@@ -188,7 +188,8 @@
       "title": "What L’Ayalga remembers",
       "description": "The coordinator recalls each family's arrival habits, room needs, pets, and accessibility notes across invitations. Forget erases everything remembered about a family.",
       "recordsEmpty": "Nothing is remembered about this family yet.",
-      "forget": "Forget this family"
+      "forget": "Forget this family",
+      "remembered": "The house remembers"
     },
     "decisions": {
       "eyebrow": "Host review",

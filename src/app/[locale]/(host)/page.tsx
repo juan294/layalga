@@ -481,6 +481,7 @@ export default async function HostPage({
                 pending: t("capture.pending"),
                 result: t("capture.result"),
                 structured: t("capture.structured"),
+                remembered: t("memory.remembered"),
                 guestLink: t("capture.guestLink"),
                 copy: t("capture.copy"),
                 copied: t("capture.copied"),

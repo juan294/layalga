@@ -24,7 +24,7 @@ export async function runtimeDeps(
     clock: await DbDemoClock.load(task.homeId, connection.db),
     scheduler: schedulerForHome({ homeDemo: home.demo }),
     appUrl: config.appUrl,
-    locale: "locale" in task ? task.locale : "en",
+    locale: "locale" in task && task.locale ? task.locale : "en",
     executionRuntime: options?.executionRuntime ?? "local",
   };
   if (config.model === "scripted") {

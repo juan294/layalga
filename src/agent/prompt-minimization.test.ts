@@ -47,7 +47,11 @@ describe("external model prompt minimization", () => {
   it("leaves the name-free host_capture and guest_change prompts unchanged (D7)", () => {
     const hostCapturePrompt =
       'The host pasted this invitation (locale es): """Marta needs step-free access""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.';
-    const hostCaptureWithSearch = `${hostCapturePrompt} Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account.`;
+    const searchMemoryInstruction =
+      " Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account. Facts from search_memory never change adults, children, pets, dates, arrival time, or specialRequests: only what the message you were given states goes into those fields.";
+    const rememberedContextInstruction =
+      " Put what the house remembers into rememberedContext and mention it in the one-line summary.";
+    const hostCaptureWithSearch = `${hostCapturePrompt}${searchMemoryInstruction}${rememberedContextInstruction}`;
     const guestChangePrompt =
       'The invited party asks to change visit visit-1: """Move us one day later""". Use find_visit_options if dates are unclear, then reschedule_visit.';
 
@@ -56,6 +60,32 @@ describe("external model prompt minimization", () => {
       hostCaptureWithSearch,
     );
     expect(minimizeProviderPrompt(guestChangePrompt)).toBe(guestChangePrompt);
+  });
+
+  it("leaves the name-free guest_submit search-memory addition unchanged, still stripping arrival/notes (D7)", () => {
+    const searchMemoryInstruction =
+      " Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account. Facts from search_memory never change adults, children, pets, dates, arrival time, or specialRequests: only what the message you were given states goes into those fields.";
+    const guestSubmitWithSearch = `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets, arrival 18:00, notes: Marta needs step-free access. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchMemoryInstruction}`;
+
+    expect(minimizeProviderPrompt(guestSubmitWithSearch)).toBe(
+      `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchMemoryInstruction}`,
+    );
+  });
+
+  it("leaves the name-free no-notify instruction unchanged on guest_submit and guest_change prompts", () => {
+    const noNotifyInstruction =
+      " Do not call notify. The application delivers the outcome through the private link.";
+    const guestSubmitPrompt = `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets, arrival not given, notes: none. Place a hold, then confirm it, and tell the guest what happens next in their language.${noNotifyInstruction}`;
+    const guestChangePrompt = `The invited party asks to change visit visit-1: """Move us one day later""". Use find_visit_options if dates are unclear, then reschedule_visit.${noNotifyInstruction}`;
+
+    // The arrival/notes segment is still stripped as before; only the
+    // no-notify addition at the end is asserted to survive untouched.
+    expect(minimizeProviderPrompt(guestSubmitPrompt)).toBe(
+      `The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets. Place a hold, then confirm it, and tell the guest what happens next in their language.${noNotifyInstruction}`,
+    );
+    expect(minimizeProviderPrompt(guestChangePrompt)).toBe(guestChangePrompt);
+    expect(guestSubmitPrompt).not.toMatch(/\b(Vega|Marta|Nel)\b/);
+    expect(guestChangePrompt).not.toMatch(/\b(Vega|Marta|Nel)\b/);
   });
 
   it("still strips arrival and notes from a name-free guest_submit prompt", () => {

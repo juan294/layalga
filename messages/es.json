@@ -188,7 +188,8 @@
       "title": "Lo que L’Ayalga recuerda",
       "description": "El coordinador recuerda los hábitos de llegada, las necesidades de habitación, las mascotas y las notas de accesibilidad de cada familia entre invitaciones. Olvidar borra todo lo recordado sobre una familia.",
       "recordsEmpty": "Todavía no se recuerda nada sobre esta familia.",
-      "forget": "Olvidar a esta familia"
+      "forget": "Olvidar a esta familia",
+      "remembered": "La casa recuerda"
     },
     "decisions": {
       "eyebrow": "Revisión del anfitrión",

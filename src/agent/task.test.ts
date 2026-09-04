@@ -102,6 +102,39 @@ describe("agent task business limits", () => {
     ).toBe(false);
   });
 
+  it("accepts a resume task with or without a locale (backward compatible)", () => {
+    const withoutLocale = {
+      task: "resume",
+      homeId,
+      sessionId: "capture_host",
+      responses: [
+        {
+          interruptId: "decision",
+          response: { approved: true, hostId: invitationId },
+        },
+      ],
+    };
+    const parsedWithoutLocale = agentTaskSchema.safeParse(withoutLocale);
+    expect(parsedWithoutLocale.success).toBe(true);
+    if (
+      parsedWithoutLocale.success &&
+      parsedWithoutLocale.data.task === "resume"
+    ) {
+      expect(parsedWithoutLocale.data.locale).toBeUndefined();
+    }
+
+    const withLocale = { ...withoutLocale, locale: "es" };
+    const parsedWithLocale = agentTaskSchema.safeParse(withLocale);
+    expect(parsedWithLocale.success).toBe(true);
+    if (parsedWithLocale.success && parsedWithLocale.data.task === "resume") {
+      expect(parsedWithLocale.data.locale).toBe("es");
+    }
+
+    expect(
+      agentTaskSchema.safeParse({ ...withoutLocale, locale: "fr" }).success,
+    ).toBe(false);
+  });
+
   it("accepts a bounded host room request", () => {
     expect(
       agentTaskSchema.safeParse({
