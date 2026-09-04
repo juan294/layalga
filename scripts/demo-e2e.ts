@@ -685,6 +685,9 @@ async function warpClock(
     await page.request.post(`${baseUrl}/api/demo/clock`, {
       headers: { origin: new URL(baseUrl).origin },
       data: { homeId: DEMO_SEED.home.id, now },
+      // A synchronous tick runs the reconfirmation agent on AgentCore; the
+      // escalation tick delivers to both hosts and exceeds the 30 s default.
+      timeout: RUN_WAIT_TIMEOUT_MS,
     }),
     `clock warp to ${now}`,
   );
