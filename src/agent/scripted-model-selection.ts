@@ -6,6 +6,7 @@ import type {
 } from "@strands-agents/sdk";
 
 import { sqlClient } from "@/core/db/client";
+import { foldText } from "@/lib/text-fold";
 
 import type { AgentDeps } from "./deps";
 import { ScriptedModel, type ScriptStep } from "./scripted-model";
@@ -188,9 +189,9 @@ function roomProposalStep(
   if (!stay || rooms.length === 0) {
     return { text: "No matching room is available for this proposal." };
   }
-  const request = normalizedText(task.rawMessage);
+  const request = foldText(task.rawMessage);
   const match =
-    rooms.find((room) => request.includes(normalizedText(room.guestLabel))) ??
+    rooms.find((room) => request.includes(foldText(room.guestLabel))) ??
     rooms[0];
   const kind = /\b(open|abre|abrir)\b/.test(request)
     ? "open"
@@ -229,13 +230,6 @@ function isScriptedRoom(value: unknown): value is {
     typeof (value as { id?: unknown }).id === "string" &&
     typeof (value as { guestLabel?: unknown }).guestLabel === "string"
   );
-}
-
-function normalizedText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
 }
 
 export function scriptedModelForTask(
@@ -278,6 +272,7 @@ function latestToolResult(messages: Message[]): Record<string, unknown> | null {
       const result = toolResultRecord(block.content);
       if (result) return result;
     }
+    if (message.role === "user") return null;
   }
   return null;
 }

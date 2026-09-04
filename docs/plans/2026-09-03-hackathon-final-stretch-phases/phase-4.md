@@ -19,15 +19,15 @@ Every Strands run on the AgentCore runtime emits GenAI spans (agent, cycle, mode
 
 ## Tasks
 
-- [ ] 4.1 Dependencies: `@aws/aws-distro-opentelemetry-node-autoinstrumentation` (latest 0.x), `@opentelemetry/api ^1.9.0` direct; `@strands-agents/sdk` 1.16.0; README badge to 1.16.0.
-- [ ] 4.2 Bundle: `scripts/build-agent-bundle.sh` includes the ADOT package in the derived `package.json` (it is not imported statically, so add it to an explicit include list).
-- [ ] 4.3 Runtime env in `scripts/deploy-agentcore.sh`: `NODE_OPTIONS`, `OTEL_SERVICE_NAME=layalga-agent`, `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`, `OTEL_TRACES_SAMPLER` default. Trace attributes on the agent: `traceAttributes: { "layalga.home_id": homeId, "layalga.task": task.task, "session.id": sessionId }` in `buildAgent` (ids only, no names).
-- [ ] 4.4 Account setup script `scripts/enable-transaction-search.sh` (idempotent: resource policy, `update-trace-segment-destination`, indexing rule 100 percent) and log group retention `aws logs put-retention-policy --log-group-name /aws/bedrock-agentcore/runtimes/<id>-DEFAULT --retention-in-days 14`.
-- [ ] 4.5 Verify: run the smoke capture, open CloudWatch GenAI Observability, confirm the trace shows `invoke_agent`, `chat`, `execute_tool capture_invitation`; save the screenshot to `docs/submission/assets/agentcore-trace.png`.
-- [ ] 4.6 Unit test `src/agent/telemetry.test.ts`: with an in-memory span exporter registered globally, a scripted-model run emits `invoke_agent` and `execute_tool` spans with `gen_ai.tool.name` (proves Strands emits under a global provider, independent of ADOT).
+- [x] 4.1 Dependencies: `@aws/aws-distro-opentelemetry-node-autoinstrumentation` (latest 0.x), `@opentelemetry/api ^1.9.0` direct; `@strands-agents/sdk` 1.16.0; README badge to 1.16.0.
+- [x] 4.2 Bundle: `scripts/build-agent-bundle.sh` includes the ADOT package in the derived `package.json` (it is not imported statically, so add it to an explicit include list).
+- [x] 4.3 Runtime env in `scripts/deploy-agentcore.sh`: `NODE_OPTIONS`, `OTEL_SERVICE_NAME=layalga-agent`, `OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`, `OTEL_TRACES_SAMPLER` default. Trace attributes on the agent: `traceAttributes: { "layalga.home_id": homeId, "layalga.task": task.task, "session.id": sessionId }` in `buildAgent` (ids only, no names).
+- [x] 4.4 Account setup script `scripts/enable-transaction-search.sh` (idempotent: resource policy, `update-trace-segment-destination`, indexing rule 100 percent) and log group retention `aws logs put-retention-policy --log-group-name /aws/bedrock-agentcore/runtimes/<id>-DEFAULT --retention-in-days 14`.
+- [x] 4.5 Verify: run the smoke capture, open CloudWatch GenAI Observability, confirm the trace shows `invoke_agent`, `chat`, `execute_tool capture_invitation`; save the screenshot to `docs/submission/assets/agentcore-trace.png`.
+- [x] 4.6 Unit test `src/agent/telemetry.test.ts`: with an in-memory span exporter registered globally, a scripted-model run emits `invoke_agent` and `execute_tool` spans with `gen_ai.tool.name` (proves Strands emits under a global provider, independent of ADOT).
 
 ## Done when
 
-- [ ] Production run trace visible in CloudWatch GenAI Observability (M2), screenshot committed.
-- [ ] Bundle size and cold start recorded in the ADR addendum.
-- [ ] PR open; CI green.
+- [x] Production run trace visible in CloudWatch GenAI Observability (M2), screenshot committed.
+- [x] Bundle size and cold start recorded in the ADR addendum.
+- [x] PR open; CI green.

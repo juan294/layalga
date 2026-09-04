@@ -1,21 +1,21 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
-import {
-  loadGuestInvitation,
-  partyDefaults,
-  type GuestVisit,
-} from "./guest-data";
-import { GuestActions } from "@/components/guest/guest-actions";
+import { guestInvitationDefaults } from "@/components/guest/guest-invitation-defaults";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
-import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
 import styles from "@/components/guest/guest-ledger.module.css";
-import {
-  formatDateStay,
-  formatHouseholdDateTime,
-} from "@/components/frontend-utils";
+import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
+import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
+import { loadGuestInvitation } from "@/core/booking/guest-invitation";
 import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
 import { createClient } from "@/lib/supabase/server";
+
+import {
+  findGuestOptions,
+  reconfirmGuest,
+  requestGuestChange,
+  submitGuestVisit,
+} from "./actions";
 
 interface GuestPageProps {
   params: Promise<{ locale: "en" | "es"; token: string }>;
@@ -29,7 +29,7 @@ export default async function GuestPage({
   const { locale, token } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "Guest" });
-  const invitation = await loadGuestInvitation(token, locale);
+  const invitation = await loadGuestInvitation({ token }, locale);
   const claimFailed = (await searchParams).claim === "failed";
 
   if (!invitation) {
@@ -60,7 +60,7 @@ export default async function GuestPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const defaults = invitationDefaults(invitation.structured);
+  const defaults = guestInvitationDefaults(invitation.structured);
   const supabase = await createClient();
   const {
     data: { user },
@@ -93,12 +93,16 @@ export default async function GuestPage({
           {status === "invited" ? (
             <GuestInviteForm
               defaults={defaults}
+              findAction={findGuestOptions}
               locale={locale}
+              submitAction={submitGuestVisit}
               token={token}
             />
           ) : invitation.visit ? (
             <GuestVisitRecord
               locale={locale}
+              reconfirmAction={reconfirmGuest}
+              requestChangeAction={requestGuestChange}
               token={token}
               visit={invitation.visit}
             />
@@ -129,114 +133,4 @@ export default async function GuestPage({
       </article>
     </main>
   );
-}
-
-async function GuestVisitRecord({
-  locale,
-  token,
-  visit,
-}: {
-  locale: "en" | "es";
-  token: string;
-  visit: GuestVisit;
-}) {
-  const t = await getTranslations({ locale, namespace: "Guest" });
-  const presentation = guestVisitPresentation(visit);
-
-  return (
-    <section className={styles.summary}>
-      <dl className={styles.factList}>
-        <dt>{t("stayLabel")}</dt>
-        <dd>{formatDateStay(visit.stay, locale)}</dd>
-        <dt>{t("guestsLabel")}</dt>
-        <dd>
-          {t("guestCounts", {
-            adults: visit.adults,
-            children: visit.children,
-            pets: visit.pets,
-          })}
-        </dd>
-        <dt>{t("roomCountLabel")}</dt>
-        <dd data-testid="guest-room-count">
-          {t("roomCount", { count: visit.roomCount })}
-        </dd>
-        <dt>{t("assignedRoomsLabel")}</dt>
-        <dd data-testid="guest-room-labels">
-          {visit.roomLabels.length > 0
-            ? visit.roomLabels.join(", ")
-            : t("assignedRoomsPending")}
-        </dd>
-      </dl>
-
-      {visit.hasOverlap ? (
-        <p className={styles.sharedNote}>{t("sharedStayNote")}</p>
-      ) : null}
-      {visit.status === "reconfirm_pending" ? (
-        <p className={styles.chase}>
-          {visit.chaseMessage ?? t("chaseMessageFallback")}
-        </p>
-      ) : null}
-      {presentation.holdMessageKey ? (
-        <p className={styles.holdNotice}>
-          {t(presentation.holdMessageKey, {
-            expiry: visit.holdExpiresAt
-              ? formatHouseholdDateTime(
-                  visit.holdExpiresAt,
-                  locale,
-                  visit.timeZone,
-                )
-              : t("holdExpiryUnavailable"),
-          })}
-        </p>
-      ) : null}
-      {presentation.canChange ? (
-        <GuestActions
-          canReconfirm={visit.status === "reconfirm_pending"}
-          locale={locale}
-          token={token}
-        />
-      ) : null}
-    </section>
-  );
-}
-
-function invitationDefaults(structured: Record<string, unknown>) {
-  const party = partyDefaults(structured);
-  const preferred = stringPair(structured.preferredStay);
-  const flexible = record(structured.flexibleDates);
-  const from = preferred?.[0] ?? stringValue(flexible.earliest) ?? "2026-09-18";
-  const to = preferred?.[1] ?? stringValue(flexible.latest) ?? "2026-09-28";
-  const nights = Math.max(
-    1,
-    Math.round(
-      (new Date(`${to}T00:00:00Z`).getTime() -
-        new Date(`${from}T00:00:00Z`).getTime()) /
-        86_400_000,
-    ),
-  );
-  const requests = Array.isArray(structured.specialRequests)
-    ? structured.specialRequests.filter(
-        (value): value is string => typeof value === "string",
-      )
-    : [];
-  return { from, to, nights, ...party, notes: requests.join("; ") };
-}
-
-function stringPair(value: unknown): readonly [string, string] | null {
-  return Array.isArray(value) &&
-    value.length === 2 &&
-    typeof value[0] === "string" &&
-    typeof value[1] === "string"
-    ? [value[0], value[1]]
-    : null;
-}
-
-function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }

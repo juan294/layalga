@@ -171,6 +171,7 @@ function CaptureQueuedPanel({
     status: "queued",
     summary: null,
     finishedAt: null,
+    events: [],
   };
   const [snapshot, setSnapshot] = useState<RunSnapshot>(initial);
   const handleSnapshot = useCallback(

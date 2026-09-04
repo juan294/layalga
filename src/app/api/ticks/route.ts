@@ -2,6 +2,7 @@ import { getAgentClient } from "@/agent/client";
 import { drainAgentQueue } from "@/agent/queue";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
+import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
 import { dispatchDueJobs } from "@/core/reconfirmation/jobs";
 
 import { matchesInternalSecret } from "../agent/internal-auth";
@@ -26,6 +27,7 @@ export async function GET(request: Request): Promise<Response> {
     (runId, task) => agentClient.executeQueued(runId, task),
     { concurrency: 2 },
   );
+  await dispatchHostEmailPingsSafely(connection.db, clock);
   return Response.json({ jobs, count: jobs.length, queue });
 }
 

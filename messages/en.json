@@ -38,7 +38,8 @@
     "invierno": "winter"
   },
   "DemoHost": {
-    "enterAs": "Enter as {name}"
+    "enterAs": "Enter as {name}",
+    "enterAsGuest": "Enter as Guest"
   },
   "Host": {
     "eyebrow": "Household guest ledger",
@@ -172,6 +173,23 @@
       "revealing": "Preparing private link…",
       "completionFailed": "The completed invitation could not be loaded. Try again."
     },
+    "emailPings": {
+      "eyebrow": "Notifications",
+      "title": "Email pings",
+      "description": "Emails go to {address} when a decision needs you or a reconfirmation escalates.",
+      "turnOff": "Turn off email pings",
+      "turnOn": "Turn on email pings",
+      "statusOn": "Email pings are on.",
+      "statusOff": "Email pings are off.",
+      "noAddress": "Sign in with your email to receive email pings."
+    },
+    "memory": {
+      "eyebrow": "Returning guests",
+      "title": "What L’Ayalga remembers",
+      "description": "The coordinator recalls each family's arrival habits, room needs, pets, and accessibility notes across invitations. Forget erases everything remembered about a family.",
+      "recordsEmpty": "Nothing is remembered about this family yet.",
+      "forget": "Forget this family"
+    },
     "decisions": {
       "eyebrow": "Host review",
       "title": "Pending decisions",
@@ -221,6 +239,8 @@
       "toolCall": "Agent action",
       "reconfirmChase": "Reconfirmation reminder sent",
       "reconfirmEscalation": "Reconfirmation escalated",
+      "memoryWritten": "Household memory updated",
+      "memoryForgotten": "Household memory forgotten",
       "other": "Household activity"
     },
     "activityTools": {
@@ -231,6 +251,10 @@
       "findVisitOptions": "Find visit options",
       "notify": "Send household notice",
       "rescheduleVisit": "Reschedule visit",
+      "prepareRoomAction": "Prepare room proposal",
+      "listGuestRooms": "List guest-visible rooms",
+      "findRoomOptions": "Find room options",
+      "searchMemory": "Recall household memory",
       "other": "Household action"
     },
     "activityPolicies": {
@@ -356,6 +380,16 @@
     "finishedAt": "Finished {time}",
     "returnToVisit": "Return to visit",
     "notFound": "This run could not be found.",
+    "timeline": {
+      "title": "Agent timeline",
+      "empty": "No agent activity has been recorded for this run yet.",
+      "decisionApplied": "Host decision applied",
+      "executedOn": {
+        "agentcore": "Executed on AgentCore",
+        "local": "Executed locally"
+      },
+      "usage": "{tokens} tokens across {tools} tool calls"
+    },
     "status": {
       "queued": "Queued",
       "running": "Working",

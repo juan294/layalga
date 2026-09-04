@@ -38,7 +38,20 @@ export interface InvitationByToken {
   rawMessage: string;
   structured: unknown;
   status: "tentative" | "sent" | "converted" | "cancelled";
-  linkTokenExpiresAt: Date;
+  linkTokenExpiresAt: Date | null;
+}
+
+interface InvitationRow {
+  id: string;
+  home_id: string;
+  host_id: string;
+  party_id: string;
+  family_name: string;
+  locale: "en" | "es";
+  raw_message: string;
+  structured: unknown;
+  status: InvitationByToken["status"];
+  link_token_expires_at: Date | null;
 }
 
 export interface ReissueInvitationLinkOptions {
@@ -198,20 +211,7 @@ export async function findInvitationByToken(
 ): Promise<InvitationByToken | null> {
   const client = sqlClient(database);
   const tokenHash = hashLinkToken(token, secret);
-  const rows = await client<
-    {
-      id: string;
-      home_id: string;
-      host_id: string;
-      party_id: string;
-      family_name: string;
-      locale: "en" | "es";
-      raw_message: string;
-      structured: unknown;
-      status: InvitationByToken["status"];
-      link_token_expires_at: Date;
-    }[]
-  >`
+  const rows = await client<InvitationRow[]>`
     select
       i.id,
       i.home_id,
@@ -232,8 +232,37 @@ export async function findInvitationByToken(
     limit 1
   `;
   const row = rows[0];
-  if (!row) return null;
+  return row ? invitationFromRow(row) : null;
+}
 
+export async function findInvitationById(
+  database: DatabaseClient,
+  invitationId: string,
+): Promise<InvitationByToken | null> {
+  const client = sqlClient(database);
+  const rows = await client<InvitationRow[]>`
+    select
+      i.id,
+      i.home_id,
+      i.host_id,
+      i.party_id,
+      p.family_name,
+      p.locale,
+      i.raw_message,
+      i.structured,
+      i.status,
+      i.link_token_expires_at
+    from public.invitations i
+    join public.parties p on p.id = i.party_id
+    where i.id = ${invitationId}
+      and i.status <> 'cancelled'
+    limit 1
+  `;
+  const row = rows[0];
+  return row ? invitationFromRow(row) : null;
+}
+
+function invitationFromRow(row: InvitationRow): InvitationByToken {
   return {
     id: row.id,
     homeId: row.home_id,

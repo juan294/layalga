@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDemoGuestCookie,
   createDemoHostCookie,
+  readDemoGuestCookie,
+  readDemoGuestSession,
   readDemoHostCookie,
   readDemoHostSession,
 } from "./demo-session";
@@ -30,5 +33,37 @@ describe("demo host session", () => {
     const modified = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
 
     expect(readDemoHostCookie(modified, { now, secret })).toBeNull();
+  });
+});
+
+describe("demo guest session", () => {
+  const invitationId = "00000000-0000-4000-8000-000000000402";
+
+  it("accepts an untampered token for twelve hours", () => {
+    const token = createDemoGuestCookie(invitationId, {
+      now,
+      secret,
+      sessionId,
+    });
+
+    expect(readDemoGuestCookie(token, { now: now + 1, secret })).toBe(
+      invitationId,
+    );
+    expect(
+      readDemoGuestCookie(token, {
+        now: now + 12 * 60 * 60 * 1_000,
+        secret,
+      }),
+    ).toBeNull();
+    expect(
+      readDemoGuestSession(token, { now: now + 1, secret }),
+    ).toMatchObject({ invitationId, sessionId });
+  });
+
+  it("rejects a modified token", () => {
+    const token = createDemoGuestCookie(invitationId, { now, secret });
+    const modified = `${token.slice(0, -1)}${token.endsWith("a") ? "b" : "a"}`;
+
+    expect(readDemoGuestCookie(modified, { now, secret })).toBeNull();
   });
 });

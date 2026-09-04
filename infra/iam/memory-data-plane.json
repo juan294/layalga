@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "HouseholdMemoryDataPlane",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreateEvent",
+        "bedrock-agentcore:GetEvent",
+        "bedrock-agentcore:ListEvents",
+        "bedrock-agentcore:DeleteEvent",
+        "bedrock-agentcore:ListSessions",
+        "bedrock-agentcore:ListActors",
+        "bedrock-agentcore:GetMemoryRecord",
+        "bedrock-agentcore:ListMemoryRecords",
+        "bedrock-agentcore:RetrieveMemoryRecords",
+        "bedrock-agentcore:DeleteMemoryRecord",
+        "bedrock-agentcore:BatchDeleteMemoryRecords"
+      ],
+      "Resource": "arn:aws:bedrock-agentcore:us-east-1:106403001709:memory/LayalgaHouseholdMemory-CBgKZc7mK4"
+    }
+  ]
+}

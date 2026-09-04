@@ -30,6 +30,10 @@ export interface DemoE2EEvidence {
   notifications: number;
   hostEscalations: number;
   approvedDecisions: number;
+  emailPings: {
+    pendingDecisionSent: number;
+    escalationSent: number;
+  };
   rawMessages: readonly [string, string];
   roomCoordination: {
     proposalCreated: true;
@@ -91,7 +95,7 @@ export async function runDemoE2E(
       expectedRunStatus: "completed",
     });
 
-    await enterHost(page, options.baseUrl, DEMO_SEED.hosts[1].id, "en");
+    await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "en");
     const oterosLink = await captureInvitation(page, rawMessages[1]);
     await submitGuest(page, oterosLink, {
       from: "2026-09-19",
@@ -139,6 +143,31 @@ export async function runDemoE2E(
       "expected escalation notifications for two distinct hosts",
     );
 
+    const emailPings = await loadSentEmailPingCounts(sql);
+    if (options.expectEmail) {
+      assert.equal(
+        emailPings.pendingDecisionSent,
+        2,
+        "expected one sent pending-decision ping per host",
+      );
+      assert.equal(
+        emailPings.escalationSent,
+        2,
+        "expected one sent escalation ping per host",
+      );
+    } else {
+      assert.equal(
+        emailPings.pendingDecisionSent,
+        0,
+        "expected no email pings when EMAIL is not ses",
+      );
+      assert.equal(
+        emailPings.escalationSent,
+        0,
+        "expected no email pings when EMAIL is not ses",
+      );
+    }
+
     const hospitalityEvidence = {
       baseUrl: options.baseUrl,
       invitationsCaptured: 2,
@@ -151,6 +180,7 @@ export async function runDemoE2E(
       approvedDecisions: snapshot.decisions.filter(
         (decisionRow) => decisionRow.status === "approved",
       ).length,
+      emailPings,
       rawMessages,
     } as const;
 
@@ -694,6 +724,22 @@ async function loadSnapshot(sql: postgres.Sql): Promise<DemoSnapshot> {
     `,
   ]);
   return { visits, notifications, decisions };
+}
+
+async function loadSentEmailPingCounts(
+  sql: postgres.Sql,
+): Promise<DemoE2EEvidence["emailPings"]> {
+  const rows = await sql<{ kind: string; sent: number }[]>`
+    select kind, count(*) filter (where status = 'sent')::integer as sent
+    from public.host_email_pings
+    where home_id = ${DEMO_SEED.home.id}
+    group by kind
+  `;
+  const byKind = new Map(rows.map((row) => [row.kind, row.sent]));
+  return {
+    pendingDecisionSent: byKind.get("pending_decision") ?? 0,
+    escalationSent: byKind.get("reconfirm_escalation") ?? 0,
+  };
 }
 
 async function waitForCount(

@@ -66,3 +66,5 @@ Regenerate it after editing the XML:
   -o docs/architecture/layalga-architecture.drawio.png \
   docs/architecture/layalga-architecture.drawio
 ```
+
+**Stale as of 2026-09-04.** This file still describes the pre-AgentCore state: its subtitle and zone ZC say the local durable worker is selected and AgentCore is "proven but not the selected runtime" (`E2`, and legend entry `LG7`), and it has no nodes for AgentCore Memory, host email pings, or OpenTelemetry tracing. `/Applications/draw.io.app` is not installed in this environment, so the paired PNG export (which embeds the XML and must match it) cannot be regenerated here; hand-editing dozens of precisely positioned, cross-referenced nodes and legend text without being able to render and check the result risked leaving the file internally inconsistent, which is worse than leaving it visibly stale. `layalga-architecture.mmd`, its rendered SVG and PNG, and the prose above are current. Refresh this file the next time draw.io is available to render and verify it.

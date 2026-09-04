@@ -8,6 +8,7 @@ region="us-east-1"
 env_file="$repository_root/.env.agentcore"
 runtime_name="layalga_agent"
 skip_bundle="false"
+s3_version_id=""
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +20,8 @@ Options:
   --env-file <path>       Runtime env file (default: .env.agentcore at the project root)
   --runtime-name <name>   AgentCore runtime name (default: layalga_agent)
   --skip-bundle           Reuse the existing dist/deployment_package.zip
+  --s3-version-id <id>    Deploy an already-uploaded object version of the S3 key
+                          instead of uploading dist/deployment_package.zip
 USAGE
 }
 
@@ -43,6 +46,11 @@ while [[ $# -gt 0 ]]; do
     --skip-bundle)
       skip_bundle="true"
       shift
+      ;;
+    --s3-version-id)
+      s3_version_id="${2:?--s3-version-id requires a value}"
+      skip_bundle="true"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -102,21 +110,41 @@ fi
 
 env_json_file="$(mktemp "${TMPDIR:-/tmp}/layalga-agentcore-env.XXXXXX.json")"
 
+# Tracing defaults for the AgentCore runtime environment. NODE_OPTIONS
+# activates ADOT for Node (bundled in dist/agent/node_modules by
+# build-agent-bundle.sh), which registers the global OTel tracer provider
+# Strands' Agent picks up automatically; OTEL_SERVICE_NAME names the
+# service in CloudWatch GenAI Observability; OTEL_SEMCONV_STABILITY_OPT_IN
+# selects the newer gen_ai.* attribute names; OTEL_TRACES_SAMPLER samples
+# 100 percent of runs for the demo. After judging, sample 5 percent instead
+# by setting OTEL_TRACES_SAMPLER=parentbased_traceidratio and
+# OTEL_TRACES_SAMPLER_ARG=0.05 in the env file. Any of these keys already
+# present in the env file take precedence over the defaults below.
+otel_defaults='{
+  "NODE_OPTIONS": "--require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register",
+  "OTEL_SERVICE_NAME": "layalga-agent",
+  "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+  "OTEL_TRACES_SAMPLER": "parentbased_always_on"
+}'
+
 # Build the environment JSON with jq, streaming the file through -R so no
-# value is ever passed as a CLI argument or echoed to the terminal.
-jq -Rn '
-  [inputs
-    | select(length > 0)
-    | select(startswith("#") | not)
-    | capture("^(?<key>[A-Za-z_][A-Za-z0-9_]*)=(?<value>.*)$")
-    | .value |= (
-        if (startswith("\"") and endswith("\"") and length >= 2)
-        then .[1:-1]
-        else .
-        end
-      )
-  ]
-  | from_entries
+# value is ever passed as a CLI argument or echoed to the terminal, and
+# merge in the OTel defaults in the same pass.
+jq -Rn --argjson defaults "$otel_defaults" '
+  $defaults * (
+    [inputs
+      | select(length > 0)
+      | select(startswith("#") | not)
+      | capture("^(?<key>[A-Za-z_][A-Za-z0-9_]*)=(?<value>.*)$")
+      | .value |= (
+          if (startswith("\"") and endswith("\"") and length >= 2)
+          then .[1:-1]
+          else .
+          end
+        )
+    ]
+    | from_entries
+  )
 ' "$env_file" > "$env_json_file"
 
 missing_key=""
@@ -136,18 +164,24 @@ jq -r 'keys | sort | .[]' "$env_json_file" | sed 's/^/  /' >&2
 
 runtime_env="$(jq -c '.' "$env_json_file")"
 
-echo "Uploading deployment package to s3://$bucket/$s3_key..." >&2
-put_object_output="$(aws s3api put-object \
-  --bucket "$bucket" \
-  --key "$s3_key" \
-  --body "$bundle_zip" \
-  "${aws_args[@]}")"
-s3_version_id="$(printf '%s' "$put_object_output" | jq -r '.VersionId')"
-if [[ -z "$s3_version_id" || "$s3_version_id" == "null" ]]; then
-  echo "Error: S3 upload did not return a VersionId (is bucket versioning enabled?)" >&2
-  exit 1
+if [[ -n "${s3_version_id:-}" ]]; then
+  # A slow uplink can upload the bundle separately with `aws s3 cp`
+  # (multipart, retried); deploy that object version without re-uploading.
+  echo "Using already-uploaded S3 object version: $s3_version_id" >&2
+else
+  echo "Uploading deployment package to s3://$bucket/$s3_key..." >&2
+  put_object_output="$(aws s3api put-object \
+    --bucket "$bucket" \
+    --key "$s3_key" \
+    --body "$bundle_zip" \
+    "${aws_args[@]}")"
+  s3_version_id="$(printf '%s' "$put_object_output" | jq -r '.VersionId')"
+  if [[ -z "$s3_version_id" || "$s3_version_id" == "null" ]]; then
+    echo "Error: S3 upload did not return a VersionId (is bucket versioning enabled?)" >&2
+    exit 1
+  fi
+  echo "Uploaded S3 object version: $s3_version_id" >&2
 fi
-echo "Uploaded S3 object version: $s3_version_id" >&2
 
 artifact_json="$(jq -cn \
   --arg bucket "$bucket" \

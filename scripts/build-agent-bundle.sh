@@ -46,13 +46,23 @@ const builtins = new Set([
   ...builtinModules,
   ...builtinModules.map((name) => `node:${name}`),
 ]);
+// Packages the runtime needs but esbuild never sees as a static import, so
+// they are absent from the bundle's metafile. ADOT for Node is activated
+// out-of-band via NODE_OPTIONS=--require .../register in the deployed
+// runtime environment (see deploy-agentcore.sh); its own package.json
+// dependencies pull in the rest of its OTel SDK and exporter tree when
+// pnpm installs the derived bundle package below.
+const explicitRuntimeDependencyNames = [
+  "@aws/aws-distro-opentelemetry-node-autoinstrumentation",
+];
 const runtimeDependencyNames = [
-  ...new Set(
-    Object.values(result.metafile.outputs)
+  ...new Set([
+    ...Object.values(result.metafile.outputs)
       .flatMap((output) => output.imports)
       .filter((entry) => entry.external && !builtins.has(entry.path))
       .map((entry) => packageName(entry.path)),
-  ),
+    ...explicitRuntimeDependencyNames,
+  ]),
 ].sort();
 const dependencies = Object.fromEntries(
   runtimeDependencyNames.map((name) => {
@@ -83,10 +93,26 @@ function packageName(importPath) {
 }
 NODE
 
+# Excludes @strands-agents/sdk's optional @tobilu/qmd dependency (an unused
+# local embeddings/search feature) and its native tree-sitter / better-sqlite3
+# / node-llama-cpp payload, which otherwise dominates the bundle with runtime
+# code this deployment never imports. A blanket `pnpm install --no-optional`
+# cannot be used here: ADOT's own (unrelated) optional dependency chain --
+# @opentelemetry/auto-instrumentations-node -> resource-detector-gcp ->
+# gcp-metadata -> gaxios -> rimraf -> glob -> jackspeak's optional
+# @pkgjs/parseargs -- trips a pnpm resolver bug when optional dependencies are
+# pruned globally (ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY, reproducible even
+# with a single ADOT dependency and no lockfile on disk). A package-scoped
+# `overrides` entry in a workspace file local to the build dir sidesteps that
+# bug by removing only the one package we intend to drop.
+cat > "$build_dir/pnpm-workspace.yaml" <<'WORKSPACE'
+overrides:
+  "@tobilu/qmd": "false"
+WORKSPACE
+
 pnpm --dir "$build_dir" install \
   --prod \
   --no-lockfile \
-  --ignore-workspace \
   --ignore-scripts \
   --config.node-linker=hoisted
 

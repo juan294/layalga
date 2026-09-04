@@ -98,6 +98,41 @@ describe("parseReleaseCliOptions", () => {
       expectedCommit: undefined,
       headed: false,
       expectedRuntime: undefined,
+      expectEmail: false,
+      expectMemory: false,
+    });
+  });
+
+  it("defaults --expect-email from EMAIL=ses in the script environment", () => {
+    expect(parseReleaseCliOptions([], {})).toMatchObject({
+      expectEmail: false,
+    });
+    expect(parseReleaseCliOptions([], { EMAIL: "ses" })).toMatchObject({
+      expectEmail: true,
+    });
+  });
+
+  it("forces expectEmail on with --expect-email regardless of EMAIL", () => {
+    expect(parseReleaseCliOptions(["--expect-email"], {})).toMatchObject({
+      expectEmail: true,
+    });
+  });
+
+  it("defaults --expect-memory from MEMORY=agentcore in the script environment", () => {
+    expect(parseReleaseCliOptions([], {})).toMatchObject({
+      expectMemory: false,
+    });
+    expect(parseReleaseCliOptions([], { MEMORY: "agentcore" })).toMatchObject({
+      expectMemory: true,
+    });
+    expect(parseReleaseCliOptions([], { MEMORY: "none" })).toMatchObject({
+      expectMemory: false,
+    });
+  });
+
+  it("forces expectMemory on with --expect-memory regardless of MEMORY", () => {
+    expect(parseReleaseCliOptions(["--expect-memory"], {})).toMatchObject({
+      expectMemory: true,
     });
   });
 

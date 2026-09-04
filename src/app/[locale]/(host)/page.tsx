@@ -1,9 +1,16 @@
 import { getTranslations } from "next-intl/server";
+import { after } from "next/server";
 
 import { verifiedHostDecisionContext } from "@/agent/host-decision-context";
+import { SystemClock } from "@/core/clock";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
+import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
 import { requireHost } from "@/lib/auth/current-host";
+import { maskHostEmail } from "@/lib/auth/host-emails";
+import { decisionReasonKey } from "@/lib/decision-reasons";
+import { objectValue } from "@/lib/json-object";
+import { parseServerEnvironment } from "@/lib/server/env";
 import {
   calendarMonthFromSearch,
   calendarMonthValue,
@@ -19,19 +26,27 @@ import {
 import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
 import { DemoClockPanel } from "@/components/host/demo-clock-panel";
 import {
+  MemoryPanel,
+  type MemoryPartyRecords,
+} from "@/components/host/memory-panel";
+import {
   RoomLedger,
   type RoomLedgerLabels,
 } from "@/components/host/room-ledger";
+import { updateEmailPingsAction } from "./actions";
+import { loadHostMemoryPanel } from "./memory-data";
 import { loadHostRoomLedger } from "./room-data";
 import {
   PendingDecisions,
   type PendingDecisionItem,
 } from "@/components/host/pending-decisions";
 import {
+  activityKindLabelKey,
   activityPolicyLabelKey,
   activityToolLabelKey,
 } from "@/components/host/activity-labels";
 import {
+  buttonStyle,
   graphite,
   headingStyle,
   ink,
@@ -84,6 +99,9 @@ export default async function HostPage({
   const { locale } = await params;
   const safeLocale = locale === "es" ? "es" : "en";
   const host = await requireHost(safeLocale);
+  after(() =>
+    dispatchHostEmailPingsSafely(getDatabaseConnection().db, new SystemClock()),
+  );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
   const clockRows = await sql<
@@ -107,7 +125,16 @@ export default async function HostPage({
   );
   const calendarWindow = calendarMonthWindow(calendarMonth);
 
-  const [roomData, visitRows, decisionRows, activityRows] = await Promise.all([
+  const envConfig = parseServerEnvironment();
+
+  const [
+    roomData,
+    visitRows,
+    decisionRows,
+    activityRows,
+    emailPingsRows,
+    memoryParties,
+  ] = await Promise.all([
     loadHostRoomLedger(sql, host.homeId, [
       calendarWindow.from,
       calendarWindow.to,
@@ -195,6 +222,26 @@ export default async function HostPage({
       order by created_at desc
       limit 20
     `,
+    sql<{ normalized_email: string | null; email_pings: boolean | null }[]>`
+      select claim.normalized_email, settings.email_pings
+      from public.hosts host
+      left join public.host_identity_claims claim on claim.host_id = host.id
+      left join public.host_notification_settings settings
+        on settings.host_id = host.id
+      where host.id = ${host.id}
+      order by claim.normalized_email
+      limit 1
+    `,
+    envConfig.memory === "agentcore" &&
+    envConfig.memoryId &&
+    envConfig.awsRegion
+      ? loadHostMemoryPanel(
+          sql,
+          host.homeId,
+          envConfig.memoryId,
+          envConfig.awsRegion,
+        )
+      : Promise.resolve([]),
   ]);
 
   const visits: LedgerVisit[] = visitRows.map((visit) => ({
@@ -252,6 +299,26 @@ export default async function HostPage({
     reconfirmed: t("status.reconfirmed"),
     escalated: t("status.escalated"),
   };
+  const emailPingsSetting = emailPingsRows[0];
+  const maskedEmail = emailPingsSetting?.normalized_email
+    ? maskHostEmail(emailPingsSetting.normalized_email)
+    : null;
+  const emailPingsEnabled = emailPingsSetting?.email_pings ?? true;
+  const memoryPartyRecords: MemoryPartyRecords[] = memoryParties.map(
+    (party) => ({
+      partyId: party.partyId,
+      partyName: party.partyName,
+      records: party.records.map((record) => ({
+        id: record.id,
+        text: record.text,
+        createdAtLabel: formatHouseholdDateTime(
+          record.createdAt.toISOString(),
+          safeLocale,
+          timeZone,
+        ),
+      })),
+    }),
+  );
 
   return (
     <main
@@ -431,6 +498,58 @@ export default async function HostPage({
             />
           </section>
 
+          <section style={panelStyle}>
+            <p style={labelStyle}>{t("emailPings.eyebrow")}</p>
+            <h2 style={headingStyle}>{t("emailPings.title")}</h2>
+            {maskedEmail ? (
+              <>
+                <p
+                  style={{
+                    color: graphite,
+                    lineHeight: 1.6,
+                    margin: "0 0 1rem",
+                  }}
+                >
+                  {t("emailPings.description", { address: maskedEmail })}
+                </p>
+                <form action={updateEmailPingsAction}>
+                  <input name="locale" type="hidden" value={safeLocale} />
+                  <input
+                    name="emailPings"
+                    type="hidden"
+                    value={emailPingsEnabled ? "false" : "true"}
+                  />
+                  <button style={buttonStyle} type="submit">
+                    {emailPingsEnabled
+                      ? t("emailPings.turnOff")
+                      : t("emailPings.turnOn")}
+                  </button>
+                </form>
+                <p style={{ color: graphite, margin: "0.75rem 0 0" }}>
+                  {emailPingsEnabled
+                    ? t("emailPings.statusOn")
+                    : t("emailPings.statusOff")}
+                </p>
+              </>
+            ) : (
+              <p style={{ color: graphite, margin: 0 }}>
+                {t("emailPings.noAddress")}
+              </p>
+            )}
+          </section>
+
+          <MemoryPanel
+            locale={safeLocale}
+            parties={memoryPartyRecords}
+            labels={{
+              eyebrow: t("memory.eyebrow"),
+              title: t("memory.title"),
+              description: t("memory.description"),
+              recordsEmpty: t("memory.recordsEmpty"),
+              forget: t("memory.forget"),
+            }}
+          />
+
           {process.env.DEMO_MODE === "true" &&
           host.demo &&
           clockRows[0]?.now ? (
@@ -494,7 +613,11 @@ export default async function HostPage({
                     )}
                   </time>
                   <div>
-                    <strong>{activityKind(activity.kind, t)}</strong>
+                    <strong>
+                      {t(
+                        `activityKinds.${activityKindLabelKey(activity.kind) ?? "other"}`,
+                      )}
+                    </strong>
                     <p
                       style={{
                         color: graphite,
@@ -593,26 +716,8 @@ function reasonLabel(
   t: Awaited<ReturnType<typeof getTranslations>>,
 ): string {
   const reason = objectValue(value);
-  const code = String(reason?.reason ?? reason?.decision ?? "other");
-  if (code === "special_request") return t("decisionReasons.specialRequest");
-  if (code === "children") return t("decisionReasons.children");
-  if (code === "pets") return t("decisionReasons.pets");
-  if (code === "beds") return t("decisionReasons.beds");
-  if (code === "overflow") return t("decisionReasons.overflow");
-  return t("decisionReasons.other");
-}
-
-function activityKind(
-  kind: string,
-  t: Awaited<ReturnType<typeof getTranslations>>,
-): string {
-  if (kind === "tool_call") return t("activityKinds.toolCall");
-  if (kind === "policy_verdict") return t("activityKinds.policyVerdict");
-  if (kind === "decision_applied") return t("activityKinds.decisionApplied");
-  if (kind === "reconfirm_chase") return t("activityKinds.reconfirmChase");
-  if (kind === "reconfirm_escalation")
-    return t("activityKinds.reconfirmEscalation");
-  return t("activityKinds.other");
+  const key = decisionReasonKey(reason?.reason ?? reason?.decision);
+  return t(`decisionReasons.${key}`);
 }
 
 function activityDetail(
@@ -643,17 +748,4 @@ function activityDetail(
   return `${t("activity.noDetail")} · ${new Intl.DateTimeFormat(locale, {
     timeStyle: "short",
   }).format(new Date(activity.created_at))}`;
-}
-
-function objectValue(value: unknown): Record<string, unknown> | null {
-  if (typeof value === "string") {
-    try {
-      return objectValue(JSON.parse(value));
-    } catch {
-      return null;
-    }
-  }
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }

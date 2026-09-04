@@ -14,9 +14,13 @@ import {
   failDispatchedJob,
   reconcileStaleRuns,
 } from "@/core/reconfirmation/jobs";
+import { invitationSpecialRequests } from "@/lib/json-object";
+import { parseServerEnvironment } from "@/lib/server/env";
 
 import { buildAgent } from "./agent";
 import type { AgentAuthority, AgentDeps, ExecutionRuntime } from "./deps";
+import { matchFamilyNameInMessage } from "./party-match";
+import { recordCaptureMemory } from "./record-capture-memory";
 import {
   agentTaskSchema,
   parseStoredRunResult,
@@ -45,6 +49,27 @@ function terminalResultJson(
   executedOn: ExecutionRuntime,
 ): { summary: string; executedOn: ExecutionRuntime } {
   return { summary, executedOn };
+}
+
+/**
+ * Runs a household-memory write (`MemoryManager.flush()` or
+ * `recordCaptureMemory`) and swallows any failure: a memory write is best
+ * effort and must never fail the run it rides along with, the same
+ * boundary `dispatchHostEmailPingsSafely` draws around email delivery
+ * (`src/core/notifications/email-outbox.ts`). Logs once, with no content
+ * (an error name only, matching the existing `[..._FAILED]` log shape).
+ */
+async function safeMemoryWrite(
+  runId: string,
+  stage: "flush" | "capture",
+  write: () => Promise<void> | undefined,
+): Promise<void> {
+  try {
+    await write();
+  } catch (error) {
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    console.error("[MEMORY_WRITE_FAILED]", { runId, stage, errorName });
+  }
 }
 
 export async function runAgentTask(
@@ -224,6 +249,7 @@ async function executeClaimedAgentTask(
       sessionId,
       deps,
       task: task.task,
+      homeId: task.homeId,
       model: deps.model,
     });
     const invokeArgs =
@@ -244,6 +270,13 @@ async function executeClaimedAgentTask(
     if (result.stopReason === "cancelled") {
       throw new Error("Agent execution budget exceeded");
     }
+    // Extraction runs in the background; this is the one-shot-run boundary
+    // where remaining buffered turns must be saved before the process moves
+    // on. A no-op agent (MEMORY=none, or no store attached to this task).
+    // A flush failure must never fail the run itself, the same way
+    // dispatchHostEmailPingsSafely never fails the request that triggers it
+    // (src/core/notifications/email-outbox.ts).
+    await safeMemoryWrite(run.id, "flush", () => agent.memoryManager?.flush());
 
     if (result.stopReason === "interrupt") {
       const ids: string[] = [];
@@ -310,6 +343,11 @@ async function executeClaimedAgentTask(
     }
     if (task.task === "tick") {
       await completeDispatchedJob(deps.db, task.jobId, run.id);
+    }
+    if (task.task === "host_capture") {
+      await safeMemoryWrite(run.id, "capture", () =>
+        recordCaptureMemory(deps, run.id, sessionId, task.homeId),
+      );
     }
     return await finish(
       sql,
@@ -731,11 +769,21 @@ async function authorityForTask(
       where id = ${task.hostId} and home_id = ${task.homeId}
     `;
     if (!host) throw new Error("Host does not belong to the task home");
-    return { homeId: task.homeId, hostId: task.hostId };
+    if (task.task === "host_room_request") {
+      return { homeId: task.homeId, hostId: task.hostId };
+    }
+    const partyId = await matchedPartyIdForCapture(
+      sql,
+      task.homeId,
+      task.rawMessage,
+    );
+    return { homeId: task.homeId, hostId: task.hostId, partyId };
   }
   if (task.task === "guest_submit") {
-    const [invitation] = await sql<{ id: string; structured: unknown }[]>`
-      select id, structured from public.invitations
+    const [invitation] = await sql<
+      { id: string; party_id: string; structured: unknown }[]
+    >`
+      select id, party_id, structured from public.invitations
       where id = ${task.invitationId} and home_id = ${task.homeId}
         and status <> 'cancelled'
     `;
@@ -744,12 +792,13 @@ async function authorityForTask(
     return {
       homeId: task.homeId,
       invitationId: task.invitationId,
+      partyId: invitation.party_id,
       guestSubmission: canonicalGuestSubmission(task, invitation.structured),
     };
   }
   if (task.task === "guest_change" || task.task === "guest_reconfirm") {
-    const [visit] = await sql<{ invitation_id: string }[]>`
-      select invitation_id from public.visits
+    const [visit] = await sql<{ invitation_id: string; party_id: string }[]>`
+      select invitation_id, party_id from public.visits
       where id = ${task.visitId} and home_id = ${task.homeId}
     `;
     if (!visit) throw new Error("Visit does not belong to the task home");
@@ -757,15 +806,23 @@ async function authorityForTask(
       homeId: task.homeId,
       invitationId: visit.invitation_id,
       visitId: task.visitId,
+      partyId: visit.party_id,
     };
   }
   if (task.task === "tick") {
-    const [job] = await sql<{ visit_id: string }[]>`
-      select visit_id from public.scheduled_jobs
-      where id = ${task.jobId} and home_id = ${task.homeId}
+    const [job] = await sql<{ visit_id: string; party_id: string }[]>`
+      select job.visit_id, visit.party_id
+      from public.scheduled_jobs job
+      join public.visits visit on visit.id = job.visit_id
+      where job.id = ${task.jobId} and job.home_id = ${task.homeId}
     `;
     if (!job) throw new Error("Scheduled job does not belong to the task home");
-    return { homeId: task.homeId, jobId: task.jobId, visitId: job.visit_id };
+    return {
+      homeId: task.homeId,
+      jobId: task.jobId,
+      visitId: job.visit_id,
+      partyId: job.party_id,
+    };
   }
 
   for (const { interruptId, response } of task.responses) {
@@ -786,9 +843,9 @@ async function authorityForTask(
   if (task.sessionId.startsWith("inv_")) {
     const invitationId = task.sessionId.slice(4);
     const [record] = await sql<
-      { visit_id: string | null; structured: unknown }[]
+      { visit_id: string | null; party_id: string; structured: unknown }[]
     >`
-      select v.id as visit_id, i.structured
+      select v.id as visit_id, i.party_id, i.structured
       from public.invitations i
       left join public.visits v on v.invitation_id = i.id and v.home_id = i.home_id
       where i.id = ${invitationId} and i.home_id = ${task.homeId}
@@ -813,6 +870,7 @@ async function authorityForTask(
       homeId: task.homeId,
       invitationId,
       visitId: record.visit_id ?? undefined,
+      partyId: record.party_id,
       guestSubmission:
         parsedSubmission.success &&
         parsedSubmission.data.task === "guest_submit"
@@ -835,18 +893,26 @@ async function authorityForTask(
   throw new Error("Unsupported agent session scope");
 }
 
-function invitationSpecialRequests(structured: unknown): string[] {
-  if (
-    !structured ||
-    typeof structured !== "object" ||
-    Array.isArray(structured)
-  ) {
-    return [];
-  }
-  const value = (structured as { specialRequests?: unknown }).specialRequests;
-  return Array.isArray(value)
-    ? value.filter((request): request is string => typeof request === "string")
-    : [];
+/**
+ * Deterministic pre-match for a `host_capture` task (D7 / A7): scopes the
+ * task's memory authority to an existing party of the home only when its
+ * family name already appears in the raw message, so a matched capture can
+ * recall that party's remembered preferences before the model has run
+ * `capture_invitation`. An unmatched capture (a brand-new family, or
+ * wording that does not name an existing party) keeps `partyId` undefined
+ * and falls back to a read-only whole-home memory scope.
+ */
+export async function matchedPartyIdForCapture(
+  sql: ReturnType<typeof sqlClient>,
+  homeId: string,
+  rawMessage: string,
+): Promise<string | undefined> {
+  const parties = await sql<{ id: string; family_name: string }[]>`
+    select id, family_name from public.parties where home_id = ${homeId}
+  `;
+  return parties.find((party) =>
+    matchFamilyNameInMessage(party.family_name, rawMessage),
+  )?.id;
 }
 
 function canonicalGuestSubmission(
@@ -886,37 +952,42 @@ function uniqueStrings(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
+/** Appended to a prompt to ask the model to recall a matched party's memory first (D7 / task 3.6). */
+const SEARCH_MEMORY_INSTRUCTION =
+  " Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account.";
+
 async function buildPrompt(
   task: Exclude<AgentTask, { task: "resume" }>,
   deps: AgentDeps,
 ): Promise<string> {
   const sql = sqlClient(deps.db);
+  const memoryEnabled = parseServerEnvironment().memory === "agentcore";
   if (task.task === "host_capture") {
-    const [host] = await sql<{ display_name: string }[]>`
-      select display_name from public.hosts
-      where id = ${task.hostId} and home_id = ${task.homeId}
-    `;
-    return `${host?.display_name ?? "The host"} pasted this invitation (locale ${task.locale}): """${task.rawMessage}""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.`;
+    // The host's display name never enters the prompt (D7): the minimizer's
+    // "pasted this invitation" regex is now a no-op for this text, kept for
+    // the older shape any in-flight session snapshot may still carry.
+    const searchInstruction =
+      memoryEnabled && deps.authority?.partyId ? SEARCH_MEMORY_INSTRUCTION : "";
+    return `The host pasted this invitation (locale ${task.locale}): """${task.rawMessage}""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.${searchInstruction}`;
   }
   if (task.task === "host_room_request") {
     return `The host requests this room action (locale ${task.locale}): """${task.rawMessage}""". Use list_guest_rooms or find_room_options to resolve only guest-safe room facts. Then call prepare_room_action exactly once with kind private_block, open, or close; an exact half-open stay; the selected room IDs; and a generic calendar-safe summary with no person's name or private detail. Prepare only. Do not apply the action and do not claim that any room was blocked, opened, or closed. Tell the host that the proposal needs visible confirmation.`;
   }
   if (task.task === "guest_submit") {
-    const [party] = await sql<{ family_name: string }[]>`
-      select p.family_name from public.invitations i join public.parties p on p.id = i.party_id
-      where i.id = ${task.invitationId} and i.home_id = ${task.homeId}
-    `;
-    return `Party ${party?.family_name ?? "guest"} (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.`;
+    // The family name never enters the prompt (D7): the minimizer's
+    // "Party ... chose" regex is now a no-op for this text, kept for the
+    // older shape any in-flight session snapshot may still carry.
+    const searchInstruction = memoryEnabled ? SEARCH_MEMORY_INSTRUCTION : "";
+    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}`;
   }
   if (
     task.task === "guest_change" ||
     (task.task === "guest_reconfirm" && task.answer === "change")
   ) {
-    const [visit] = await sql<{ family_name: string }[]>`
-      select p.family_name from public.visits v join public.parties p on p.id = v.party_id
-      where v.id = ${task.visitId} and v.home_id = ${task.homeId}
-    `;
-    return `Party ${visit?.family_name ?? "guest"} asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.`;
+    // The family name never enters the prompt (D7): the minimizer's
+    // "Party ... asks to change" regex is now a no-op for this text, kept
+    // for the older shape any in-flight session snapshot may still carry.
+    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.`;
   }
   if (task.task === "guest_reconfirm") return "Record the reconfirmation.";
   const [job] = await sql<

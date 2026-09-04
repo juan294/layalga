@@ -87,3 +87,5 @@ The model can explain a verdict because the verdict has a small vocabulary and o
 This approach does not reduce the agent to a form. The agent still handles the unstructured parts: messages, multilingual replies, tool sequencing, and proactive follow-up. It simply cannot override rules that should be the same on every run.
 
 A useful agent is not one with the most authority. It is one whose authority is easy to locate. In L’Ayalga, language belongs to the model, policy belongs to code, and final room exclusivity belongs to Postgres.
+
+That boundary held unchanged when the agent moved from a local process to a live Amazon Bedrock AgentCore Runtime in production. The hook, the transaction, and the exclusion constraint do not know or care which process is running them — which is exactly the point of putting the policy there instead of in the prompt.

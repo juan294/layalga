@@ -5,9 +5,22 @@ export type ActivityToolLabelKey =
   | "evaluateOverlap"
   | "findVisitOptions"
   | "notify"
-  | "rescheduleVisit";
+  | "rescheduleVisit"
+  | "prepareRoomAction"
+  | "listGuestRooms"
+  | "findRoomOptions"
+  | "searchMemory";
 
 export type ActivityPolicyLabelKey = "allow" | "deny" | "interrupt";
+
+export type ActivityKindLabelKey =
+  | "toolCall"
+  | "policyVerdict"
+  | "decisionApplied"
+  | "reconfirmChase"
+  | "reconfirmEscalation"
+  | "memoryWritten"
+  | "memoryForgotten";
 
 const TOOL_LABELS: Record<string, ActivityToolLabelKey> = {
   capture_invitation: "captureInvitation",
@@ -17,6 +30,20 @@ const TOOL_LABELS: Record<string, ActivityToolLabelKey> = {
   find_visit_options: "findVisitOptions",
   notify: "notify",
   reschedule_visit: "rescheduleVisit",
+  prepare_room_action: "prepareRoomAction",
+  list_guest_rooms: "listGuestRooms",
+  find_room_options: "findRoomOptions",
+  search_memory: "searchMemory",
+};
+
+const KIND_LABELS: Record<string, ActivityKindLabelKey> = {
+  tool_call: "toolCall",
+  policy_verdict: "policyVerdict",
+  decision_applied: "decisionApplied",
+  reconfirm_chase: "reconfirmChase",
+  reconfirm_escalation: "reconfirmEscalation",
+  memory_written: "memoryWritten",
+  memory_forgotten: "memoryForgotten",
 };
 
 export function activityToolLabelKey(
@@ -31,4 +58,10 @@ export function activityPolicyLabelKey(
   return value === "allow" || value === "deny" || value === "interrupt"
     ? value
     : null;
+}
+
+export function activityKindLabelKey(
+  value: string,
+): ActivityKindLabelKey | null {
+  return KIND_LABELS[value] ?? null;
 }
