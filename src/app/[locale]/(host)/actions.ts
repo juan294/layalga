@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -176,6 +177,29 @@ export async function decideAction(formData: FormData): Promise<void> {
     redirect(
       `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}`)}`,
     );
+  }
+}
+
+export async function updateEmailPingsAction(
+  formData: FormData,
+): Promise<void> {
+  const locale = localeValue(formData);
+  const host = await requireHost(locale);
+  const emailPings = formData.get("emailPings") === "true";
+  const sql = sqlClient(getDatabaseConnection().db);
+
+  try {
+    // host.id comes from the authenticated session, never from form input,
+    // so this always writes the caller's own row.
+    await sql`
+      insert into public.host_notification_settings (host_id, home_id, email_pings)
+      values (${host.id}, ${host.homeId}, ${emailPings})
+      on conflict (host_id) do update
+      set email_pings = excluded.email_pings, updated_at = now()
+    `;
+    revalidatePath(`/${locale}`);
+  } catch (error) {
+    reportActionError("email_settings_update_failed", error);
   }
 }
 

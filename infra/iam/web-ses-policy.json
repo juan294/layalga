@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SendHostEmailPings",
+      "Effect": "Allow",
+      "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+      "Resource": "arn:aws:ses:us-east-1:106403001709:identity/thecreativetoken.com",
+      "Condition": {
+        "StringEquals": {
+          "ses:FromAddress": "noreply@layalga.thecreativetoken.com"
+        },
+        "ForAllValues:StringEquals": {
+          "ses:Recipients": ["juan294@gmail.com", "jordanlynn5@gmail.com"]
+        }
+      }
+    }
+  ]
+}

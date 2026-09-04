@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAgentClient } from "@/agent/client";
 import { DbDemoClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
+import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
 import { runDueJobs } from "@/core/reconfirmation/jobs";
 import {
   acquireDemoMutationLease,
@@ -67,6 +68,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       getAgentClient(),
       parsed.data.homeId,
     );
+    await dispatchHostEmailPingsSafely(connection.db, clock);
     const notifications = await connection.sql<
       {
         id: string;

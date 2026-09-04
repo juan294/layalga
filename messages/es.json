@@ -173,6 +173,16 @@
       "revealing": "Preparando el enlace privado…",
       "completionFailed": "No se pudo cargar la invitación terminada. Inténtalo de nuevo."
     },
+    "emailPings": {
+      "eyebrow": "Notificaciones",
+      "title": "Avisos por correo",
+      "description": "Se envían correos a {address} cuando una decisión te necesita o una reconfirmación se escala.",
+      "turnOff": "Desactivar avisos por correo",
+      "turnOn": "Activar avisos por correo",
+      "statusOn": "Los avisos por correo están activados.",
+      "statusOff": "Los avisos por correo están desactivados.",
+      "noAddress": "Inicia sesión con tu correo para recibir avisos por correo."
+    },
     "decisions": {
       "eyebrow": "Revisión del anfitrión",
       "title": "Decisiones pendientes",

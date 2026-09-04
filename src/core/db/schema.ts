@@ -571,3 +571,51 @@ export const demoClock = pgTable("demo_clock", {
   now: timestamp("now", { withTimezone: true, mode: "date" }).notNull(),
   enabled: boolean("enabled").notNull().default(true),
 });
+
+export type HostEmailPingKind = "pending_decision" | "reconfirm_escalation";
+export type HostEmailPingStatus = "sending" | "sent" | "failed";
+
+export const hostEmailPings = pgTable(
+  "host_email_pings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    hostId: uuid("host_id")
+      .notNull()
+      .references(() => hosts.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<HostEmailPingKind>().notNull(),
+    sourceId: uuid("source_id").notNull(),
+    toAddress: text("to_address").notNull(),
+    subject: text("subject").notNull(),
+    status: text("status")
+      .$type<HostEmailPingStatus>()
+      .notNull()
+      .default("sending"),
+    messageId: text("message_id"),
+    errorName: text("error_name"),
+    createdAt: createdAt(),
+    sentAt: timestamp("sent_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("host_email_pings_kind_source_host_idx").on(
+      table.kind,
+      table.sourceId,
+      table.hostId,
+    ),
+  ],
+);
+
+export const hostNotificationSettings = pgTable("host_notification_settings", {
+  hostId: uuid("host_id")
+    .primaryKey()
+    .references(() => hosts.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  emailPings: boolean("email_pings").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});

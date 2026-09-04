@@ -18,6 +18,14 @@ export interface ReleaseCliOptions {
   expectedCommit?: string;
   headed: boolean;
   expectedRuntime?: "local" | "agentcore";
+  /**
+   * Whether email pings are expected to send during the demo. Defaults from
+   * `EMAIL=ses` in the local script environment, since `demo:e2e` normally
+   * runs against a server sharing that environment; `--expect-email` forces
+   * it on for a release probe run against a remote deployment whose
+   * environment this process cannot read.
+   */
+  expectEmail: boolean;
 }
 
 export function assertDemoSnapshot(snapshot: DemoSnapshot): void {
@@ -85,12 +93,17 @@ export function parseReleaseCliOptions(
   let expectedCommit = env.EXPECTED_COMMIT_SHA;
   let headed = false;
   let expectedRuntime: "local" | "agentcore" | undefined;
+  let expectEmail = env.EMAIL === "ses";
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--") continue;
     if (argument === "--headed") {
       headed = true;
+      continue;
+    }
+    if (argument === "--expect-email") {
+      expectEmail = true;
       continue;
     }
     if (argument === "--base" || argument === "--commit") {
@@ -119,6 +132,7 @@ export function parseReleaseCliOptions(
     expectedCommit,
     headed,
     expectedRuntime,
+    expectEmail,
   };
 }
 

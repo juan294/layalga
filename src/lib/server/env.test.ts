@@ -8,7 +8,42 @@ describe("server environment", () => {
       agentRuntime: "local",
       model: "scripted",
       scheduler: "none",
+      email: "none",
       appUrl: "http://localhost:3008",
+    });
+  });
+
+  it("keeps health ok with EMAIL=none", () => {
+    const readiness = serverEnvironmentReadiness({ NODE_ENV: "development" });
+    expect(readiness.ready).toBe(true);
+    expect(readiness.issues).not.toContainEqual(
+      expect.objectContaining({ key: "SES_FROM_ADDRESS" }),
+    );
+  });
+
+  it("requires SES_FROM_ADDRESS when EMAIL=ses", () => {
+    const readiness = serverEnvironmentReadiness({
+      NODE_ENV: "development",
+      EMAIL: "ses",
+    });
+    expect(readiness.ready).toBe(false);
+    expect(readiness.issues).toContainEqual({
+      key: "SES_FROM_ADDRESS",
+      code: "missing",
+    });
+  });
+
+  it("accepts EMAIL=ses once SES_FROM_ADDRESS and a region are present", () => {
+    expect(
+      parseServerEnvironment({
+        NODE_ENV: "development",
+        EMAIL: "ses",
+        SES_FROM_ADDRESS: "noreply@layalga.example",
+        AWS_REGION: "us-east-1",
+      }),
+    ).toMatchObject({
+      email: "ses",
+      sesFromAddress: "noreply@layalga.example",
     });
   });
 
