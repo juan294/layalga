@@ -8,7 +8,8 @@ export type ActivityToolLabelKey =
   | "rescheduleVisit"
   | "prepareRoomAction"
   | "listGuestRooms"
-  | "findRoomOptions";
+  | "findRoomOptions"
+  | "searchMemory";
 
 export type ActivityPolicyLabelKey = "allow" | "deny" | "interrupt";
 
@@ -17,7 +18,9 @@ export type ActivityKindLabelKey =
   | "policyVerdict"
   | "decisionApplied"
   | "reconfirmChase"
-  | "reconfirmEscalation";
+  | "reconfirmEscalation"
+  | "memoryWritten"
+  | "memoryForgotten";
 
 const TOOL_LABELS: Record<string, ActivityToolLabelKey> = {
   capture_invitation: "captureInvitation",
@@ -30,6 +33,7 @@ const TOOL_LABELS: Record<string, ActivityToolLabelKey> = {
   prepare_room_action: "prepareRoomAction",
   list_guest_rooms: "listGuestRooms",
   find_room_options: "findRoomOptions",
+  search_memory: "searchMemory",
 };
 
 const KIND_LABELS: Record<string, ActivityKindLabelKey> = {
@@ -38,6 +42,8 @@ const KIND_LABELS: Record<string, ActivityKindLabelKey> = {
   decision_applied: "decisionApplied",
   reconfirm_chase: "reconfirmChase",
   reconfirm_escalation: "reconfirmEscalation",
+  memory_written: "memoryWritten",
+  memory_forgotten: "memoryForgotten",
 };
 
 export function activityToolLabelKey(

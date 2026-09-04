@@ -26,6 +26,15 @@ export interface ReleaseCliOptions {
    * environment this process cannot read.
    */
   expectEmail: boolean;
+  /**
+   * Whether returning-guest memory is expected to be active during the
+   * demo. Defaults from `MEMORY=agentcore` in the local script environment,
+   * mirroring `expectEmail`; `--expect-memory` forces it on for a release
+   * probe run against a remote deployment. When set, release probe 2
+   * additionally asserts a `search_memory` tool_call audit row on the
+   * capture run.
+   */
+  expectMemory: boolean;
 }
 
 export function assertDemoSnapshot(snapshot: DemoSnapshot): void {
@@ -94,6 +103,7 @@ export function parseReleaseCliOptions(
   let headed = false;
   let expectedRuntime: "local" | "agentcore" | undefined;
   let expectEmail = env.EMAIL === "ses";
+  let expectMemory = env.MEMORY === "agentcore";
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -104,6 +114,10 @@ export function parseReleaseCliOptions(
     }
     if (argument === "--expect-email") {
       expectEmail = true;
+      continue;
+    }
+    if (argument === "--expect-memory") {
+      expectMemory = true;
       continue;
     }
     if (argument === "--base" || argument === "--commit") {
@@ -133,6 +147,7 @@ export function parseReleaseCliOptions(
     headed,
     expectedRuntime,
     expectEmail,
+    expectMemory,
   };
 }
 

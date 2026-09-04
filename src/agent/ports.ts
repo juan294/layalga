@@ -20,6 +20,17 @@ export interface AgentAuthority {
   invitationId?: string;
   visitId?: string;
   jobId?: string;
+  /**
+   * The invited party this task is scoped to. Resolved for every
+   * party-scoped guest task (`guest_submit`, `guest_change`,
+   * `guest_reconfirm`, `tick`, and `resume` on an `inv_*` session) and, for
+   * `host_capture` only, when a deterministic pre-match finds an existing
+   * party of the home whose family name appears in the raw message (see
+   * `src/agent/party-match.ts`). Drives which household-memory namespace a
+   * task's `MemoryManager` stores read and write (`src/agent/memory.ts`);
+   * unrelated to database authority checks, which keep using `homeId`.
+   */
+  partyId?: string;
   guestSubmission?: {
     stay: [string, string];
     adults: number;

@@ -6,6 +6,7 @@ const agentRuntimeSchema = z.enum(["local", "agentcore"]);
 const modelSchema = z.enum(["scripted", "bedrock"]);
 const schedulerSchema = z.enum(["none", "eventbridge"]);
 const emailSchema = z.enum(["none", "ses"]);
+const memorySchema = z.enum(["none", "agentcore"]);
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
@@ -30,6 +31,8 @@ const rawEnvironmentSchema = z.object({
   EMAIL: z.string().optional(),
   SES_FROM_ADDRESS: z.string().optional(),
   SES_REGION: z.string().optional(),
+  MEMORY: z.string().optional(),
+  MEMORY_ID: z.string().optional(),
 });
 
 export interface ServerEnvironment {
@@ -45,6 +48,7 @@ export interface ServerEnvironment {
   model: z.infer<typeof modelSchema>;
   scheduler: z.infer<typeof schedulerSchema>;
   email: z.infer<typeof emailSchema>;
+  memory: z.infer<typeof memorySchema>;
   appUrl: string;
   agentcoreRuntimeArn?: string;
   bedrockModelId?: string;
@@ -53,6 +57,7 @@ export interface ServerEnvironment {
   schedulerDlqArn?: string;
   sesFromAddress?: string;
   sesRegion?: string;
+  memoryId?: string;
 }
 
 export interface EnvironmentIssue {
@@ -100,6 +105,10 @@ export function parseServerEnvironment(
   // and the agent process (which never sends email) picks up the same
   // default without any special-casing.
   const email = parseMode(emailSchema, raw.EMAIL, "none", "EMAIL");
+  // MEMORY mirrors EMAIL: always defaults to "none" in every contract, since
+  // returning-guest memory is an optional recall feature, not a mode the web
+  // app or agent process must opt into.
+  const memory = parseMode(memorySchema, raw.MEMORY, "none", "MEMORY");
   const appUrl = requiredValue(
     raw.APP_URL,
     production ? undefined : "http://localhost:3008",
@@ -132,7 +141,10 @@ export function parseServerEnvironment(
     requireHttpsUrl(raw.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL");
   }
 
-  const needsAws = agentRuntime === "agentcore" || model === "bedrock";
+  const needsAws =
+    agentRuntime === "agentcore" ||
+    model === "bedrock" ||
+    memory === "agentcore";
   if (needsAws) {
     requireLength(raw.AWS_REGION, 1, "AWS_REGION");
   }
@@ -154,6 +166,9 @@ export function parseServerEnvironment(
       throw fieldError("SES_REGION", "Required");
     }
   }
+  if (memory === "agentcore") {
+    requireLength(raw.MEMORY_ID, 1, "MEMORY_ID");
+  }
 
   return {
     production,
@@ -162,6 +177,7 @@ export function parseServerEnvironment(
     model,
     scheduler,
     email,
+    memory,
     appUrl,
     agentcoreRuntimeArn: raw.AGENTCORE_RUNTIME_ARN,
     bedrockModelId: raw.BEDROCK_MODEL_ID,
@@ -170,6 +186,7 @@ export function parseServerEnvironment(
     schedulerDlqArn: raw.SCHEDULER_DLQ_ARN,
     sesFromAddress: raw.SES_FROM_ADDRESS,
     sesRegion: raw.SES_REGION,
+    memoryId: raw.MEMORY_ID,
   };
 }
 
@@ -242,6 +259,13 @@ export function serverEnvironmentReadiness(
     productionWebContract,
   );
   const email = mode("EMAIL", values.EMAIL, emailSchema.options, "none", false);
+  const memory = mode(
+    "MEMORY",
+    values.MEMORY,
+    memorySchema.options,
+    "none",
+    false,
+  );
   const appUrl =
     values.APP_URL ?? (production ? undefined : "http://localhost:3008");
   if (!appUrl) add("APP_URL", "missing");
@@ -282,7 +306,11 @@ export function serverEnvironmentReadiness(
   }
   if (agentRuntime === "agentcore") require("AGENTCORE_RUNTIME_ARN");
   if (model === "bedrock") require("BEDROCK_MODEL_ID");
-  if (agentRuntime === "agentcore" || model === "bedrock")
+  if (
+    agentRuntime === "agentcore" ||
+    model === "bedrock" ||
+    memory === "agentcore"
+  )
     require("AWS_REGION");
   if (scheduler === "eventbridge") {
     require("AGENTCORE_RUNTIME_ARN");
@@ -296,6 +324,7 @@ export function serverEnvironmentReadiness(
       add("SES_REGION", "missing");
     }
   }
+  if (memory === "agentcore") require("MEMORY_ID");
   return { ready: issues.size === 0, issues: [...issues.values()] };
 }
 
