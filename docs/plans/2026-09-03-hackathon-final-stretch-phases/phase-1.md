@@ -13,16 +13,16 @@ The run status page and the embedded capture poller show what the agent did: eac
 
 ## Tasks
 
-- [ ] 1.1 API. In `src/app/api/runs/run-data.ts` add `events` to `RunSnapshot`:
+- [x] 1.1 API. In `src/app/api/runs/run-data.ts` add `events` to `RunSnapshot`:
   ```ts
   interface RunTimelineEvent { at: string; kind: "tool_call" | "policy_verdict" | "decision_applied"; name?: string; decision?: "allow" | "deny" | "interrupt"; }
   ```
   Query `select kind, payload, created_at from public.audit_events where run_id = ${id} and home_id = ${run.home_id} order by created_at, id`. Map `payload.name` for tool calls and `payload.decision` for verdicts. Never include `payload.reason`, room ids, or any free text. Same two-branch authorization as today (the query runs only after authorization).
-- [ ] 1.2 Poller. Extend `runSnapshotSchema` in `src/components/runs/run-status-poller.tsx` with `events` and `executedOn`, `usage` (optional). Render a new `RunTimeline` component (`src/components/runs/run-timeline.tsx`, CSS module beside it) under the status line: ordered list, one row per event, label from the shared label module, relative time. Show `t("executedOn.agentcore")` or `t("executedOn.local")` when present, and `t("usage", { tokens, tools })` when present.
-- [ ] 1.3 Labels. Move `activityKind` from `src/app/[locale]/(host)/page.tsx:605-617` into `src/components/host/activity-labels.ts` as `activityKindLabelKey`, and add the three missing tools `prepare_room_action`, `list_guest_rooms`, `find_room_options` to `TOOL_LABELS` with `Host.activityTools.{prepareRoomAction,listGuestRooms,findRoomOptions}` keys in both message files.
-- [ ] 1.4 i18n. Add `Runs.timeline.{title,empty,executedOn.agentcore,executedOn.local,usage}` in `messages/en.json` and `messages/es.json`; reuse `Host.activityTools` and `Host.activityPolicies` for row labels through a shared translation hook.
-- [ ] 1.5 Summary rendering. `localizedSummary` strips `**` markdown emphasis before display (the live Bedrock summary printed `**Invitation structured:**` verbatim on 2026-09-03).
-- [ ] 1.6 Playwright. Extend the existing run-status journey to assert at least one `[data-testid="run-timeline-event"]` after a completed capture and that the guest-token branch sees events for its own run only.
+- [x] 1.2 Poller. Extend `runSnapshotSchema` in `src/components/runs/run-status-poller.tsx` with `events` and `executedOn`, `usage` (optional). Render a new `RunTimeline` component (`src/components/runs/run-timeline.tsx`, CSS module beside it) under the status line: ordered list, one row per event, label from the shared label module, relative time. Show `t("executedOn.agentcore")` or `t("executedOn.local")` when present, and `t("usage", { tokens, tools })` when present.
+- [x] 1.3 Labels. Move `activityKind` from `src/app/[locale]/(host)/page.tsx:605-617` into `src/components/host/activity-labels.ts` as `activityKindLabelKey`, and add the three missing tools `prepare_room_action`, `list_guest_rooms`, `find_room_options` to `TOOL_LABELS` with `Host.activityTools.{prepareRoomAction,listGuestRooms,findRoomOptions}` keys in both message files.
+- [x] 1.4 i18n. Add `Runs.timeline.{title,empty,executedOn.agentcore,executedOn.local,usage}` in `messages/en.json` and `messages/es.json`; reuse `Host.activityTools` and `Host.activityPolicies` for row labels through a shared translation hook.
+- [x] 1.5 Summary rendering. `localizedSummary` strips `**` markdown emphasis before display (the live Bedrock summary printed `**Invitation structured:**` verbatim on 2026-09-03).
+- [x] 1.6 Playwright. Extend the existing run-status journey to assert at least one `[data-testid="run-timeline-event"]` after a completed capture and that the guest-token branch sees events for its own run only.
 
 ## Pseudocode
 
@@ -44,6 +44,6 @@ The run status page and the embedded capture poller show what the agent did: eac
 
 ## Done when
 
-- [ ] Status page shows the timeline for a completed run in both locales.
-- [ ] Capture panel poller shows the same rows inline.
-- [ ] `pnpm run test:e2e` green; PR open; CI green.
+- [x] Status page shows the timeline for a completed run in both locales.
+- [x] Capture panel poller shows the same rows inline.
+- [ ] `pnpm run test:e2e` green (verified in this worktree); PR open; CI green (not done here -- no commit/push made per instructions).

@@ -231,6 +231,9 @@
       "findVisitOptions": "Buscar opciones de visita",
       "notify": "Enviar aviso del hogar",
       "rescheduleVisit": "Cambiar las fechas de la visita",
+      "prepareRoomAction": "Preparar propuesta de habitación",
+      "listGuestRooms": "Consultar habitaciones visibles para huéspedes",
+      "findRoomOptions": "Buscar opciones de habitación",
       "other": "Acción del hogar"
     },
     "activityPolicies": {
@@ -356,6 +359,16 @@
     "finishedAt": "Finalizado {time}",
     "returnToVisit": "Volver a la visita",
     "notFound": "No se encontró esta ejecución.",
+    "timeline": {
+      "title": "Cronología del agente",
+      "empty": "Todavía no se ha registrado actividad del agente para esta ejecución.",
+      "decisionApplied": "Decisión del anfitrión aplicada",
+      "executedOn": {
+        "agentcore": "Ejecutado en AgentCore",
+        "local": "Ejecutado localmente"
+      },
+      "usage": "{tokens} tokens en {tools} llamadas a herramientas"
+    },
     "status": {
       "queued": "En cola",
       "running": "En curso",

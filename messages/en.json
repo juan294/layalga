@@ -231,6 +231,9 @@
       "findVisitOptions": "Find visit options",
       "notify": "Send household notice",
       "rescheduleVisit": "Reschedule visit",
+      "prepareRoomAction": "Prepare room proposal",
+      "listGuestRooms": "List guest-visible rooms",
+      "findRoomOptions": "Find room options",
       "other": "Household action"
     },
     "activityPolicies": {
@@ -356,6 +359,16 @@
     "finishedAt": "Finished {time}",
     "returnToVisit": "Return to visit",
     "notFound": "This run could not be found.",
+    "timeline": {
+      "title": "Agent timeline",
+      "empty": "No agent activity has been recorded for this run yet.",
+      "decisionApplied": "Host decision applied",
+      "executedOn": {
+        "agentcore": "Executed on AgentCore",
+        "local": "Executed locally"
+      },
+      "usage": "{tokens} tokens across {tools} tool calls"
+    },
     "status": {
       "queued": "Queued",
       "running": "Working",
