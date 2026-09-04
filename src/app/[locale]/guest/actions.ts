@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 
 import { MAX_GUEST_MESSAGE_LENGTH } from "@/agent/task-limits";
 import {
+  guestSessionOptionInput,
+  guestSessionSubmitInput,
   guestSubmitFormValue,
-  guestTokenOptionInput,
-  guestTokenSubmitInput,
 } from "@/core/booking/guest-action-input";
 import {
   findGuestOptionsForAuthority,
@@ -16,10 +16,11 @@ import {
   type GuestOptionState,
   type GuestSubmitState,
 } from "@/core/booking/guest-actions";
+import { loadGuestInvitation } from "@/core/booking/guest-invitation";
 import {
-  loadGuestInvitation,
-  resolveGuestInvitationAuthority,
-} from "@/core/booking/guest-invitation";
+  getCurrentGuestInvitation,
+  type GuestInvitationRecord,
+} from "@/lib/auth/current-guest";
 import {
   reportActionError,
   reportedActionError,
@@ -33,52 +34,54 @@ export type {
   GuestSubmitState,
 } from "@/core/booking/guest-actions";
 
-export async function findGuestOptions(
+export async function findGuestOptionsSession(
   _previous: GuestOptionState,
   formData: FormData,
 ): Promise<GuestOptionState> {
-  const parsed = guestTokenOptionInput.safeParse(Object.fromEntries(formData));
+  const session = await getCurrentGuestInvitation();
+  if (!session) {
+    return { status: "error", options: [], error: "not_found" };
+  }
+
+  const parsed = guestSessionOptionInput.safeParse(
+    Object.fromEntries(formData),
+  );
   if (!parsed.success || parsed.data.from >= parsed.data.to) {
     return { status: "error", options: [], error: "invalid" };
   }
 
   try {
-    const authority = await resolveGuestInvitationAuthority({
-      token: parsed.data.token,
-    });
-    if (!authority) {
-      return { status: "error", options: [], error: "not_found" };
-    }
-    return await findGuestOptionsForAuthority(authority, parsed.data);
+    return await findGuestOptionsForAuthority(
+      authorityForSession(session),
+      parsed.data,
+    );
   } catch (error) {
     reportActionError("guest_options_failed", error);
     return { status: "error", options: [], error: "invalid" };
   }
 }
 
-export async function submitGuestVisit(
+export async function submitGuestVisitSession(
   _previous: GuestSubmitState,
   formData: FormData,
 ): Promise<GuestSubmitState> {
-  const parsed = guestTokenSubmitInput.safeParse(
+  const session = await getCurrentGuestInvitation();
+  if (!session) return { status: "error", error: "not_found" };
+
+  const parsed = guestSessionSubmitInput.safeParse(
     guestSubmitFormValue(formData),
   );
   if (!parsed.success) return { status: "error", error: "invalid" };
 
-  const authority = await resolveGuestInvitationAuthority({
-    token: parsed.data.token,
-  });
-  if (!authority) return { status: "error", error: "not_found" };
-
   try {
     const { runId } = await submitGuestVisitForAuthority(
-      authority,
+      authorityForSession(session),
       parsed.data,
     );
     redirect(
       `/${parsed.data.locale}/runs/${runId}/status?returnTo=${encodeURIComponent(
-        `/${parsed.data.locale}/g/${parsed.data.token}`,
-      )}&token=${encodeURIComponent(parsed.data.token)}`,
+        `/${parsed.data.locale}/guest`,
+      )}`,
     );
   } catch (error) {
     if (isRedirectError(error)) throw error;
@@ -87,20 +90,27 @@ export async function submitGuestVisit(
   }
 }
 
-export async function requestGuestChange(formData: FormData): Promise<void> {
-  const token = String(formData.get("token") ?? "");
+export async function requestGuestChangeSession(
+  formData: FormData,
+): Promise<void> {
+  const session = await getCurrentGuestInvitation();
+  if (!session) return;
+
   const locale = formData.get("locale") === "es" ? "es" : "en";
   const message = String(formData.get("message") ?? "").trim();
-  if (message.length > MAX_GUEST_MESSAGE_LENGTH) return;
+  if (!message || message.length > MAX_GUEST_MESSAGE_LENGTH) return;
   try {
-    const invitation = await loadGuestInvitation({ token }, locale);
+    const invitation = await loadGuestInvitation(
+      { invitationId: session.invitationId },
+      locale,
+    );
     if (!invitation) return;
     const result = await requestGuestChangeCore(invitation, message, locale);
     if (!result) return;
     redirect(
       `/${locale}/runs/${result.runId}/status?returnTo=${encodeURIComponent(
-        `/${locale}/g/${token}`,
-      )}&token=${encodeURIComponent(token)}`,
+        `/${locale}/guest`,
+      )}`,
     );
   } catch (error) {
     if (isRedirectError(error)) throw error;
@@ -108,17 +118,30 @@ export async function requestGuestChange(formData: FormData): Promise<void> {
   }
 }
 
-export async function reconfirmGuest(formData: FormData): Promise<void> {
-  const token = String(formData.get("token") ?? "");
+export async function reconfirmGuestSession(formData: FormData): Promise<void> {
+  const session = await getCurrentGuestInvitation();
+  if (!session) return;
+
   const locale = formData.get("locale") === "es" ? "es" : "en";
   try {
-    const invitation = await loadGuestInvitation({ token }, locale);
+    const invitation = await loadGuestInvitation(
+      { invitationId: session.invitationId },
+      locale,
+    );
     if (!invitation) return;
     const applied = await reconfirmGuestCore(invitation);
     if (!applied) return;
-    redirect(`/${locale}/g/${token}`);
+    redirect(`/${locale}/guest`);
   } catch (error) {
     if (isRedirectError(error)) throw error;
     throw reportedActionError("guest_reconfirm_failed", error);
   }
+}
+
+function authorityForSession(session: GuestInvitationRecord) {
+  return {
+    id: session.invitationId,
+    homeId: session.homeId,
+    partyId: session.partyId,
+  };
 }

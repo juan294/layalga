@@ -28,16 +28,38 @@ export default async function SignInPage({
   const { error } = await searchParams;
   const callbackError =
     error === "not_a_host" ? t("notHostError") : error ? t("callbackError") : null;
-  const demoHosts =
-    process.env.DEMO_MODE === "true"
-      ? await getDatabaseConnection().sql<{ id: string; display_name: string }[]>`
+  const demoMode = process.env.DEMO_MODE === "true";
+  const demoHost = demoMode
+    ? (
+        await getDatabaseConnection().sql<
+          { id: string; display_name: string }[]
+        >`
           select host.id, host.display_name
           from public.hosts as host
           join public.homes as home on home.id = host.home_id
           where home.demo = true
           order by host.created_at, host.id
+          limit 1
         `
-      : [];
+      )[0]
+    : undefined;
+  const demoGuestInvitation =
+    demoMode && demoHost
+      ? (
+          await getDatabaseConnection().sql<
+            { invitation_id: string }[]
+          >`
+            select invitation.id as invitation_id
+            from public.invitations as invitation
+            join public.homes as home on home.id = invitation.home_id
+            where home.demo = true
+              and invitation.status <> 'cancelled'
+              and invitation.host_id <> ${demoHost.id}
+            order by invitation.created_at, invitation.id
+            limit 1
+          `
+        )[0]
+      : undefined;
 
   return (
     <main className="postcard">
@@ -53,19 +75,35 @@ export default async function SignInPage({
         <h1 id="sign-in-title">{t("title")}</h1>
         <p className="postcard__lead">{t("description")}</p>
         <div className="postcard__actions">
-          <SignInButton locale={locale} />
-          {demoHosts.map((host) => (
-            <form action={`/${locale}/demo-enter`} key={host.id} method="post">
-              <input name="hostId" type="hidden" value={host.id} />
+          {!demoMode ? <SignInButton locale={locale} /> : null}
+          {demoHost ? (
+            <form action={`/${locale}/demo-enter`} method="post">
+              <input name="hostId" type="hidden" value={demoHost.id} />
               <button
                 className="postcard__button postcard__button--secondary"
-                data-testid={`demo-enter-${host.display_name.toLowerCase()}`}
+                data-testid="demo-enter-host"
                 type="submit"
               >
-                {demoT("enterAs", { name: host.display_name })}
+                {demoT("enterAs", { name: demoHost.display_name })}
               </button>
             </form>
-          ))}
+          ) : null}
+          {demoGuestInvitation ? (
+            <form action={`/${locale}/demo-enter-guest`} method="post">
+              <input
+                name="invitationId"
+                type="hidden"
+                value={demoGuestInvitation.invitation_id}
+              />
+              <button
+                className="postcard__button postcard__button--secondary"
+                data-testid="demo-enter-guest"
+                type="submit"
+              >
+                {demoT("enterAsGuest")}
+              </button>
+            </form>
+          ) : null}
           {callbackError ? (
             <p className="postcard__error" role="alert">
               {callbackError}

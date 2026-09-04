@@ -38,7 +38,8 @@
     "invierno": "invierno"
   },
   "DemoHost": {
-    "enterAs": "Entrar como {name}"
+    "enterAs": "Entrar como {name}",
+    "enterAsGuest": "Entrar como invitado"
   },
   "Host": {
     "eyebrow": "Libro de visitas del hogar",

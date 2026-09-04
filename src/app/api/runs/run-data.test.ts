@@ -3,7 +3,14 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getCurrentHost: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getCurrentGuestInvitation: vi.fn(),
+  getCurrentHost: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/current-guest", () => ({
+  getCurrentGuestInvitation: mocks.getCurrentGuestInvitation,
+}));
 
 vi.mock("@/lib/auth/current-host", () => ({
   getCurrentHost: mocks.getCurrentHost,
@@ -82,6 +89,8 @@ describe("getAuthorizedRunSnapshot events", () => {
   });
 
   beforeEach(() => {
+    mocks.getCurrentGuestInvitation.mockReset();
+    mocks.getCurrentGuestInvitation.mockResolvedValue(null);
     mocks.getCurrentHost.mockReset();
     mocks.getCurrentHost.mockResolvedValue(null);
   });

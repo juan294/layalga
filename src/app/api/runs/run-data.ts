@@ -2,6 +2,7 @@ import { getDatabaseConnection, sqlClient } from "@/core/db/client";
 import { findInvitationByToken } from "@/core/booking/invitations";
 import type { ExecutionRuntime } from "@/agent/deps";
 import { parseStoredRunResult } from "@/agent/task";
+import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
 import { getCurrentHost } from "@/lib/auth/current-host";
 import { objectValue } from "@/lib/json-object";
 
@@ -113,6 +114,12 @@ export async function getAuthorizedRunSnapshot(
   if (!authorized) {
     const host = await getCurrentHost();
     authorized = host?.homeId === run.home_id;
+  }
+  if (!authorized) {
+    const guest = await getCurrentGuestInvitation();
+    authorized =
+      guest?.homeId === run.home_id &&
+      run.session_id === `inv_${guest.invitationId}`;
   }
   if (!authorized) return null;
 

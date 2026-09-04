@@ -5,6 +5,62 @@ import type { AgentDeps } from "./deps";
 import { TaskScriptedModel } from "./scripted-model-selection";
 
 describe("TaskScriptedModel", () => {
+  it("ignores a prior turn's tool result after a newer user task", async () => {
+    const model = new TaskScriptedModel(
+      {
+        task: "host_capture",
+        homeId: "00000000-0000-4000-8000-000000000001",
+        hostId: "00000000-0000-4000-8000-000000000002",
+        rawMessage: "Invite The Oteros for a September weekend.",
+        locale: "en",
+      },
+      {} as AgentDeps,
+    );
+    const priorResult = new Message({
+      role: "user",
+      content: [
+        new ToolResultBlock({
+          toolUseId: "prior-capture",
+          status: "success",
+          content: [
+            new TextBlock(
+              JSON.stringify({
+                invitationId: "00000000-0000-4000-8000-000000000003",
+              }),
+            ),
+          ],
+        }),
+      ],
+    });
+    const priorReply = new Message({
+      role: "assistant",
+      content: [new TextBlock("Invitation ready")],
+    });
+    const currentTask = new Message({
+      role: "user",
+      content: [new TextBlock("Capture another invitation")],
+    });
+
+    const events = [];
+    for await (const event of model.stream([
+      priorResult,
+      priorReply,
+      currentTask,
+    ])) {
+      events.push(event);
+    }
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "modelContentBlockStartEvent",
+        start: expect.objectContaining({
+          type: "toolUseStart",
+          name: "capture_invitation",
+        }),
+      }),
+    );
+  });
+
   it("ends the turn after a denied tool result instead of retrying it", async () => {
     const model = new TaskScriptedModel(
       {

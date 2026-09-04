@@ -1,4 +1,4 @@
-import type { GuestRoomOption } from "@/core/rooms/types";
+import type { GuestRoomOption } from "../rooms/types";
 
 export interface GuestRoomChoice {
   id: string;

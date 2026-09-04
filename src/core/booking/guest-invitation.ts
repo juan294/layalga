@@ -1,5 +1,15 @@
-import { findInvitationByToken } from "@/core/booking/invitations";
-import { getDatabaseConnection, sqlClient } from "@/core/db/client";
+import {
+  findInvitationById,
+  findInvitationByToken,
+  type InvitationByToken,
+} from "@/core/booking/invitations";
+import {
+  getDatabaseConnection,
+  sqlClient,
+  type DatabaseClient,
+} from "@/core/db/client";
+
+export type GuestIdentity = { token: string } | { invitationId: string };
 
 export type GuestVisitStatus =
   | "hold"
@@ -51,12 +61,10 @@ export function partyDefaults(structured: Record<string, unknown>) {
 }
 
 export async function resolveGuestInvitationAuthority(
-  token: string,
+  identity: GuestIdentity,
 ): Promise<GuestInvitationAuthority | null> {
-  const invitation = await findInvitationByToken(
-    getDatabaseConnection().db,
-    token,
-  );
+  const database = getDatabaseConnection().db;
+  const invitation = await findInvitationForIdentity(database, identity);
   return invitation
     ? {
         id: invitation.id,
@@ -67,11 +75,11 @@ export async function resolveGuestInvitationAuthority(
 }
 
 export async function loadGuestInvitation(
-  token: string,
+  identity: GuestIdentity,
   locale: "en" | "es",
 ): Promise<GuestInvitationData | null> {
   const connection = getDatabaseConnection();
-  const invitation = await findInvitationByToken(connection.db, token);
+  const invitation = await findInvitationForIdentity(connection.db, identity);
   if (!invitation) return null;
 
   const sql = sqlClient(connection.db);
@@ -189,6 +197,15 @@ export async function loadGuestInvitation(
         }
       : null,
   };
+}
+
+function findInvitationForIdentity(
+  database: DatabaseClient,
+  identity: GuestIdentity,
+): Promise<InvitationByToken | null> {
+  return "token" in identity
+    ? findInvitationByToken(database, identity.token)
+    : findInvitationById(database, identity.invitationId);
 }
 
 function record(value: unknown): Record<string, unknown> {

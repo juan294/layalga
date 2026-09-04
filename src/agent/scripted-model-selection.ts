@@ -278,6 +278,7 @@ function latestToolResult(messages: Message[]): Record<string, unknown> | null {
       const result = toolResultRecord(block.content);
       if (result) return result;
     }
+    if (message.role === "user") return null;
   }
   return null;
 }

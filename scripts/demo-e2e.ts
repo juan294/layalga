@@ -91,7 +91,7 @@ export async function runDemoE2E(
       expectedRunStatus: "completed",
     });
 
-    await enterHost(page, options.baseUrl, DEMO_SEED.hosts[1].id, "en");
+    await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "en");
     const oterosLink = await captureInvitation(page, rawMessages[1]);
     await submitGuest(page, oterosLink, {
       from: "2026-09-19",

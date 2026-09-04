@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { GuestRoomOption } from "@/core/rooms/types";
 
-import { toGuestRoomChoice } from "./guest-room-contract";
+import { toGuestRoomChoice } from "@/core/booking/guest-room-contract";
 import {
   guestRoomReviewKey,
   guestSearchIsStale,

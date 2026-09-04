@@ -1,38 +1,62 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  applyGuestReconfirmation: vi.fn(),
+  clock: { now: vi.fn(() => new Date("2026-09-04T10:00:00.000Z")) },
+  database: {},
   enqueue: vi.fn(),
   loadGuestInvitation: vi.fn(),
+  loadClock: vi.fn(),
   resolveGuestInvitationAuthority: vi.fn(),
   loadGuestRoomSearchWindow: vi.fn(),
-  roomOptionsForStay: vi.fn(),
-}));
-
-vi.mock("next/navigation", () => ({
   redirect: vi.fn(() => {
     throw { digest: "NEXT_REDIRECT;test" };
   }),
+  roomOptionsForStay: vi.fn(),
+  scheduler: { schedule: vi.fn(), cancel: vi.fn() },
+  schedulerForHome: vi.fn(),
+  sql: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: mocks.redirect,
 }));
 vi.mock("@/agent/client", () => ({
   getAgentClient: () => ({ enqueue: mocks.enqueue }),
 }));
+vi.mock("@/agent/scheduler", () => ({
+  schedulerForHome: mocks.schedulerForHome,
+}));
+vi.mock("@/core/clock", () => ({
+  DbDemoClock: { load: mocks.loadClock },
+  SystemClock: class SystemClock {},
+}));
 vi.mock("@/core/db/client", () => ({
-  getDatabaseConnection: () => ({ db: {}, sql: vi.fn() }),
+  getDatabaseConnection: () => ({ db: mocks.database, sql: mocks.sql }),
+}));
+vi.mock("@/core/reconfirmation/apply-guest-answer", () => ({
+  applyGuestReconfirmation: mocks.applyGuestReconfirmation,
 }));
 vi.mock("@/core/rooms/search", () => ({
   loadGuestRoomSearchWindow: mocks.loadGuestRoomSearchWindow,
   roomOptionsForStay: mocks.roomOptionsForStay,
 }));
-vi.mock("./guest-data", () => ({
+vi.mock("@/core/booking/guest-invitation", () => ({
   loadGuestInvitation: mocks.loadGuestInvitation,
   resolveGuestInvitationAuthority: mocks.resolveGuestInvitationAuthority,
 }));
 
-import { findGuestOptions, submitGuestVisit } from "./actions";
+import {
+  findGuestOptions,
+  reconfirmGuest,
+  requestGuestChange,
+  submitGuestVisit,
+} from "./actions";
 
 const roomId = "00000000-0000-4000-8000-000000000001";
 const invitationId = "00000000-0000-4000-8000-000000000002";
 const homeId = "00000000-0000-4000-8000-000000000003";
+const visitId = "00000000-0000-4000-8000-000000000005";
 
 describe("guest room actions", () => {
   beforeEach(() => {
@@ -42,6 +66,9 @@ describe("guest room actions", () => {
       homeId,
       structured: {},
     });
+    mocks.loadClock.mockResolvedValue(mocks.clock);
+    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
+    mocks.sql.mockResolvedValue([{ demo: true }]);
     mocks.resolveGuestInvitationAuthority.mockResolvedValue({
       id: invitationId,
       homeId,
@@ -93,6 +120,9 @@ describe("guest room actions", () => {
     );
 
     expect(result.status).toBe("success");
+    expect(mocks.resolveGuestInvitationAuthority).toHaveBeenCalledWith({
+      token: "guest-token",
+    });
     expect(mocks.loadGuestRoomSearchWindow).toHaveBeenCalledTimes(1);
     expect(result.criteria).toMatchObject({ adults: 2, children: 0, pets: 0 });
     expect(result.options[0]?.recommendedRoomIds).toEqual([roomId]);
@@ -126,6 +156,9 @@ describe("guest room actions", () => {
     await expect(
       submitGuestVisit({ status: "idle" }, form),
     ).rejects.toMatchObject({ digest: "NEXT_REDIRECT;test" });
+    expect(mocks.resolveGuestInvitationAuthority).toHaveBeenCalledWith({
+      token: "guest-token",
+    });
     expect(mocks.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
         task: "guest_submit",
@@ -133,6 +166,90 @@ describe("guest room actions", () => {
         overflowConsent: true,
       }),
     );
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/en/runs/run-1/status?returnTo=%2Fen%2Fg%2Fguest-token&token=guest-token",
+    );
+  });
+
+  test("queues an ordinary guest change and preserves the token redirect", async () => {
+    mocks.enqueue.mockResolvedValue({ runId: "run-change" });
+    mocks.loadGuestInvitation.mockResolvedValue({
+      id: invitationId,
+      homeId,
+      structured: {},
+      visit: { id: visitId, status: "confirmed" },
+    });
+    const form = new FormData();
+    form.set("token", "guest-token");
+    form.set("locale", "es");
+    form.set("message", "Necesitamos llegar un día después");
+
+    await expect(requestGuestChange(form)).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;test",
+    });
+    expect(mocks.enqueue).toHaveBeenCalledWith({
+      task: "guest_change",
+      homeId,
+      visitId,
+      message: "Necesitamos llegar un día después",
+      locale: "es",
+    });
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/es/runs/run-change/status?returnTo=%2Fes%2Fg%2Fguest-token&token=guest-token",
+    );
+  });
+
+  test("answers a pending reconfirmation with a change request", async () => {
+    mocks.enqueue.mockResolvedValue({ runId: "run-reconfirm-change" });
+    mocks.loadGuestInvitation.mockResolvedValue({
+      id: invitationId,
+      homeId,
+      structured: {},
+      visit: { id: visitId, status: "reconfirm_pending" },
+    });
+    const form = new FormData();
+    form.set("token", "guest-token");
+    form.set("locale", "en");
+    form.set("message", "We need different dates");
+
+    await expect(requestGuestChange(form)).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;test",
+    });
+    expect(mocks.enqueue).toHaveBeenCalledWith({
+      task: "guest_reconfirm",
+      homeId,
+      visitId,
+      answer: "change",
+      message: "We need different dates",
+    });
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/en/runs/run-reconfirm-change/status?returnTo=%2Fen%2Fg%2Fguest-token&token=guest-token",
+    );
+  });
+
+  test("applies a guest reconfirmation and returns to the token route", async () => {
+    mocks.loadGuestInvitation.mockResolvedValue({
+      id: invitationId,
+      homeId,
+      structured: {},
+      visit: { id: visitId, status: "reconfirm_pending" },
+    });
+    const form = new FormData();
+    form.set("token", "guest-token");
+    form.set("locale", "en");
+
+    await expect(reconfirmGuest(form)).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;test",
+    });
+    expect(mocks.applyGuestReconfirmation).toHaveBeenCalledWith(
+      mocks.database,
+      mocks.clock,
+      mocks.scheduler,
+      homeId,
+      visitId,
+      "yes",
+    );
+    expect(mocks.redirect).toHaveBeenCalledWith("/en/g/guest-token");
   });
 
   test("offers a deterministic maximum-capacity fallback with host consent", async () => {

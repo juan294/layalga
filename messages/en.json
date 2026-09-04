@@ -38,7 +38,8 @@
     "invierno": "winter"
   },
   "DemoHost": {
-    "enterAs": "Enter as {name}"
+    "enterAs": "Enter as {name}",
+    "enterAsGuest": "Enter as Guest"
   },
   "Host": {
     "eyebrow": "Household guest ledger",

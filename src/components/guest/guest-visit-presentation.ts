@@ -1,4 +1,4 @@
-import type { GuestVisitStatus } from "@/app/[locale]/g/[token]/guest-data";
+import type { GuestVisitStatus } from "@/core/booking/guest-invitation";
 
 export interface GuestVisitPresentationInput {
   status: GuestVisitStatus;

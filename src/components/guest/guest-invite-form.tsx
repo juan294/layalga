@@ -3,13 +3,13 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import {
-  findGuestOptions,
-  submitGuestVisit,
-  type GuestOptionState,
-  type GuestSearchCriteria,
-  type GuestSubmitState,
-} from "@/app/[locale]/g/[token]/actions";
+import type {
+  FindGuestOptionsAction,
+  GuestOptionState,
+  GuestSearchCriteria,
+  GuestSubmitState,
+  SubmitGuestVisitAction,
+} from "@/core/booking/guest-actions";
 
 import styles from "./guest-ledger.module.css";
 import { Field } from "./field";
@@ -23,8 +23,10 @@ const initialSubmitState: GuestSubmitState = { status: "idle" };
 const stayFormatters = new Map<string, Intl.DateTimeFormat>();
 
 interface GuestInviteFormProps {
-  token: string;
+  token?: string;
   locale: "en" | "es";
+  findAction: FindGuestOptionsAction;
+  submitAction: SubmitGuestVisitAction;
   defaults: {
     from: string;
     to: string;
@@ -39,15 +41,17 @@ interface GuestInviteFormProps {
 export function GuestInviteForm({
   token,
   locale,
+  findAction,
+  submitAction,
   defaults,
 }: GuestInviteFormProps) {
   const t = useTranslations("Guest");
-  const [optionState, findAction, finding] = useActionState(
-    findGuestOptions,
+  const [optionState, findFormAction, finding] = useActionState(
+    findAction,
     initialOptionState,
   );
-  const [submitState, submitAction, submitting] = useActionState(
-    submitGuestVisit,
+  const [submitState, submitFormAction, submitting] = useActionState(
+    submitAction,
     initialSubmitState,
   );
   const [criteria, setCriteria] = useState<GuestSearchCriteria>({
@@ -97,13 +101,13 @@ export function GuestInviteForm({
         options={optionsVisible ? optionState.options : []}
       />
       <form
-        action={findAction}
+        action={findFormAction}
         className={styles.ruledForm}
         data-hydrated="false"
         data-webmcp-guest-search
         ref={searchFormRef}
       >
-        <input name="token" type="hidden" value={token} />
+        {token ? <input name="token" type="hidden" value={token} /> : null}
         <input name="locale" type="hidden" value={locale} />
         <div className={styles.formHeading}>
           <span className={styles.sequence}>{t("stepDates")}</span>
@@ -206,7 +210,7 @@ export function GuestInviteForm({
           locale={locale}
           options={optionState.options}
           search={optionState.criteria!}
-          submitAction={submitAction}
+          submitAction={submitFormAction}
           submitState={submitState}
           submitting={submitting}
           token={token}
@@ -217,7 +221,7 @@ export function GuestInviteForm({
 }
 
 interface GuestRoomReviewProps {
-  token: string;
+  token?: string;
   locale: "en" | "es";
   defaults: GuestInviteFormProps["defaults"];
   options: NonNullable<GuestOptionState["options"]>;
@@ -294,7 +298,7 @@ function GuestRoomReview({
       data-webmcp-guest-options
       data-testid="guest-submit-form"
     >
-      <input name="token" type="hidden" value={token} />
+      {token ? <input name="token" type="hidden" value={token} /> : null}
       <input name="locale" type="hidden" value={locale} />
       <input name="stay" type="hidden" value={selectedStay} />
       <input name="adults" type="hidden" value={search.adults} />
