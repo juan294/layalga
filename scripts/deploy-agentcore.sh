@@ -8,6 +8,7 @@ region="us-east-1"
 env_file="$repository_root/.env.agentcore"
 runtime_name="layalga_agent"
 skip_bundle="false"
+s3_version_id=""
 
 usage() {
   cat <<'USAGE'
@@ -19,6 +20,8 @@ Options:
   --env-file <path>       Runtime env file (default: .env.agentcore at the project root)
   --runtime-name <name>   AgentCore runtime name (default: layalga_agent)
   --skip-bundle           Reuse the existing dist/deployment_package.zip
+  --s3-version-id <id>    Deploy an already-uploaded object version of the S3 key
+                          instead of uploading dist/deployment_package.zip
 USAGE
 }
 
@@ -43,6 +46,11 @@ while [[ $# -gt 0 ]]; do
     --skip-bundle)
       skip_bundle="true"
       shift
+      ;;
+    --s3-version-id)
+      s3_version_id="${2:?--s3-version-id requires a value}"
+      skip_bundle="true"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -156,18 +164,24 @@ jq -r 'keys | sort | .[]' "$env_json_file" | sed 's/^/  /' >&2
 
 runtime_env="$(jq -c '.' "$env_json_file")"
 
-echo "Uploading deployment package to s3://$bucket/$s3_key..." >&2
-put_object_output="$(aws s3api put-object \
-  --bucket "$bucket" \
-  --key "$s3_key" \
-  --body "$bundle_zip" \
-  "${aws_args[@]}")"
-s3_version_id="$(printf '%s' "$put_object_output" | jq -r '.VersionId')"
-if [[ -z "$s3_version_id" || "$s3_version_id" == "null" ]]; then
-  echo "Error: S3 upload did not return a VersionId (is bucket versioning enabled?)" >&2
-  exit 1
+if [[ -n "${s3_version_id:-}" ]]; then
+  # A slow uplink can upload the bundle separately with `aws s3 cp`
+  # (multipart, retried); deploy that object version without re-uploading.
+  echo "Using already-uploaded S3 object version: $s3_version_id" >&2
+else
+  echo "Uploading deployment package to s3://$bucket/$s3_key..." >&2
+  put_object_output="$(aws s3api put-object \
+    --bucket "$bucket" \
+    --key "$s3_key" \
+    --body "$bundle_zip" \
+    "${aws_args[@]}")"
+  s3_version_id="$(printf '%s' "$put_object_output" | jq -r '.VersionId')"
+  if [[ -z "$s3_version_id" || "$s3_version_id" == "null" ]]; then
+    echo "Error: S3 upload did not return a VersionId (is bucket versioning enabled?)" >&2
+    exit 1
+  fi
+  echo "Uploaded S3 object version: $s3_version_id" >&2
 fi
-echo "Uploaded S3 object version: $s3_version_id" >&2
 
 artifact_json="$(jq -cn \
   --arg bucket "$bucket" \
