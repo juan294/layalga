@@ -99,6 +99,7 @@ describe("parseReleaseCliOptions", () => {
       headed: false,
       expectedRuntime: undefined,
       expectEmail: false,
+      expectMemory: false,
     });
   });
 
@@ -114,6 +115,24 @@ describe("parseReleaseCliOptions", () => {
   it("forces expectEmail on with --expect-email regardless of EMAIL", () => {
     expect(parseReleaseCliOptions(["--expect-email"], {})).toMatchObject({
       expectEmail: true,
+    });
+  });
+
+  it("defaults --expect-memory from MEMORY=agentcore in the script environment", () => {
+    expect(parseReleaseCliOptions([], {})).toMatchObject({
+      expectMemory: false,
+    });
+    expect(parseReleaseCliOptions([], { MEMORY: "agentcore" })).toMatchObject({
+      expectMemory: true,
+    });
+    expect(parseReleaseCliOptions([], { MEMORY: "none" })).toMatchObject({
+      expectMemory: false,
+    });
+  });
+
+  it("forces expectMemory on with --expect-memory regardless of MEMORY", () => {
+    expect(parseReleaseCliOptions(["--expect-memory"], {})).toMatchObject({
+      expectMemory: true,
     });
   });
 

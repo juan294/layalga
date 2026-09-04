@@ -44,6 +44,29 @@ describe("external model prompt minimization", () => {
     );
   });
 
+  it("leaves the name-free host_capture and guest_change prompts unchanged (D7)", () => {
+    const hostCapturePrompt =
+      'The host pasted this invitation (locale es): """Marta needs step-free access""". Structure it with capture_invitation and reply with a one-line summary for the host. The application will deliver the private link outside the model transcript.';
+    const hostCaptureWithSearch = `${hostCapturePrompt} Before doing anything else, call search_memory to check what this household remembers about this family (arrival habits, room needs, pets, accessibility), and take any relevant preference into account.`;
+    const guestChangePrompt =
+      'The invited party asks to change visit visit-1: """Move us one day later""". Use find_visit_options if dates are unclear, then reschedule_visit.';
+
+    expect(minimizeProviderPrompt(hostCapturePrompt)).toBe(hostCapturePrompt);
+    expect(minimizeProviderPrompt(hostCaptureWithSearch)).toBe(
+      hostCaptureWithSearch,
+    );
+    expect(minimizeProviderPrompt(guestChangePrompt)).toBe(guestChangePrompt);
+  });
+
+  it("still strips arrival and notes from a name-free guest_submit prompt", () => {
+    const prompt =
+      "The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets, arrival 18:00, notes: Marta needs step-free access. Place a hold, then confirm it, and tell the guest what happens next in their language.";
+    expect(minimizeProviderPrompt(prompt)).toBe(
+      "The invited party (invitation invite-1) chose 2026-09-18 to 2026-09-21, 2 adults, 2 children, 0 pets. Place a hold, then confirm it, and tell the guest what happens next in their language.",
+    );
+    expect(minimizeProviderPrompt(prompt)).not.toContain("Marta");
+  });
+
   it("minimizes only text sent to the provider and preserves tool blocks", async () => {
     const delegate = new RecordingModel();
     const model = new PromptMinimizingModel(delegate);

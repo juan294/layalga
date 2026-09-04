@@ -23,15 +23,15 @@ The coordinator remembers each family's preferences across invitations (arrival 
 
 ## Tasks
 
-- [ ] 3.1 `partyId` in `AgentAuthority`, resolved in `authorityForTask`; tests in `src/agent/tenant-scope.test.ts` for cross-home party rejection.
-- [ ] 3.2 Prompt rewrite without family names; extend `src/agent/prompt-minimization.test.ts` to assert the new prompts are unchanged by the minimizer.
-- [ ] 3.3 `src/agent/memory.ts` (`memoryConfigForTask`, `createMemoryStores`), wired in `buildAgent` (`src/agent/agent.ts:26-49`) through a new `memoryManager` option and `flush()` in `runAgentTask`.
-- [ ] 3.4 `recordCaptureMemory` after `host_capture` completion; audit `memory_written` with actor `agent` (no content in payload).
-- [ ] 3.5 `src/core/memory/client.ts` (list, batch delete, forget) and `src/core/memory/forget.ts`; host panel component `src/components/host/memory-panel.tsx`; Server Action `forgetPartyMemoryAction`; i18n `Host.memory.*`.
-- [ ] 3.6 Prompts: host capture asks the model to call `search_memory` first when a party matched; guest submit asks it to search before choosing options.
+- [x] 3.1 `partyId` in `AgentAuthority`, resolved in `authorityForTask`; tests in `src/agent/tenant-scope.test.ts` for cross-home party rejection.
+- [x] 3.2 Prompt rewrite without family names; extend `src/agent/prompt-minimization.test.ts` to assert the new prompts are unchanged by the minimizer.
+- [x] 3.3 `src/agent/memory.ts` (`memoryConfigForTask`, `createMemoryStores`), wired in `buildAgent` (`src/agent/agent.ts:26-49`) through a new `memoryManager` option and `flush()` in `runAgentTask`.
+- [x] 3.4 `recordCaptureMemory` after `host_capture` completion; audit `memory_written` with actor `agent` (no content in payload).
+- [x] 3.5 `src/core/memory/client.ts` (list, batch delete, forget) and `src/core/memory/forget.ts`; host panel component `src/components/host/memory-panel.tsx`; Server Action `forgetPartyMemoryAction`; i18n `Host.memory.*`.
+- [x] 3.6 Prompts: host capture asks the model to call `search_memory` first when a party matched; guest submit asks it to search before choosing options.
 - [ ] 3.7 AWS: `scripts/create-memory.sh` (create, poll `ACTIVE`, print id), IAM policies applied, `MEMORY=agentcore` and `MEMORY_ID` in Vercel production and in `.env.agentcore`; redeploy runtime through `scripts/deploy-agentcore.sh`.
-- [ ] 3.8 `scripts/seed-memory.ts` with `--forget`; wait loop that polls `ListMemoryRecords` until at least one record exists (prints elapsed time).
-- [ ] 3.9 Demo driver and probes: memory is optional (`MEMORY=none` in CI); when `--expect-memory` is given, probe 2 asserts a `search_memory` tool_call audit row on the capture run.
+- [x] 3.8 `scripts/seed-memory.ts` with `--forget`; wait loop that polls `ListMemoryRecords` until at least one record exists (prints elapsed time).
+- [x] 3.9 Demo driver and probes: memory is optional (`MEMORY=none` in CI); when `--expect-memory` is given, probe 2 asserts a `search_memory` tool_call audit row on the capture run.
 
 ## Pseudocode
 

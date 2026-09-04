@@ -183,6 +183,13 @@
       "statusOff": "Los avisos por correo están desactivados.",
       "noAddress": "Inicia sesión con tu correo para recibir avisos por correo."
     },
+    "memory": {
+      "eyebrow": "Huéspedes recurrentes",
+      "title": "Lo que L’Ayalga recuerda",
+      "description": "El coordinador recuerda los hábitos de llegada, las necesidades de habitación, las mascotas y las notas de accesibilidad de cada familia entre invitaciones. Olvidar borra todo lo recordado sobre una familia.",
+      "recordsEmpty": "Todavía no se recuerda nada sobre esta familia.",
+      "forget": "Olvidar a esta familia"
+    },
     "decisions": {
       "eyebrow": "Revisión del anfitrión",
       "title": "Decisiones pendientes",
@@ -232,6 +239,8 @@
       "toolCall": "Acción del agente",
       "reconfirmChase": "Recordatorio de reconfirmación enviado",
       "reconfirmEscalation": "Reconfirmación avisada al anfitrión",
+      "memoryWritten": "Memoria del hogar actualizada",
+      "memoryForgotten": "Memoria del hogar olvidada",
       "other": "Actividad del hogar"
     },
     "activityTools": {
@@ -245,6 +254,7 @@
       "prepareRoomAction": "Preparar propuesta de habitación",
       "listGuestRooms": "Consultar habitaciones visibles para huéspedes",
       "findRoomOptions": "Buscar opciones de habitación",
+      "searchMemory": "Recordar memoria del hogar",
       "other": "Acción del hogar"
     },
     "activityPolicies": {

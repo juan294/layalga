@@ -12,6 +12,7 @@ import {
 import { reissueInvitationLink } from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
+import { forgetPartyMemory } from "@/core/memory/forget";
 import { requireHost } from "@/lib/auth/current-host";
 import { parseServerEnvironment } from "@/lib/server/env";
 import {
@@ -200,6 +201,43 @@ export async function updateEmailPingsAction(
     revalidatePath(`/${locale}`);
   } catch (error) {
     reportActionError("email_settings_update_failed", error);
+  }
+}
+
+export async function forgetPartyMemoryAction(
+  formData: FormData,
+): Promise<void> {
+  const locale = localeValue(formData);
+  const host = await requireHost(locale);
+  const parsedPartyId = z.uuid().safeParse(formData.get("partyId"));
+  if (!parsedPartyId.success) return;
+  const config = parseServerEnvironment();
+  if (config.memory !== "agentcore" || !config.memoryId || !config.awsRegion) {
+    return;
+  }
+
+  try {
+    const connection = getDatabaseConnection();
+    const sql = sqlClient(connection.db);
+    // host.id and host.homeId come from the authenticated session; this
+    // check keeps the erasure scoped to a party of the caller's own home,
+    // never a party of another home from a forged partyId.
+    const [party] = await sql<{ id: string }[]>`
+      select id from public.parties
+      where id = ${parsedPartyId.data} and home_id = ${host.homeId}
+    `;
+    if (!party) return;
+
+    await forgetPartyMemory(
+      connection.db,
+      host.homeId,
+      parsedPartyId.data,
+      config.memoryId,
+      config.awsRegion,
+    );
+    revalidatePath(`/${locale}`);
+  } catch (error) {
+    reportActionError("memory_forget_failed", error);
   }
 }
 

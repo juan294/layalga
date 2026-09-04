@@ -47,6 +47,58 @@ describe("server environment", () => {
     });
   });
 
+  it("keeps MEMORY=none by default", () => {
+    expect(parseServerEnvironment({ NODE_ENV: "development" })).toMatchObject({
+      memory: "none",
+      memoryId: undefined,
+    });
+    const readiness = serverEnvironmentReadiness({ NODE_ENV: "development" });
+    expect(readiness.ready).toBe(true);
+    expect(readiness.issues).not.toContainEqual(
+      expect.objectContaining({ key: "MEMORY_ID" }),
+    );
+  });
+
+  it("requires MEMORY_ID and AWS_REGION when MEMORY=agentcore", () => {
+    expect(() =>
+      parseServerEnvironment({ NODE_ENV: "development", MEMORY: "agentcore" }),
+    ).toThrow(/AWS_REGION/);
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: "development",
+        MEMORY: "agentcore",
+        AWS_REGION: "us-east-1",
+      }),
+    ).toThrow(/MEMORY_ID/);
+    const readiness = serverEnvironmentReadiness({
+      NODE_ENV: "development",
+      MEMORY: "agentcore",
+    });
+    expect(readiness.ready).toBe(false);
+    expect(readiness.issues).toContainEqual({
+      key: "MEMORY_ID",
+      code: "missing",
+    });
+    expect(readiness.issues).toContainEqual({
+      key: "AWS_REGION",
+      code: "missing",
+    });
+  });
+
+  it("accepts MEMORY=agentcore once MEMORY_ID and AWS_REGION are present", () => {
+    expect(
+      parseServerEnvironment({
+        NODE_ENV: "development",
+        MEMORY: "agentcore",
+        MEMORY_ID: "LayalgaHouseholdMemory-CBgKZc7mK4",
+        AWS_REGION: "us-east-1",
+      }),
+    ).toMatchObject({
+      memory: "agentcore",
+      memoryId: "LayalgaHouseholdMemory-CBgKZc7mK4",
+    });
+  });
+
   it("rejects ambiguous production modes without exposing values", () => {
     const readiness = serverEnvironmentReadiness({
       NODE_ENV: "production",

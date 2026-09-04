@@ -10,6 +10,7 @@ import { requireHost } from "@/lib/auth/current-host";
 import { maskHostEmail } from "@/lib/auth/host-emails";
 import { decisionReasonKey } from "@/lib/decision-reasons";
 import { objectValue } from "@/lib/json-object";
+import { parseServerEnvironment } from "@/lib/server/env";
 import {
   calendarMonthFromSearch,
   calendarMonthValue,
@@ -25,10 +26,15 @@ import {
 import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
 import { DemoClockPanel } from "@/components/host/demo-clock-panel";
 import {
+  MemoryPanel,
+  type MemoryPartyRecords,
+} from "@/components/host/memory-panel";
+import {
   RoomLedger,
   type RoomLedgerLabels,
 } from "@/components/host/room-ledger";
 import { updateEmailPingsAction } from "./actions";
+import { loadHostMemoryPanel } from "./memory-data";
 import { loadHostRoomLedger } from "./room-data";
 import {
   PendingDecisions,
@@ -119,13 +125,21 @@ export default async function HostPage({
   );
   const calendarWindow = calendarMonthWindow(calendarMonth);
 
-  const [roomData, visitRows, decisionRows, activityRows, emailPingsRows] =
-    await Promise.all([
-      loadHostRoomLedger(sql, host.homeId, [
-        calendarWindow.from,
-        calendarWindow.to,
-      ]),
-      sql<VisitRow[]>`
+  const envConfig = parseServerEnvironment();
+
+  const [
+    roomData,
+    visitRows,
+    decisionRows,
+    activityRows,
+    emailPingsRows,
+    memoryParties,
+  ] = await Promise.all([
+    loadHostRoomLedger(sql, host.homeId, [
+      calendarWindow.from,
+      calendarWindow.to,
+    ]),
+    sql<VisitRow[]>`
       select v.id, p.family_name, lower(v.stay)::text as stay_start,
         upper(v.stay)::text as stay_end, v.status,
         coalesce(array_agg(r.name order by r.name)
@@ -144,7 +158,7 @@ export default async function HostPage({
       group by v.id, p.family_name
       order by lower(v.stay), p.family_name
     `,
-      sql<DecisionRow[]>`
+    sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
         case
@@ -188,7 +202,7 @@ export default async function HostPage({
         )
       order by pd.created_at
     `,
-      sql<ActivityRow[]>`
+    sql<ActivityRow[]>`
       (
         select ae.id, 'audit'::text as source, ae.kind, ae.payload as detail,
           ae.created_at
@@ -208,7 +222,7 @@ export default async function HostPage({
       order by created_at desc
       limit 20
     `,
-      sql<{ normalized_email: string | null; email_pings: boolean | null }[]>`
+    sql<{ normalized_email: string | null; email_pings: boolean | null }[]>`
       select claim.normalized_email, settings.email_pings
       from public.hosts host
       left join public.host_identity_claims claim on claim.host_id = host.id
@@ -218,7 +232,17 @@ export default async function HostPage({
       order by claim.normalized_email
       limit 1
     `,
-    ]);
+    envConfig.memory === "agentcore" &&
+    envConfig.memoryId &&
+    envConfig.awsRegion
+      ? loadHostMemoryPanel(
+          sql,
+          host.homeId,
+          envConfig.memoryId,
+          envConfig.awsRegion,
+        )
+      : Promise.resolve([]),
+  ]);
 
   const visits: LedgerVisit[] = visitRows.map((visit) => ({
     id: visit.id,
@@ -280,6 +304,21 @@ export default async function HostPage({
     ? maskHostEmail(emailPingsSetting.normalized_email)
     : null;
   const emailPingsEnabled = emailPingsSetting?.email_pings ?? true;
+  const memoryPartyRecords: MemoryPartyRecords[] = memoryParties.map(
+    (party) => ({
+      partyId: party.partyId,
+      partyName: party.partyName,
+      records: party.records.map((record) => ({
+        id: record.id,
+        text: record.text,
+        createdAtLabel: formatHouseholdDateTime(
+          record.createdAt.toISOString(),
+          safeLocale,
+          timeZone,
+        ),
+      })),
+    }),
+  );
 
   return (
     <main
@@ -498,6 +537,18 @@ export default async function HostPage({
               </p>
             )}
           </section>
+
+          <MemoryPanel
+            locale={safeLocale}
+            parties={memoryPartyRecords}
+            labels={{
+              eyebrow: t("memory.eyebrow"),
+              title: t("memory.title"),
+              description: t("memory.description"),
+              recordsEmpty: t("memory.recordsEmpty"),
+              forget: t("memory.forget"),
+            }}
+          />
 
           {process.env.DEMO_MODE === "true" &&
           host.demo &&

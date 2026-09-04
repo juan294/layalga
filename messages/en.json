@@ -183,6 +183,13 @@
       "statusOff": "Email pings are off.",
       "noAddress": "Sign in with your email to receive email pings."
     },
+    "memory": {
+      "eyebrow": "Returning guests",
+      "title": "What L’Ayalga remembers",
+      "description": "The coordinator recalls each family's arrival habits, room needs, pets, and accessibility notes across invitations. Forget erases everything remembered about a family.",
+      "recordsEmpty": "Nothing is remembered about this family yet.",
+      "forget": "Forget this family"
+    },
     "decisions": {
       "eyebrow": "Host review",
       "title": "Pending decisions",
@@ -232,6 +239,8 @@
       "toolCall": "Agent action",
       "reconfirmChase": "Reconfirmation reminder sent",
       "reconfirmEscalation": "Reconfirmation escalated",
+      "memoryWritten": "Household memory updated",
+      "memoryForgotten": "Household memory forgotten",
       "other": "Household activity"
     },
     "activityTools": {
@@ -245,6 +254,7 @@
       "prepareRoomAction": "Prepare room proposal",
       "listGuestRooms": "List guest-visible rooms",
       "findRoomOptions": "Find room options",
+      "searchMemory": "Recall household memory",
       "other": "Household action"
     },
     "activityPolicies": {
