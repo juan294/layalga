@@ -106,3 +106,5 @@ An interrupt is useful when the system can explain a bounded choice. “The beds
 That distinction keeps the agent helpful. People do not become a generic fallback for every uncertainty. They receive only the decisions that belong to them, with the agent’s work preserved on both sides of the pause.
 
 The result is not full autonomy. It is accountable continuity: the agent gets as far as code allows, waits where judgment starts, and resumes the exact work after a person decides.
+
+In production, a host finds out there is a decision waiting from an email, not by refreshing a tab: a separate, idempotent outbox pings each consenting host through Amazon SES the moment the interrupt is written, never the guest whose request triggered it.

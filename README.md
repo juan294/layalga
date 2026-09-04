@@ -11,18 +11,18 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 ## Four-beat demo
 
-1. Juan pastes a Spanish invitation for Familia Vega. The agent structures the party and creates a private guest link.
-2. Juan asks the coordinator to reserve a room for private household use. The agent prepares a bounded proposal, Juan reviews and applies it, and the room leaves guest options for those dates.
-3. Vega selects dates and more than one exact room. A standard-capacity choice proceeds. A separate overflow-only choice pauses with the exact sleeping arrangement until a host approves it.
-4. The host issues a revocable household calendar feed and proves it with a local parser. The feed contains generic all-day events and guest-visible room labels, but no guest names, private notes, invitation data, or bearer tokens. The labeled synthetic clock then demonstrates reconfirmation and escalation.
+1. Juan pastes a Spanish invitation for Familia Vega. The agent structures the party, searches what it remembers about this family, and creates a private guest link.
+2. Juan asks the coordinator to reserve the Garage Room for private household use. The agent prepares a bounded proposal, Juan reviews and applies it, and the room leaves guest options for those dates.
+3. Vega selects dates and more than one exact room from the Guest Room and Office Room. A standard-capacity choice proceeds. A separate overflow-only choice pauses with the exact sleeping arrangement until a host approves it; both hosts get an email ping the moment the decision is pending.
+4. The host issues a revocable household calendar feed and proves it with a local parser. The feed contains generic all-day events and guest-visible room labels, but no guest names, private notes, invitation data, or bearer tokens. The labeled synthetic clock then demonstrates reconfirmation and escalation, and a second host email ping when a party misses its window.
 
-The guest names, messages, visits, and notifications in the demo are synthetic. Juan González and Jordan Lynn are the two real host operators.
+The guest names, messages, visits, and notifications in the demo are synthetic; the rooms use generic labels (Guest Room, Garage Room, Office Room) rather than the real house layout. Juan González and Jordan Lynn are the two real host operators.
 
 ## How it works
 
-[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected hackathon path. Next.js runs the web UI and accepts work into a durable Postgres run queue. A local worker started with Next.js `after()` can claim that work without holding the request open. The per-minute Vercel Cron route also recovers expired leases, drains at most two runs at a time, and claims due scheduled jobs. Supabase Postgres is authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events. Strands uses Amazon Bedrock Sonnet 4.5 for real model runs; tests and the deterministic demo driver use a scripted model.
+[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected production path. Next.js runs the web UI and accepts work into a durable Postgres run queue. Production dispatch sends each queued run to a live Amazon Bedrock AgentCore Runtime, a Node 22 direct-code deployment running the Strands agent with Amazon Bedrock Sonnet 4.5; tests and the deterministic demo driver use a scripted model instead. The per-minute Vercel Cron route recovers expired leases, drains queued runs, and claims due scheduled jobs, all dispatched through the same AgentCore runtime. Supabase Postgres remains authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events; every terminal run result records `executedOn` so a run proves where it ran.
 
-Amazon Bedrock AgentCore Runtime now has a live Node 22 direct-code version that completed a Sonnet 4.5 run and called the typed `capture_invitation` tool. The first Phase 0 attempt was blocked by the account-level Anthropic use-case gate; after the use case was accepted, the retry produced a completed run, a private invitation, a `tool_call` audit event, and a durable Strands session. The selected production setting remains `AGENT_RUNTIME=local` until a separate runtime-switch and release decision. See [ADR 0002](docs/decisions/0002-agent-runtime.md).
+The AgentCore runtime also carries the agent's two supporting systems. Strands `MemoryManager`, backed by AgentCore Memory, lets the coordinator recall a returning family's arrival habits, room needs, pets, and accessibility needs across invitations, without ever writing or sending a family name; a host can see and erase what is remembered per family from the host page. ADOT for Node auto-instruments every run, so each agent cycle, model call, and tool call appears as a trace in CloudWatch GenAI Observability. Separately, the Vercel web runtime sends a host-only email ping through Amazon SES whenever a run pauses for a decision or a reconfirmation escalates; guests never receive email. The path from the first authorized Bedrock model call through the selected production runtime is recorded in [ADR 0002](docs/decisions/0002-agent-runtime.md).
 
 ### Deterministic policy, model-driven coordination
 
@@ -83,6 +83,16 @@ The host can issue separate, revocable iCalendar subscription URLs. The database
 
 Telegram and a remote MCP server are follow-ons. They need separate identity binding, consent, OAuth resource binding, revocation, and rate-limit designs before they can use the same services safely.
 
+## What L’Ayalga remembers
+
+Each returning family's preferences persist in AgentCore Memory through Strands `MemoryManager`, scoped one namespace per party (`/parties/home-<homeId>/party-<partyId>`) under a single household memory resource. A guest task can only recall its own party's namespace; a host task without a matched party reads the whole home's namespace read-only. Recall is tool-driven, never injected into the prompt: the agent calls `search_memory` explicitly, and that call appears as a `search_memory` row on the run timeline. Two extraction strategies turn a party's captured invitations and confirmed visits into durable preferences and facts, each with a 30-day event expiry on the raw conversational events; long-term records persist until a host erases them.
+
+No family name is ever written to memory or sent to the model provider: the guest-task and host-capture prompts omit the name at the source, so extraction never sees it, and every seeded or extracted record reads as a household preference ("prefers the ground floor room," "usually arrives late on Friday evenings") rather than an identity. The host page's "What L’Ayalga remembers" panel lists each party's current records; a Forget button deletes every record and raw event for that party and writes an auditable `memory_forgotten` event.
+
+## Email pings
+
+When a run pauses for a host decision, or a reconfirmation escalates, the web runtime's email outbox sends one email per consenting host through Amazon SES, from `noreply@layalga.thecreativetoken.com`. Guests are never a recipient; the outbox query only ever joins the two real hosts. Delivery is idempotent per host per decision or escalation, so a retried tick or a host reopening the page never duplicates a ping, and each host can turn pings off from the host page at any time. The email itself carries the party name, the stay dates or a generic reconfirmation notice, and a link back to the host page — never a guest link token or a calendar feed URL.
+
 ## Local setup
 
 Requirements: Node.js 24, pnpm 11, Docker, and Supabase CLI 2.116 or later.
@@ -137,7 +147,7 @@ The [release verification playbook](docs/release/e2e-pro-playbook.md) contains t
 
 ## Deployment shape
 
-The selected configuration uses Vercel for Next.js, a durable Postgres queue for local `runAgentTask` execution, and a per-minute Vercel Cron recovery trigger. The web process uses the non-owner `layalga_web` database login. The verified AgentCore runtime uses the separately granted `layalga_agent` login. Supabase Postgres remains the system of record. The repository also contains the tested AgentCore direct-code bundle and EventBridge Scheduler adapters. Switching the production web path to AgentCore is a separate release decision.
+The selected configuration uses Vercel for Next.js and a durable Postgres queue that accepts work, plus a live Amazon Bedrock AgentCore Runtime that dispatches every queued run, drives every scheduled tick, and hosts the Strands agent, its memory recall, and its OpenTelemetry tracing. The web process uses the non-owner `layalga_web` database login; the AgentCore runtime uses the separately granted `layalga_agent` login, deployed per release by `scripts/deploy-agentcore.sh` from the same commit as the web build. Supabase Postgres remains the system of record. `AGENT_RUNTIME=local` remains available as a one-flag rollback to the durable-queue-only path; the repository also contains an EventBridge Scheduler adapter for a future retry-path change.
 
 Deployment, DNS changes, publication, and release tags require explicit owner authorization. A successful local build does not authorize any of those actions.
 
@@ -154,6 +164,8 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 - Run, decision, tool, scheduler, and notification actions are auditable.
 - A daily state-aware retention job minimizes terminal prompt/session data without deleting active interrupts, pending decisions, open jobs, audit metadata, or demo fixtures.
 - Synthetic release probes tag and delete only their own data.
+- No family name is written to household memory or sent to the model provider; a guest task can recall only its own party's memory, and a host can erase a party's memory entirely.
+- Email pings go to hosts only, never guests, are idempotent per event and per host, and a host can turn them off.
 
 ## Hackathon disclosure
 
