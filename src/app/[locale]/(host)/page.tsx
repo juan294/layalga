@@ -1,9 +1,14 @@
 import { getTranslations } from "next-intl/server";
+import { after } from "next/server";
 
 import { verifiedHostDecisionContext } from "@/agent/host-decision-context";
+import { SystemClock } from "@/core/clock";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
+import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
 import { requireHost } from "@/lib/auth/current-host";
+import { maskHostEmail } from "@/lib/auth/host-emails";
+import { decisionReasonKey } from "@/lib/decision-reasons";
 import { objectValue } from "@/lib/json-object";
 import {
   calendarMonthFromSearch,
@@ -23,6 +28,7 @@ import {
   RoomLedger,
   type RoomLedgerLabels,
 } from "@/components/host/room-ledger";
+import { updateEmailPingsAction } from "./actions";
 import { loadHostRoomLedger } from "./room-data";
 import {
   PendingDecisions,
@@ -34,6 +40,7 @@ import {
   activityToolLabelKey,
 } from "@/components/host/activity-labels";
 import {
+  buttonStyle,
   graphite,
   headingStyle,
   ink,
@@ -86,6 +93,9 @@ export default async function HostPage({
   const { locale } = await params;
   const safeLocale = locale === "es" ? "es" : "en";
   const host = await requireHost(safeLocale);
+  after(() =>
+    dispatchHostEmailPingsSafely(getDatabaseConnection().db, new SystemClock()),
+  );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
   const clockRows = await sql<
@@ -109,12 +119,13 @@ export default async function HostPage({
   );
   const calendarWindow = calendarMonthWindow(calendarMonth);
 
-  const [roomData, visitRows, decisionRows, activityRows] = await Promise.all([
-    loadHostRoomLedger(sql, host.homeId, [
-      calendarWindow.from,
-      calendarWindow.to,
-    ]),
-    sql<VisitRow[]>`
+  const [roomData, visitRows, decisionRows, activityRows, emailPingsRows] =
+    await Promise.all([
+      loadHostRoomLedger(sql, host.homeId, [
+        calendarWindow.from,
+        calendarWindow.to,
+      ]),
+      sql<VisitRow[]>`
       select v.id, p.family_name, lower(v.stay)::text as stay_start,
         upper(v.stay)::text as stay_end, v.status,
         coalesce(array_agg(r.name order by r.name)
@@ -133,7 +144,7 @@ export default async function HostPage({
       group by v.id, p.family_name
       order by lower(v.stay), p.family_name
     `,
-    sql<DecisionRow[]>`
+      sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
         case
@@ -177,7 +188,7 @@ export default async function HostPage({
         )
       order by pd.created_at
     `,
-    sql<ActivityRow[]>`
+      sql<ActivityRow[]>`
       (
         select ae.id, 'audit'::text as source, ae.kind, ae.payload as detail,
           ae.created_at
@@ -197,7 +208,17 @@ export default async function HostPage({
       order by created_at desc
       limit 20
     `,
-  ]);
+      sql<{ normalized_email: string | null; email_pings: boolean | null }[]>`
+      select claim.normalized_email, settings.email_pings
+      from public.hosts host
+      left join public.host_identity_claims claim on claim.host_id = host.id
+      left join public.host_notification_settings settings
+        on settings.host_id = host.id
+      where host.id = ${host.id}
+      order by claim.normalized_email
+      limit 1
+    `,
+    ]);
 
   const visits: LedgerVisit[] = visitRows.map((visit) => ({
     id: visit.id,
@@ -254,6 +275,11 @@ export default async function HostPage({
     reconfirmed: t("status.reconfirmed"),
     escalated: t("status.escalated"),
   };
+  const emailPingsSetting = emailPingsRows[0];
+  const maskedEmail = emailPingsSetting?.normalized_email
+    ? maskHostEmail(emailPingsSetting.normalized_email)
+    : null;
+  const emailPingsEnabled = emailPingsSetting?.email_pings ?? true;
 
   return (
     <main
@@ -433,6 +459,46 @@ export default async function HostPage({
             />
           </section>
 
+          <section style={panelStyle}>
+            <p style={labelStyle}>{t("emailPings.eyebrow")}</p>
+            <h2 style={headingStyle}>{t("emailPings.title")}</h2>
+            {maskedEmail ? (
+              <>
+                <p
+                  style={{
+                    color: graphite,
+                    lineHeight: 1.6,
+                    margin: "0 0 1rem",
+                  }}
+                >
+                  {t("emailPings.description", { address: maskedEmail })}
+                </p>
+                <form action={updateEmailPingsAction}>
+                  <input name="locale" type="hidden" value={safeLocale} />
+                  <input
+                    name="emailPings"
+                    type="hidden"
+                    value={emailPingsEnabled ? "false" : "true"}
+                  />
+                  <button style={buttonStyle} type="submit">
+                    {emailPingsEnabled
+                      ? t("emailPings.turnOff")
+                      : t("emailPings.turnOn")}
+                  </button>
+                </form>
+                <p style={{ color: graphite, margin: "0.75rem 0 0" }}>
+                  {emailPingsEnabled
+                    ? t("emailPings.statusOn")
+                    : t("emailPings.statusOff")}
+                </p>
+              </>
+            ) : (
+              <p style={{ color: graphite, margin: 0 }}>
+                {t("emailPings.noAddress")}
+              </p>
+            )}
+          </section>
+
           {process.env.DEMO_MODE === "true" &&
           host.demo &&
           clockRows[0]?.now ? (
@@ -599,13 +665,8 @@ function reasonLabel(
   t: Awaited<ReturnType<typeof getTranslations>>,
 ): string {
   const reason = objectValue(value);
-  const code = String(reason?.reason ?? reason?.decision ?? "other");
-  if (code === "special_request") return t("decisionReasons.specialRequest");
-  if (code === "children") return t("decisionReasons.children");
-  if (code === "pets") return t("decisionReasons.pets");
-  if (code === "beds") return t("decisionReasons.beds");
-  if (code === "overflow") return t("decisionReasons.overflow");
-  return t("decisionReasons.other");
+  const key = decisionReasonKey(reason?.reason ?? reason?.decision);
+  return t(`decisionReasons.${key}`);
 }
 
 function activityDetail(

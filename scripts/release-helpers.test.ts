@@ -98,6 +98,22 @@ describe("parseReleaseCliOptions", () => {
       expectedCommit: undefined,
       headed: false,
       expectedRuntime: undefined,
+      expectEmail: false,
+    });
+  });
+
+  it("defaults --expect-email from EMAIL=ses in the script environment", () => {
+    expect(parseReleaseCliOptions([], {})).toMatchObject({
+      expectEmail: false,
+    });
+    expect(parseReleaseCliOptions([], { EMAIL: "ses" })).toMatchObject({
+      expectEmail: true,
+    });
+  });
+
+  it("forces expectEmail on with --expect-email regardless of EMAIL", () => {
+    expect(parseReleaseCliOptions(["--expect-email"], {})).toMatchObject({
+      expectEmail: true,
     });
   });
 

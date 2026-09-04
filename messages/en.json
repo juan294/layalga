@@ -173,6 +173,16 @@
       "revealing": "Preparing private link…",
       "completionFailed": "The completed invitation could not be loaded. Try again."
     },
+    "emailPings": {
+      "eyebrow": "Notifications",
+      "title": "Email pings",
+      "description": "Emails go to {address} when a decision needs you or a reconfirmation escalates.",
+      "turnOff": "Turn off email pings",
+      "turnOn": "Turn on email pings",
+      "statusOn": "Email pings are on.",
+      "statusOff": "Email pings are off.",
+      "noAddress": "Sign in with your email to receive email pings."
+    },
     "decisions": {
       "eyebrow": "Host review",
       "title": "Pending decisions",

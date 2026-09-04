@@ -21,14 +21,14 @@ When a run pauses for a host decision, and when a reconfirmation escalates, each
 
 ## Tasks
 
-- [ ] 2.1 Migration `20260904000100_host_email_pings.sql`: both tables, indexes, grants, RLS, Drizzle schema in `src/core/db/schema.ts`.
-- [ ] 2.2 Dependency `@aws-sdk/client-sesv2` pinned `3.1121.0`; `src/core/notifications/ses-client.ts` with an injectable `send` for tests.
-- [ ] 2.3 `src/core/notifications/email-outbox.ts`: `selectPendingPings`, `dispatchHostEmailPings`, `renderPing(kind, locale, context)`.
-- [ ] 2.4 Wire: `/api/ticks` after the queue drain; `/api/demo/clock` after `runDueJobs`; host page `after(() => dispatchHostEmailPings(...))`.
-- [ ] 2.5 Consent UI: a `panelStyle` section "Email pings" on the host page with a toggle form and the masked address (`j***@gmail.com`); Server Action `updateEmailPingsAction` in `src/app/[locale]/(host)/actions.ts`; new `ActionErrorCode` `email_settings_update_failed`; i18n keys `Host.emailPings.*`.
+- [x] 2.1 Migration `20260904000100_host_email_pings.sql`: both tables, indexes, grants, RLS, Drizzle schema in `src/core/db/schema.ts`.
+- [x] 2.2 Dependency `@aws-sdk/client-sesv2` pinned `3.1121.0`; `src/core/notifications/ses-client.ts` with an injectable `send` for tests.
+- [x] 2.3 `src/core/notifications/email-outbox.ts`: `selectPendingPings`, `dispatchHostEmailPings`, `renderPing(kind, locale, context)`.
+- [x] 2.4 Wire: `/api/ticks` after the queue drain; `/api/demo/clock` after `runDueJobs`; host page `after(() => dispatchHostEmailPings(...))`.
+- [x] 2.5 Consent UI: a `panelStyle` section "Email pings" on the host page with a toggle form and the masked address (`j***@gmail.com`); Server Action `updateEmailPingsAction` in `src/app/[locale]/(host)/actions.ts`; new `ActionErrorCode` `email_settings_update_failed`; i18n keys `Host.emailPings.*`.
 - [ ] 2.6 AWS: identity creation, DKIM records, recipient verification, IAM policy, `EMAIL=ses` and `SES_FROM_ADDRESS` in Vercel production; redeploy.
-- [ ] 2.7 Demo driver: `scripts/demo-e2e.ts` asserts two `sent` ping rows per beat (one per host) after approval and after escalation when `EMAIL=ses`, else zero rows; release probe 6 adds the same count with `--expect-email`.
-- [ ] 2.8 `docs/security/data-lifecycle.md`: email content, retention of `host_email_pings` (90 days in the retention function), SES sandbox note.
+- [x] 2.7 Demo driver: `scripts/demo-e2e.ts` asserts two `sent` ping rows per beat (one per host) after approval and after escalation when `EMAIL=ses`, else zero rows; release probe 6 adds the same count with `--expect-email`.
+- [x] 2.8 `docs/security/data-lifecycle.md`: email content, retention of `host_email_pings` (90 days in the retention function), SES sandbox note.
 
 ## Pseudocode
 

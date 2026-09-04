@@ -16,6 +16,7 @@ Supabase Cron calls `private.apply_data_retention()` daily at 03:17 UTC.
 | Special requests on cancelled or completed reconfirmed visits | 180 days after the stay ends, when no open job or unresolved decision depends on it                                    | Remove special requests                                                         |
 | Notification bodies                                           | 180 days, when no open scheduled job depends on the notification                                                       | Replace both language bodies with expiry markers                                |
 | Audit payload detail                                          | 365 days                                                                                                               | Replace payload with `{}`; retain actor, kind, time, home, and run relationship |
+| Host email ping rows                                          | 90 days after creation                                                                                                 | Delete the row                                                                  |
 | Cron execution detail                                         | 30 days                                                                                                                | Delete execution detail                                                         |
 
 Automatic cleanup never changes running or interrupted runs. It preserves pending decisions, decisions not yet applied, decision application errors, scheduled or running jobs, and the sessions those states need. It also excludes synthetic demo homes so the fixed demonstration identities and evidence remain repeatable.
@@ -61,6 +62,12 @@ An iCalendar URL is a bearer capability. Each feed uses a different 32-byte rand
 The feed publishes at most the 500 most recent eligible all-day events, ordered by stay before deterministic rendering, with generic summaries. It can include the guest count and guest-visible room labels. It excludes guest and host names, email addresses, invitation content, special requests, arrival details, private notes, raw proposal text, and all capability tokens. Reading the feed does not mutate application state.
 
 Phase 6 verifies iCalendar generation and privacy with local fixtures, HTTP reads, and a local parser. It does not subscribe a real family calendar or write to Google Calendar or iCloud. Treat any issued URL as a secret even during local testing, and revoke it after accidental disclosure.
+
+## Host email pings
+
+When a run pauses for a host decision or a reconfirmation escalates, the web runtime's email outbox (`dispatchHostEmailPings`, `src/core/notifications/email-outbox.ts`) sends at most one email per host per event through Amazon SES. Only a host with a claimed email address (`host_identity_claims.normalized_email`) and `host_notification_settings.email_pings` not explicitly `false` receives one; a guest is never a recipient, because the query joins `public.hosts` and never a party. The email carries the party name, the stay dates or a generic reconfirmation notice, a reason label, and a link back to the host page — never a guest link token, calendar feed URL, or other capability. `host_email_pings` records `to_address`, `subject`, delivery `status`, and (on failure) an `error_name`; it never stores the rendered message body. Delivery is idempotent on `(kind, source_id, host_id)`, and rows are deleted 90 days after creation by the same daily retention pass described above.
+
+Because the AWS SES account for this project already has production access and `thecreativetoken.com` is a verified domain identity, sending is not limited to a sandbox recipient allowlist; the IAM policy in `infra/iam/web-ses-policy.json` restricts the web runtime's `layalga-web` user to the verified sender address and the two seeded host addresses regardless.
 
 ## Tracing spans and CloudWatch retention
 

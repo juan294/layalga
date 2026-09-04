@@ -5,6 +5,7 @@ type Environment = Readonly<Record<string, string | undefined>>;
 const agentRuntimeSchema = z.enum(["local", "agentcore"]);
 const modelSchema = z.enum(["scripted", "bedrock"]);
 const schedulerSchema = z.enum(["none", "eventbridge"]);
+const emailSchema = z.enum(["none", "ses"]);
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
@@ -26,6 +27,9 @@ const rawEnvironmentSchema = z.object({
   AWS_REGION: z.string().optional(),
   SCHEDULER_ROLE_ARN: z.string().optional(),
   SCHEDULER_DLQ_ARN: z.string().optional(),
+  EMAIL: z.string().optional(),
+  SES_FROM_ADDRESS: z.string().optional(),
+  SES_REGION: z.string().optional(),
 });
 
 export interface ServerEnvironment {
@@ -40,12 +44,15 @@ export interface ServerEnvironment {
   agentRuntime: z.infer<typeof agentRuntimeSchema>;
   model: z.infer<typeof modelSchema>;
   scheduler: z.infer<typeof schedulerSchema>;
+  email: z.infer<typeof emailSchema>;
   appUrl: string;
   agentcoreRuntimeArn?: string;
   bedrockModelId?: string;
   awsRegion?: string;
   schedulerRoleArn?: string;
   schedulerDlqArn?: string;
+  sesFromAddress?: string;
+  sesRegion?: string;
 }
 
 export interface EnvironmentIssue {
@@ -88,6 +95,11 @@ export function parseServerEnvironment(
     productionWebContract ? undefined : "none",
     "SCHEDULER",
   );
+  // EMAIL always defaults to "none": unlike AGENT_RUNTIME and SCHEDULER, the
+  // web app does not need an explicit opt-in to stay silent in production,
+  // and the agent process (which never sends email) picks up the same
+  // default without any special-casing.
+  const email = parseMode(emailSchema, raw.EMAIL, "none", "EMAIL");
   const appUrl = requiredValue(
     raw.APP_URL,
     production ? undefined : "http://localhost:3008",
@@ -136,6 +148,12 @@ export function parseServerEnvironment(
     requireLength(raw.SCHEDULER_ROLE_ARN, 1, "SCHEDULER_ROLE_ARN");
     requireLength(raw.SCHEDULER_DLQ_ARN, 1, "SCHEDULER_DLQ_ARN");
   }
+  if (email === "ses") {
+    requireLength(raw.SES_FROM_ADDRESS, 1, "SES_FROM_ADDRESS");
+    if (!raw.SES_REGION && !raw.AWS_REGION) {
+      throw fieldError("SES_REGION", "Required");
+    }
+  }
 
   return {
     production,
@@ -143,12 +161,15 @@ export function parseServerEnvironment(
     agentRuntime,
     model,
     scheduler,
+    email,
     appUrl,
     agentcoreRuntimeArn: raw.AGENTCORE_RUNTIME_ARN,
     bedrockModelId: raw.BEDROCK_MODEL_ID,
     awsRegion: raw.AWS_REGION,
     schedulerRoleArn: raw.SCHEDULER_ROLE_ARN,
     schedulerDlqArn: raw.SCHEDULER_DLQ_ARN,
+    sesFromAddress: raw.SES_FROM_ADDRESS,
+    sesRegion: raw.SES_REGION,
   };
 }
 
@@ -220,6 +241,7 @@ export function serverEnvironmentReadiness(
     "none",
     productionWebContract,
   );
+  const email = mode("EMAIL", values.EMAIL, emailSchema.options, "none", false);
   const appUrl =
     values.APP_URL ?? (production ? undefined : "http://localhost:3008");
   if (!appUrl) add("APP_URL", "missing");
@@ -267,6 +289,12 @@ export function serverEnvironmentReadiness(
     require("AWS_REGION");
     require("SCHEDULER_ROLE_ARN");
     require("SCHEDULER_DLQ_ARN");
+  }
+  if (email === "ses") {
+    require("SES_FROM_ADDRESS");
+    if (!values.SES_REGION && !values.AWS_REGION) {
+      add("SES_REGION", "missing");
+    }
   }
   return { ready: issues.size === 0, issues: [...issues.values()] };
 }

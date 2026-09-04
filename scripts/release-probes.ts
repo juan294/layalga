@@ -157,11 +157,17 @@ export async function runReleaseProbes(
     assert.equal(demo.escalatedVisits, 1);
     assert.equal(demo.notifications, 4);
     assert.equal(demo.hostEscalations, 2);
+    if (options.expectEmail) {
+      assert.equal(demo.emailPings.pendingDecisionSent, 2);
+      assert.equal(demo.emailPings.escalationSent, 2);
+    }
     evidence.push(
       pass(
         6,
         "clock reconfirmation",
-        "four total notifications include exactly two host escalations",
+        options.expectEmail
+          ? "four total notifications include exactly two host escalations; two hosts each received a decision and an escalation email"
+          : "four total notifications include exactly two host escalations",
       ),
     );
 
