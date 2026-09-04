@@ -19,6 +19,7 @@ All notable changes to L’Ayalga are documented in this file.
 
 - Pinned the patched `qs` transitive dependency.
 - The AgentCore handler logs structured error detail, including zod issue paths, because hand-built zod errors are not `Error` instances.
+- The demo driver waits up to 120 seconds for an agent run, covering an AgentCore cold start plus real model latency.
 
 ### Changed
 

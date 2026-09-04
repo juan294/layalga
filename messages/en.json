@@ -12,6 +12,12 @@
     "en": "English",
     "es": "Español"
   },
+  "ThemeSwitcher": {
+    "label": "Theme",
+    "auto": "Auto",
+    "light": "Light",
+    "dark": "Dark"
+  },
   "SignIn": {
     "tagline": "ayalga — Asturian for a treasure found",
     "title": "Take your place at the ledger.",
