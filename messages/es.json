@@ -38,7 +38,7 @@
     "invierno": "invierno"
   },
   "DemoHost": {
-    "enterAs": "Entrar como {name}",
+    "enterAsHost": "Entrar como anfitrión",
     "enterAsGuest": "Entrar como invitado"
   },
   "Host": {
