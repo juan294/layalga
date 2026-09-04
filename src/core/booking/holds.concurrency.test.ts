@@ -145,6 +145,38 @@ describe("createTemporaryHold concurrency", () => {
     await db.end({ timeout: 5 });
   });
 
+  it("places an approved hold as the read-only agent runtime role", async () => {
+    // The AgentCore runtime connects as layalga_agent, which inherits
+    // layalga_agent_runtime and has no UPDATE on homes. The per-home lock
+    // must therefore be an advisory lock, never `select ... for update`.
+    const fixture = await seedFixture(db);
+    // The migration owner created the runtime role, so it may join it; the
+    // owner is not a member by default and cannot `set role` otherwise.
+    await db.unsafe("grant layalga_agent_runtime to current_user");
+    const agentDb = postgres(connectionUrl, { max: 1, prepare: false });
+    try {
+      await agentDb.unsafe("set role layalga_agent_runtime");
+      const visit = await createTemporaryHold(
+        agentDb,
+        new FakeClock(new Date("2026-09-01T10:00:00.000Z")),
+        {
+          invitationId: fixture.invitationIds[0],
+          stay: ["2026-10-02", "2026-10-04"],
+          adults: 2,
+          children: 0,
+          pets: 0,
+          specialRequests: [],
+          approvedBy: fixture.hostId,
+          roomIds: [fixture.roomId],
+        },
+      );
+      expect(visit.visitId).toBeTruthy();
+    } finally {
+      await agentDb.end({ timeout: 5 });
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
   it("serializes twenty races for the final room", async () => {
     for (let iteration = 0; iteration < 20; iteration += 1) {
       await runRace(true);

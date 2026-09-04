@@ -555,18 +555,19 @@ async function loadHome(
   homeId: string,
   lock: boolean,
 ): Promise<HomeRow> {
-  const rows = lock
-    ? await transaction<HomeRow[]>`
-        select id, timezone, pets_together_allowed, max_families_with_children
-        from public.homes
-        where id = ${homeId}
-        for update
-      `
-    : await transaction<HomeRow[]>`
-        select id, timezone, pets_together_allowed, max_families_with_children
-        from public.homes
-        where id = ${homeId}
-      `;
+  // Serialize per home with a transaction-scoped advisory lock rather than
+  // `select ... for update`: a row lock needs UPDATE on homes, which the
+  // read-only layalga_agent_runtime role deliberately does not have.
+  if (lock) {
+    await transaction`
+      select pg_advisory_xact_lock(hashtextextended(${homeId}::text, 0))
+    `;
+  }
+  const rows = await transaction<HomeRow[]>`
+    select id, timezone, pets_together_allowed, max_families_with_children
+    from public.homes
+    where id = ${homeId}
+  `;
   const home = rows[0];
   if (!home) throw new Error(`Home not found: ${homeId}`);
   return home;

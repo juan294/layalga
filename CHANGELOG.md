@@ -20,6 +20,7 @@ All notable changes to L’Ayalga are documented in this file.
 - Pinned the patched `qs` transitive dependency.
 - The AgentCore handler logs structured error detail, including zod issue paths, because hand-built zod errors are not `Error` instances.
 - The demo driver waits up to 120 seconds for an agent run, covering an AgentCore cold start plus real model latency.
+- The temporary-hold path serializes per home with an advisory lock instead of `select ... for update`, so the read-only agent runtime role can apply a host-approved hold; previously the approved overflow hold failed with a permission error and the policy hook opened a second identical decision.
 
 ### Changed
 
