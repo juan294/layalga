@@ -4,6 +4,28 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-04
+
+### Added
+
+- Per-run agent timeline on the run status page and the capture poller: every tool call, policy verdict, and applied decision in order, with the runtime that executed the run. Events carry only the kind, time, tool name, and verdict decision.
+- OpenTelemetry tracing from the AgentCore runtime through ADOT for Node and Strands 1.16.0, with CloudWatch Transaction Search enabled, 100 percent sampling for the demo, and 14-day retention on the runtime log group. `scripts/enable-transaction-search.sh` applies the account setup.
+- Host email pings through Amazon SES: a web-runtime outbox sends one email per consenting host when a run pauses for a decision and when a reconfirmation escalates, idempotent per source, with a per-host consent toggle and a masked address on the host page. Guests never receive email.
+- Returning-guest memory through Strands MemoryManager and AgentCore Memory: per-party stores scoped by task, tool-driven recall through `search_memory`, a deterministic name-free capture write, and a host panel that lists and forgets what the house remembers.
+- `--expect-runtime`, `--expect-email`, and `--expect-memory` on the release probes; `scripts/create-memory.sh`, `scripts/seed-memory.ts`, and `--s3-version-id` on `scripts/deploy-agentcore.sh`.
+- A light and dark override on top of the seasonal palette, and a signed guest session entry for the demo.
+
+### Changed
+
+- The AgentCore bundle ships ADOT through an explicit include list and excludes the optional `@tobilu/qmd` tree, 38 MiB zipped.
+- README, ADR 0002, the release playbook, the runtime identity runbook, the data-lifecycle document, the architecture diagram, the Devpost draft, the video script, and the builder.aws posts describe the shipped state.
+
+### Fixed
+
+- Pinned the patched `@opentelemetry/propagator-jaeger` (GHSA-45rx-2jwx-cxfr).
+- Memory failures never fail a run.
+- Corrected the sign-in season artwork swap and a site-wide serif regression.
+
 ## [0.4.0] - 2026-09-04
 
 ### Added
