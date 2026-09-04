@@ -1,7 +1,25 @@
 allowBuilds:
   "@parcel/watcher": true
   "@swc/core": true
+  # better-sqlite3, node-llama-cpp, and the tree-sitter-* parsers arrived
+  # transitively through @tobilu/qmd, an optional local embeddings/search
+  # dependency of @strands-agents/sdk@1.16.0 (Phase 4's tracing upgrade).
+  # Nothing in this repository imports qmd or its local memory feature, so
+  # their native build scripts are denied rather than reviewed and run.
+  better-sqlite3: false
   esbuild: true
+  node-llama-cpp: false
+  # protobufjs arrived transitively through @grpc/grpc-js, needed by the
+  # OTLP gRPC exporters @aws/aws-distro-opentelemetry-node-autoinstrumentation
+  # bundles (Phase 4's tracing upgrade). Its postinstall only prints a
+  # version-scheme warning (scripts/postinstall.js) and is not required for
+  # protobufjs to function, so it is denied.
+  protobufjs: false
+  tree-sitter-go: false
+  tree-sitter-javascript: false
+  tree-sitter-python: false
+  tree-sitter-rust: false
+  tree-sitter-typescript: false
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - "@aws-sdk/client-bedrock-agentcore-control@3.1121.0"
@@ -10,6 +28,7 @@ minimumReleaseAgeExclude:
   - "@aws-sdk/client-scheduler@3.1121.0"
   - "@aws-sdk/token-providers@3.1121.0"
   - zod@4.5.2
-  - '@aws-sdk/client-s3@3.1121.0'
+  - "@aws-sdk/client-s3@3.1121.0"
 overrides:
   qs: 6.16.0
+  "@opentelemetry/propagator-jaeger": 2.11.0

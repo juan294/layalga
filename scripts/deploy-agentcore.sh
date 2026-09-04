@@ -102,21 +102,41 @@ fi
 
 env_json_file="$(mktemp "${TMPDIR:-/tmp}/layalga-agentcore-env.XXXXXX.json")"
 
+# Tracing defaults for the AgentCore runtime environment. NODE_OPTIONS
+# activates ADOT for Node (bundled in dist/agent/node_modules by
+# build-agent-bundle.sh), which registers the global OTel tracer provider
+# Strands' Agent picks up automatically; OTEL_SERVICE_NAME names the
+# service in CloudWatch GenAI Observability; OTEL_SEMCONV_STABILITY_OPT_IN
+# selects the newer gen_ai.* attribute names; OTEL_TRACES_SAMPLER samples
+# 100 percent of runs for the demo. After judging, sample 5 percent instead
+# by setting OTEL_TRACES_SAMPLER=parentbased_traceidratio and
+# OTEL_TRACES_SAMPLER_ARG=0.05 in the env file. Any of these keys already
+# present in the env file take precedence over the defaults below.
+otel_defaults='{
+  "NODE_OPTIONS": "--require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register",
+  "OTEL_SERVICE_NAME": "layalga-agent",
+  "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
+  "OTEL_TRACES_SAMPLER": "parentbased_always_on"
+}'
+
 # Build the environment JSON with jq, streaming the file through -R so no
-# value is ever passed as a CLI argument or echoed to the terminal.
-jq -Rn '
-  [inputs
-    | select(length > 0)
-    | select(startswith("#") | not)
-    | capture("^(?<key>[A-Za-z_][A-Za-z0-9_]*)=(?<value>.*)$")
-    | .value |= (
-        if (startswith("\"") and endswith("\"") and length >= 2)
-        then .[1:-1]
-        else .
-        end
-      )
-  ]
-  | from_entries
+# value is ever passed as a CLI argument or echoed to the terminal, and
+# merge in the OTel defaults in the same pass.
+jq -Rn --argjson defaults "$otel_defaults" '
+  $defaults * (
+    [inputs
+      | select(length > 0)
+      | select(startswith("#") | not)
+      | capture("^(?<key>[A-Za-z_][A-Za-z0-9_]*)=(?<value>.*)$")
+      | .value |= (
+          if (startswith("\"") and endswith("\"") and length >= 2)
+          then .[1:-1]
+          else .
+          end
+        )
+    ]
+    | from_entries
+  )
 ' "$env_file" > "$env_json_file"
 
 missing_key=""

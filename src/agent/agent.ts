@@ -20,6 +20,7 @@ export interface BuildAgentOptions {
   sessionId: string;
   deps: AgentDeps;
   task: AgentTask["task"];
+  homeId: string;
   model?: Model<BaseModelConfig>;
 }
 
@@ -27,6 +28,7 @@ export function buildAgent({
   sessionId,
   deps,
   task,
+  homeId,
   model,
 }: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
@@ -43,6 +45,13 @@ export function buildAgent({
     systemPrompt: systemPrompts[deps.locale],
     printer: false,
     toolExecutor: "sequential",
+    // Ids only, never guest or host names: prompt minimization strips
+    // names before any model call, and spans must hold to the same bound.
+    traceAttributes: {
+      "layalga.home_id": homeId,
+      "layalga.task": task,
+      "session.id": sessionId,
+    },
   });
   installPolicyHook(agent, deps);
   return agent;

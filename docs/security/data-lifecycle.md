@@ -62,6 +62,10 @@ The feed publishes at most the 500 most recent eligible all-day events, ordered 
 
 Phase 6 verifies iCalendar generation and privacy with local fixtures, HTTP reads, and a local parser. It does not subscribe a real family calendar or write to Google Calendar or iCloud. Treat any issued URL as a secret even during local testing, and revoke it after accidental disclosure.
 
+## Tracing spans and CloudWatch retention
+
+Amazon Bedrock AgentCore Runtime exports OpenTelemetry spans through ADOT for Node once `scripts/enable-transaction-search.sh` has been run once at the account level. `invoke_agent` spans carry conversation messages, `chat` spans carry the prompt sent to Bedrock, and `execute_tool` spans carry each tool call's input and result, so span content includes the same prompt and tool text described above, for synthetic guests only, plus the `layalga.home_id`, `layalga.task`, and `session.id` identifiers `buildAgent` attaches (`src/agent/agent.ts`); it never includes host or guest names, because prompt minimization already strips them before the model call. Spans land in the AgentCore runtime's own CloudWatch log group, `/aws/bedrock-agentcore/runtimes/<runtime-id>-DEFAULT`, which `enable-transaction-search.sh` sets to a 14-day retention so span content does not accumulate indefinitely; that retention is independent of, and shorter than, the 30- and 180-day database retention windows above.
+
 ## Deferred channels
 
 Telegram is not an implemented notification or booking channel. It needs an explicit account-to-person binding, consent, replay protection, and a safe way to move from a message to visible confirmation.

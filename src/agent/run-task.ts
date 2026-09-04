@@ -224,6 +224,7 @@ async function executeClaimedAgentTask(
       sessionId,
       deps,
       task: task.task,
+      homeId: task.homeId,
       model: deps.model,
     });
     const invokeArgs =

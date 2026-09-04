@@ -3,7 +3,7 @@
 [![CI](https://github.com/juan294/layalga/actions/workflows/ci.yml/badge.svg)](https://github.com/juan294/layalga/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6.svg)](https://www.typescriptlang.org/)
-[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.15.0-232F3E.svg)](https://strandsagents.com/)
+[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E.svg)](https://strandsagents.com/)
 
 Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
 
