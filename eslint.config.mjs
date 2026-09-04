@@ -20,6 +20,7 @@ export default defineConfig([
     },
   },
   globalIgnores([
+    ".claude/worktrees/**",
     ".ds-sync/**",
     ".next/**",
     "coverage/**",
