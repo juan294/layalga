@@ -4,6 +4,28 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-04
+
+### Added
+
+- Made the Amazon Bedrock AgentCore runtime live and selectable for production dispatch: every terminal run result now records `executedOn` (`local` or `agentcore`), bare tasks on AgentCore run to completion through the extracted request handler, and the EventBridge target sends a `scheduled_tick` envelope.
+- Added `scripts/deploy-agentcore.sh`, which bundles, uploads, creates or updates the runtime, and waits for `READY`, and `scripts/agentcore-smoke.ts`, which proves a run executed on AgentCore and removes its tagged rows.
+- Added `--expect-runtime` to the release probes, which now re-drain every 15 seconds for up to 90 seconds and assert where the capture and resume runs executed.
+- Added an agent-process profile to the server environment validator, selected by `AGENT_EXECUTION_RUNTIME=agentcore`, so the runtime container validates only the contract it depends on.
+- Redesigned sign-in as a seasonal split postcard with four seasonal illustrations.
+- Added the hackathon final-stretch research and plan.
+
+### Fixed
+
+- Pinned the patched `qs` transitive dependency.
+- The AgentCore handler logs structured error detail, including zod issue paths, because hand-built zod errors are not `Error` instances.
+
+### Changed
+
+- Granted the web IAM user `bedrock-agentcore:InvokeAgentRuntime` on the `layalga_agent` runtimes.
+- Demo room names are generic for judges.
+- Design-sync conventions header and RoomLedger preview grid fix; worktree checkouts are ignored by git and excluded from vitest.
+
 ## [0.3.0] - 2026-09-01
 
 ### Added
