@@ -12,6 +12,12 @@
     "en": "English",
     "es": "Español"
   },
+  "ThemeSwitcher": {
+    "label": "Tema",
+    "auto": "Auto",
+    "light": "Claro",
+    "dark": "Oscuro"
+  },
   "SignIn": {
     "tagline": "ayalga — asturianu: un tesoru atopáu",
     "title": "Ocupa tu lugar en el libro.",
