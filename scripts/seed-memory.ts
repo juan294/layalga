@@ -47,6 +47,14 @@ export async function seedMemory(
   const actorId = `home-${VEGA_HOME_ID}/party-${VEGA_PARTY_ID}`;
 
   if (options.forget) {
+    // forgetPartyMemory deletes every memory record under the party's
+    // namespace subtree (hierarchical: covers both the HouseholdPreferences
+    // and HouseholdFacts strategies' `/preferences` and `/facts`
+    // sub-namespaces in one listing) and every event from every session
+    // tracked under this actor id -- the deterministic host_capture write
+    // (`recordCaptureMemory`), any guest conversation, and this script's
+    // own seeded session (`SEED_SESSION_ID`) alike. A forget-then-seed run
+    // leaves only the three facts this script writes below.
     const databaseUrl = requiredEnvironment("DATABASE_URL");
     const sql = postgres(databaseUrl, { prepare: false, max: 1 });
     try {

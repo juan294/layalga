@@ -79,6 +79,12 @@ export async function recordCaptureMemory(
  * recalled, so echoing it back would create a feedback loop that reinforces
  * (and eventually invents) household memory instead of recording what the
  * host actually stated this time.
+ *
+ * Also deliberately no invitation, party, or run id: those are internal
+ * identifiers, not a household fact, and have no place in what becomes a
+ * searchable long-term memory record (the caller already scopes the event
+ * to the right party through `actorId`, so there is nothing an id in the
+ * text would add).
  */
 function invitationFactsText(structured: unknown): string | null {
   const value = objectValue(structured) as {
