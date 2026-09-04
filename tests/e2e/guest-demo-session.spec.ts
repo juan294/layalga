@@ -26,7 +26,10 @@ test.describe("demo guest session", () => {
     await page.goto("/en/sign-in");
 
     await expect(page.locator('[data-testid^="demo-enter-"]')).toHaveCount(2);
-    await expect(page.getByTestId("demo-enter-host")).toContainText(
+    await expect(page.getByTestId("demo-enter-host")).toHaveText(
+      "Enter as Host",
+    );
+    await expect(page.getByTestId("demo-enter-host")).not.toContainText(
       DEMO_SEED.hosts[0].displayName,
     );
     await expect(page.getByTestId("demo-enter-guest")).toBeVisible();
