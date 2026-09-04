@@ -4,6 +4,14 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-04
+
+### Fixed
+
+- Family names stay out of household memory: capture conversations no longer feed memory extraction, and only the deterministic name-free capture write records a capture. Guest prompts steer the model to say "this family".
+- The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
+- The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
+
 ## [0.5.0] - 2026-09-04
 
 ### Added

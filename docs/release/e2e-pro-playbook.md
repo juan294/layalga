@@ -155,7 +155,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Current release decision
 
-RELEASED. v0.4.0 passed every gate on 2026-09-04: candidate CI green, both deployment identities on `0935fed`, agent database role verified, nine production probes passed with the AgentCore runtime asserted, cleanup verified, tag pushed last. Since then, Phases 1, 2, and 4 of the final-stretch plan (`docs/plans/2026-09-03-hackathon-final-stretch.md`) added the run timeline, host email pings through Amazon SES, and AgentCore OpenTelemetry tracing on `develop`; the next release, v0.5.0, promotes that candidate to `main` and runs this procedure again on it. The measured budget for the v0.4.0 run was about 45 minutes from release PR to tag, dominated by three candidate rebuilds after production-only findings (agent role lock, agent bundle identity, reconfirmation delivery).
+RELEASED. v0.5.0 passed every gate on 2026-09-04 on the third candidate: CI green, both deployment identities on `c4e3ac3` (web on Vercel, AgentCore runtime version 16), migration `20260904000100_host_email_pings.sql` applied ahead of the deploy, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. The two earlier candidates were rejected by the probes for production-only findings (remembered facts overwriting captured invitation facts; a 30 s API timeout on the escalation tick), each fixed on develop before the next candidate. v0.4.0 passed the same gate earlier the same day on `0935fed`.
 
 ## Rollback
 
