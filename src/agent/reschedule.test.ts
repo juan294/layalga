@@ -53,6 +53,7 @@ describe("agent reschedule policy", () => {
       adults: 2,
       pets: 1,
       specialRequests: ["wheelchair access"],
+      guestNotes: "We will arrive by train.",
       approvedBy: hostId,
     });
     const [before] = await sql<{ approval_stay_hash: string }[]>`
@@ -70,7 +71,7 @@ describe("agent reschedule policy", () => {
           input: {
             visitId: oteros.visitId,
             stay: ["2026-09-26", "2026-09-28"],
-            specialRequests: ["wheelchair access"],
+            specialRequests: [], // The model cannot erase the stored accommodation.
           },
         },
       },
@@ -107,6 +108,9 @@ describe("agent reschedule policy", () => {
       deps(model),
     );
     expect(resumed.status).toBe("completed");
+    const [information] =
+      await sql`select guest_notes from public.visits where id = ${oteros.visitId}`;
+    expect(information?.guest_notes).toBe("We will arrive by train.");
     expect(await stay(oteros.visitId)).toEqual(["2026-09-26", "2026-09-28"]);
     const [after] = await sql<{ approval_stay_hash: string }[]>`
       select approval_stay_hash from public.visits where id = ${oteros.visitId}

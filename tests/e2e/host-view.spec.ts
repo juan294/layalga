@@ -123,3 +123,31 @@ test("shows localized room states in Spanish", async ({ page }) => {
     page.getByRole("heading", { name: "Libro de habitaciones" }),
   ).toBeVisible();
 });
+
+test("saves household rules and asks for renewed review after a competing update", async ({
+  page,
+  context,
+}) => {
+  const stalePage = await context.newPage();
+  await stalePage.goto("/en");
+  const staleForm = stalePage.getByTestId("household-policy-form");
+  await expect(staleForm).toBeVisible();
+  const form = page.getByTestId("household-policy-form");
+  await form.locator('[name="petsTogetherAllowed"]').check();
+  await form.locator('[name="maxFamiliesWithChildren"]').fill("2");
+  await form.getByRole("button", { name: "Save household rules" }).click();
+  await expect(form.getByRole("status")).toContainText("Household rules saved");
+  await staleForm.locator('[name="maxFamiliesWithChildren"]').fill("3");
+  await staleForm.getByRole("button", { name: "Save household rules" }).click();
+  await expect(staleForm.getByRole("alert")).toContainText(
+    "Another host updated the rules",
+  );
+  await staleForm
+    .getByRole("link", { name: "Reload and review current rules" })
+    .click();
+  await expect(
+    staleForm.locator('[name="maxFamiliesWithChildren"]'),
+  ).toHaveValue("2");
+  await expect(staleForm.locator('[name="petsTogetherAllowed"]')).toBeChecked();
+  await stalePage.close();
+});

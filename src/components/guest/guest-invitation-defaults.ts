@@ -19,7 +19,7 @@ export function guestInvitationDefaults(structured: Record<string, unknown>) {
         (value): value is string => typeof value === "string",
       )
     : [];
-  return { from, to, nights, ...party, notes: requests.join("; ") };
+  return { from, to, nights, ...party, notes: "", capturedRequests: requests };
 }
 
 function stringPair(value: unknown): readonly [string, string] | null {

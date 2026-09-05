@@ -22,7 +22,8 @@ export type ActivityKindLabelKey =
   | "reconfirmEscalation"
   | "memoryWritten"
   | "memoryForgotten"
-  | "invitationCancelled";
+  | "invitationCancelled"
+  | "householdPolicyUpdated";
 
 const TOOL_LABELS: Record<string, ActivityToolLabelKey> = {
   capture_invitation: "captureInvitation",
@@ -48,6 +49,7 @@ const KIND_LABELS: Record<string, ActivityKindLabelKey> = {
   memory_written: "memoryWritten",
   memory_forgotten: "memoryForgotten",
   invitation_cancelled: "invitationCancelled",
+  household_policy_updated: "householdPolicyUpdated",
 };
 
 export function activityToolLabelKey(

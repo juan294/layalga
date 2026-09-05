@@ -48,11 +48,11 @@ describe("state-aware data retention", () => {
     if (!invitation) throw new Error("Failed to seed retention invitation");
     const [visit] = await sql<{ id: string }[]>`
       insert into public.visits (
-        home_id, party_id, invitation_id, stay, adults, special_requests,
+        home_id, party_id, invitation_id, stay, adults, special_requests, guest_notes,
         status, created_at
       ) values (
         ${home.id}, ${party.id}, ${invitation.id}, '[2025-01-10,2025-01-12)', 2,
-        array['Private accessibility need'], 'cancelled', ${old}
+        array['Private accessibility need'], 'Private arrival information', 'cancelled', ${old}
       ) returning id
     `;
     if (!visit) throw new Error("Failed to seed retention visit");
@@ -105,7 +105,8 @@ describe("state-aware data retention", () => {
         ${old}
       ) returning id
     `;
-    if (!terminalRun || !activeRun) throw new Error("Failed to seed retention runs");
+    if (!terminalRun || !activeRun)
+      throw new Error("Failed to seed retention runs");
     await sql`
       insert into public.pending_decisions (
         home_id, run_id, agent_session_id, interrupt_id,
@@ -114,6 +115,10 @@ describe("state-aware data retention", () => {
         ${home.id}, ${activeRun.id}, ${`active_${suffix}`},
         ${`interrupt_${suffix}`}, 'host_decision', '{}'::jsonb, 'pending', ${old}
       )
+    `;
+    await sql`
+      insert into public.pending_decisions (home_id, visit_id, run_id, agent_session_id, interrupt_id, interrupt_name, reason, status, created_at)
+      values (${home.id}, ${visit.id}, ${terminalRun.id}, ${`inv_${invitation.id}`}, ${randomUUID()}, 'host_decision', '{}', 'cancelled', ${old})
     `;
     await sql`
       insert into public.agent_sessions (key, session_id, data, updated_at)
@@ -133,6 +138,9 @@ describe("state-aware data retention", () => {
 
     try {
       await applyDataRetention(sql, new Date("2026-08-31T00:00:00.000Z"));
+      const [retainedNotes] =
+        await sql`select guest_notes from public.visits where id = ${visit.id}`;
+      expect(retainedNotes?.guest_notes).toBe("");
 
       const [terminal] = await sql<{ payload: unknown; result: unknown }[]>`
         select payload, result from public.runs where id = ${terminalRun.id}
@@ -165,13 +173,19 @@ describe("state-aware data retention", () => {
       const [retainedVisit] = await sql<{ special_requests: string[] }[]>`
         select special_requests from public.visits where id = ${visit.id}
       `;
-      const [audit] = await sql<{ actor: string; kind: string; payload: unknown }[]>`
+      const [audit] = await sql<
+        { actor: string; kind: string; payload: unknown }[]
+      >`
         select actor, kind, payload from public.audit_events
         where run_id = ${terminalRun.id}
       `;
       expect(retainedInvitation).toEqual({ raw_message: "", structured: {} });
       expect(retainedVisit?.special_requests).toEqual([]);
-      expect(audit).toEqual({ actor: "agent", kind: "private_event", payload: {} });
+      expect(audit).toEqual({
+        actor: "agent",
+        kind: "private_event",
+        payload: {},
+      });
       const [retainedScheduledInvitation] = await sql<
         { raw_message: string }[]
       >`

@@ -5,6 +5,7 @@ import { getDatabaseConnection } from "@/core/db/client";
 export interface GuestAccountVisit {
   id: string;
   partyName: string;
+  guestNotes: string;
   stay: readonly [string, string];
   status:
     | "hold"
@@ -45,13 +46,14 @@ export async function loadGuestAccountVisits(
     {
       id: string;
       family_name: string;
+      guest_notes: string;
       stay_start: string;
       stay_end: string;
       status: GuestAccountVisit["status"];
       timezone: string;
     }[]
   >`
-    select v.id, p.family_name,
+    select v.id, p.family_name, v.guest_notes,
       lower(v.stay)::text as stay_start,
       upper(v.stay)::text as stay_end,
       v.status,
@@ -67,6 +69,7 @@ export async function loadGuestAccountVisits(
   return rows.map((row) => ({
     id: row.id,
     partyName: row.family_name,
+    guestNotes: row.guest_notes,
     stay: [row.stay_start, row.stay_end],
     status: row.status,
     timeZone: row.timezone,

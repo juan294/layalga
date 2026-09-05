@@ -1,3 +1,5 @@
+import { HostVisitNotes } from "@/components/host/host-visit-notes";
+import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
 import { getTranslations } from "next-intl/server";
 import { after } from "next/server";
@@ -427,6 +429,11 @@ export default async function HostPage({
           <p style={labelStyle}>{t("calendar.eyebrow")}</p>
           <h2 style={headingStyle}>{t("calendar.title")}</h2>
           <div style={panelStyle}>
+            <HostVisitNotes
+              database={getDatabaseConnection().db}
+              homeId={host.homeId}
+              locale={safeLocale}
+            />
             <CalendarLedger
               emptyLabel={t("calendar.empty")}
               locale={safeLocale}
@@ -554,6 +561,12 @@ export default async function HostPage({
               </p>
             )}
           </section>
+
+          <HouseholdPolicyPanel
+            homeId={host.homeId}
+            hostId={host.id}
+            locale={safeLocale}
+          />
 
           <MemoryPanel
             locale={safeLocale}
@@ -747,6 +760,8 @@ function activityDetail(
       ? activity.detail
       : t("activity.noDetail");
   }
+  if (activity.kind === "household_policy_updated")
+    return t("activity.policyUpdatedDetail");
   const detail = objectValue(activity.detail);
   if (typeof detail?.name === "string") {
     const key = activityToolLabelKey(detail.name);

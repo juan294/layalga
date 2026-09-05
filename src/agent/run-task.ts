@@ -277,6 +277,18 @@ async function runClaimedTask(
 ): Promise<RunResult> {
   try {
     const authority = await authorityForTask(task, deps);
+    if (task.task === "guest_submit") {
+      const [stored] = await sqlClient(deps.db)<
+        { payload: unknown }[]
+      >`select payload from public.runs where id = ${run.id}`;
+      const requests = specialRequestsFromRunPayload(stored?.payload);
+      if (requests)
+        authority.guestSubmission = canonicalGuestSubmission(
+          task,
+          {},
+          requests,
+        );
+    }
     return await executeClaimedAgentTask(
       task,
       { ...deps, authority },
@@ -1104,8 +1116,9 @@ function canonicalGuestSubmission(
       trustedSpecialRequests ??
       uniqueStrings([
         ...invitationSpecialRequests(structured),
-        ...(task.notes ? [task.notes] : []),
+        ...(task.requests ? [task.requests] : []),
       ]),
+    notes: task.notes?.trim() || undefined,
     roomIds: task.roomIds,
     overflowConsent: task.overflowConsent,
   };
@@ -1209,7 +1222,10 @@ async function buildPrompt(
     // older shape any in-flight session snapshot may still carry.
     const searchInstruction = memoryEnabled ? SEARCH_MEMORY_INSTRUCTION : "";
     const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
-    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
+    // Information, arrival details and explicit request prose stay in trusted
+    // server state. The policy hook supplies requests for approval; the model
+    // does not need these raw fields in its conversation or memory extraction.
+    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets. Place a hold, then confirm it, and tell the guest what happens next in their language. The policy layer supplies any explicit requests needing host approval.${searchInstruction}${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (
     task.task === "guest_change" ||

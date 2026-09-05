@@ -79,6 +79,7 @@ export const homes = pgTable("homes", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
   timezone: text("timezone").notNull(),
+  policyVersion: integer("policy_version").notNull().default(1),
   petsTogetherAllowed: boolean("pets_together_allowed")
     .notNull()
     .default(false),
@@ -202,6 +203,7 @@ export const visits = pgTable("visits", {
   children: integer("children").notNull().default(0),
   pets: integer("pets").notNull().default(0),
   specialRequests: text("special_requests").array().notNull().default([]),
+  guestNotes: text("guest_notes").notNull().default(""),
   status: text("status").$type<VisitStatus>().notNull().default("hold"),
   holdExpiresAt: timestamp("hold_expires_at", {
     withTimezone: true,

@@ -232,7 +232,8 @@
       "empty": "No activity has been recorded.",
       "noDetail": "No additional details",
       "policyDetail": "Policy decision: {decision}",
-      "toolDetail": "Agent tool: {name}"
+      "toolDetail": "Agent tool: {name}",
+      "policyUpdatedDetail": "Updated rules now guide new booking requests."
     },
     "activityKinds": {
       "decisionApplied": "Host decision applied",
@@ -243,7 +244,8 @@
       "memoryWritten": "Household memory updated",
       "memoryForgotten": "Household memory forgotten",
       "other": "Household activity",
-      "invitationCancelled": "Invitation cancelled"
+      "invitationCancelled": "Invitation cancelled",
+      "householdPolicyUpdated": "Household rules updated"
     },
     "activityTools": {
       "captureInvitation": "Capture invitation",
@@ -265,6 +267,9 @@
       "deny": "Not allowed",
       "interrupt": "Host review required",
       "other": "Policy checked"
+    },
+    "visitInformation": {
+      "title": "Guest information"
     }
   },
   "Guest": {
@@ -317,7 +322,7 @@
     "children": "Children",
     "pets": "Pets",
     "arrivalTime": "Arrival time",
-    "notes": "Notes or access needs",
+    "notes": "Information for your hosts",
     "submitInvalid": "Check the guest details and selected stay.",
     "submitFailed": "The stay could not be submitted.",
     "submitting": "Submitting stay…",
@@ -349,7 +354,12 @@
       "reconfirmed": "Reconfirmed",
       "escalated": "Under review",
       "cancelled": "Cancelled"
-    }
+    },
+    "notesHelp": "For information only. Put anything needing an answer in Requests below.",
+    "requests": "Requests needing a host decision",
+    "requestsHelp": "For accommodations or exceptions. The hosts will review this before confirmation.",
+    "capturedRequests": "Requests already shared by your host",
+    "visitNotes": "Your information for the hosts"
   },
   "GuestAccount": {
     "eyebrow": "Optional guest account",
@@ -436,5 +446,21 @@
     "noStay": "Awaiting dates",
     "changed": "This request changed since your review. Check the current details below, then confirm again only if you still want to cancel.",
     "pendingInvitations": "Invitations awaiting a visit"
+  },
+  "HouseholdPolicy": {
+    "title": "Household rules",
+    "description": "These rules guide new bookings and changes awaiting approval. Confirmed stays remain in place.",
+    "petsTogether": "Allow pets from different visiting families at the same time",
+    "families": "Maximum visiting families with children at the same time",
+    "capacity": "Sleeping capacity comes from your rooms. A rule change never adds beds or approves a special request.",
+    "save": "Save household rules",
+    "saving": "Saving…",
+    "saved": "Household rules saved. New requests use these rules.",
+    "reload": "Reload and review current rules",
+    "errors": {
+      "invalid": "Choose a whole number from 1 to 20.",
+      "stale": "Another host updated the rules. Review the current rules before saving again.",
+      "failed": "The rules could not be saved. Please try again."
+    }
   }
 }

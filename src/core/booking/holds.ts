@@ -8,6 +8,7 @@ import {
   MAX_ADULTS,
   MAX_CHILDREN,
   MAX_PETS,
+  MAX_GUEST_NOTES_LENGTH,
   MAX_SPECIAL_REQUEST_LENGTH,
   MAX_SPECIAL_REQUESTS,
 } from "@/agent/task-limits";
@@ -38,6 +39,7 @@ import {
 type DateStay = readonly [start: string, end: string];
 
 export interface CreateTemporaryHoldInput {
+  guestNotes?: string;
   invitationId: string;
   stay: DateStay;
   adults: number;
@@ -139,6 +141,8 @@ export async function createTemporaryHold(
   options: HoldOptions = {},
 ): Promise<VisitResult> {
   validateParty(input);
+  if ((input.guestNotes?.length ?? 0) > MAX_GUEST_NOTES_LENGTH)
+    throw new RangeError("Guest notes exceed the supported maximum");
   validateStay(input.stay);
   const client = sqlClient(database);
 
@@ -199,6 +203,7 @@ export async function createTemporaryHold(
           children,
           pets,
           special_requests,
+          guest_notes,
           status,
           hold_expires_at,
           approval_stay_hash
@@ -212,6 +217,7 @@ export async function createTemporaryHold(
           ${input.children ?? 0},
           ${input.pets ?? 0},
           ${transaction.array([...(input.specialRequests ?? [])])},
+          ${input.guestNotes?.trim() ?? ""},
           'hold',
           ${holdExpiresAt.toISOString()},
           ${approvalHash}

@@ -37,6 +37,7 @@ export interface AgentAuthority {
     children: number;
     pets: number;
     specialRequests: string[];
+    notes?: string;
     roomIds?: string[];
     overflowConsent?: boolean;
   };

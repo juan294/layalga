@@ -26,6 +26,7 @@ export interface GuestVisit {
   children: number;
   pets: number;
   status: GuestVisitStatus;
+  guestNotes?: string;
   roomCount: number;
   roomLabels: string[];
   hasOverlap: boolean;
@@ -92,6 +93,7 @@ export async function loadGuestInvitation(
       children: number;
       pets: number;
       status: GuestVisitStatus;
+      guest_notes: string;
       room_count: number;
       room_labels: string[];
       has_overlap: boolean;
@@ -109,6 +111,7 @@ export async function loadGuestInvitation(
       v.children,
       v.pets,
       v.status,
+      v.guest_notes,
       v.hold_expires_at,
       h.timezone,
       v.hold_expires_at is not null
@@ -184,6 +187,7 @@ export async function loadGuestInvitation(
           children: visit.children,
           pets: visit.pets,
           status: visit.status,
+          guestNotes: visit.guest_notes,
           roomCount: visit.room_count,
           roomLabels: visit.room_labels,
           hasOverlap: visit.has_overlap,

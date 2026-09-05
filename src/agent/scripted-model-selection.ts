@@ -115,8 +115,7 @@ export class TaskScriptedModel extends ScriptedModel {
             adults: this.task.adults,
             children: this.task.children,
             pets: this.task.pets,
-            arrivalTime: this.task.arrivalTime,
-            specialRequests: this.task.notes ? [this.task.notes] : [],
+            specialRequests: this.task.requests ? [this.task.requests] : [],
           },
         },
       };

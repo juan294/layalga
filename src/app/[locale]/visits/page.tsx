@@ -60,6 +60,9 @@ export default async function GuestAccountPage({
                   <strong>{visit.partyName}</strong>
                   <span>{formatDateStay(visit.stay, locale)}</span>
                   <small>{t(`status.${visit.status}`)}</small>
+                  {visit.guestNotes ? (
+                    <p style={{ whiteSpace: "pre-wrap" }}>{visit.guestNotes}</p>
+                  ) : null}
                   {visit.status !== "cancelled" ? (
                     <CancellationReview
                       locale={locale}

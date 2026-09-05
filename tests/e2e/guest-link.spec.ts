@@ -29,22 +29,28 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
   await expect(
     page.locator('[data-testid="guest-room-option"]:checked'),
   ).toHaveCount(2);
+  await page
+    .locator('textarea[name="notes"]')
+    .fill("Thanks! We will arrive after lunch.");
   await page.getByTestId("guest-submit").click();
 
   await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
   await expect(page.getByTestId("run-status")).toHaveAttribute(
     "data-status",
-    /completed|interrupted/,
+    "completed",
   );
   await page.getByTestId("run-return").click();
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
     "data-status",
-    /hold|confirmed/,
+    "confirmed",
   );
   await expect(page.getByTestId("guest-room-count")).toBeVisible();
   await expect(page.getByTestId("guest-room-labels")).not.toHaveText(
     "Assignment pending",
   );
+  await expect(
+    page.getByText("Thanks! We will arrive after lunch.", { exact: true }),
+  ).toBeVisible();
   await page.locator("#cancel-request summary").click();
   const review = page.locator("#cancel-request");
   await expect(review.locator('[name="expectedVisitId"]')).not.toHaveValue("");

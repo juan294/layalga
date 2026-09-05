@@ -3,6 +3,11 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import {
+  MAX_GUEST_NOTES_LENGTH,
+  MAX_SPECIAL_REQUEST_LENGTH,
+} from "@/agent/task-limits";
+
 import type {
   FindGuestOptionsAction,
   GuestOptionState,
@@ -35,6 +40,7 @@ interface GuestInviteFormProps {
     children: number;
     pets: number;
     notes: string;
+    capturedRequests?: string[];
   };
 }
 
@@ -408,8 +414,34 @@ function GuestRoomReview({
         </Field>
       </div>
       <Field label={t("notes")} name="notes">
-        <textarea defaultValue={defaults.notes} name="notes" rows={3} />
+        <textarea
+          defaultValue={defaults.notes}
+          name="notes"
+          rows={3}
+          maxLength={MAX_GUEST_NOTES_LENGTH}
+          aria-describedby="guest-notes-help"
+        />
       </Field>
+      <small id="guest-notes-help">{t("notesHelp")}</small>
+      {defaults.capturedRequests?.length ? (
+        <div>
+          <strong>{t("capturedRequests")}</strong>
+          <ul>
+            {defaults.capturedRequests.map((request, index) => (
+              <li key={index}>{request}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <Field label={t("requests")} name="requests">
+        <textarea
+          name="requests"
+          rows={3}
+          maxLength={MAX_SPECIAL_REQUEST_LENGTH}
+          aria-describedby="guest-requests-help"
+        />
+      </Field>
+      <small id="guest-requests-help">{t("requestsHelp")}</small>
       {submitState.status === "error" ? (
         <p className={styles.notice} role="alert">
           {t(

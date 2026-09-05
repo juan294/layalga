@@ -232,7 +232,8 @@
       "empty": "No hay actividad registrada.",
       "noDetail": "Sin detalles adicionales",
       "policyDetail": "Decisión de la política: {decision}",
-      "toolDetail": "Herramienta del agente: {name}"
+      "toolDetail": "Herramienta del agente: {name}",
+      "policyUpdatedDetail": "Las normas actualizadas guían las nuevas solicitudes de reserva."
     },
     "activityKinds": {
       "decisionApplied": "Decisión del anfitrión aplicada",
@@ -243,7 +244,8 @@
       "memoryWritten": "Memoria del hogar actualizada",
       "memoryForgotten": "Memoria del hogar olvidada",
       "other": "Actividad del hogar",
-      "invitationCancelled": "Invitación cancelada"
+      "invitationCancelled": "Invitación cancelada",
+      "householdPolicyUpdated": "Normas de la casa actualizadas"
     },
     "activityTools": {
       "captureInvitation": "Registrar invitación",
@@ -265,6 +267,9 @@
       "deny": "No permitida",
       "interrupt": "Requiere revisión del anfitrión",
       "other": "Política comprobada"
+    },
+    "visitInformation": {
+      "title": "Información de los huéspedes"
     }
   },
   "Guest": {
@@ -317,7 +322,7 @@
     "children": "Menores",
     "pets": "Mascotas",
     "arrivalTime": "Hora de llegada",
-    "notes": "Notas o necesidades de acceso",
+    "notes": "Información para tus anfitriones",
     "submitInvalid": "Revisa los datos del grupo y la estancia elegida.",
     "submitFailed": "No se pudo enviar la estancia.",
     "submitting": "Enviando estancia…",
@@ -349,7 +354,12 @@
       "reconfirmed": "Reconfirmada",
       "escalated": "En revisión",
       "cancelled": "Cancelada"
-    }
+    },
+    "notesHelp": "Solo información. Pon lo que necesite una respuesta en Solicitudes.",
+    "requests": "Solicitudes que necesitan una decisión",
+    "requestsHelp": "Para adaptaciones o excepciones. Los anfitriones lo revisarán antes de confirmar.",
+    "capturedRequests": "Solicitudes ya compartidas por tu anfitrión",
+    "visitNotes": "Tu información para los anfitriones"
   },
   "GuestAccount": {
     "eyebrow": "Cuenta opcional de huésped",
@@ -436,5 +446,21 @@
     "noStay": "Fechas pendientes",
     "changed": "Esta solicitud ha cambiado desde que la revisaste. Comprueba los datos actuales y vuelve a confirmar solo si quieres cancelarla.",
     "pendingInvitations": "Invitaciones pendientes de visita"
+  },
+  "HouseholdPolicy": {
+    "title": "Normas de la casa",
+    "description": "Estas normas guían las nuevas reservas y los cambios pendientes de aprobación. Las estancias confirmadas se mantienen.",
+    "petsTogether": "Permitir mascotas de distintas familias visitantes al mismo tiempo",
+    "families": "Máximo de familias visitantes con niños al mismo tiempo",
+    "capacity": "La capacidad para dormir depende de las habitaciones. Cambiar una norma no añade camas ni aprueba solicitudes especiales.",
+    "save": "Guardar normas de la casa",
+    "saving": "Guardando…",
+    "saved": "Normas guardadas. Las nuevas solicitudes usarán estas normas.",
+    "reload": "Recargar y revisar las normas actuales",
+    "errors": {
+      "invalid": "Elige un número entero entre 1 y 20.",
+      "stale": "Otro anfitrión ha actualizado las normas. Revisa las normas actuales antes de volver a guardar.",
+      "failed": "No se han podido guardar las normas. Inténtalo de nuevo."
+    }
   }
 }

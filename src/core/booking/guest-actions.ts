@@ -71,6 +71,7 @@ export interface ValidatedSubmitInput {
   overflowConsent: boolean;
   arrivalTime?: string;
   notes?: string;
+  requests?: string;
 }
 
 export async function findGuestOptionsForAuthority(
@@ -179,6 +180,7 @@ export async function submitGuestVisitForAuthority(
     ...(input.overflowConsent ? { overflowConsent: true } : {}),
     arrivalTime: clean(input.arrivalTime),
     notes: clean(input.notes),
+    requests: clean(input.requests),
     locale: input.locale,
   });
   return { runId: result.runId };
