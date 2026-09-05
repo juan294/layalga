@@ -2,9 +2,9 @@
 
 ## Status
 
-Release automation is implemented and has run for v0.4.0 and v0.5.0. v0.5.0 (main `c4e3ac3`) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 16 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore --expect-email --expect-memory`. Follow-up fixes on `main` and package/changelog metadata use 0.5.1; the latest locally verified tag is v0.5.0, so that metadata is not proof of a v0.5.1 tag or deployment. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
+Release automation is implemented and has run for v0.4.0, v0.5.0, and v1.0.0. v1.0.0 (main `0f1fcf2`, tagged 2026-09-05) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 21 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore --expect-email --expect-memory`. v0.5.1 was merged to `main` (`f7e9236`) but never tagged or probed; its changes shipped in v1.0.0. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
 
-The September 5 completion adds cancellation, stay-aligned access, notes, versioned policy, consented guest delivery, preference ranking and guided scenarios. These changes are locally implemented; this document does not claim they have reached production. Merging to develop does not apply migrations, IAM or deployments. Guest activation follows [its readiness runbook](guest-email-readiness.md). No feature/develop Vercel preview deployments are allowed.
+The September 5 completion (cancellation, stay-aligned access, notes, versioned policy, consented guest delivery, preference ranking and guided scenarios) is in production since v1.0.0; guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
 ## Project adaptation profile
 
@@ -18,18 +18,18 @@ The September 5 completion adds cancellation, stay-aligned access, notes, versio
 | Production branch              | `main`; promoted from `develop` by pull request                                                                                                                    |
 | Merge strategy                 | Squash pull requests                                                                                                                                               |
 | Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                           |
-| Web deployment                 | Vercel production from `main`; v0.5.0 verified                                                                                                                     |
+| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                    |
 | Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                         |
 | Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                         |
 | Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                      |
 | Staging target                 | None                                                                                                                                                               |
-| Production target              | `https://layalga.thecreativetoken.com`; v0.5.0 verified with nine probes on AgentCore                                                                              |
+| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                              |
 | Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                           |
 | Primary datastore              | PostgreSQL through Supabase                                                                                                                                        |
 | Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                                |
 | Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                    |
 | Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery      |
-| Other vendors                  | Strands on Bedrock through AgentCore; current configured model is Sonnet 4.6. Historical v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
+| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.0.0 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
 | Release approver               | Product owner                                                                                                                                                      |
 | Rollback authority             | Product owner                                                                                                                                                      |
 
@@ -41,7 +41,7 @@ The September 5 completion adds cancellation, stay-aligned access, notes, versio
 | CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                      |
 | Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                            |
 | Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                            |
-| Production  |             Yes |         No |             Yes |       Partial |          Yes | v0.5.0 bound nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock, AgentCore, host SES acceptance, and memory recall were verified for that historical candidate; Google host sign-in is not exercised by the probes |
+| Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.0.0 bound nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified for that candidate; Google host sign-in is not exercised by the probes |
 
 ## Adopted scope
 
@@ -167,8 +167,8 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 3. Fix one candidate commit and record it in the release evidence.
 4. Run typecheck, lint, targeted tests, full tests, and build sequentially.
 5. Stop if no required check passed or any required check failed or skipped.
-6. Apply the candidate migrations and verify the separate runtime database roles.
-7. Deploy the exact candidate to both authorized production targets: the Vercel web deployment from `main`, and the AgentCore runtime bundle built from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate.
+6. Apply the candidate migrations (`supabase db push --linked`) and verify the separate runtime database roles. Do this before merging the release pull request into `main`: the merge itself deploys the web app, and a web candidate that starts before its migrations runs new code against the old schema (this happened for about four minutes during the v1.0.0 candidate 1 deploy).
+7. Deploy the exact candidate to both authorized production targets: merge to `main` for the Vercel web deployment, and build the AgentCore runtime bundle from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate. If branch protection reports the pull request head as not up to date, run `gh pr update-branch <number>` so GitHub merges `main` into `develop`, then wait for the checks again.
 8. Verify the deployed identity against the candidate.
 9. Run all required probes with synthetic, run-scoped data.
 10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.
@@ -178,7 +178,9 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Historical release decision
 
-RELEASED. v0.5.0 passed every gate on 2026-09-04 on the third candidate: CI green, both deployment identities on `c4e3ac3` (web on Vercel, AgentCore runtime version 16), migration `20260904000100_host_email_pings.sql` applied ahead of the deploy, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. The two earlier candidates were rejected by the probes for production-only findings (remembered facts overwriting captured invitation facts; a 30 s API timeout on the escalation tick), each fixed on develop before the next candidate. v0.4.0 passed the same gate earlier the same day on `0935fed`.
+RELEASED. v1.0.0 passed every gate on 2026-09-05 on the second candidate: CI green, both deployment identities on `0f1fcf2` (web on Vercel, AgentCore runtime version 21), migrations `20260905000100` through `20260905000700` applied during candidate 1, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. Candidate 1 (`2641297`) was rejected by probe 2 for two Sonnet 4.6 behaviors found in CloudWatch traces: the model dropped the probe tag when restating the host message into `capture_invitation`, which broke the probe's `raw_message` matching, and it called `capture_invitation` again after a success, creating duplicate invitations. The harness now identifies invitations through the run payload and the capture audit row, and the tool reuses the run's existing invitation; both fixes shipped on `develop` before candidate 2. Full evidence: `docs/agents/release-v1.0.0-report.md` (local, gitignored).
+
+v0.5.0 passed every gate on 2026-09-04 on the third candidate: CI green, both deployment identities on `c4e3ac3` (web on Vercel, AgentCore runtime version 16), migration `20260904000100_host_email_pings.sql` applied ahead of the deploy, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. The two earlier candidates were rejected by the probes for production-only findings (remembered facts overwriting captured invitation facts; a 30 s API timeout on the escalation tick), each fixed on develop before the next candidate. v0.4.0 passed the same gate earlier the same day on `0935fed`.
 
 ## Rollback
 
@@ -192,7 +194,7 @@ curl --fail --silent --show-error \
   https://layalga.thecreativetoken.com/api/health
 ```
 
-Production dispatch is `AGENT_RUNTIME=agentcore` (decided in [ADR 0002](../decisions/0002-agent-runtime.md)). The historical local-runtime rollback changes one dispatch flag, but first verify that the web identity can invoke its configured model. The checked-in web IAM model allowlist is Sonnet 4.5-only while current example configuration uses 4.6; see the [runtime model/fallback limit](runtime-database-and-identity.md). A flag change alone does not repair that mismatch.
+Production dispatch is `AGENT_RUNTIME=agentcore` (decided in [ADR 0002](../decisions/0002-agent-runtime.md)). The local-runtime rollback changes one dispatch flag; the web identity's model allowlist (`infra/iam/web-bedrock-policy.json`) includes Sonnet 4.5 and 4.6 since 2026-09-05, so verify only that `BEDROCK_MODEL_ID` in the Vercel environment is one of those two before flipping the flag; see the [runtime runbook](runtime-database-and-identity.md).
 
 With compatible model authorization established, the dispatch change is:
 
@@ -310,7 +312,15 @@ implementation of any release controller.
 Once a release has actually run once, record measured budgets here (local
 admission p95, delivery-to-publication p95, max serial remote workflows, max
 production deployment attempts) and treat any proposal that would blow the
-budget as requiring the impact section above, not silent acceptance. Release history exists, but no representative percentile budget has been measured yet. Do not invent a p95 from a small set of historical releases; record measured durations when the next authorized release runs.
+budget as requiring the impact section above, not silent acceptance. No percentile budget exists yet; these are the durations measured during v1.0.0 on 2026-09-05, one release, not a p95:
+
+- Pull request CI (unit, integration, acceptance, CodeQL, dependency review): 8 to 9 minutes per head; a `develop` → `main` release pull request ran it twice because `gh pr update-branch` created a new head.
+- Merge to `main` → Vercel production reports the new commit at `/api/health`: about 2 minutes.
+- `scripts/deploy-agentcore.sh` (bundle, upload, runtime update, READY): about 3 minutes.
+- One full nine-probe run against production: 3 to 4 minutes.
+- Whole release, two candidates, from the version-bump pull request to the tag: about 3 hours 40 minutes, most of it the candidate-1 investigation.
+
+Serial remote workflows per candidate: two pull requests (fix or prep → `develop`, `develop` → `main`). Production deployment attempts: two candidates.
 
 ### Warning signs — audit immediately if any become true
 
