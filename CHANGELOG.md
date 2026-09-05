@@ -38,6 +38,17 @@ All notable changes to L’Ayalga are documented in this file.
 
 - System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
 
+### Changed
+
+- Git-triggered Vercel deployments are enabled only for `main`; feature and `develop` previews are disabled (#110).
+- The demo sign-in button reads "Enter as Host" instead of the host's name, and the Spanish sign-in tagline is written in Spanish (#94).
+
+### Documentation
+
+- Added a repository review route, rubric evidence cards, agent entry-point links, and a public `/llms.txt` index. Clarified current model configuration, pending video status, and the limits of scripted tests, memory minimization, and tracing.
+
+- System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
+
 ## [0.5.0] - 2026-09-04
 
 ### Added
