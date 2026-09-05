@@ -1,3 +1,4 @@
+import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
 import { seedDemo } from "../../scripts/seed-demo";
@@ -23,7 +24,7 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
-  await page.getByTestId("find-options").click();
+  await clickAndWaitForPost(page, "find-options");
   await expect(page.getByTestId("guest-option")).toHaveCount(1);
   await page.getByTestId("guest-option").first().check();
   await expect(
@@ -35,10 +36,7 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
   await page.getByTestId("guest-submit").click();
 
   await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status/);
-  await expect(page.getByTestId("run-status")).toHaveAttribute(
-    "data-status",
-    "completed",
-  );
+  await expectRunStatus(page, "completed");
   await page.getByTestId("run-return").click();
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
     "data-status",
@@ -73,7 +71,7 @@ test("supports Spanish keyboard room selection and focuses fresh results", async
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
-  await page.getByTestId("find-options").click();
+  await clickAndWaitForPost(page, "find-options");
   await expect(
     page.getByRole("heading", { name: "Elige tus habitaciones exactas" }),
   ).toBeFocused();

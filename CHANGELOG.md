@@ -15,6 +15,8 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Fixed
 
+- Guided scenario controls wait for their JavaScript handler before accepting clicks, preventing lost starts during a cold page load (#104).
+
 - Invitation access extends through at least checkout plus seven days on confirmation, reschedule and reissue, retaining expiry and revocation checks (#103).
 - Guest date defaults and search use household time; expired holds no longer hide rooms, and demo resets renew finite bearer access. Semantic clock controls select actual current reminder jobs, recover eligible delivery retries, preserve unanswered guidance and handle repeated no-work steps (#104).
 - A run started synchronously is inserted already claimed, so the per-minute drain can no longer dispatch it first and fail the caller with "Agent run is no longer active". The AgentCore database URL now uses the transaction-mode pooler port (#95).

@@ -1,3 +1,4 @@
+import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
 import { DEMO_SEED, seedDemo } from "../../scripts/seed-demo";
@@ -81,7 +82,7 @@ test.describe("demo guest session", () => {
       page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
     ).toBeVisible();
 
-    await page.getByTestId("find-options").click();
+    await clickAndWaitForPost(page, "find-options");
     await expect(page.getByTestId("guest-option").first()).toBeVisible();
     await expect(page.getByTestId("guest-room-option").first()).toBeChecked();
     await page.getByTestId("guest-option").first().check();
@@ -90,10 +91,7 @@ test.describe("demo guest session", () => {
     await expect(page).toHaveURL(/\/en\/runs\/[0-9a-f-]+\/status\?returnTo=/, {
       timeout: 30_000,
     });
-    await expect(page.getByTestId("run-status")).toHaveAttribute(
-      "data-status",
-      "interrupted",
-    );
+    await expectRunStatus(page, "interrupted");
     await expect(page.getByTestId("run-status")).toContainText(
       "Waiting for a host",
     );

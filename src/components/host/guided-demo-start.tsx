@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 
 import { buttonStyle, graphite, rule } from "./host-styles";
+
+const subscribeToHydration = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
 
 type StartResult = "ready" | "reset_failed" | "entry_failed";
 
@@ -47,6 +51,12 @@ export function GuidedDemoStart({
   invitations: { vega: string; otero: string };
 }) {
   const t = useTranslations("GuidedDemo");
+  // Server-rendered controls must not accept clicks before their handler exists.
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    clientReady,
+    serverReady,
+  );
   const busy = useRef(false);
   const [working, setWorking] = useState<"vega" | "otero" | null>(null);
   const [failure, setFailure] = useState<Exclude<StartResult, "ready"> | null>(
@@ -88,7 +98,7 @@ export function GuidedDemoStart({
             style={buttonStyle}
             aria-describedby="guided-demo-shared-reset"
             aria-busy={working === scenario}
-            disabled={working !== null}
+            disabled={!hydrated || working !== null}
             data-testid={`guided-demo-start-${scenario}`}
             onClick={() => void start(scenario)}
           >

@@ -1,3 +1,8 @@
+import {
+  ASYNC_COMPLETION_TIMEOUT,
+  clickAndWaitForPost,
+  expectRunStatus,
+} from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
 import { seedDemo } from "../../scripts/seed-demo";
@@ -34,11 +39,13 @@ test("captures an invitation and exposes its private guest link", async ({
     .fill(
       "Oye, los Vega quieren venir a la casa un finde de septiembre, son Marta y Xuan con los dos crios.",
     );
-  await page.getByTestId("host-capture-submit").click();
+  await clickAndWaitForPost(page, "host-capture-submit");
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
+  await expect(page.getByTestId("structured-invitation")).toBeVisible({
+    timeout: ASYNC_COMPLETION_TIMEOUT,
+  });
   await expect(page.getByTestId("run-timeline-event").first()).toBeVisible();
-  await expect(page.getByTestId("structured-invitation")).toBeVisible();
   await expect(page.getByTestId("guest-link")).toHaveAttribute(
     "href",
     /\/g\/[A-Za-z0-9_-]{43}$/,
@@ -52,13 +59,10 @@ test("a special request waits for a host and resumes after approval", async ({
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
-  await page.getByTestId("find-options").click();
+  await clickAndWaitForPost(page, "find-options");
   await page.getByTestId("guest-option").first().check();
   await page.getByTestId("guest-submit").click();
-  await expect(page.getByTestId("run-status")).toHaveAttribute(
-    "data-status",
-    "interrupted",
-  );
+  await expectRunStatus(page, "interrupted");
   // The guest-token branch of /api/runs/[id] must see its own run's timeline.
   await expect(page.getByTestId("run-timeline-event").first()).toBeVisible();
 
@@ -68,10 +72,7 @@ test("a special request waits for a host and resumes after approval", async ({
     page.waitForURL(/\/en\/runs\/[0-9a-f-]+\/status/, { timeout: 30_000 }),
     page.getByTestId("approve-decision").click(),
   ]);
-  await expect(page.getByTestId("run-status")).toHaveAttribute(
-    "data-status",
-    "completed",
-  );
+  await expectRunStatus(page, "completed");
   await page.getByTestId("run-return").click();
   await expect(page.getByTestId("pending-decision")).toHaveCount(0);
 });

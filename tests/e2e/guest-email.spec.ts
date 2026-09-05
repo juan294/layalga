@@ -1,3 +1,4 @@
+import { clickAndWaitForPost } from "./helpers/async-actions";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
@@ -85,7 +86,7 @@ test("email verification GET is read-only; explicit POST returns to the real vis
     await expect(page.getByTestId("guest-status")).not.toContainText(
       "synthetic demo",
     );
-    await page.getByTestId("reconfirm-yes").click();
+    await clickAndWaitForPost(page, "reconfirm-yes");
     await expect(page.getByTestId("guest-status")).toHaveAttribute(
       "data-status",
       "reconfirmed",

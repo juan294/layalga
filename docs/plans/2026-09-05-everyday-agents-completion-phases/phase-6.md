@@ -35,3 +35,15 @@ Local deliverables above are complete. The [completion pull request](https://git
 - Close completed issues with evidence, update documentation verification record, commit/push any final documentation, and verify clean synced workspace.
 
 Remote completion is recorded in that PR after exact-head and merged-develop checks, rather than creating a second hosted CI cycle solely to copy GitHub status into this file. The final local operational report records clean/synced workspace and no-preview observations. Production rollout remains separate.
+
+## Integration correction
+
+PR #111 initially passed unit/build, integration, CodeQL and dependency review; the English guided start failed browser acceptance. The original test reproduced locally with a trace showing a click but no reset request. The server rendered enabled controls before hydration. A delayed-JavaScript regression failed first, then passed with a source readiness guard; both complete English and Spanish guided scenarios also passed. The original workflow assertions and navigation timeout remain intact. The final corrected verification and merged-develop conclusions are recorded in the PR.
+
+A subsequent full local suite exposed three five-second assertions while work was still queued/running or a reconfirmation POST was pending. All six affected tests passed the traced rerun without further product changes. Source inspection confirmed polling backs off to 15 seconds; shared exact terminal assertions now allow 30 seconds while requiring the same exact outcome, and search/reconfirmation/capture await their actual POSTs before checking the same-page result. Global timeouts remain unchanged. The Docker VM was heavily loaded during the failures; that observation alone does not establish causation.
+
+Final test review applies the same synchronization contract across all eight search call sites, both reconfirmations, nine exact terminal-state assertions and both capture completions. Capture still requires its timeline and private link. No domain assertion is removed. A later reset timeout coincided with a separately observed direct local database CONNECT_TIMEOUT; after recovery the VM CPU dropped markedly without restarting services. Environment observations are kept separate from the confirmed hydration defect.
+
+The final synchronized browser suite passed all 23 desktop/mobile tests in 1.6 minutes. Typecheck, ESLint, all 668 application tests and the production build passed for the source correction; subsequent changes were browser-test synchronization and documentation only.
+
+All nine final local release probes also passed on normal Next dev, including the complete demo driver and verified cleanup, before the corrected push.
