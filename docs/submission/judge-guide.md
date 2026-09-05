@@ -4,7 +4,7 @@ L’Ayalga is a household hospitality coordinator: routine visits proceed, expli
 
 ## Start here without a deployed demo
 
-1. Read the [pitch](pitch.md) and inspect the [architecture](../architecture/README.md).
+1. Read the [pitch](pitch.md) and inspect the [architecture](../architecture/README.md). The [source evidence index](evidence.md) adds detailed architectural cards and separately dated baseline verification.
 2. Follow the source-and-test map below. Product behavior is pinned to commit `618701c9d82df72df2d5bc1b6f28f63d00febe89`, which contains completion phases 1–5.
 3. Read [coordination evidence](coordination-evidence.md) for the measured local synthetic workflow and its exact revision/configuration. The [participant protocol](participant-protocol.md) defines a separate human baseline; human time saved has not been measured.
 4. For runtime implementation, read [Strands usage](strands-usage.md). The [trace screenshot](assets/agentcore-trace.png) is historical production evidence from the earlier September 2026 runtime, not proof that these later features are deployed.

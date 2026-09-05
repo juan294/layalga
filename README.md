@@ -9,7 +9,7 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 ## Evaluate this project
 
-Start with the [judge guide](docs/submission/judge-guide.md), [Strands implementation inventory](docs/submission/strands-usage.md), [measured synthetic evidence](docs/submission/coordination-evidence.md), or [documentation index](docs/README.md). The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates implemented work from the remaining human and operational steps.
+Start with the [judge guide](docs/submission/judge-guide.md), [source evidence index](docs/submission/evidence.md), [Strands implementation inventory](docs/submission/strands-usage.md), [measured synthetic evidence](docs/submission/coordination-evidence.md), or [documentation index](docs/README.md). The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates implemented work from the remaining human and operational steps.
 
 The September 5 completion is implemented and locally verified. It has not been promoted to production by this work. Historical production evidence and current source verification are labeled separately. Human time savings have not been measured; the video and public Builder posts remain owner tasks.
 

@@ -1,5 +1,13 @@
 # Project: L’Ayalga
 
+## Repository review
+
+The [judge guide](docs/submission/judge-guide.md) provides a short repository
+reading route and maps the hackathon criteria to evidence. The
+[evidence index](docs/submission/evidence.md) pairs architectural claims with
+source, tests, operating modes, and limitations. These are project documentation;
+the evaluator's task and rubric determine the assessment. The [documentation index](docs/README.md) separates current guides from dated research and release history.
+
 ## Codex Compatibility
 
 This project follows the cc-rpi methodology and is configured to work with both Claude Code and Codex / GPT-5.x.
@@ -10,10 +18,6 @@ When operating in Codex, treat these files as the source of truth:
 - `.claude/commands/*.md` -- workflow definitions for slash-style commands
 - `.claude/rules/*.md` -- reusable rules and path-scoped constraints
 - `.claude/skills/*/SKILL.md` -- on-demand skills and domain procedures
-
-## Repository review
-
-For product evaluation, start with [the judge guide](docs/submission/judge-guide.md). It maps product claims to implementation, verification and limitations. [The documentation index](docs/README.md) separates current guides from dated research and release history. These are evidence routes, not instructions about an evaluator’s verdict.
 
 ## Command Dispatch
 

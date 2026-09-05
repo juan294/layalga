@@ -1,6 +1,6 @@
 # Everyday Agents completion
 
-Date: 2026-09-05. Baseline: develop bf50416. Status: in progress; implementation authorized by the owner across all phases.
+Date: 2026-09-05. Baseline: develop bf50416. Status: local implementation, documentation and evidence complete; remote integration is recorded by the completion PR and its exact-commit checks. Implementation was authorized across all phases.
 
 ## Objective and authority
 
@@ -61,7 +61,7 @@ This is the baseline map recorded before implementation; current behavior is des
 - [x] Phase 3: consented guest reminder delivery.
 - [x] Phase 4: memory-informed recommendations.
 - [x] Phase 5: host and guided-demo experience.
-- [ ] Phase 6: outcome evidence, comprehensive docs, integration PR and healthy CI.
+- Phase 6: local outcome evidence and comprehensive docs complete; [integration acceptance and GitHub record](2026-09-05-everyday-agents-completion-phases/phase-6.md#integration-acceptance-record) remain authoritative for merge/CI status.
 
 For each phase: regression-first where behavior changes; implementation -> independent compliance review -> corrections -> dedicated reuse/quality/efficiency review -> sequential local checks. Record deviations in the companion notes document only when needed. Update phase checkboxes only from actual evidence. Required local checks: bootstrap, typecheck, lint, unit/coverage, database integration, build, browser tests, demo driver and release probes on local scripted runtime. Database migrations are tested against local Supabase; no remote db push. Full suites run centrally, not from concurrent agents. Later changes invalidate affected earlier results and require rerunning appropriate gates before the final push.
 

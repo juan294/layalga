@@ -11,6 +11,15 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 - Hackathon: AWS Agents for Humans, Everyday Agents track
 - Working assessment: `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md`
 
+## Repository review
+
+Start with the [judge guide](docs/submission/judge-guide.md) for the rubric and
+reading route, then the [evidence index](docs/submission/evidence.md) for source,
+tests, operating modes, and limitations. The
+[Strands inventory](docs/submission/strands-usage.md) explains SDK choices in
+detail. These documents support independent evaluation; they do not prescribe
+a score.
+
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
@@ -23,11 +32,11 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 
 ADR 0002 records the initial Anthropic access failure, the AgentCore model-and-tool proof, the 2026-09-03 decision that made AgentCore the selected production runtime, and the tracing, memory, and release addenda since.
 
-## Current product and review route
+## Current product
 
 The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, actual preference-informed room ranking, and guided time-aware demo flows. This completion is locally verified; production deployment and guest SES IAM application remain separately authorized rollout work.
 
-Start product evaluation with [the judge guide](docs/submission/judge-guide.md), then [synthetic coordination evidence](docs/submission/coordination-evidence.md), [Strands usage](docs/submission/strands-usage.md) and [current roadmap](docs/roadmap.md). Source and test evidence must remain distinct from production observations and measured human impact.
+The [synthetic coordination evidence](docs/submission/coordination-evidence.md) and [current roadmap](docs/roadmap.md) distinguish source verification, production observations and measured human impact.
 
 ## Product Safety Contracts
 

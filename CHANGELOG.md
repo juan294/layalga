@@ -26,13 +26,15 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Documentation
 
+- Added a repository review route, rubric evidence cards, agent entry-point links, and a public `/llms.txt` index. Clarified current model configuration, pending video status, and the limits of scripted tests, memory minimization, and tracing.
+
 - System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
 
 ## [0.5.1] - 2026-09-04
 
 ### Fixed
 
-- Family names stay out of household memory: capture conversations no longer feed memory extraction, and only the deterministic name-free capture write records a capture. Guest prompts steer the model to say "this family".
+- Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
 - The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
 - The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
 
@@ -43,7 +45,7 @@ All notable changes to L’Ayalga are documented in this file.
 - Per-run agent timeline on the run status page and the capture poller: every tool call, policy verdict, and applied decision in order, with the runtime that executed the run. Events carry only the kind, time, tool name, and verdict decision.
 - OpenTelemetry tracing from the AgentCore runtime through ADOT for Node and Strands 1.16.0, with CloudWatch Transaction Search enabled, 100 percent sampling for the demo, and 14-day retention on the runtime log group. `scripts/enable-transaction-search.sh` applies the account setup.
 - Host email pings through Amazon SES: a web-runtime outbox sends one email per consenting host when a run pauses for a decision and when a reconfirmation escalates, idempotent per source, with a per-host consent toggle and a masked address on the host page. Guests never receive email.
-- Returning-guest memory through Strands MemoryManager and AgentCore Memory: per-party stores scoped by task, tool-driven recall through `search_memory`, a deterministic name-free capture write, and a host panel that lists and forgets what the house remembers.
+- Returning-guest memory through Strands MemoryManager and AgentCore Memory: per-party stores scoped by task, tool-driven recall through `search_memory`, a deterministic capture event that omits the party-name field, and a host panel that lists and forgets what the house remembers.
 - `--expect-runtime`, `--expect-email`, and `--expect-memory` on the release probes; `scripts/create-memory.sh`, `scripts/seed-memory.ts`, and `--s3-version-id` on `scripts/deploy-agentcore.sh`.
 - A light and dark override on top of the seasonal palette, and a signed guest session entry for the demo.
 

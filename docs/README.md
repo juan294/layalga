@@ -4,6 +4,11 @@ Current guides describe the September 5 completion, with production rollout and 
 
 ## For judges and readers
 
+Start with the [judge guide](submission/judge-guide.md) for a short repository
+route. The [evidence index](submission/evidence.md) pairs claims with source,
+tests, operating modes, and limits. The public-site discovery index is
+[`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
+
 | Document                                                   | What it is                                                                                                      |
 | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [submission/judge-guide.md](submission/judge-guide.md)     | Repository evidence and guided demo routes organized by the five judging criteria                               |
