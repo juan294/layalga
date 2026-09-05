@@ -72,6 +72,8 @@ Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description
 
 ## Deployment
 
+Git-triggered Vercel deployments are enabled only for `main` through `vercel.json` `git.deploymentEnabled`. Feature branches and `develop` must never create preview deployments. Keep this restriction in the first commit pushed for any new branch. GitHub Actions still runs for PRs and pushes to `develop`/`main`; batch reviewed work and pass the applicable checks locally before pushing.
+
 The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v0.4.0 and v0.5.0 were released on 2026-09-04 through the nine-probe gate, with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` deployed from the same commit. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
 ## Agent Behavior
