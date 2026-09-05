@@ -15,7 +15,7 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
 - Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the one-flag rollback
-- Amazon Bedrock Claude Sonnet 4.5 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
+- Amazon Bedrock Claude Sonnet 4.6 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
 - AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host-only email pings through Amazon SES (`EMAIL=ses`)
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
 - Vercel Cron `/api/ticks` every minute for lease recovery, bounded queue draining, due jobs, and email dispatch; an implemented but unselected EventBridge Scheduler adapter (`SCHEDULER=none` in production)
