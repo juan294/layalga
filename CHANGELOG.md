@@ -24,6 +24,19 @@ All notable changes to L’Ayalga are documented in this file.
 - Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
 - The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
 - The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
+- `capture_invitation` reuses the invitation a run already captured instead of creating a duplicate when the model calls the tool again; the reuse is recorded as a second `tool_call` audit row.
+- Release probes and the shared tagged-artifact cleanup identify captured invitations through the run's enqueue payload and the capture audit row, not the model-restated `raw_message`, which Sonnet 4.6 may return without the probe tag.
+
+### Changed
+
+- Git-triggered Vercel deployments are enabled only for `main`; feature and `develop` previews are disabled (#110).
+- The demo sign-in button reads "Enter as Host" instead of the host's name, and the Spanish sign-in tagline is written in Spanish (#94).
+
+### Documentation
+
+- Added a repository review route, rubric evidence cards, agent entry-point links, and a public `/llms.txt` index. Clarified current model configuration, pending video status, and the limits of scripted tests, memory minimization, and tracing.
+
+- System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
 
 ### Changed
 
