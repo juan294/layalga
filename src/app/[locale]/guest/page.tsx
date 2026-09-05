@@ -4,7 +4,8 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
-import { guestInvitationDefaults } from "@/components/guest/guest-invitation-defaults";
+import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
+import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
 import styles from "@/components/guest/guest-ledger.module.css";
 import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
 import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
@@ -49,7 +50,10 @@ export default async function GuestSessionPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const defaults = guestInvitationDefaults(invitation.structured);
+  const { defaults, demo } = await loadGuestInvitationDefaults(
+    invitation.homeId,
+    invitation.structured,
+  );
 
   return (
     <main className={styles.shell}>
@@ -71,6 +75,10 @@ export default async function GuestSessionPage({
               party: invitation.partyName,
             })}
           </p>
+
+          {demo ? (
+            <DemoGuestGuide invitationId={invitation.id} locale={locale} />
+          ) : null}
 
           {status === "invited" ? (
             <GuestInviteForm

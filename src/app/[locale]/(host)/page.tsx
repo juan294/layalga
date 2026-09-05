@@ -1,3 +1,6 @@
+import type { CSSProperties } from "react";
+import { HostOutcomes } from "@/components/host/host-outcomes";
+import { GuidedDemoPanel } from "@/components/host/guided-demo-panel";
 import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
 import { HostVisitNotes } from "@/components/host/host-visit-notes";
 import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
@@ -63,6 +66,14 @@ import {
   teal,
 } from "@/components/host/host-styles";
 
+const sectionGridStyle: CSSProperties = {
+  alignItems: "start",
+  display: "grid",
+  gap: "clamp(1rem, 3vw, 2rem)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
+  marginTop: "clamp(1.5rem, 4vw, 3rem)",
+};
+
 interface HostPageProps {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{
@@ -118,7 +129,7 @@ export default async function HostPage({
     select dc.now, h.timezone
     from public.homes h
     left join public.demo_clock dc
-      on dc.home_id = h.id and dc.enabled
+      on dc.home_id = h.id and dc.enabled and h.demo
     where h.id = ${host.homeId}
   `;
   const timeZone = clockRows[0]?.timezone ?? "UTC";
@@ -403,10 +414,68 @@ export default async function HostPage({
           </div>
         </header>
 
-        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
-          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("rooms.title")}</h2>
-          <div style={panelStyle}>
+        <div style={sectionGridStyle}>
+          <section id="host-decisions" style={panelStyle}>
+            <p style={labelStyle}>{t("decisions.eyebrow")}</p>
+            <h2 style={headingStyle}>{t("decisions.title")}</h2>
+            <PendingDecisions
+              decisions={decisions}
+              labels={{
+                empty: t("decisions.empty"),
+                reason: t("decisions.reason"),
+                requestedStay: t("decisions.requestedStay"),
+                createdAt: t("decisions.createdAt"),
+                requestDetail: t("decisions.requestDetail"),
+                overlap: t("decisions.overlap"),
+                note: t("decisions.note"),
+                notePlaceholder: t("decisions.notePlaceholder"),
+                approve: t("decisions.approve"),
+                approving: t("decisions.approving"),
+                decline: t("decisions.decline"),
+                declining: t("decisions.declining"),
+                retryApproved: t("decisions.retryApproved"),
+                retryApproving: t("decisions.retryApproving"),
+                retryDeclined: t("decisions.retryDeclined"),
+                retryDeclining: t("decisions.retryDeclining"),
+                retryHelp: t("decisions.retryHelp"),
+                applying: t("decisions.applying"),
+              }}
+              locale={safeLocale}
+            />
+          </section>
+
+          <section id="capture-invitation" style={panelStyle}>
+            <p style={labelStyle}>{t("capture.eyebrow")}</p>
+            <h2 style={headingStyle}>{t("capture.title")}</h2>
+            <CaptureInvitationForm
+              labels={{
+                message: t("capture.message"),
+                placeholder: t("capture.placeholder"),
+                submit: t("capture.submit"),
+                pending: t("capture.pending"),
+                result: t("capture.result"),
+                structured: t("capture.structured"),
+                remembered: t("memory.remembered"),
+                guestLink: t("capture.guestLink"),
+                copy: t("capture.copy"),
+                copied: t("capture.copied"),
+                copyFailed: t("capture.copyFailed"),
+                emptyError: t("capture.emptyError"),
+                failedError: t("capture.failedError"),
+                queued: t("capture.queued"),
+                statusLink: t("capture.statusLink"),
+                reveal: t("capture.reveal"),
+                revealing: t("capture.revealing"),
+                completionFailed: t("capture.completionFailed"),
+              }}
+              locale={safeLocale}
+              timeZone={timeZone}
+            />
+          </section>
+        </div>
+
+        <div style={sectionGridStyle}>
+          <HostOutcomes homeId={host.homeId} locale={safeLocale}>
             <HostCancellationPanel
               database={getDatabaseConnection().db}
               homeId={host.homeId}
@@ -418,6 +487,53 @@ export default async function HostPage({
                   : undefined
               }
             />
+          </HostOutcomes>
+          <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
+        </div>
+
+        {process.env.DEMO_MODE === "true" && host.demo ? (
+          <div style={sectionGridStyle}>
+            <GuidedDemoPanel homeId={host.homeId} locale={safeLocale} />
+            {clockRows[0]?.now ? (
+              <section style={panelStyle}>
+                <p style={labelStyle}>{t("demo.eyebrow")}</p>
+                <h2 style={headingStyle}>{t("demo.title")}</h2>
+                <p style={{ color: graphite, lineHeight: 1.6, margin: 0 }}>
+                  {t("demo.description")}
+                </p>
+                <DemoClockPanel
+                  current={new Date(clockRows[0].now).toISOString()}
+                  currentLabel={formatHouseholdDateTime(
+                    String(clockRows[0].now),
+                    safeLocale,
+                    clockRows[0].timezone,
+                  )}
+                  homeId={host.homeId}
+                  labels={{
+                    current: t("demo.current"),
+                    chase: t("demo.chase"),
+                    escalation: t("demo.escalation"),
+                    custom: t("demo.custom"),
+                    set: t("demo.set"),
+                    working: t("demo.working"),
+                    error: t("demo.error"),
+                    noEligible: t("demo.noEligible"),
+                    alreadyDue: t("demo.alreadyDue"),
+                    advanced: t("demo.advanced"),
+                    backward: t("demo.backward"),
+                  }}
+                  locale={safeLocale}
+                  timeZone={clockRows[0].timezone}
+                />
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
+          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("rooms.title")}</h2>
+          <div style={panelStyle}>
             <RoomLedger
               data={roomData}
               labels={roomLedgerLabels(t)}
@@ -455,74 +571,7 @@ export default async function HostPage({
           </div>
         </section>
 
-        <div
-          style={{
-            alignItems: "start",
-            display: "grid",
-            gap: "clamp(1rem, 3vw, 2rem)",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
-            marginTop: "clamp(1.5rem, 4vw, 3rem)",
-          }}
-        >
-          <section style={panelStyle}>
-            <p style={labelStyle}>{t("decisions.eyebrow")}</p>
-            <h2 style={headingStyle}>{t("decisions.title")}</h2>
-            <PendingDecisions
-              decisions={decisions}
-              labels={{
-                empty: t("decisions.empty"),
-                reason: t("decisions.reason"),
-                requestedStay: t("decisions.requestedStay"),
-                createdAt: t("decisions.createdAt"),
-                requestDetail: t("decisions.requestDetail"),
-                overlap: t("decisions.overlap"),
-                note: t("decisions.note"),
-                notePlaceholder: t("decisions.notePlaceholder"),
-                approve: t("decisions.approve"),
-                approving: t("decisions.approving"),
-                decline: t("decisions.decline"),
-                declining: t("decisions.declining"),
-                retryApproved: t("decisions.retryApproved"),
-                retryApproving: t("decisions.retryApproving"),
-                retryDeclined: t("decisions.retryDeclined"),
-                retryDeclining: t("decisions.retryDeclining"),
-                retryHelp: t("decisions.retryHelp"),
-                applying: t("decisions.applying"),
-              }}
-              locale={safeLocale}
-            />
-          </section>
-
-          <section style={panelStyle}>
-            <p style={labelStyle}>{t("capture.eyebrow")}</p>
-            <h2 style={headingStyle}>{t("capture.title")}</h2>
-            <CaptureInvitationForm
-              labels={{
-                message: t("capture.message"),
-                placeholder: t("capture.placeholder"),
-                submit: t("capture.submit"),
-                pending: t("capture.pending"),
-                result: t("capture.result"),
-                structured: t("capture.structured"),
-                remembered: t("memory.remembered"),
-                guestLink: t("capture.guestLink"),
-                copy: t("capture.copy"),
-                copied: t("capture.copied"),
-                copyFailed: t("capture.copyFailed"),
-                emptyError: t("capture.emptyError"),
-                failedError: t("capture.failedError"),
-                queued: t("capture.queued"),
-                statusLink: t("capture.statusLink"),
-                reveal: t("capture.reveal"),
-                revealing: t("capture.revealing"),
-                completionFailed: t("capture.completionFailed"),
-              }}
-              locale={safeLocale}
-              timeZone={timeZone}
-            />
-          </section>
-
+        <div style={sectionGridStyle}>
           <section style={panelStyle}>
             <p style={labelStyle}>{t("emailPings.eyebrow")}</p>
             <h2 style={headingStyle}>{t("emailPings.title")}</h2>
@@ -563,7 +612,6 @@ export default async function HostPage({
             )}
           </section>
 
-          <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
           <HouseholdPolicyPanel
             homeId={host.homeId}
             hostId={host.id}
@@ -581,38 +629,6 @@ export default async function HostPage({
               forget: t("memory.forget"),
             }}
           />
-
-          {process.env.DEMO_MODE === "true" &&
-          host.demo &&
-          clockRows[0]?.now ? (
-            <section style={panelStyle}>
-              <p style={labelStyle}>{t("demo.eyebrow")}</p>
-              <h2 style={headingStyle}>{t("demo.title")}</h2>
-              <p style={{ color: graphite, lineHeight: 1.6, margin: 0 }}>
-                {t("demo.description")}
-              </p>
-              <DemoClockPanel
-                current={new Date(clockRows[0].now).toISOString()}
-                currentLabel={formatHouseholdDateTime(
-                  String(clockRows[0].now),
-                  safeLocale,
-                  clockRows[0].timezone,
-                )}
-                homeId={host.homeId}
-                labels={{
-                  current: t("demo.current"),
-                  chase: t("demo.chase"),
-                  escalation: t("demo.escalation"),
-                  custom: t("demo.custom"),
-                  set: t("demo.set"),
-                  working: t("demo.working"),
-                  error: t("demo.error"),
-                }}
-                locale={safeLocale}
-                timeZone={clockRows[0].timezone}
-              />
-            </section>
-          ) : null}
         </div>
 
         <section

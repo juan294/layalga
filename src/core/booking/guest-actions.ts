@@ -2,7 +2,7 @@ import { withdrawInvitation, type CancellationInput } from "./cancellation";
 import { requestsCancellationReview } from "./cancellation-intent";
 import { getAgentClient } from "@/agent/client";
 import { schedulerForHome } from "@/agent/scheduler";
-import { DbDemoClock, SystemClock } from "@/core/clock";
+import { DbDemoClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
@@ -87,7 +87,7 @@ export async function findGuestOptionsForAuthority(
   memoryOptions?: { client?: MemoryClient },
 ): Promise<GuestOptionState> {
   const connection = getDatabaseConnection();
-  const clock = new SystemClock();
+  const clock = await DbDemoClock.load(authority.homeId, connection.db);
   const broadDraft = {
     stay: [input.from, input.to] as const,
     adults: input.adults,

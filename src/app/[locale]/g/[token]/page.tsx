@@ -3,7 +3,8 @@ import { CancellationReview } from "@/components/guest/cancellation-review";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
-import { guestInvitationDefaults } from "@/components/guest/guest-invitation-defaults";
+import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
+import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
 import styles from "@/components/guest/guest-ledger.module.css";
 import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
@@ -66,7 +67,10 @@ export default async function GuestPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const defaults = guestInvitationDefaults(invitation.structured);
+  const { defaults, demo } = await loadGuestInvitationDefaults(
+    invitation.homeId,
+    invitation.structured,
+  );
   const supabase = await createClient();
   const {
     data: { user },
@@ -95,6 +99,10 @@ export default async function GuestPage({
               party: invitation.partyName,
             })}
           </p>
+
+          {demo ? (
+            <DemoGuestGuide invitationId={invitation.id} locale={locale} />
+          ) : null}
 
           {status === "invited" ? (
             <GuestInviteForm

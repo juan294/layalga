@@ -61,7 +61,6 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
     .fill("Invite Ana and Luis for the first weekend in October.");
   await page.getByTestId("host-capture-submit").click();
   await expect(page.getByTestId("capture-queued")).toBeVisible();
-  await page.getByTestId("capture-reveal").click();
   await expect(page.getByTestId("structured-invitation")).toBeVisible();
   await expect(page.getByTestId("guest-link")).toBeVisible();
 });

@@ -92,11 +92,19 @@ export async function loadGuestRoomSearchWindow(
           and control.stay && daterange(${window[0]}::date, ${window[1]}::date, '[)')
       `,
       sql<{ room_id: string; stay_start: string; stay_end: string }[]>`
-        select room_id, lower(stay)::text as stay_start,
+        select occupancy.room_id, lower(occupancy.stay)::text as stay_start,
           upper(occupancy.stay)::text as stay_end
         from public.visit_rooms occupancy
         join public.rooms room on room.id = occupancy.room_id
+        left join public.visits occupied_visit
+          on occupied_visit.id = occupancy.visit_id
+          and occupied_visit.home_id = occupancy.home_id
         where occupancy.home_id = ${homeId}
+          and (occupancy.visit_id is null or (
+            occupied_visit.status <> 'cancelled'
+            and (occupied_visit.status <> 'hold'
+              or occupied_visit.hold_expires_at > ${clock.now().toISOString()})
+          ))
           and room.inventory_state in ('available', 'withheld')
           and room.guest_label is not null
           and room.floor_label is not null

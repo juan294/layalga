@@ -58,7 +58,7 @@ Deferred as in the accepted assessment: per-night room packing, remote OAuth MCP
 - [x] Phase 2: decision semantics and policy settings.
 - [x] Phase 3: consented guest reminder delivery.
 - [x] Phase 4: memory-informed recommendations.
-- [ ] Phase 5: host and guided-demo experience.
+- [x] Phase 5: host and guided-demo experience.
 - [ ] Phase 6: outcome evidence, comprehensive docs, integration PR and healthy CI.
 
 For each phase: regression-first where behavior changes; implementation -> independent compliance review -> corrections -> dedicated reuse/quality/efficiency review -> sequential local checks. Record deviations in the companion notes document only when needed. Update phase checkboxes only from actual evidence. Required local checks: bootstrap, typecheck, lint, unit/coverage, database integration, build, browser tests, demo driver and release probes on local scripted runtime. Database migrations are tested against local Supabase; no remote db push. Full suites run centrally, not from concurrent agents. Later changes invalidate affected earlier results and require rerunning appropriate gates before the final push.

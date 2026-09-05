@@ -9,7 +9,7 @@ import {
 } from "./demo-e2e";
 
 describe("durable demo browser flows", () => {
-  it("waits for queued capture completion before revealing the guest link", async () => {
+  it("waits for the automatically prepared guest link after queued capture", async () => {
     const calls: string[] = [];
     const page = fakePage(calls, {
       href: "/en/g/private-token",
@@ -23,8 +23,6 @@ describe("durable demo browser flows", () => {
       "host-capture-message:fill:Invite the Vega family",
       "host-capture-submit:click",
       "capture-queued:wait",
-      "capture-reveal:wait",
-      "capture-reveal:click",
       "guest-link:wait",
       "guest-link:getAttribute:href",
     ]);

@@ -38,7 +38,6 @@ test("captures an invitation and exposes its private guest link", async ({
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
   await expect(page.getByTestId("run-timeline-event").first()).toBeVisible();
-  await page.getByTestId("capture-reveal").click();
   await expect(page.getByTestId("structured-invitation")).toBeVisible();
   await expect(page.getByTestId("guest-link")).toHaveAttribute(
     "href",
@@ -150,4 +149,21 @@ test("saves household rules and asks for renewed review after a competing update
   ).toHaveValue("2");
   await expect(staleForm.locator('[name="petsTogetherAllowed"]')).toBeChecked();
   await stalePage.close();
+});
+
+test("puts decisions, invitation capture, and current outcomes ahead of room administration", async ({
+  page,
+}) => {
+  const headings = await page
+    .getByRole("heading", { level: 2 })
+    .allTextContents();
+  const roomPosition = headings.indexOf("Room ledger");
+  expect(roomPosition).toBeGreaterThan(-1);
+  expect(headings.indexOf("Pending decisions")).toBeGreaterThan(-1);
+  expect(headings.indexOf("Pending decisions")).toBeLessThan(roomPosition);
+  expect(headings.indexOf("Current visits")).toBeGreaterThan(-1);
+  expect(headings.indexOf("Current visits")).toBeLessThan(roomPosition);
+  await expect(page.getByTestId("host-outcomes")).toContainText(
+    "No upcoming visits yet",
+  );
 });
