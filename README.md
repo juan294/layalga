@@ -169,7 +169,7 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 
 ## Hackathon disclosure
 
-This repository was created during the hackathon submission period. The pre-existing cc-rpi v1.28.2 project supplied development-process scaffolding such as command, rule, and document templates. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period.
+This repository was created during the hackathon submission period. The pre-existing cc-rpi project (v1.28.2 at bootstrap, synced to v1.29.0 on 2026-09-01) supplied development-process scaffolding such as command, rule, and document templates. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period.
 
 The project uses synthetic demonstration data only. It does not integrate with WhatsApp, send real guest messages, or require real family information.
 

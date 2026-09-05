@@ -1,0 +1,61 @@
+%%{init: {"themeVariables": {"stateLabelColor": "#15201f", "stateBkg": "#d7e5df", "labelColor": "#15201f", "primaryTextColor": "#15201f"}}}%%
+stateDiagram-v2
+  direction LR
+
+
+  state "Visit (public.visits.status)" as Visit {
+    direction LR
+    [*] --> hold: create_temporary_hold<br/>hold_expires_at = now + 48 h
+    hold --> confirmed: confirm_visit<br/>schedules reconfirm_chase
+    hold --> cancelled: hold expires<br/>expireTemporaryHolds
+    confirmed --> reconfirm_pending: reconfirm_chase runs<br/>09:00 house time, 3 days before<br/>schedules reconfirm_escalate +24 h
+    reconfirm_pending --> reconfirmed: guest answers yes<br/>reconfirm_escalate cancelled
+    reconfirm_pending --> escalated: 24 h silence<br/>one escalation per host<br/>SES ping to each host
+    reconfirm_pending --> confirmed: reschedule_visit<br/>chase rescheduled
+    reconfirmed --> confirmed: reschedule_visit
+    escalated --> confirmed: reschedule_visit
+    confirmed --> cancelled: cancel<br/>open jobs cancelled
+    reconfirm_pending --> cancelled: cancel
+    reconfirmed --> cancelled: cancel
+    escalated --> cancelled: cancel
+    cancelled --> [*]
+  }
+
+  state "Scheduled job (public.scheduled_jobs.status)" as Job {
+    direction LR
+    state "cancelled" as job_cancelled
+    [*] --> scheduled: reconfirm_chase or reconfirm_escalate<br/>one open job per visit and kind
+    scheduled --> running: claimDueJob<br/>10 min lease, attempt +1
+    running --> done: every recipient reached
+    running --> scheduled: failure, attempt 1<br/>retry after 1 min
+    running --> scheduled: failure, attempt 2<br/>retry after 5 min
+    running --> quarantined: failure, attempt 3<br/>audited
+    running --> scheduled: lease stale after 10 min<br/>and no live run
+    quarantined --> scheduled: replayQuarantinedJob<br/>attempt_count reset
+    scheduled --> job_cancelled: visit cancelled,<br/>or guest reconfirmed
+    running --> job_cancelled: visit cancelled
+    done --> [*]
+    job_cancelled --> [*]
+  }
+
+  note right of Job
+    notification_fallback: when an in-process
+    tick run completes but the model missed a
+    recipient, deliverRequiredNotifications
+    writes the deterministic chase or escalation
+    rows and audits notification_fallback.
+    A queued tick that under-delivers fails
+    the job and retries on this ladder.
+  end note
+
+  style hold fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px
+  style reconfirm_pending fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px
+  style scheduled fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px
+  style confirmed fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px
+  style reconfirmed fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px
+  style running fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px
+  style done fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px
+  style cancelled fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px
+  style job_cancelled fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px
+  style escalated fill:#eee8dc,stroke:#a46d3c,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5
+  style quarantined fill:#eee8dc,stroke:#a46d3c,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5

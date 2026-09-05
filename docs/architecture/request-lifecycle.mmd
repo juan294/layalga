@@ -1,0 +1,59 @@
+sequenceDiagram
+  autonumber
+  participant B as Browser
+  participant W as Next.js server action<br/>layalga_web role
+  participant DB as Postgres<br/>runs table
+  participant CRON as Vercel Cron<br/>GET /api/ticks
+  participant AC as AgentCore Runtime<br/>handleAgentCoreRequest
+  participant S as Strands agent loop
+  participant M as Bedrock<br/>Sonnet 4.5
+  participant T as Typed tools
+
+  B->>W: submit form
+  W->>DB: startRun: insert status queued<br/>intent_key per home, replay if already seen
+  DB-->>W: runId, sessionId
+  W-->>B: acknowledgement {status queued, runId}
+  Note over W,DB: Queued means accepted work, not a result.<br/>Poll the exact run to a terminal state.
+
+  par Browser polls the run
+    loop every 1.5 s until terminal or deadline_at
+      B->>W: GET /api/runs/{id}?token
+      W->>DB: getAuthorizedRunSnapshot
+      DB-->>W: status, events, summary, executedOn
+      W-->>B: JSON, cache-control no-store
+    end
+  and Dispatch of the queued run
+    alt AGENT_RUNTIME=agentcore
+      W->>AC: InvokeAgentRuntime<br/>{operation execute_run, runId, task}
+      AC->>DB: claimQueuedRun: status running, claim token,<br/>attempt +1 (max 3), deadline now + 4 min
+      AC-->>W: {status accepted, runId}
+    else AGENT_RUNTIME=local
+      W->>W: after(): executeQueuedAgentRun in process
+      W->>DB: claimQueuedRun (same claim rules)
+    else Vercel Cron tick (Bearer CRON_SECRET)
+      CRON->>W: GET /api/ticks
+      W->>DB: reconcileStaleRuns: deadline passed and attempts < 3<br/>back to queued, else failed
+      W->>DB: expireTemporaryHolds
+      W->>DB: claimDueJob: scheduled_jobs due, 10 min lease
+      W->>DB: enqueue tick run per due job, not opportunistic
+      W->>DB: drainAgentQueue: queued or stale running (6 min),<br/>attempts < 3, concurrency 2
+      W->>AC: InvokeAgentRuntime execute_run per candidate
+      AC->>DB: claimQueuedRun
+      AC-->>W: {status accepted}
+      W->>W: dispatchHostEmailPingsSafely
+    end
+
+    AC->>S: agent.invoke(prompt), 240 s budget<br/>session stored in agent_sessions
+    loop model and tool turns
+      S->>M: converse
+      M-->>S: text or tool use
+      S->>T: tool call, policy hook first for gated tools
+      T->>DB: read, or authorized write, plus audit row
+      T-->>S: tool result
+    end
+    S-->>AC: completed, interrupted, or failed
+    AC->>DB: terminal result {summary, executedOn}<br/>claim token cleared, finished_at set
+  end
+
+  B->>B: poller renders timeline<br/>tool_call, policy_verdict, decision_applied
+  Note over B: After deadline_at the poller stops<br/>and shows a Retry status button.

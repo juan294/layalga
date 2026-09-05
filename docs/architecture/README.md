@@ -67,4 +67,23 @@ Regenerate it after editing the XML:
   docs/architecture/layalga-architecture.drawio
 ```
 
-**Stale as of 2026-09-04.** This file still describes the pre-AgentCore state: its subtitle and zone ZC say the local durable worker is selected and AgentCore is "proven but not the selected runtime" (`E2`, and legend entry `LG7`), and it has no nodes for AgentCore Memory, host email pings, or OpenTelemetry tracing. `/Applications/draw.io.app` is not installed in this environment, so the paired PNG export (which embeds the XML and must match it) cannot be regenerated here; hand-editing dozens of precisely positioned, cross-referenced nodes and legend text without being able to render and check the result risked leaving the file internally inconsistent, which is worse than leaving it visibly stale. `layalga-architecture.mmd`, its rendered SVG and PNG, and the prose above are current. Refresh this file the next time draw.io is available to render and verify it.
+**Refreshed 2026-09-04.** The draw.io view now matches the AgentCore-selected state recorded in ADR 0002: Amazon Bedrock AgentCore Runtime is the selected production execution path with the local worker as the one-flag rollback, and the AWS zone carries AgentCore Memory (with the host page list and Forget edge), Amazon SES host-only email pings fed by the `host_email_pings` outbox, and ADOT for Node tracing to CloudWatch GenAI Observability. EventBridge Scheduler remains the dashed future item. The paired PNG embeds the diagram XML, so it must be regenerated with the command above after every edit to the `.drawio` file.
+
+## Supporting diagrams
+
+Four smaller Mermaid sources sit next to the topology diagram. Each has a committed SVG rendered with the same Mermaid CLI, config, theme, and background as above.
+
+- `request-lifecycle.mmd`: the sequence from a browser submit through the queued `runs` row, the immediate acknowledgement, browser polling of `GET /api/runs/{id}`, the `execute_run` dispatch to AgentCore (or the local `after()` path), the Strands model-and-tool loop, and the Vercel Cron tick that recovers stale leases, drains the queue, claims due jobs, and sends host email pings.
+- `interrupt-resume.mmd`: the sequence for a gated tool such as `create_temporary_hold`: the policy hook's room and overlap verdicts, the `host_decision` interrupt and session snapshot, the pending decision and its SES ping, the host's approve or decline, the resume run that re-checks the verdicts and overflow fingerprint before the tool executes once, and the `application_error` failure path with the host Retry button.
+- `reconfirmation-state-machine.mmd`: the visit states from `hold` through `confirmed`, `reconfirm_pending`, `reconfirmed`, `escalated`, and `cancelled`, plus the `scheduled_jobs` lifecycle with its 10 minute lease, the 1 minute and 5 minute retry ladder, quarantine on the third failure, and the deterministic notification fallback.
+- `memory-namespaces.mmd`: the single AgentCore Memory resource, its per-party namespace and two extraction strategies, which agent tasks read or write it, the deterministic name-free capture event, tool-driven recall and its audit, the host panel list and Forget path, and the family-name boundary.
+
+Render any of them with the same command family, substituting the file name:
+
+```bash
+pnpm dlx @mermaid-js/mermaid-cli@11.12.0 \
+  -i docs/architecture/request-lifecycle.mmd \
+  -o docs/architecture/request-lifecycle.svg \
+  -c docs/architecture/mermaid-config.json \
+  -t neutral -b '#f7f1e5' -w 1600
+```

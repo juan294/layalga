@@ -1,0 +1,63 @@
+sequenceDiagram
+  autonumber
+  participant M as Bedrock model
+  participant S as Strands agent
+  participant H as Policy hook<br/>BeforeToolCallEvent
+  participant P as Deterministic policy<br/>rooms + overlap
+  participant DB as Postgres
+  participant O as Email outbox<br/>SES
+  participant HOST as Host
+  participant W as Server action<br/>decideAction
+
+  M->>S: tool use create_temporary_hold
+  S->>H: BeforeToolCallEvent (gated tool)
+  H->>DB: loadDraftForTool: trusted draft,<br/>approvalStayHash, sanitized input
+  H->>P: evaluateRoomSelection (capacity, overflow)
+  H->>P: evaluateOverlap (beds, children, pets, special request)
+  P-->>H: allow, interrupt, or deny
+  H->>DB: audit policy_verdict {tool, decision, reason}
+
+  alt deny
+    H-->>S: event.cancel with reason text
+    S-->>M: tool error, model explains to guest
+  else allow, or approval already covers this stay
+    H-->>S: continue, tool executes
+  else interrupt
+    H->>S: event.interrupt({name host_decision, reason})
+    S->>DB: session snapshot saved in agent_sessions<br/>PostgresStorage, saveLatestOn message
+    S-->>DB: run status interrupted, claim token cleared
+    S->>DB: pending_decisions row<br/>(session, interrupt_id, reason)
+    Note over DB: run-task.ts executeClaimedAgentTask
+    O->>DB: selectPendingPings: one address per host
+    O->>HOST: one SES ping per host<br/>on conflict (kind, source_id, host_id) do nothing
+    HOST->>W: approve or decline, optional note
+    W->>DB: pending_decisions status approved or declined,<br/>decided_by_host_id, note, application_error null
+    W->>DB: enqueue task resume {sessionId, interruptId, response}
+    W-->>HOST: redirect to run status page
+
+    Note over S,DB: resume run claims the queued row
+    S->>DB: verify decision matches host, status, and note
+    S->>DB: applied_run_id set to this run
+    S->>DB: restore session snapshot from agent_sessions
+    S->>H: agent.invoke(InterruptResponseContent)
+    alt declined
+      H-->>S: event.cancel Declined by host, note
+    else approved
+      H->>P: re-evaluate overlap and room selection
+      H->>H: compare overflow fingerprint<br/>(rooms + arrangements)
+      alt house changed to deny, or fingerprint differs
+        H-->>S: event.cancel with reason
+      else still allowed
+        H-->>S: input.approvedBy = hostId, tool executes once
+      end
+    end
+    S->>DB: audit decision_applied {pendingDecisionId, runId}<br/>only if not already recorded
+    S->>DB: run completed {summary, executedOn}
+
+    opt resume run throws
+      S->>DB: run failed, pending_decisions.application_error = message<br/>applied_run_id reset unless decision_applied exists
+      DB-->>HOST: host panel shows the decision with a Retry button
+      HOST->>W: Retry re-submits the same decision
+      W->>DB: enqueue resume again
+    end
+  end

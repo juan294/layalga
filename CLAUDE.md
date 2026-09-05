@@ -14,13 +14,14 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
-- Strands Agents SDK with durable queued runs and a local `runAgentTask` worker
-- Amazon Bedrock Sonnet 4.5, verified through a completed AgentCore model-and-tool run; a scripted model for deterministic demo and test runs
+- Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the one-flag rollback
+- Amazon Bedrock Claude Sonnet 4.5 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
+- AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host-only email pings through Amazon SES (`EMAIL=ses`)
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
-- Vercel `after()` for opportunistic local dispatch and Vercel Cron for lease recovery, bounded queue draining, and due jobs; an EventBridge Scheduler adapter for a future AgentCore retry
+- Vercel Cron `/api/ticks` every minute for lease recovery, bounded queue draining, due jobs, and email dispatch; an implemented but unselected EventBridge Scheduler adapter (`SCHEDULER=none` in production)
 - Supabase Auth with Google OAuth, optional guest invitation claims, and signed synthetic-demo sessions
 
-ADR 0002 records the initial Anthropic access failure, the later successful AgentCore model-and-tool proof, and why the selected production runtime remains local until a separate runtime-switch decision.
+ADR 0002 records the initial Anthropic access failure, the AgentCore model-and-tool proof, the 2026-09-03 decision that made AgentCore the selected production runtime, and the tracing, memory, and release addenda since.
 
 ## Product Safety Contracts
 
@@ -71,7 +72,7 @@ Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description
 
 ## Deployment
 
-The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. The intended web hostname is `layalga.thecreativetoken.com`, but no production candidate has been deployed or verified. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
+The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v0.4.0 and v0.5.0 were released on 2026-09-04 through the nine-probe gate, with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` deployed from the same commit. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
 ## Agent Behavior
 
@@ -86,4 +87,10 @@ Exhaust CLI and browser automation before asking the user to perform operations.
 | Plans                | `docs/plans/YYYY-MM-DD-*.md`                                         | Phase files use `-phases/`                           |
 | ADRs                 | `docs/decisions/`                                                    | Architecture decisions                               |
 | Release procedure    | `docs/release/e2e-pro-playbook.md`                                   | Exact-candidate release gate                         |
+| Runtime runbook      | `docs/release/runtime-database-and-identity.md`                      | Database roles, AgentCore identity, job replay       |
+| Architecture         | `docs/architecture/`                                                 | Mermaid and draw.io diagrams with README             |
+| Security             | `docs/security/data-lifecycle.md`                                    | Retention and prompt boundary                        |
+| User manuals         | `docs/guides/`                                                       | Host and guest journeys, non-technical               |
+| Submission           | `docs/submission/`                                                   | Devpost, pitch, video script, judge guide, posts     |
+| Docs index           | `docs/README.md`                                                     | One line per document                                |
 | Agent reports        | `docs/agents/*-report.md`                                            | Gitignored because the intended repository is public |

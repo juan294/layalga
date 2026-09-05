@@ -1,0 +1,60 @@
+flowchart TB
+  subgraph tasks["Agent tasks • memoryStoresForTask"]
+    direction LR
+    captureMatched["host_capture<br/>matched party<br/>read only, no extraction"]
+    captureUnmatched["host_capture<br/>no pre-match<br/>read only, whole home"]
+    guestWrite["guest_submit • guest_change<br/>writable<br/>extraction on InvocationTrigger"]
+    partyRead["guest_reconfirm • resume • tick<br/>party namespace<br/>read only, no extraction"]
+    noStore["host_room_request<br/>no memory store"]
+  end
+
+  subgraph host["Host panel • What L'Ayalga remembers"]
+    direction LR
+    panel["loadHostMemoryPanel<br/>records per party"]
+    forget["Forget<br/>forgetPartyMemory"]
+  end
+
+  searchTool["search_memory tool<br/>tool-driven recall, injection off, max 5 results<br/>each call audited as tool_call"]
+  captureEvent["recordCaptureMemory<br/>after a completed host_capture<br/>one CreateEvent, clientToken = run id<br/>party size • dates text • arrival<br/>special requests • pets"]
+
+  subgraph aws["AgentCore Memory • LayalgaHouseholdMemory • us-east-1"]
+    direction LR
+    events["Raw events<br/>actorId home-{homeId}/party-{partyId}<br/>sessionId = Strands session<br/>expire after 30 days"]
+    records["Party namespace<br/>/parties/home-{homeId}/party-{partyId}<br/>HouseholdPreferences<br/>userPreference, .../preferences<br/>HouseholdFacts<br/>semantic, .../facts"]
+    homeScope["Whole home subtree<br/>/parties/home-{homeId}<br/>read only"]
+  end
+
+  auditWritten["audit memory_written"]
+  auditForgotten["audit memory_forgotten<br/>actor host"]
+  boundary["Name boundary<br/>prompt minimization strips names before model calls<br/>host_capture transcripts name the family, so they are never extracted<br/>the capture event carries no family name and no invitation, party, or run id<br/>rememberedContext is never echoed back into memory"]
+
+  captureMatched -- "party namespace" --> searchTool
+  guestWrite -- "party namespace" --> searchTool
+  partyRead -- "party namespace" --> searchTool
+  captureUnmatched -- "whole home" --> searchTool
+  searchTool --> records
+  searchTool --> homeScope
+  guestWrite -- "conversation turns" --> events
+  captureMatched -- "after completion" --> captureEvent
+  captureUnmatched -- "after completion" --> captureEvent
+  captureEvent -- "CreateEvent" --> events
+  events -- "async extraction<br/>two strategies" --> records
+  panel -- "ListMemoryRecords" --> records
+  forget -- "BatchDelete<br/>MemoryRecords" --> records
+  forget -- "DeleteEvent per session" --> events
+  captureEvent -.-> auditWritten
+  forget -.-> auditForgotten
+  boundary -.-> captureEvent
+
+  classDef person fill:#f6f0e4,stroke:#143f3b,color:#15201f,stroke-width:2px;
+  classDef app fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px;
+  classDef core fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px;
+  classDef store fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px;
+  classDef off fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
+  classDef selected fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:3px;
+  class events,records,homeScope selected;
+  class captureMatched,captureUnmatched,guestWrite,partyRead core;
+  class noStore off;
+  class captureEvent,searchTool,panel,forget app;
+  class auditWritten,auditForgotten store;
+  class boundary person;
