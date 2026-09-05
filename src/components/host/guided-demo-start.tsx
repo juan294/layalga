@@ -1,13 +1,11 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { buttonStyle, graphite, rule } from "./host-styles";
+import { useHydrated } from "@/components/use-hydrated";
 
-const subscribeToHydration = () => () => {};
-const clientReady = () => true;
-const serverReady = () => false;
+import { buttonStyle, graphite, rule } from "./host-styles";
 
 type StartResult = "ready" | "reset_failed" | "entry_failed";
 
@@ -52,11 +50,7 @@ export function GuidedDemoStart({
 }) {
   const t = useTranslations("GuidedDemo");
   // Server-rendered controls must not accept clicks before their handler exists.
-  const hydrated = useSyncExternalStore(
-    subscribeToHydration,
-    clientReady,
-    serverReady,
-  );
+  const hydrated = useHydrated();
   const busy = useRef(false);
   const [working, setWorking] = useState<"vega" | "otero" | null>(null);
   const [failure, setFailure] = useState<Exclude<StartResult, "ready"> | null>(

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useHydrated } from "@/components/use-hydrated";
+
 import { clockInputToIso, clockInputValue } from "@/components/frontend-utils";
 
 import {
@@ -44,6 +46,7 @@ export function DemoClockPanel({
   labels,
 }: DemoClockPanelProps) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [customState, setCustom] = useState({
     source: current,
     value: clockInputValue(current, timeZone),
@@ -140,7 +143,7 @@ export function DemoClockPanel({
         <button
           aria-busy={working === "chase"}
           data-testid="demo-clock-chase"
-          disabled={working !== null}
+          disabled={!hydrated || working !== null}
           onClick={() => warp("chase")}
           style={{ ...quietButtonStyle, opacity: working ? 0.55 : 1 }}
           type="button"
@@ -150,7 +153,7 @@ export function DemoClockPanel({
         <button
           aria-busy={working === "escalation"}
           data-testid="demo-clock-escalation"
-          disabled={working !== null}
+          disabled={!hydrated || working !== null}
           onClick={() => warp("escalation")}
           style={{ ...quietButtonStyle, opacity: working ? 0.55 : 1 }}
           type="button"
@@ -173,7 +176,7 @@ export function DemoClockPanel({
       >
         <input
           id="demo-clock-custom"
-          disabled={working !== null}
+          disabled={!hydrated || working !== null}
           onChange={(event) =>
             setCustom({ source: current, value: event.target.value })
           }
@@ -183,7 +186,7 @@ export function DemoClockPanel({
         />
         <button
           aria-busy={working === "custom"}
-          disabled={working !== null || !custom}
+          disabled={!hydrated || working !== null || !custom}
           onClick={() => warp("custom")}
           style={{ ...buttonStyle, opacity: working ? 0.55 : 1 }}
           type="button"

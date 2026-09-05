@@ -10,7 +10,7 @@ import {
 
 test.setTimeout(150_000);
 
-test("guided start waits for JavaScript before accepting a click", async ({
+test("guided and clock controls wait for JavaScript before accepting clicks", async ({
   page,
   context,
 }) => {
@@ -37,7 +37,9 @@ test("guided start waits for JavaScript before accepting a click", async ({
     const path = new URL(request.url()).pathname;
     if (
       request.method() === "POST" &&
-      (path === "/api/demo/reset" || path === "/en/demo-enter-guest")
+      (path === "/api/demo/clock" ||
+        path === "/api/demo/reset" ||
+        path === "/en/demo-enter-guest")
     )
       posts.push(path);
   });
@@ -46,17 +48,31 @@ test("guided start waits for JavaScript before accepting a click", async ({
     await expect(page.getByTestId("guided-demo-start-vega")).toBeVisible();
     await expect(page.getByTestId("guided-demo-start-vega")).toBeDisabled();
     await expect(page.getByTestId("guided-demo-start-otero")).toBeDisabled();
+    await expect(page.getByTestId("demo-clock-chase")).toBeDisabled();
+    await expect(page.getByTestId("demo-clock-escalation")).toBeDisabled();
+    await expect(page.locator("#demo-clock-custom")).toBeDisabled();
     expect(posts).toEqual([]);
   } finally {
     releaseScripts();
   }
+  const clock = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/demo/clock" &&
+      response.request().method() === "POST",
+  );
+  await page.getByTestId("demo-clock-chase").click();
+  expect((await (await clock).json()).outcome).toBe("no_eligible");
   await page.getByTestId("guided-demo-start-vega").click();
   await page.waitForURL(/\/en\/guest$/, { timeout: 30_000 });
   await expect(page.getByTestId("demo-guest-guide")).toHaveAttribute(
     "data-scenario",
     "vega",
   );
-  expect(posts).toEqual(["/api/demo/reset", "/en/demo-enter-guest"]);
+  expect(posts).toEqual([
+    "/api/demo/clock",
+    "/api/demo/reset",
+    "/en/demo-enter-guest",
+  ]);
 });
 
 async function searchAndSubmit(page: Page, exception: boolean) {

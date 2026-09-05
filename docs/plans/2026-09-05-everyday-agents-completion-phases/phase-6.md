@@ -47,3 +47,7 @@ Final test review applies the same synchronization contract across all eight sea
 The final synchronized browser suite passed all 23 desktop/mobile tests in 1.6 minutes. Typecheck, ESLint, all 668 application tests and the production build passed for the source correction; subsequent changes were browser-test synchronization and documentation only.
 
 All nine final local release probes also passed on normal Next dev, including the complete demo driver and verified cleanup, before the corrected push.
+
+The corrected PR head 56dbc47 passed all required checks, but its detailed browser log recorded one successful retry at the first clock interaction. The merge remained on hold. The delayed-JavaScript regression reproduced enabled clock controls before hydration; the shared readiness hook now covers guided starts and all clock controls. The regression also verifies the clock request after scripts load, followed by exactly one reset and guest entry. This closes the related client-control exposure without interpreting a retry as clean first-attempt evidence.
+
+The shared clock/start guard passed all three targeted guided tests, 668 application tests, 494 coverage tests, typecheck, lint, production build and all 23 browser tests (1.5 minutes, zero failures) locally.
