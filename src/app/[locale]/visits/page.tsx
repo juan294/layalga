@@ -1,3 +1,6 @@
+import { AccountPendingInvitations } from "@/components/guest/account-pending-invitations";
+import { CancellationReview } from "@/components/guest/cancellation-review";
+import { cancelAccountVisit } from "./actions";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
@@ -11,7 +14,12 @@ export default async function GuestAccountPage({
   searchParams,
 }: {
   params: Promise<{ locale: "en" | "es" }>;
-  searchParams: Promise<{ account?: string }>;
+  searchParams: Promise<{
+    account?: string;
+    cancel?: string;
+    visit?: string;
+    invitation?: string;
+  }>;
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -20,6 +28,7 @@ export default async function GuestAccountPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const cancellation = await searchParams;
   const accountError = (await searchParams).account === "not_found";
   const visits = user ? await loadGuestAccountVisits(user.id) : [];
 
@@ -51,12 +60,39 @@ export default async function GuestAccountPage({
                   <strong>{visit.partyName}</strong>
                   <span>{formatDateStay(visit.stay, locale)}</span>
                   <small>{t(`status.${visit.status}`)}</small>
+                  {visit.status !== "cancelled" ? (
+                    <CancellationReview
+                      locale={locale}
+                      action={cancelAccountVisit}
+                      visit={visit}
+                      changed={
+                        cancellation.cancel === "changed" &&
+                        cancellation.visit === visit.id
+                      }
+                      open={
+                        cancellation.cancel === "changed" &&
+                        cancellation.visit === visit.id
+                      }
+                    />
+                  ) : null}
                 </li>
               ))}
             </ol>
           ) : (
             <p>{t("empty")}</p>
           )}
+          {user ? (
+            <AccountPendingInvitations
+              userId={user.id}
+              locale={locale}
+              action={cancelAccountVisit}
+              changedInvitation={
+                cancellation.cancel === "changed"
+                  ? cancellation.invitation
+                  : undefined
+              }
+            />
+          ) : null}
           {user ? (
             <form action="/auth/sign-out" method="post">
               <input name="locale" type="hidden" value={locale} />

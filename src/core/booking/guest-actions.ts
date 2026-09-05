@@ -1,3 +1,5 @@
+import { withdrawInvitation, type CancellationInput } from "./cancellation";
+import { requestsCancellationReview } from "./cancellation-intent";
 import { getAgentClient } from "@/agent/client";
 import { schedulerForHome } from "@/agent/scheduler";
 import { DbDemoClock, SystemClock } from "@/core/clock";
@@ -9,10 +11,7 @@ import {
   loadGuestRoomSearchWindow,
   roomOptionsForStay,
 } from "@/core/rooms/search";
-import {
-  toGuestRoomChoice,
-  type GuestRoomChoice,
-} from "./guest-room-contract";
+import { toGuestRoomChoice, type GuestRoomChoice } from "./guest-room-contract";
 
 import {
   type GuestInvitationAuthority,
@@ -189,7 +188,13 @@ export async function requestGuestChangeCore(
   invitation: GuestInvitationData,
   message: string,
   locale: "en" | "es",
-): Promise<{ runId: string } | null> {
+): Promise<
+  | { runId: string; cancellationRequested?: never }
+  | { cancellationRequested: true; runId?: never }
+  | null
+> {
+  if (requestsCancellationReview(message))
+    return { cancellationRequested: true };
   if (!invitation.visit || !message) return null;
 
   const result =
@@ -258,5 +263,26 @@ function rangesOverlap(
 ): boolean {
   return (
     String(left[0]) < String(right[1]) && String(right[0]) < String(left[1])
+  );
+}
+
+export async function cancelGuestInvitationCore(
+  invitation: GuestInvitationData,
+  review: Pick<CancellationInput, "expectedVisitId" | "expectedStay">,
+): Promise<void> {
+  const connection = getDatabaseConnection();
+  const [home] = await connection.sql<
+    { demo: boolean }[]
+  >`select demo from public.homes where id = ${invitation.homeId}`;
+  if (!home) throw new Error("Household not found");
+  await withdrawInvitation(
+    connection.db,
+    {
+      homeId: invitation.homeId,
+      invitationId: invitation.id,
+      actor: { kind: "guest", partyId: invitation.partyId },
+      ...review,
+    },
+    schedulerForHome({ homeDemo: home.demo }),
   );
 }

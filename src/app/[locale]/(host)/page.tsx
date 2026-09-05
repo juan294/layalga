@@ -1,3 +1,4 @@
+import { HostCancellationPanel } from "@/components/host/cancellation-panel";
 import { getTranslations } from "next-intl/server";
 import { after } from "next/server";
 
@@ -33,7 +34,7 @@ import {
   RoomLedger,
   type RoomLedgerLabels,
 } from "@/components/host/room-ledger";
-import { updateEmailPingsAction } from "./actions";
+import { updateEmailPingsAction, cancelHostInvitation } from "./actions";
 import { loadHostMemoryPanel } from "./memory-data";
 import { loadHostRoomLedger } from "./room-data";
 import {
@@ -61,7 +62,11 @@ import {
 
 interface HostPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    cancel?: string;
+    invitation?: string;
+  }>;
 }
 
 interface VisitRow {
@@ -399,6 +404,17 @@ export default async function HostPage({
           <p style={labelStyle}>{t("rooms.eyebrow")}</p>
           <h2 style={headingStyle}>{t("rooms.title")}</h2>
           <div style={panelStyle}>
+            <HostCancellationPanel
+              database={getDatabaseConnection().db}
+              homeId={host.homeId}
+              locale={locale === "es" ? "es" : "en"}
+              action={cancelHostInvitation}
+              changedInvitation={
+                (await searchParams).cancel === "changed"
+                  ? (await searchParams).invitation
+                  : undefined
+              }
+            />
             <RoomLedger
               data={roomData}
               labels={roomLedgerLabels(t)}

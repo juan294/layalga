@@ -242,7 +242,8 @@
       "reconfirmEscalation": "Reconfirmation escalated",
       "memoryWritten": "Household memory updated",
       "memoryForgotten": "Household memory forgotten",
-      "other": "Household activity"
+      "other": "Household activity",
+      "invitationCancelled": "Invitation cancelled"
     },
     "activityTools": {
       "captureInvitation": "Capture invitation",
@@ -256,7 +257,8 @@
       "listGuestRooms": "List guest-visible rooms",
       "findRoomOptions": "Find room options",
       "searchMemory": "Recall household memory",
-      "other": "Household action"
+      "other": "Household action",
+      "prepareCancellation": "Prepare cancellation"
     },
     "activityPolicies": {
       "allow": "Allowed",
@@ -416,5 +418,23 @@
     "errorBody": "The household record is safe. Try opening this page again.",
     "retry": "Try again",
     "home": "Go to the ledger"
+  },
+  "Cancellation": {
+    "openVisit": "Cancel this visit",
+    "openRequest": "Withdraw this invitation request",
+    "visitReview": "Cancel the visit on {stay}?",
+    "requestReview": "Withdraw this invitation and any request awaiting host approval?",
+    "consequence": "This releases any reserved rooms, stops follow-up reminders and closes pending approvals. Your invitation link will close. A new invitation is needed if you change your mind.",
+    "confirmLabel": "I have reviewed this request and want to cancel it.",
+    "confirm": "Confirm cancellation",
+    "pending": "Cancelling…",
+    "keep": "To keep your plans, leave this unchecked and close this section.",
+    "doneTitle": "Your request is cancelled",
+    "doneBody": "Any reserved rooms have been released and follow-up reminders have stopped. The hosts can see the cancellation. Contact your host for a new invitation if your plans change.",
+    "account": "Your visits",
+    "hostTitle": "Cancel a visit or withdraw an invitation",
+    "noStay": "Awaiting dates",
+    "changed": "This request changed since your review. Check the current details below, then confirm again only if you still want to cancel.",
+    "pendingInvitations": "Invitations awaiting a visit"
   }
 }

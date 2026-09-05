@@ -1,3 +1,4 @@
+import { CancellationReview } from "@/components/guest/cancellation-review";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 
@@ -10,6 +11,7 @@ import { loadGuestInvitation } from "@/core/booking/guest-invitation";
 import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
 
 import {
+  cancelGuestSession,
   findGuestOptionsSession,
   reconfirmGuestSession,
   requestGuestChangeSession,
@@ -18,10 +20,12 @@ import {
 
 interface GuestSessionPageProps {
   params: Promise<{ locale: "en" | "es" }>;
+  searchParams: Promise<{ cancel?: string }>;
 }
 
 export default async function GuestSessionPage({
   params,
+  searchParams,
 }: GuestSessionPageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -35,6 +39,9 @@ export default async function GuestSessionPage({
   );
   if (!invitation) redirect(`/${locale}/sign-in`);
 
+  const cancellationState = (await searchParams).cancel;
+  const cancellationReview =
+    cancellationState === "review" || cancellationState === "changed";
   const status = invitation.visit?.status ?? "invited";
   const presentation = invitation.visit
     ? guestVisitPresentation(invitation.visit)
@@ -79,6 +86,17 @@ export default async function GuestSessionPage({
               visit={invitation.visit}
             />
           ) : null}
+
+          <CancellationReview
+            locale={locale}
+            action={cancelGuestSession}
+            visit={
+              invitation.visit?.status === "cancelled" ? null : invitation.visit
+            }
+            anchorId="cancel-request"
+            changed={cancellationState === "changed"}
+            open={cancellationReview}
+          />
         </div>
       </article>
     </main>

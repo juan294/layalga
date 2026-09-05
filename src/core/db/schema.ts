@@ -20,7 +20,7 @@ export type VisitStatus =
   | "reconfirmed"
   | "escalated"
   | "cancelled";
-export type DecisionStatus = "pending" | "approved" | "declined";
+export type DecisionStatus = "pending" | "approved" | "declined" | "cancelled";
 export type RunStatus =
   "queued" | "running" | "completed" | "interrupted" | "failed";
 export type ScheduledJobKind = "reconfirm_chase" | "reconfirm_escalate";

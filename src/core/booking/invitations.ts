@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 
-import type { JSONValue } from "postgres";
+import type { JSONValue, TransactionSql } from "postgres";
 
 import { sqlClient, type DatabaseClient } from "../db/client";
 
@@ -61,6 +61,25 @@ export interface ReissueInvitationLinkOptions {
 }
 
 const LINK_LIFETIME_MS = 30 * 24 * 60 * 60 * 1_000;
+
+/** Called inside the authorized booking transaction; never un-revokes a link. */
+export async function extendInvitationAccessForStay(
+  transaction: TransactionSql,
+  invitationId: string,
+  stayEnd: string,
+): Promise<void> {
+  await transaction`
+    update public.invitations
+    set link_token_expires_at = greatest(
+      link_token_expires_at,
+      ((${stayEnd}::date + 7)::timestamp at time zone 'UTC')
+    )
+    where id = ${invitationId}
+      and link_token is not null
+      and status <> 'cancelled'
+      and link_token_revoked_at is null
+  `;
+}
 
 export function hashLinkToken(token: string, secret: string): string {
   if (!token) throw new Error("Link token is required");
@@ -196,7 +215,17 @@ export async function reissueInvitationLink(
     await transaction`
       update public.invitations
       set link_token = ${link.hash},
-          link_token_expires_at = ${expiresAt.toISOString()},
+          link_token_expires_at = greatest(
+            ${expiresAt.toISOString()}::timestamptz,
+            (
+              select (max(upper(visit.stay)) + 7)::timestamp at time zone 'UTC'
+              from public.visits visit
+              where visit.invitation_id = ${invitationId}
+                and visit.status in ('confirmed', 'reconfirm_pending', 'reconfirmed', 'escalated')
+                and not upper_inf(visit.stay)
+                and isfinite(upper(visit.stay))
+            )
+          ),
           link_token_revoked_at = null
       where id = ${invitationId}
     `;

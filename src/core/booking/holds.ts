@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { extendInvitationAccessForStay } from "./invitations";
+
 import type { TransactionSql } from "postgres";
 
 import {
@@ -157,6 +159,12 @@ export async function createTemporaryHold(
         invitation.home_id,
         options.lockHome !== false,
       );
+      // Recheck after the home lock: withdrawal may have committed while
+      // this task waited after its initial invitation lookup.
+      const [activeInvitation] = await transaction`
+        select id from public.invitations where id = ${input.invitationId} and status <> 'cancelled'
+      `;
+      if (!activeInvitation) throw new Error("The invitation was cancelled");
       await expireHomeHolds(transaction, invitation.home_id, clock.now());
       const draft = toDraft(input);
       await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
@@ -300,6 +308,11 @@ export async function confirmVisit(
         returning id
       `;
       if (!confirmed) throw new Error(`Visit is no longer held: ${visitId}`);
+      await extendInvitationAccessForStay(
+        transaction,
+        visit.invitation_id,
+        visit.stay_end,
+      );
       const scheduling = await replaceChaseJob(
         transaction,
         visit,
@@ -331,28 +344,32 @@ export async function cancelVisit(
 ): Promise<void> {
   const client = sqlClient(database);
   const cancelledExternalRefs = await client.begin(async (transaction) => {
-    const visit = await loadVisitWithHomeLock(transaction, visitId);
-    if (visit.status === "cancelled") return [];
-
-    await transaction`delete from public.visit_rooms where visit_id = ${visitId}`;
-    const externalRefs = await cancelOpenVisitJobs(transaction, visitId);
-    await transaction`
-      update public.visits
-      set status = 'cancelled', hold_expires_at = null,
-          calendar_updated_at = case
-            when calendar_eligible_at is null then calendar_updated_at else now()
-          end,
-          calendar_sequence = case
-            when calendar_eligible_at is null then calendar_sequence
-            else calendar_sequence + 1
-          end
-      where id = ${visitId}
-    `;
-    return externalRefs;
+    await loadVisitWithHomeLock(transaction, visitId);
+    return cancelVisitInTransaction(transaction, visitId);
   });
   for (const externalRef of cancelledExternalRefs) {
     await scheduler.cancel(externalRef);
   }
+}
+
+/** Caller must hold the common home advisory lock and authorize the action. */
+export async function cancelVisitInTransaction(
+  transaction: TransactionSql,
+  visitId: string,
+): Promise<string[]> {
+  const [visit] = await transaction<
+    { status: string }[]
+  >`select status from public.visits where id = ${visitId} for update`;
+  if (!visit || visit.status === "cancelled") return [];
+  await transaction`delete from public.visit_rooms where visit_id = ${visitId}`;
+  const refs = await cancelOpenVisitJobs(transaction, visitId);
+  await transaction`
+    update public.visits set status = 'cancelled', hold_expires_at = null,
+      calendar_updated_at = case when calendar_eligible_at is null then calendar_updated_at else now() end,
+      calendar_sequence = case when calendar_eligible_at is null then calendar_sequence else calendar_sequence + 1 end
+    where id = ${visitId}
+  `;
+  return refs;
 }
 
 export async function expireTemporaryHolds(
@@ -491,6 +508,11 @@ export async function rescheduleVisit(
       if (!rescheduled) {
         throw new Error(`Visit changed while being rescheduled: ${current.id}`);
       }
+      await extendInvitationAccessForStay(
+        transaction,
+        current.invitation_id,
+        input.stay[1],
+      );
       await insertVisitRooms(
         transaction,
         current.id,
@@ -883,7 +905,7 @@ async function cancelOpenVisitJobs(
     update public.scheduled_jobs
     set status = 'cancelled', claim_token = null, claimed_at = null
     where visit_id = ${visitId}
-      and status in ('scheduled', 'running')
+      and status in ('scheduled', 'running', 'quarantined')
     returning external_ref
   `;
   return cancelled.flatMap(({ external_ref: ref }) => (ref ? [ref] : []));

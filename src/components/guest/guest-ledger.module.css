@@ -353,3 +353,9 @@
     box-shadow: none;
   }
 }
+
+.cancellationToggle {
+  cursor: pointer;
+  min-height: var(--interactive-target, 44px);
+  padding: 0.75rem 0;
+}

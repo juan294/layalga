@@ -403,22 +403,28 @@ async function executeClaimedAgentTask(
     await safeMemoryWrite(run.id, "flush", () => agent.memoryManager?.flush());
 
     if (result.stopReason === "interrupt") {
-      const ids: string[] = [];
-      for (const interrupt of result.interrupts ?? []) {
-        const [decision] = await sql<{ id: string }[]>`
+      return await sql.begin(async (sql) => {
+        await sql`select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))`;
+        const [active] =
+          await sql`select id from public.runs where id = ${run.id} and status = 'running' and queue_claim_token = ${run.claimToken}`;
+        if (!active)
+          throw new Error("The request was withdrawn while awaiting review");
+        const ids: string[] = [];
+        for (const interrupt of result.interrupts ?? []) {
+          const [decision] = await sql<{ id: string }[]>`
           insert into public.pending_decisions (
             home_id, run_id, agent_session_id, interrupt_id, interrupt_name, reason
-          ) values (
+          ) select
             ${task.homeId}, ${run.id}, ${sessionId}, ${interrupt.id},
             ${interrupt.name}, ${JSON.stringify(interrupt.reason ?? null)}::text::jsonb
-          )
+          where exists (select 1 from public.runs where id = ${run.id} and status = 'running' and queue_claim_token = ${run.claimToken})
           on conflict (agent_session_id, interrupt_id) do update
           set reason = excluded.reason
           returning id
         `;
-        if (decision) ids.push(decision.id);
-      }
-      await sql`
+          if (decision) ids.push(decision.id);
+        }
+        await sql`
         update public.runs set status = 'interrupted', result = ${JSON.stringify(
           terminalResultJson(result.toString(), executedOn),
         )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()},
@@ -426,14 +432,15 @@ async function executeClaimedAgentTask(
         where id = ${run.id} and status = 'running'
           and queue_claim_token = ${run.claimToken}
       `;
-      return {
-        runId: run.id,
-        status: "interrupted",
-        sessionId,
-        pendingDecisionIds: ids,
-        summary: result.toString(),
-        executedOn,
-      };
+        return {
+          runId: run.id,
+          status: "interrupted",
+          sessionId,
+          pendingDecisionIds: ids,
+          summary: result.toString(),
+          executedOn,
+        };
+      });
     }
 
     if (task.task === "resume") {
@@ -444,7 +451,7 @@ async function executeClaimedAgentTask(
             set applied_run_id = ${run.id}, application_error = null
             where id = ${decision.id}
               and home_id = ${task.homeId}
-              and applied_run_id = ${run.id}
+              and applied_run_id = ${run.id} and status in ('approved', 'declined')
             returning id
           `;
           if (!applied) return;
@@ -961,9 +968,13 @@ async function authorityForTask(
   if (task.task === "guest_change" || task.task === "guest_reconfirm") {
     const [visit] = await sql<{ invitation_id: string; party_id: string }[]>`
       select invitation_id, party_id from public.visits
-      where id = ${task.visitId} and home_id = ${task.homeId}
+      where id = ${task.visitId} and home_id = ${task.homeId} and status <> 'cancelled'
+        and exists (select 1 from public.invitations i where i.id = visits.invitation_id and i.status <> 'cancelled')
     `;
-    if (!visit) throw new Error("Visit does not belong to the task home");
+    if (!visit)
+      throw new Error(
+        "Visit does not belong to the task home or was cancelled",
+      );
     return {
       homeId: task.homeId,
       invitationId: visit.invitation_id,
@@ -977,6 +988,8 @@ async function authorityForTask(
       from public.scheduled_jobs job
       join public.visits visit on visit.id = job.visit_id
       where job.id = ${task.jobId} and job.home_id = ${task.homeId}
+        and job.status <> 'cancelled' and visit.status <> 'cancelled'
+        and exists (select 1 from public.invitations i where i.id = visit.invitation_id and i.status <> 'cancelled')
     `;
     if (!job) throw new Error("Scheduled job does not belong to the task home");
     return {
@@ -1010,7 +1023,7 @@ async function authorityForTask(
       select v.id as visit_id, i.party_id, i.structured
       from public.invitations i
       left join public.visits v on v.invitation_id = i.id and v.home_id = i.home_id
-      where i.id = ${invitationId} and i.home_id = ${task.homeId}
+      where i.id = ${invitationId} and i.home_id = ${task.homeId} and i.status <> 'cancelled'
       order by v.created_at desc nulls last
       limit 1
     `;
@@ -1206,7 +1219,7 @@ async function buildPrompt(
     // "Party ... asks to change" regex is now a no-op for this text, kept
     // for the older shape any in-flight session snapshot may still carry.
     const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
-    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
+    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". If this message means the guest cannot attend, wants to withdraw, or may mean cancellation, call prepare_cancellation, then explain the exact review and confirmation step. Never reschedule a cancellation request. No cancellation happens until the guest explicitly confirms in their invitation. Otherwise use find_visit_options if dates are unclear, then reschedule_visit.${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (task.task === "guest_reconfirm") return "Record the reconfirmation.";
   const [job] = await sql<

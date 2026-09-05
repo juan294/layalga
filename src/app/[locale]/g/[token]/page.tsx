@@ -1,3 +1,4 @@
+import { CancellationReview } from "@/components/guest/cancellation-review";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
@@ -11,6 +12,7 @@ import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  cancelGuest,
   findGuestOptions,
   reconfirmGuest,
   requestGuestChange,
@@ -19,7 +21,7 @@ import {
 
 interface GuestPageProps {
   params: Promise<{ locale: "en" | "es"; token: string }>;
-  searchParams: Promise<{ claim?: string }>;
+  searchParams: Promise<{ claim?: string; cancel?: string }>;
 }
 
 export default async function GuestPage({
@@ -54,6 +56,9 @@ export default async function GuestPage({
     );
   }
 
+  const cancellationState = (await searchParams).cancel;
+  const cancellationReview =
+    cancellationState === "review" || cancellationState === "changed";
   const status = invitation.visit?.status ?? "invited";
   const presentation = invitation.visit
     ? guestVisitPresentation(invitation.visit)
@@ -107,6 +112,18 @@ export default async function GuestPage({
               visit={invitation.visit}
             />
           ) : null}
+
+          <CancellationReview
+            locale={locale}
+            action={cancelGuest}
+            visit={
+              invitation.visit?.status === "cancelled" ? null : invitation.visit
+            }
+            anchorId="cancel-request"
+            changed={cancellationState === "changed"}
+            open={cancellationReview}
+            token={token}
+          />
 
           <aside className={styles.claim}>
             <div>

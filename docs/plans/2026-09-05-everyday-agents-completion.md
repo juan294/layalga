@@ -1,6 +1,6 @@
 # Everyday Agents completion
 
-Date: 2026-09-05. Baseline: develop bf50416. Status: planned; implementation authorized by the owner across all phases.
+Date: 2026-09-05. Baseline: develop bf50416. Status: in progress; implementation authorized by the owner across all phases.
 
 ## Objective and authority
 
@@ -54,7 +54,7 @@ Deferred as in the accepted assessment: per-night room packing, remote OAuth MCP
 ## Phases and completion evidence
 
 - [x] Phase 0: issue tracking, plan review and no-preview configuration.
-- [ ] Phase 1: cancellation and access lifecycle.
+- [x] Phase 1: cancellation and access lifecycle.
 - [ ] Phase 2: decision semantics and policy settings.
 - [ ] Phase 3: consented guest reminder delivery.
 - [ ] Phase 4: memory-informed recommendations.

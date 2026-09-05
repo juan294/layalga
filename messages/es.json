@@ -242,7 +242,8 @@
       "reconfirmEscalation": "Reconfirmación avisada al anfitrión",
       "memoryWritten": "Memoria del hogar actualizada",
       "memoryForgotten": "Memoria del hogar olvidada",
-      "other": "Actividad del hogar"
+      "other": "Actividad del hogar",
+      "invitationCancelled": "Invitación cancelada"
     },
     "activityTools": {
       "captureInvitation": "Registrar invitación",
@@ -256,7 +257,8 @@
       "listGuestRooms": "Consultar habitaciones visibles para huéspedes",
       "findRoomOptions": "Buscar opciones de habitación",
       "searchMemory": "Recordar memoria del hogar",
-      "other": "Acción del hogar"
+      "other": "Acción del hogar",
+      "prepareCancellation": "Preparar cancelación"
     },
     "activityPolicies": {
       "allow": "Permitida",
@@ -416,5 +418,23 @@
     "errorBody": "El registro del hogar está a salvo. Intenta abrir esta página de nuevo.",
     "retry": "Intentar de nuevo",
     "home": "Ir al libro"
+  },
+  "Cancellation": {
+    "openVisit": "Cancelar esta visita",
+    "openRequest": "Retirar esta solicitud de invitación",
+    "visitReview": "¿Cancelar la visita del {stay}?",
+    "requestReview": "¿Retirar esta invitación y cualquier solicitud pendiente de aprobación?",
+    "consequence": "Se liberarán las habitaciones reservadas, se detendrán los recordatorios y se cerrarán las aprobaciones pendientes. El enlace de invitación dejará de funcionar. Si cambias de idea, necesitarás otra invitación.",
+    "confirmLabel": "He revisado esta solicitud y quiero cancelarla.",
+    "confirm": "Confirmar cancelación",
+    "pending": "Cancelando…",
+    "keep": "Para mantener tus planes, deja la casilla sin marcar y cierra esta sección.",
+    "doneTitle": "Tu solicitud está cancelada",
+    "doneBody": "Se han liberado las habitaciones reservadas y se han detenido los recordatorios. Los anfitriones pueden ver la cancelación. Si cambias de planes, pídeles otra invitación.",
+    "account": "Tus visitas",
+    "hostTitle": "Cancelar una visita o retirar una invitación",
+    "noStay": "Fechas pendientes",
+    "changed": "Esta solicitud ha cambiado desde que la revisaste. Comprueba los datos actuales y vuelve a confirmar solo si quieres cancelarla.",
+    "pendingInvitations": "Invitaciones pendientes de visita"
   }
 }

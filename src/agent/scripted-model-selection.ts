@@ -1,3 +1,4 @@
+import { requestsCancellationReview } from "@/core/booking/cancellation-intent";
 import type {
   Message,
   ModelStreamEvent,
@@ -33,6 +34,13 @@ export class TaskScriptedModel extends ScriptedModel {
   private async nextStep(messages: Message[]): Promise<ScriptStep> {
     const result = latestToolResult(messages);
     if (result) {
+      if (result.cancellationRequested === true)
+        return {
+          text:
+            typeof result.nextStep === "string"
+              ? result.nextStep
+              : "Return to your invitation to review and confirm cancellation. Nothing has changed.",
+        };
       if (typeof result.error === "string") {
         return { text: result.error };
       }
@@ -63,6 +71,19 @@ export class TaskScriptedModel extends ScriptedModel {
       return { text: scriptedOutcome("ledgerUpdated") };
     }
 
+    if (
+      (this.task.task === "guest_change" ||
+        (this.task.task === "guest_reconfirm" &&
+          this.task.answer === "change")) &&
+      requestsCancellationReview(this.task.message ?? "")
+    ) {
+      return {
+        toolUse: {
+          name: "prepare_cancellation",
+          input: { visitId: this.task.visitId },
+        },
+      };
+    }
     if (this.task.task === "host_capture") {
       const isVega = /vega/i.test(this.task.rawMessage);
       return {
