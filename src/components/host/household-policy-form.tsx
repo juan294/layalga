@@ -74,16 +74,18 @@ export function HouseholdPolicyForm({
         <p role="alert">
           {t(`errors.${state.error}`)}{" "}
           {state.error === "stale" ? (
-            <a
-              href={`/${locale}#household-policy`}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
               style={{
+                ...buttonStyle,
                 display: "inline-flex",
                 minHeight: "var(--interactive-target, 44px)",
                 alignItems: "center",
               }}
             >
               {t("reload")}
-            </a>
+            </button>
           ) : null}
         </p>
       ) : null}

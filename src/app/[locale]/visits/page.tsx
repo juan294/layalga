@@ -1,3 +1,4 @@
+import { AccountEmailPreferences } from "@/components/guest/account-email-preferences";
 import { AccountPendingInvitations } from "@/components/guest/account-pending-invitations";
 import { CancellationReview } from "@/components/guest/cancellation-review";
 import { cancelAccountVisit } from "./actions";
@@ -6,6 +7,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import { formatDateStay } from "@/components/frontend-utils";
 import { loadGuestAccountVisits } from "@/lib/auth/guest-account";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { createClient } from "@/lib/supabase/server";
 import styles from "@/components/guest/guest-ledger.module.css";
 
@@ -16,6 +18,8 @@ export default async function GuestAccountPage({
   params: Promise<{ locale: "en" | "es" }>;
   searchParams: Promise<{
     account?: string;
+    email?: string;
+    emailInvitation?: string;
     cancel?: string;
     visit?: string;
     invitation?: string;
@@ -94,6 +98,15 @@ export default async function GuestAccountPage({
                   ? cancellation.invitation
                   : undefined
               }
+            />
+          ) : null}
+          {user ? (
+            <AccountEmailPreferences
+              userId={user.id}
+              verifiedEmail={verifiedGoogleGuestEmail(user)}
+              locale={locale}
+              feedback={cancellation.email}
+              feedbackInvitation={cancellation.emailInvitation}
             />
           ) : null}
           {user ? (

@@ -1,3 +1,4 @@
+import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
 import { HostVisitNotes } from "@/components/host/host-visit-notes";
 import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
@@ -562,6 +563,7 @@ export default async function HostPage({
             )}
           </section>
 
+          <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
           <HouseholdPolicyPanel
             homeId={host.homeId}
             hostId={host.id}

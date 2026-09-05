@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getDatabaseConnection } from "@/core/db/client";
 import { routing } from "@/i18n/routing";
+import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 import {
   createDemoGuestCookie,
   DEMO_GUEST_COOKIE,
@@ -43,6 +44,7 @@ export async function POST(
     status: 303,
     headers: { location: `/${locale}/guest` },
   });
+  response.cookies.delete(GUEST_EMAIL_COOKIE);
   response.cookies.set(
     DEMO_GUEST_COOKIE,
     createDemoGuestCookie(invitation.id),

@@ -462,5 +462,52 @@
       "stale": "Otro anfitrión ha actualizado las normas. Revisa las normas actuales antes de volver a guardar.",
       "failed": "No se han podido guardar las normas. Inténtalo de nuevo."
     }
+  },
+  "GuestDeliveryHost": {
+    "title": "Recordatorios para los huéspedes",
+    "description": "Comprueba si cada huésped puede recibir recordatorios, por separado de si ha respondido.",
+    "unavailable": "El envío de correo no está disponible. Los huéspedes pueden seguir reconfirmando desde su invitación.",
+    "acceptanceNote": "La aceptación del correo no confirma su llegada a la bandeja de entrada ni una respuesta del huésped.",
+    "statuses": {
+      "no_contact": "Sin dirección para recordatorios",
+      "unverified": "Pendiente de verificar el correo",
+      "disabled": "Recordatorios por correo desactivados",
+      "ready": "Listo para el próximo recordatorio",
+      "queued": "Recordatorio pendiente de envío",
+      "sent": "Aceptado por el servicio de correo",
+      "failed": "No se ha podido enviar el correo",
+      "demo": "Demostración sintética: recordatorio solo en la aplicación",
+      "unknown": "Resultado del correo desconocido: revisa antes de reintentar",
+      "unavailable_access": "Acceso a la invitación no disponible: revisa el enlace del huésped"
+    }
+  },
+  "GuestEmail": {
+    "title": "Recordatorios de la visita por correo",
+    "body": "Recibe recordatorios de reconfirmación y un enlace seguro para volver a esta visita. Tu dirección no se incluye en las conversaciones del agente.",
+    "email": "Dirección de correo",
+    "googleAddress": "Usar tu dirección verificada de Google: {email}",
+    "consent": "Quiero recibir recordatorios por correo sobre esta visita. Puedo desactivarlos aquí cuando quiera.",
+    "enable": "Activar recordatorios",
+    "verifySend": "Enviar correo de verificación",
+    "pending": "Guardando…",
+    "disable": "Desactivar recordatorios",
+    "demo": "Esta es una demo con datos ficticios. No se envían correos a los huéspedes.",
+    "unverified": "Revisa tu correo, abre el enlace de verificación y confirma. Los recordatorios seguirán desactivados hasta entonces.",
+    "enabled": "Los recordatorios están activados para {email}.",
+    "disabled": "Los recordatorios por correo están desactivados.",
+    "no_contact": "Los recordatorios por correo son opcionales. Puedes reservar sin ellos.",
+    "unavailable": "El envío de correo no está disponible. Tu reserva no cambia. Inténtalo de nuevo más tarde.",
+    "rate_limit": "Espera un poco antes de pedir otro correo de verificación.",
+    "invalid": "No hemos podido guardar tu preferencia. Revisa tu dirección y consentimiento e inténtalo de nuevo.",
+    "invalidLinkTitle": "Este enlace de correo ya no está disponible",
+    "invalidLinkBody": "Puede haber caducado, haberse usado ya o estar desactivado. Abre tu invitación original o tu cuenta para pedir otro correo de verificación.",
+    "verifyTitle": "Confirma los recordatorios por correo",
+    "verifyBody": "Confirma abajo para verificar esta dirección y activar los recordatorios. Esto no reconfirma ni cambia tu reserva.",
+    "verify": "Verificar correo y activar recordatorios",
+    "openAccount": "Abrir cuenta de huésped",
+    "preferencesTitle": "Preferencias de correo actualizadas",
+    "deliveryFailed": "No se ha podido enviar el último correo. Puedes actualizar la dirección o desactivar los recordatorios.",
+    "deliveryUnavailable": "El envío de correo no está disponible en este momento. Tu reserva no cambia.",
+    "deliveryPending": "Tu correo está pendiente de envío."
   }
 }

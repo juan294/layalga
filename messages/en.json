@@ -462,5 +462,52 @@
       "stale": "Another host updated the rules. Review the current rules before saving again.",
       "failed": "The rules could not be saved. Please try again."
     }
+  },
+  "GuestDeliveryHost": {
+    "title": "Guest reminders",
+    "description": "Check whether each guest can receive reminders, separately from whether they have replied.",
+    "unavailable": "Email sending is currently unavailable. Guests can still reconfirm from their invitation.",
+    "acceptanceNote": "Email acceptance does not confirm inbox delivery or a guest reply.",
+    "statuses": {
+      "no_contact": "No reminder address provided",
+      "unverified": "Waiting for email verification",
+      "disabled": "Email reminders turned off",
+      "ready": "Ready for the next reminder",
+      "queued": "Reminder waiting to send",
+      "sent": "Accepted by email service",
+      "failed": "Email could not be sent",
+      "demo": "Synthetic demo: in-app reminder only",
+      "unknown": "Email outcome unknown — review before retrying",
+      "unavailable_access": "Invitation access unavailable — review the guest link"
+    }
+  },
+  "GuestEmail": {
+    "title": "Visit reminders by email",
+    "body": "Receive reconfirmation reminders and a secure link back to this visit. Your address stays out of agent conversations.",
+    "email": "Email address",
+    "googleAddress": "Use your verified Google address: {email}",
+    "consent": "I want email reminders about this visit. I can turn them off here at any time.",
+    "enable": "Enable reminders",
+    "verifySend": "Send verification email",
+    "pending": "Saving…",
+    "disable": "Turn off reminders",
+    "demo": "This is a synthetic demo. No guest emails are sent.",
+    "unverified": "Check your email, then open the verification link and confirm. Reminders stay off until you verify.",
+    "enabled": "Reminders are enabled for {email}.",
+    "disabled": "Email reminders are off.",
+    "no_contact": "Email reminders are optional. Booking works without them.",
+    "unavailable": "Email delivery is unavailable. Your booking is unaffected. Please try again later.",
+    "rate_limit": "Please wait before requesting another verification email.",
+    "invalid": "We could not save that email preference. Check your email address and consent, then try again.",
+    "invalidLinkTitle": "This email link is no longer available",
+    "invalidLinkBody": "It may have expired, already been used, or been turned off. Open your original invitation or guest account to request a fresh verification email.",
+    "verifyTitle": "Confirm your email reminders",
+    "verifyBody": "Confirm below to verify this address and enable visit reminders. This will not reconfirm or change your booking.",
+    "verify": "Verify email and enable reminders",
+    "openAccount": "Open guest account",
+    "preferencesTitle": "Email preferences updated",
+    "deliveryFailed": "The last email could not be sent. You can update your address or turn reminders off.",
+    "deliveryUnavailable": "Email delivery is currently unavailable. Your booking is unaffected.",
+    "deliveryPending": "Your email is waiting to be sent."
   }
 }

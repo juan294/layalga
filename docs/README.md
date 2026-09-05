@@ -47,3 +47,5 @@ One line per document. Start with the README at the repository root for the prod
 | [research/](research/)             | Dated research briefs, starting with the hackathon assessment of 2026-08-29 |
 | [Everyday Agents product checkup](research/2026-09-05-everyday-agents-product-checkup.md) | September 5 assessment of award positioning, product gaps, judge experience, and roadmap priorities |
 | [plans/README.md](plans/README.md) | Index of the dated implementation plans and their phase files               |
+
+- [Guest email production readiness](release/guest-email-readiness.md) — prepared guest SES policy, activation steps and delivery evidence limits.

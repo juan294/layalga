@@ -143,7 +143,7 @@ test("saves household rules and asks for renewed review after a competing update
     "Another host updated the rules",
   );
   await staleForm
-    .getByRole("link", { name: "Reload and review current rules" })
+    .getByRole("button", { name: "Reload and review current rules" })
     .click();
   await expect(
     staleForm.locator('[name="maxFamiliesWithChildren"]'),

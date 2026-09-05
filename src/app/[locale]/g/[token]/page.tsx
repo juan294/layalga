@@ -1,3 +1,4 @@
+import { GuestEmailPreferences } from "@/components/guest/guest-email-preferences";
 import { CancellationReview } from "@/components/guest/cancellation-review";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
@@ -21,7 +22,7 @@ import {
 
 interface GuestPageProps {
   params: Promise<{ locale: "en" | "es"; token: string }>;
-  searchParams: Promise<{ claim?: string; cancel?: string }>;
+  searchParams: Promise<{ claim?: string; cancel?: string; email?: string }>;
 }
 
 export default async function GuestPage({
@@ -112,6 +113,12 @@ export default async function GuestPage({
               visit={invitation.visit}
             />
           ) : null}
+
+          <GuestEmailPreferences
+            locale={locale}
+            context={{ kind: "token", token }}
+            feedback={(await searchParams).email}
+          />
 
           <CancellationReview
             locale={locale}

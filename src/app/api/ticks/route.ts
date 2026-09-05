@@ -1,3 +1,4 @@
+import { dispatchGuestEmailPingsSafely } from "@/core/notifications/guest-outbox";
 import { getAgentClient } from "@/agent/client";
 import { drainAgentQueue } from "@/agent/queue";
 import { SystemClock } from "@/core/clock";
@@ -28,5 +29,6 @@ export async function GET(request: Request): Promise<Response> {
     { concurrency: 2 },
   );
   await dispatchHostEmailPingsSafely(connection.db, clock);
-  return Response.json({ jobs, count: jobs.length, queue });
+  const guestEmail = await dispatchGuestEmailPingsSafely(connection.db, clock);
+  return Response.json({ jobs, count: jobs.length, queue, guestEmail });
 }
