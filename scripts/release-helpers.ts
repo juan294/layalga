@@ -208,10 +208,41 @@ export function markerSuffix(marker: string): string {
 }
 
 /**
- * Deletes invitations whose `raw_message` ends with `suffix`, together with
- * the runs, audit events, and durable agent sessions those invitations
- * produced (through their visits' scheduled jobs, through a run payload that
- * carries the same tagged raw message, or through `extraSessionIds`).
+ * Invitation ids created by the tagged `host_capture` runs of `homeId`,
+ * resolved through the run's enqueue payload (which carries the tag
+ * verbatim) and the `capture_invitation` tool_call audit row. Never keyed on
+ * `invitations.raw_message`: that column stores the message as the model
+ * restated it in its tool call, and a model may drop the bracketed tag.
+ */
+export async function taggedInvitationIds(
+  sql: Sql,
+  homeId: string,
+  suffix: string,
+): Promise<string[]> {
+  const rows = await sql<{ id: string }[]>`
+    select invitation.id
+    from public.runs run
+    join public.audit_events audit
+      on audit.run_id = run.id
+     and audit.home_id = run.home_id
+     and audit.kind = 'tool_call'
+     and audit.payload->>'name' = 'capture_invitation'
+    join public.invitations invitation
+      on invitation.id::text = audit.payload->>'invitationId'
+     and invitation.home_id = run.home_id
+    where run.home_id = ${homeId}
+      and run.task = 'host_capture'
+      and right(run.payload->>'rawMessage', length(${suffix})) = ${suffix}
+  `;
+  return rows.map(({ id }) => id);
+}
+
+/**
+ * Deletes the invitations the tagged `host_capture` runs created (see
+ * `taggedInvitationIds`), together with the runs, audit events, and durable
+ * agent sessions those invitations produced (through their visits' scheduled
+ * jobs, through a run payload that carries the same tagged raw message, or
+ * through `extraSessionIds`).
  * Verifies zero rows remain for the tag before returning. Shared by scripts
  * that synthesize disposable, marker-tagged demo data and must prove they
  * clean up after themselves.
@@ -223,15 +254,8 @@ export async function cleanupTaggedRunArtifacts(
   options: CleanupTaggedRunArtifactsOptions = {},
 ): Promise<TaggedArtifactCounts> {
   const extraSessionIds = options.extraSessionIds ?? [];
+  const invitationIds = await taggedInvitationIds(sql, homeId, suffix);
   const sessionIds = await sql.begin(async (transaction) => {
-    const invitations = await transaction<{ id: string }[]>`
-      select id
-      from public.invitations
-      where home_id = ${homeId}
-        and right(raw_message, length(${suffix})) = ${suffix}
-      for update
-    `;
-    const invitationIds = invitations.map(({ id }) => id);
     const visits =
       invitationIds.length > 0
         ? await transaction<{ id: string }[]>`
@@ -292,8 +316,7 @@ export async function cleanupTaggedRunArtifacts(
     select
       (
         select count(*)::integer from public.invitations
-        where home_id = ${homeId}
-          and right(raw_message, length(${suffix})) = ${suffix}
+        where id = any(${sql.array(invitationIds)}::uuid[])
       ) as invitations,
       (
         select count(*)::integer from public.runs
