@@ -1,6 +1,6 @@
 # Synthetic coordination evidence
 
-The coordination benchmark measures a local browser automation run through L’Ayalga’s real forms and database state. It does not measure human effort, production model quality, inbox delivery or adoption. The measured artifact is pending the first run of the reviewed, committed benchmark source; no numeric outcome is claimed here yet.
+The coordination benchmark measures a local browser automation run through L’Ayalga’s real forms and database state. It does not measure human effort, production model quality, inbox delivery or adoption. The [measured JSON artifact](coordination-benchmark.json) records a successful September 5 run at source revision `54eab0860de93ae9d9289f228a4c6f38f24d8194`.
 
 ## What the run covers
 
@@ -29,6 +29,28 @@ The JSON artifact records the source revision, controlled local configuration, t
 
 The runner is [scripts/benchmark-coordination.ts](../../scripts/benchmark-coordination.ts). It requires explicit scripted/local execution, disabled email/memory/external scheduling, and loopback application, database and Supabase URLs. It starts its own local application process, verifies the served revision and health, and blocks browser requests or redirects outside the allowed local origins. Run it only against the disposable local demo database, after committing the reviewed source and stopping other Next development servers in the checkout.
 
-The root verification process will add the exact command, committed revision and resulting artifact after the first measured run. The separate release driver retains its existing acceptance contract; a benchmark result does not replace release checks.
+After setting the explicit local environment described in the [release playbook](../release/e2e-pro-playbook.md), keeping APP_URL at an unused local port, and committing reviewed source, run:
+
+```bash
+pnpm run benchmark:coordination -- --output docs/submission/coordination-benchmark.json
+```
+
+The recorded run used `APP_URL=http://127.0.0.1:3008`, local Supabase ports 54621/54622 and the disabled external-service modes recorded in JSON. The separate release driver retains its existing acceptance contract; a benchmark result does not replace release checks.
 
 Do not convert this run into “minutes saved,” a reduction in real household messages, or an award score. Those claims require a measured human baseline. The [participant protocol](participant-protocol.md) describes how to collect that evidence without confusing scripted latency with human effort. Production guest email activation and real recipient testing remain separate, authorized work described in the [readiness checklist](../release/guest-email-readiness.md).
+
+## Measured result
+
+This single run completed all 30 named scripted actions with zero failures in **29.85 seconds** automation wall time. Server/browser startup was separately **3.04 seconds**. These values depend on the local machine and compilation/cache state; no production latency or human-speed claim follows.
+
+| Category            |                    Executed operations |
+| ------------------- | -------------------------------------: |
+| Demo setup/reset    |                                      4 |
+| Navigation          |                                      8 |
+| Form interaction    |                                      7 |
+| Simulated decisions | 6 (1 host approval, 5 guest decisions) |
+| Synthetic clock     |      5 (3 advances, 2 no-work repeats) |
+
+The cancellation round moved from two occupied rooms and one outstanding reminder job to zero occupancy, zero outstanding jobs, zero pending decisions and zero unfinished runs, with invitation cancellation/revocation verified. The separate reconfirmation round produced one in-app guest chase, then a reconfirmed visit with zero outstanding jobs. The exception round paused for one host decision, resumed after approval, produced one guest chase and exactly two host escalation notifications, and ended with one unresolved guest follow-up. Repeating the exhausted escalation added no notification or job.
+
+The exception checkpoint retains the original interrupted run record after its separate resume run completes; `unfinishedRuns` counts that historical interrupted row and must not be read as an additional pending host decision. The authoritative pending-decision count is zero after approval. No host email send or guest provider acceptance occurred. Synthetic date jumps are recorded separately per independent round in `clockSteps`.

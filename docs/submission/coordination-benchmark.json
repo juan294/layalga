@@ -1,0 +1,578 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "local-scripted-synthetic",
+  "sourceRevision": "54eab0860de93ae9d9289f228a4c6f38f24d8194",
+  "startedAt": "2026-09-05T11:33:10.672Z",
+  "completedAt": "2026-09-05T11:33:40.526Z",
+  "configuration": {
+    "baseUrl": "http://127.0.0.1:3008",
+    "databaseHost": "127.0.0.1",
+    "supabaseOrigin": "http://127.0.0.1:54621",
+    "model": "scripted",
+    "agentRuntime": "local",
+    "email": "none",
+    "memory": "none",
+    "scheduler": "none",
+    "demo": true
+  },
+  "serverConfigurationEvidence": "Owned child process with explicit modes; HTTP health verifies readiness and served revision. Modes are not exposed by health.",
+  "startupDurationMs": 3041.09,
+  "automationWallTimeMs": 29854.37,
+  "actions": [
+    {
+      "name": "open public demo sign-in",
+      "actor": "operator",
+      "category": "navigation",
+      "durationMs": 2598.42,
+      "success": true
+    },
+    {
+      "name": "enter synthetic host",
+      "actor": "operator",
+      "category": "setup",
+      "durationMs": 4864.98,
+      "success": true
+    },
+    {
+      "name": "vega: reset shared demo and enter guest",
+      "actor": "operator",
+      "category": "setup",
+      "durationMs": 2928.72,
+      "success": true
+    },
+    {
+      "name": "vega: search suggested dates",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 106.09,
+      "success": true
+    },
+    {
+      "name": "vega: submit selected rooms",
+      "actor": "guest",
+      "category": "decision",
+      "durationMs": 4324.77,
+      "success": true
+    },
+    {
+      "name": "vega cancellation: open guest visit",
+      "actor": "guest",
+      "category": "navigation",
+      "durationMs": 769.1,
+      "success": true
+    },
+    {
+      "name": "vega: open cancellation review",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 19.82,
+      "success": true
+    },
+    {
+      "name": "vega: acknowledge cancellation consequences",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 13.03,
+      "success": true
+    },
+    {
+      "name": "vega: confirm cancellation",
+      "actor": "guest",
+      "category": "decision",
+      "durationMs": 744.69,
+      "success": true
+    },
+    {
+      "name": "vega reconfirmation: return to host",
+      "actor": "host",
+      "category": "navigation",
+      "durationMs": 820.77,
+      "success": true
+    },
+    {
+      "name": "vega: reset shared demo and enter guest",
+      "actor": "operator",
+      "category": "setup",
+      "durationMs": 575.57,
+      "success": true
+    },
+    {
+      "name": "vega: search suggested dates",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 53.54,
+      "success": true
+    },
+    {
+      "name": "vega: submit selected rooms",
+      "actor": "guest",
+      "category": "decision",
+      "durationMs": 2320.99,
+      "success": true
+    },
+    {
+      "name": "vega: return to host",
+      "actor": "host",
+      "category": "navigation",
+      "durationMs": 596.74,
+      "success": true
+    },
+    {
+      "name": "vega: chase",
+      "actor": "operator",
+      "category": "demo_clock",
+      "durationMs": 912.4,
+      "success": true
+    },
+    {
+      "name": "vega: open guest visit",
+      "actor": "guest",
+      "category": "navigation",
+      "durationMs": 493.58,
+      "success": true
+    },
+    {
+      "name": "vega: reconfirm visit",
+      "actor": "guest",
+      "category": "decision",
+      "durationMs": 106.56,
+      "success": true
+    },
+    {
+      "name": "otero: return to host",
+      "actor": "host",
+      "category": "navigation",
+      "durationMs": 577.86,
+      "success": true
+    },
+    {
+      "name": "otero: reset shared demo and enter guest",
+      "actor": "operator",
+      "category": "setup",
+      "durationMs": 539.25,
+      "success": true
+    },
+    {
+      "name": "otero: search suggested dates",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 46.74,
+      "success": true
+    },
+    {
+      "name": "otero: remove suggested room",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 19.71,
+      "success": true
+    },
+    {
+      "name": "otero: select ground-floor Garage Room",
+      "actor": "guest",
+      "category": "interaction",
+      "durationMs": 15.46,
+      "success": true
+    },
+    {
+      "name": "otero: submit selected rooms",
+      "actor": "guest",
+      "category": "decision",
+      "durationMs": 2316.88,
+      "success": true
+    },
+    {
+      "name": "otero: return to host",
+      "actor": "host",
+      "category": "navigation",
+      "durationMs": 636.17,
+      "success": true
+    },
+    {
+      "name": "otero: host approves access request",
+      "actor": "host",
+      "category": "decision",
+      "durationMs": 2356.42,
+      "success": true
+    },
+    {
+      "name": "otero: return to host",
+      "actor": "host",
+      "category": "navigation",
+      "durationMs": 542.71,
+      "success": true
+    },
+    {
+      "name": "otero: chase",
+      "actor": "operator",
+      "category": "demo_clock",
+      "durationMs": 210.64,
+      "success": true
+    },
+    {
+      "name": "otero: chase repeated",
+      "actor": "operator",
+      "category": "demo_clock",
+      "durationMs": 46.43,
+      "success": true
+    },
+    {
+      "name": "otero: escalation",
+      "actor": "operator",
+      "category": "demo_clock",
+      "durationMs": 153.24,
+      "success": true
+    },
+    {
+      "name": "otero: escalation repeated",
+      "actor": "operator",
+      "category": "demo_clock",
+      "durationMs": 41.56,
+      "success": true
+    }
+  ],
+  "summary": {
+    "attempted": 30,
+    "succeeded": 30,
+    "failed": 0,
+    "byCategory": {
+      "setup": 4,
+      "navigation": 8,
+      "interaction": 7,
+      "decision": 6,
+      "demo_clock": 5
+    },
+    "simulatedDecisions": {
+      "host": 1,
+      "guest": 5
+    },
+    "measuredActionDurationMs": 29752.84
+  },
+  "checkpoints": [
+    {
+      "name": "fresh scenario",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 0,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 0,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "routine booking confirmed",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [
+        "confirmed"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 2,
+      "outstandingJobs": 1,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 1,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "cancelled and work retired",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [
+        "cancelled"
+      ],
+      "invitationCancelled": true,
+      "invitationRevoked": true,
+      "occupiedRooms": 0,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 1,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "fresh scenario",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 0,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 0,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "fresh routine booking confirmed",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [
+        "confirmed"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 2,
+      "outstandingJobs": 1,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 1,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "routine reminder requested",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-15T07:00:00.000Z",
+      "visitStatuses": [
+        "reconfirm_pending"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 2,
+      "outstandingJobs": 1,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 2,
+      "notifications": {
+        "chase": 1,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "routine visit reconfirmed",
+      "scenario": "vega",
+      "simulatedNow": "2026-09-15T07:00:00.000Z",
+      "visitStatuses": [
+        "reconfirmed"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 2,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 2,
+      "notifications": {
+        "chase": 1,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "fresh scenario",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 0,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 0,
+      "localRuns": 0,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "access request awaits host",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 0,
+      "outstandingJobs": 0,
+      "pendingDecisions": 1,
+      "approvedDecisions": 0,
+      "unfinishedRuns": 1,
+      "localRuns": 1,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "exception booking confirmed",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-07T08:00:00.000Z",
+      "visitStatuses": [
+        "confirmed"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 1,
+      "outstandingJobs": 1,
+      "pendingDecisions": 0,
+      "approvedDecisions": 1,
+      "unfinishedRuns": 1,
+      "localRuns": 2,
+      "notifications": {
+        "chase": 0,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "exception reminder requested",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-16T07:00:00.000Z",
+      "visitStatuses": [
+        "reconfirm_pending"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 1,
+      "outstandingJobs": 1,
+      "pendingDecisions": 0,
+      "approvedDecisions": 1,
+      "unfinishedRuns": 1,
+      "localRuns": 3,
+      "notifications": {
+        "chase": 1,
+        "escalation": 0
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "unanswered request escalated",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-17T07:00:00.000Z",
+      "visitStatuses": [
+        "escalated"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 1,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 1,
+      "unfinishedRuns": 1,
+      "localRuns": 4,
+      "notifications": {
+        "chase": 1,
+        "escalation": 2
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    },
+    {
+      "name": "repeated escalation adds no work",
+      "scenario": "otero",
+      "simulatedNow": "2026-09-17T07:00:00.000Z",
+      "visitStatuses": [
+        "escalated"
+      ],
+      "invitationCancelled": false,
+      "invitationRevoked": false,
+      "occupiedRooms": 1,
+      "outstandingJobs": 0,
+      "pendingDecisions": 0,
+      "approvedDecisions": 1,
+      "unfinishedRuns": 1,
+      "localRuns": 4,
+      "notifications": {
+        "chase": 1,
+        "escalation": 2
+      },
+      "guestEmailAccepted": 0,
+      "hostEmailSent": 0
+    }
+  ],
+  "clockSteps": [
+    {
+      "scenario": "vega",
+      "action": "chase",
+      "outcome": "advanced",
+      "before": "2026-09-07T08:00:00.000Z",
+      "after": "2026-09-15T07:00:00.000Z",
+      "simulatedAdvanceMs": 687600000
+    },
+    {
+      "scenario": "otero",
+      "action": "chase",
+      "outcome": "advanced",
+      "before": "2026-09-07T08:00:00.000Z",
+      "after": "2026-09-16T07:00:00.000Z",
+      "simulatedAdvanceMs": 774000000
+    },
+    {
+      "scenario": "otero",
+      "action": "chase",
+      "outcome": "no_eligible",
+      "before": "2026-09-16T07:00:00.000Z",
+      "after": "2026-09-16T07:00:00.000Z",
+      "simulatedAdvanceMs": 0
+    },
+    {
+      "scenario": "otero",
+      "action": "escalation",
+      "outcome": "advanced",
+      "before": "2026-09-16T07:00:00.000Z",
+      "after": "2026-09-17T07:00:00.000Z",
+      "simulatedAdvanceMs": 86400000
+    },
+    {
+      "scenario": "otero",
+      "action": "escalation",
+      "outcome": "no_eligible",
+      "before": "2026-09-17T07:00:00.000Z",
+      "after": "2026-09-17T07:00:00.000Z",
+      "simulatedAdvanceMs": 0
+    }
+  ],
+  "limitations": [
+    "No human effort or time savings measured",
+    "No real model, memory, email or adoption evidence",
+    "Independent scenarios reset shared synthetic state",
+    "Demo time advances are not elapsed human time"
+  ]
+}
