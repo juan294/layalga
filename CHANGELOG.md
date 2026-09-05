@@ -4,6 +4,19 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- `capture_invitation` bounds `rememberedContext` to five entries of at most 120 characters instead of rejecting the call; a production run had retried after a 121-character recall failed validation.
+
+### Changed
+
+- `infra/iam/web-bedrock-policy.json` allows Sonnet 4.6 as well as 4.5, applied to `layalga-web`, so the `AGENT_RUNTIME=local` fallback can invoke the production model.
+- The release procedure applies migrations before the release pull request merges into `main`, and documents `gh pr update-branch` for the up-to-date rule.
+
+### Documentation
+
+- ADR 0002 release addendum for v1.0.0 (runtime versions 20 and 21, bundle versions, the two Sonnet 4.6 findings); playbook status, history, rollback, and measured durations; runtime runbook fallback note; CLAUDE.md deployment state.
+
 ## [1.0.0] - 2026-09-05
 
 ### Added

@@ -23,8 +23,8 @@ a score.
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
-- Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the fallback, subject to compatible model permissions
-- Amazon Bedrock Claude Sonnet 4.6 in the current example configuration (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
+- Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the one-flag fallback (the web IAM policy allows Sonnet 4.5 and 4.6)
+- Amazon Bedrock Claude Sonnet 4.6 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
 - AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host email pings through Amazon SES (`EMAIL=ses`); consented guest delivery is implemented with separate web-only state and prepared production activation
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
 - Vercel Cron `/api/ticks` every minute for lease recovery, bounded queue draining, due jobs, and email dispatch; an implemented but unselected EventBridge Scheduler adapter (`SCHEDULER=none` in production)
@@ -34,7 +34,7 @@ ADR 0002 records the initial Anthropic access failure, the AgentCore model-and-t
 
 ## Current product
 
-The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, actual preference-informed room ranking, and guided time-aware demo flows. This completion is locally verified; production deployment and guest SES IAM application remain separately authorized rollout work.
+The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, actual preference-informed room ranking, and guided time-aware demo flows. It is in production since v1.0.0 (2026-09-05); guest SES IAM application remains separately authorized rollout work.
 
 The [synthetic coordination evidence](docs/submission/coordination-evidence.md) and [current roadmap](docs/roadmap.md) distinguish source verification, production observations and measured human impact.
 
@@ -91,7 +91,7 @@ Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description
 
 Git-triggered Vercel deployments are enabled only for `main` through `vercel.json` `git.deploymentEnabled`. Feature branches and `develop` must never create preview deployments. Keep this restriction in the first commit pushed for any new branch. GitHub Actions still runs for PRs and pushes to `develop`/`main`; batch reviewed work and pass the applicable checks locally before pushing.
 
-The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v0.4.0 and v0.5.0 were released on 2026-09-04 through the nine-probe gate, with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` deployed from the same commit. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
+The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v1.0.0 was released on 2026-09-05 (main `0f1fcf2`) through the nine-probe gate, with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` version 21 deployed from the same commit, after v0.4.0 and v0.5.0 on 2026-09-04. Apply migrations with `supabase db push --linked` before merging a release into `main`, because the merge deploys the web app. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
 ## Agent Behavior
 
