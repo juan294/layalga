@@ -4,6 +4,8 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-05
+
 ### Added
 
 - Reproducible local coordination benchmark, separate participant protocol, refreshed product/submission guides and editable architecture diagrams.
@@ -16,10 +18,12 @@ All notable changes to L’Ayalga are documented in this file.
 ### Fixed
 
 - Guided scenario and clock controls wait for their JavaScript handler before accepting clicks, preventing lost starts during a cold page load (#104).
-
 - Invitation access extends through at least checkout plus seven days on confirmation, reschedule and reissue, retaining expiry and revocation checks (#103).
 - Guest date defaults and search use household time; expired holds no longer hide rooms, and demo resets renew finite bearer access. Semantic clock controls select actual current reminder jobs, recover eligible delivery retries, preserve unanswered guidance and handle repeated no-work steps (#104).
 - A run started synchronously is inserted already claimed, so the per-minute drain can no longer dispatch it first and fail the caller with "Agent run is no longer active". The AgentCore database URL now uses the transaction-mode pooler port (#95).
+- Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
+- The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
+- The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
 
 ### Changed
 
@@ -31,14 +35,6 @@ All notable changes to L’Ayalga are documented in this file.
 - Added a repository review route, rubric evidence cards, agent entry-point links, and a public `/llms.txt` index. Clarified current model configuration, pending video status, and the limits of scripted tests, memory minimization, and tracing.
 
 - System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
-
-## [0.5.1] - 2026-09-04
-
-### Fixed
-
-- Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
-- The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
-- The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
 
 ## [0.5.0] - 2026-09-04
 
