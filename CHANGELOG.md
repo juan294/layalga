@@ -4,11 +4,6 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-
-- `capture_invitation` reuses the invitation a run already captured instead of creating a duplicate when the model calls the tool again; the reuse is recorded as a second `tool_call` audit row.
-- Release probes and the shared tagged-artifact cleanup identify captured invitations through the run's enqueue payload and the capture audit row, not the model-restated `raw_message`, which Sonnet 4.6 may return without the probe tag.
-
 ## [1.0.0] - 2026-09-05
 
 ### Added
@@ -29,6 +24,8 @@ All notable changes to L’Ayalga are documented in this file.
 - Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
 - The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
 - The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
+- `capture_invitation` reuses the invitation a run already captured instead of creating a duplicate when the model calls the tool again; the reuse is recorded as a second `tool_call` audit row.
+- Release probes and the shared tagged-artifact cleanup identify captured invitations through the run's enqueue payload and the capture audit row, not the model-restated `raw_message`, which Sonnet 4.6 may return without the probe tag.
 
 ### Changed
 
