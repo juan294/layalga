@@ -12,7 +12,7 @@ An AI hospitality coordinator that turns informal invitations into safe stays an
 
 - Repository: `https://github.com/juan294/layalga`
 - Live application: `https://layalga.thecreativetoken.com`
-- Demo video: `[ADD AFTER AUTHORIZED UPLOAD]`
+- Demo video: recording and authorized upload pending; no video URL is recorded in this draft.
 
 Do not file this entry until the live URL and video URL pass the release playbook.
 
@@ -32,29 +32,29 @@ Three deterministic rules protect the house:
 2. Only one family with children can overlap.
 3. Pets cannot overlap unless the home explicitly allows it.
 
-If those rules pass but the request needs social judgment, the agent pauses before the booking tool runs. A host sees the reason, approves or declines it, and the saved Strands run resumes exactly once. That decision, and every reconfirmation escalation, also lands as an email in the host's inbox through Amazon SES, so a host does not have to be watching the app to act on it.
+If those rules pass but the request needs social judgment, the agent pauses before the booking tool runs. A host sees the reason, approves or declines it, and the saved Strands run resumes with recorded decision application. That decision, and every reconfirmation escalation, also lands as an email in the host's inbox through Amazon SES, so a host does not have to be watching the app to act on it.
 
 After confirmation, L’Ayalga schedules a reconfirmation request for three days before arrival. If a guest does not answer within 24 hours, it alerts both hosts. A labeled synthetic clock makes that proactive flow demonstrable without faking production timestamps.
 
-Every agent run — capturing an invitation, offering room options, following up before arrival — now executes on a live Amazon Bedrock AgentCore Runtime, with OpenTelemetry traces of each agent cycle, model call, and tool call visible in CloudWatch GenAI Observability. The coordinator also remembers a returning family across invitations: arrival habits, room needs, pets, and accessibility needs recalled through Strands `MemoryManager` over AgentCore Memory, without ever writing or sending the family's name. A host can see, and erase, everything remembered about a family from the host page.
+The selected production configuration executes agent runs — capturing an invitation, offering room options, following up before arrival — on Amazon Bedrock AgentCore Runtime, with OpenTelemetry traces of each agent cycle, model call, and tool call visible in CloudWatch GenAI Observability. The coordinator also remembers a returning family across invitations: arrival habits, room needs, pets, and accessibility needs recalled through Strands `MemoryManager` over AgentCore Memory, with party-scoped access and capture conversation extraction disabled. A host can see, and erase, everything remembered about a family from the host page.
 
 ## How we built it
 
 The application uses Next.js 16 and TypeScript 6, with `next-intl` for English and Spanish. Supabase Postgres is the authoritative store for homes, rooms, invitations, visits, room allocations, queued agent runs, session snapshots, pending decisions, scheduled jobs, notifications, identity claims, and audit events.
 
-The agent uses the Strands Agents TypeScript SDK with ten typed tools, including guest-safe room-availability lookup and a host-facing tool that only prepares a pending room-inventory change for separate human approval. Natural language helps structure invitations, choose tools, and compose bilingual follow-up. A `BeforeToolCallEvent` hook runs a pure deterministic policy before hold, confirm, and reschedule tools. PostgreSQL `daterange` and an exclusion constraint provide an independent concurrency boundary at the room level.
+The agent uses the Strands Agents TypeScript SDK with task-scoped typed tools, including guest-safe room-availability lookup and a host-facing tool that only prepares a pending room-inventory change for separate human approval. Natural language helps structure invitations, choose tools, and compose bilingual follow-up. A `BeforeToolCallEvent` hook runs a pure deterministic policy before hold, confirm, and reschedule tools. PostgreSQL `daterange` and an exclusion constraint provide an independent concurrency boundary at the room level.
 
 Strands session snapshots live in Postgres. When the hook calls `event.interrupt`, the SDK preserves the pending tool execution. A host decision is stored separately. A new process restores the session, supplies an `InterruptResponseContent`, and records which run consumed the response.
 
 Next.js on Vercel accepts work into a durable Postgres run queue and acknowledges it immediately; a per-minute Vercel Cron route recovers expired leases, drains queued runs, and claims due scheduled jobs. Selected production dispatch sends every queued run to a live Amazon Bedrock AgentCore Runtime — a Node 22 direct-code deployment running the same Strands agent, called through `InvokeAgentRuntime` with an `execute_run` envelope, connected to Postgres through the separately granted `layalga_agent` database role. `AGENT_RUNTIME=local` remains a one-flag rollback to the Vercel-only path; the deterministic test and demo paths keep a scripted model regardless of runtime.
 
-The AgentCore runtime also carries the agent's two supporting systems. ADOT for Node auto-instruments every run, so Strands' own OpenTelemetry spans (agent cycle, model call, tool call) reach CloudWatch GenAI Observability with no code change to the agent. Strands `MemoryManager`, backed by AgentCore Memory, gives the agent a `search_memory` tool over one namespace per family, written by two extraction strategies over invitations and confirmed visits; recall is tool-driven, never injected into the prompt, and the family name never enters a memory record because the capture and guest prompts omit it at the source. Separately, on the Vercel side, an idempotent email outbox sends a host-only decision or escalation ping through Amazon SES whenever a run pauses or a reconfirmation escalates.
+The AgentCore runtime also carries the agent's two supporting systems. ADOT for Node auto-instruments every run, so Strands' own OpenTelemetry spans (agent cycle, model call, tool call) reach CloudWatch GenAI Observability with no code change to the agent. Strands `MemoryManager`, backed by AgentCore Memory, gives the agent a `search_memory` tool over one namespace per family, written by two extraction strategies over invitations and confirmed visits; recall is tool-driven, never injected into the prompt, and guest prompt templates omit the stored family-name field. Host capture retains raw invitation text, so its conversation is excluded from extraction; its separate memory event omits `partyName`. Free text and tool content can still contain names, as documented in the [data lifecycle](../security/data-lifecycle.md). Separately, on the Vercel side, an idempotent email outbox sends a host-only decision or escalation ping through Amazon SES whenever a run pauses or a reconfirmation escalates.
 
 ## Challenges
 
 ### Preserving an interrupt across processes
 
-A human decision can arrive long after the process that requested it has stopped. We could not keep the interrupt in memory. We implemented Strands `Storage` over Postgres and tested resume after destroying the first agent instance and after a separate Node process restored the session. The pending tool executes once after approval and never executes after decline.
+A human decision can arrive long after the process that requested it has stopped. We could not keep the interrupt in memory. We implemented Strands `Storage` over Postgres and tested resume after destroying the first agent instance and after a separate Node process restored the session. In those regression tests, the pending hold tool executes once after approval and creates no visit after decline. The tests establish those paths, not every possible distributed failure case.
 
 ### Keeping the policy outside the prompt
 
@@ -80,8 +80,8 @@ The first AgentCore package reached a healthy runtime, but the AWS account rejec
 - Nine executable release probes cover identity, capture, confirmation, concurrency, interrupt/resume, proactive follow-through, guest isolation, cleanup, and the runtime that executed each run.
 - Host and guest requests survive web-request termination through exact-run polling and lease recovery.
 - Runtime database access is split between non-owner web and agent roles with explicit grants.
-- The live AgentCore Runtime is the selected production path, not just a proof: every run since has executed there, with its runtime recorded on the run itself and shown on a per-run timeline of tool calls and policy verdicts.
-- Household memory recall never sees or stores a family name, and a host can erase a family's memory as completely as it was written.
+- The live AgentCore Runtime is the selected production path, not just a proof: terminal results record the executing runtime, shown alongside tool calls and policy verdicts. Dated release observations are in [ADR 0002](../decisions/0002-agent-runtime.md).
+- Guest memory access is party-scoped, host capture conversation extraction is disabled, and hosts can inspect and erase party records and raw events.
 
 ## What we learned
 
@@ -112,7 +112,7 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 ## Built with
 
 - Amazon Bedrock AgentCore Runtime, direct-code Node 22 runtime, selected production execution path
-- Amazon Bedrock, Claude Sonnet 4.5
+- Amazon Bedrock, Claude Sonnet 4.6
 - Amazon Bedrock AgentCore Memory
 - Amazon Bedrock AgentCore Observability (ADOT for Node, CloudWatch GenAI Observability)
 - Amazon SES

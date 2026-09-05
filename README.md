@@ -7,6 +7,10 @@
 
 Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
 
+## Evaluate this project
+
+Start with the [judge guide](docs/submission/judge-guide.md) for the rubric and a short repository tour. The [evidence guide](docs/submission/evidence.md) pairs distinctive design choices with implementation, tests, and evidence limits. Explore the [Strands SDK inventory](docs/submission/strands-usage.md), [architecture and text diagrams](docs/architecture/README.md), or [full documentation index](docs/README.md).
+
 ![L’Ayalga architecture](docs/architecture/layalga-architecture.svg)
 
 ## Four-beat demo
@@ -20,9 +24,9 @@ The guest names, messages, visits, and notifications in the demo are synthetic; 
 
 ## How it works
 
-[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected production path. Next.js runs the web UI and accepts work into a durable Postgres run queue. Production dispatch sends each queued run to a live Amazon Bedrock AgentCore Runtime, a Node 22 direct-code deployment running the Strands agent with Amazon Bedrock Sonnet 4.5; tests and the deterministic demo driver use a scripted model instead. The per-minute Vercel Cron route recovers expired leases, drains queued runs, and claims due scheduled jobs, all dispatched through the same AgentCore runtime. Supabase Postgres remains authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events; every terminal run result records `executedOn` so a run proves where it ran.
+[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected production path. Next.js runs the web UI and accepts work into a durable Postgres run queue. Production dispatch sends each queued run to a live Amazon Bedrock AgentCore Runtime, a Node 22 direct-code deployment running the Strands agent with Amazon Bedrock Sonnet 4.6; tests and the deterministic demo driver use a scripted model instead. The per-minute Vercel Cron route recovers expired leases, drains queued runs, and claims due scheduled jobs, all dispatched through the same AgentCore runtime. Supabase Postgres remains authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events; every terminal run result records `executedOn` so a run proves where it ran.
 
-The AgentCore runtime also carries the agent's two supporting systems. Strands `MemoryManager`, backed by AgentCore Memory, lets the coordinator recall a returning family's arrival habits, room needs, pets, and accessibility needs across invitations, without ever writing or sending a family name; a host can see and erase what is remembered per family from the host page. ADOT for Node auto-instruments every run, so each agent cycle, model call, and tool call appears as a trace in CloudWatch GenAI Observability. Separately, the Vercel web runtime sends a host-only email ping through Amazon SES whenever a run pauses for a decision or a reconfirmation escalates; guests never receive email. The path from the first authorized Bedrock model call through the selected production runtime is recorded in [ADR 0002](docs/decisions/0002-agent-runtime.md).
+The AgentCore runtime also carries the agent's two supporting systems. Strands `MemoryManager`, backed by AgentCore Memory, lets the coordinator recall a returning family's arrival habits, room needs, pets, and accessibility needs across invitations, with party-scoped access and capture extraction disabled; a host can see and erase what is remembered per family from the host page. ADOT for Node auto-instruments every run, so each agent cycle, model call, and tool call appears as a trace in CloudWatch GenAI Observability. Separately, the Vercel web runtime sends a host-only email ping through Amazon SES whenever a run pauses for a decision or a reconfirmation escalates; guests never receive email. The path from the first authorized Bedrock model call through the selected production runtime is recorded in [ADR 0002](docs/decisions/0002-agent-runtime.md).
 
 ### Deterministic policy, model-driven coordination
 
@@ -36,7 +40,7 @@ The model structures informal text, selects typed tools, and writes bilingual me
 - Scheduled jobs retry after one and five minutes, then enter operator-visible quarantine after a third failure.
 - Scheduled jobs and notification idempotency keys make retries safe.
 
-The central hook is small because the policy is not hidden in a prompt:
+This simplified sketch shows the policy boundary. The complete hook also sanitizes inputs and refreshes room and policy state after approval (`src/agent/policy-hook.ts:37`):
 
 ```ts
 agent.addHook(BeforeToolCallEvent, async (event) => {
@@ -65,7 +69,7 @@ agent.addHook(BeforeToolCallEvent, async (event) => {
 });
 ```
 
-When the hook interrupts, Strands saves the pending tool execution in Postgres. A host records an `approved` or `declined` decision. A new run then restores the session, consumes the response, and writes a `decision_applied` audit event. The tool executes at most once.
+When the hook interrupts, Strands saves the pending tool execution in Postgres. A host records an `approved` or `declined` decision. A new run then restores the session, consumes the response, and writes a `decision_applied` audit event. The cross-process regression test checks that the approved hold tool and decision audit are applied once (`src/agent/interrupt-resume.test.ts:111`). That test covers this recovery path, not every distributed failure case.
 
 ## Rooms, agents, and the household calendar
 
@@ -87,7 +91,7 @@ Telegram and a remote MCP server are follow-ons. They need separate identity bin
 
 Each returning family's preferences persist in AgentCore Memory through Strands `MemoryManager`, scoped one namespace per party (`/parties/home-<homeId>/party-<partyId>`) under a single household memory resource. A guest task can only recall its own party's namespace; a host task without a matched party reads the whole home's namespace read-only. Recall is tool-driven, never injected into the prompt: the agent calls `search_memory` explicitly, and that call appears as a `search_memory` row on the run timeline. Two extraction strategies turn a party's captured invitations and confirmed visits into durable preferences and facts, each with a 30-day event expiry on the raw conversational events; long-term records persist until a host erases them.
 
-No family name is ever written to memory or sent to the model provider: the guest-task and host-capture prompts omit the name at the source, so extraction never sees it, and every seeded or extracted record reads as a household preference ("prefers the ground floor room," "usually arrives late on Friday evenings") rather than an identity. The host page's "What L’Ayalga remembers" panel lists each party's current records; a Forget button deletes every record and raw event for that party and writes an auditable `memory_forgotten` event.
+Guest prompt templates omit the stored family-name field. Host capture retains the invitation text needed for interpretation and is excluded from conversation extraction; its separate memory event omits the `partyName` field. These are specific data-minimization controls, not general anonymization: names can still appear in free text, structured request text, or tool content. The [data lifecycle](docs/security/data-lifecycle.md) describes provider, memory, and trace boundaries separately. The host page's "What L’Ayalga remembers" panel lists each party's current records; a Forget button deletes every record and raw event for that party and writes an auditable `memory_forgotten` event.
 
 ## Email pings
 
@@ -164,7 +168,7 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 - Run, decision, tool, scheduler, and notification actions are auditable.
 - A daily state-aware retention job minimizes terminal prompt/session data without deleting active interrupts, pending decisions, open jobs, audit metadata, or demo fixtures.
 - Synthetic release probes tag and delete only their own data.
-- No family name is written to household memory or sent to the model provider; a guest task can recall only its own party's memory, and a host can erase a party's memory entirely.
+- Guest memory is party-scoped; host capture is excluded from conversation extraction, and its separate memory event omits the family-name field. Free text is not guaranteed anonymous. Hosts can erase party records and raw events.
 - Email pings go to hosts only, never guests, are idempotent per event and per host, and a host can turn them off.
 
 ## Hackathon disclosure

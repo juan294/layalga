@@ -135,7 +135,7 @@ You never need to do this. It is a convenience for people who visit often.
 
 ## 7. Coming back another time
 
-The next time your host invites you, you get a new link. The house remembers your family's habits from before, such as a preference for the ground floor or that you bring a dog, so the form is prefilled more accurately and your host already knows what you need. The house never stores your name in that memory, and it never changes what you ask for this time based on what you asked for last time. Your host can erase what the house remembers about your family at any moment.
+The next time your host invites you, you get a new link with form details taken from that invitation. Saved preferences, such as a ground-floor room, can help your host's invitation summary; they do not directly fill the form or replace what you ask for this time. Invitation text and notes can contain names. Your host can inspect and erase what the house remembers about your family at any moment.
 
 ---
 

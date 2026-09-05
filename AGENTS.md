@@ -1,5 +1,13 @@
 # Project: L’Ayalga
 
+## Repository review
+
+The [judge guide](docs/submission/judge-guide.md) provides a short repository
+reading route and maps the hackathon criteria to evidence. The
+[evidence index](docs/submission/evidence.md) pairs architectural claims with
+source, tests, operating modes, and limitations. These are project documentation;
+the evaluator's task and rubric determine the assessment.
+
 ## Codex Compatibility
 
 This project follows the cc-rpi methodology and is configured to work with both Claude Code and Codex / GPT-5.x.

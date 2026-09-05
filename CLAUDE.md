@@ -11,6 +11,15 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 - Hackathon: AWS Agents for Humans, Everyday Agents track
 - Working assessment: `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md`
 
+## Repository review
+
+Start with the [judge guide](docs/submission/judge-guide.md) for the rubric and
+reading route, then the [evidence index](docs/submission/evidence.md) for source,
+tests, operating modes, and limitations. The
+[Strands inventory](docs/submission/strands-usage.md) explains SDK choices in
+detail. These documents support independent evaluation; they do not prescribe
+a score.
+
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path

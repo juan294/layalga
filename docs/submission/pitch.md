@@ -16,7 +16,7 @@ Two people share a country house. Friends and family get invited by message, by 
 
 **The problem.** A home with more than one host has a coordination problem that calendars do not solve. "Come the second weekend of October, bring the kids" arrives on one host's phone. "Sure, that long weekend works" leaves the other host's phone the same week. Both are right, and both are half wrong: the dates overlap partly, one family brings children, the other brings a dog, the sofa bed is the only way five people fit, and one of the guests would rather not share the house with strangers. Every one of those questions today is a thread of messages between the hosts, then between each host and their guest, then back again. The busywork is not the calendar entry. It is the fifteen messages around it, repeated for every invitation, all season.
 
-**The audience.** Any home with more than one host. Two partners with different friend groups. Siblings who inherited a house and share it with their families. Co-parents with a shared holiday flat. A friend group with a cabin. The house in this project is real and so are its two hosts; the pattern is not rare, it is just unserved, because every existing tool assumes one owner and one calendar.
+**The audience.** Any home with more than one host. Two partners with different friend groups. Siblings who inherited a house and share it with their families. Co-parents with a shared holiday flat. A friend group with a cabin. The house in this project is real and so are its two hosts; the project addresses their need to coordinate independent invitations, room choices, and social exceptions in one place.
 
 **Why it matters.** Hospitality is one of the last daily-life chores that people still do entirely by hand, because it is social. The moments that need a person are real: is this combination of guests comfortable, is the sofa bed acceptable for this family, do we say yes to the wheelchair on the ground floor. Everything around those moments is mechanical, and it currently steals the time and goodwill that should go to the guests. An agent that removes the mechanical part without touching the human part makes people better hosts, not just faster ones.
 
@@ -28,11 +28,11 @@ Two people share a country house. Friends and family get invited by message, by 
 
 **"Home, family."** It is literally the home and literally the family. The two hosts are a couple. The guests are their friends, siblings, cousins, parents. The rules it enforces are household rules: how many beds, one family with children at a time, whether two dogs can share the garden.
 
-**"Handle it end to end."** The loop closes. Invitation in, structured party out. Guest link, date search, exact room selection, capacity check, hold, confirmation. Three days before arrival, an automatic reconfirmation request. Twenty-four hours of silence, an escalation to both hosts. A change request from the guest, a reschedule that goes back through the same rules. A calendar feed on each host's phone as the output. Nothing in that chain requires a host to type anything.
+**"Handle it end to end."** The loop closes. Invitation in, structured party out. Guest link, date search, exact room selection, capacity check, hold, confirmation. Three days before arrival, an automatic reconfirmation request. Twenty-four hours of silence, an escalation to both hosts. A change request from the guest, a reschedule that goes back through the same rules. A revocable calendar feed is available as an output; local parsing is verified, while a real phone-calendar subscription has not been demonstrated. Routine booking checks and follow-through run automatically; hosts still capture invitations and resolve social exceptions.
 
-**"Run quietly in the background."** Every agent run is queued, executed on Amazon Bedrock AgentCore Runtime, and recorded. The reconfirmation and escalation timers run on a per-minute schedule with retries and safe replays, so a crashed request never loses accepted work and a retried job never sends a duplicate. The hosts do not watch it. They open the page when they invite someone, and otherwise they see stays appear on their calendar.
+**"Run quietly in the background."** The selected production path queues agent work for Amazon Bedrock AgentCore Runtime and records its outcome. Reconfirmation and escalation timers run on a per-minute schedule with bounded retries, leases, and idempotent notification records. Exhausted attempts remain visible for operator recovery. The hosts do not watch it. They open the page when they invite someone, and otherwise they see stays appear on their calendar.
 
-**"Only ping you when there's a real decision to make."** This is the heart of the design, and it is enforced by code, not by a prompt. Three deterministic rules run before any booking tool: enough beds, at most one family with children, no overlapping pets unless the house allows it. If a request breaks a rule, it is denied on the spot with a plain explanation to the guest, and no host is asked, because there is nothing to decide. If it passes, it proceeds, and no host is asked, because there is nothing to decide. Only in two situations does the agent pause: the guest wrote a request that needs a human answer, or the party fits only with an overflow sleeping arrangement. Then a Strands interrupt stops the run before the tool writes anything, a decision card appears on the host page, and both hosts get one email. They approve or decline, with a note, and the saved run resumes exactly once. The other ping is the escalation when a family goes quiet before arrival. That is the complete list of times a host is interrupted.
+**"Only ping you when there's a real decision to make."** This is the heart of the design, and it is enforced by code, not by a prompt. Three deterministic rules run before any booking tool: enough beds, at most one family with children, no overlapping pets unless the house allows it. If a request breaks a rule, it is denied on the spot with a plain explanation to the guest, and no host is asked, because there is nothing to decide. If it passes, it proceeds, and no host is asked, because there is nothing to decide. Only in two situations does the agent pause: the guest wrote a request that needs a human answer, or the party fits only with an overflow sleeping arrangement. Then a Strands interrupt stops the run before the tool writes anything, a decision card appears on the host page, and both hosts get one email. They approve or decline, with a note, and the saved run resumes with recorded decision application. The other ping is the escalation when a family goes quiet before arrival. That is the complete list of times a host is interrupted.
 
 ---
 
@@ -40,10 +40,10 @@ Two people share a country house. Friends and family get invited by message, by 
 
 Judges score how thoroughly the project uses Strands Agents. L’Ayalga uses the SDK for the parts where an agent earns its keep, and refuses to use it for the parts where it would be dangerous.
 
-- **The model interprets.** It reads informal Spanish or English, structures the party, chooses among ten typed tools, and writes bilingual messages to guests and hosts.
+- **The model interprets.** It reads informal Spanish or English, structures the party, chooses among task-scoped typed tools, and writes bilingual messages to guests and hosts.
 - **A hook decides.** A `BeforeToolCallEvent` hook runs the household policy before every consequential tool. It can allow, deny, or interrupt. The model cannot skip it and cannot approve its own request.
 - **An interrupt pauses, and the pause survives.** The session snapshot lives in Postgres. A host decides hours later, from an email, on a phone. A new run restores the session, supplies the decision, and the paused tool executes once. This is the SDK's interrupt and resume contract used as a product feature, not a demo trick.
-- **Memory recalls without leaking.** Strands `MemoryManager` over AgentCore Memory gives each returning family its own namespace of preferences and facts. Recall is an explicit tool call the agent must make, it is audited, and no family name is ever written to memory or sent to the model. A host can read and erase everything remembered about a family.
+- **Memory with explicit boundaries.** Strands `MemoryManager` over AgentCore Memory gives each returning family its own namespace of preferences and facts. Recall is an explicit tool call the agent must make, it is audited, and guest recall is scoped to that party. Capture conversation extraction is disabled, and the separate capture event omits the family-name field. Free text can still contain names; these controls are not general anonymization. A host can read and erase everything remembered about a family.
 - **Every run is visible.** ADOT tracing sends each agent cycle, model call, and tool call to CloudWatch GenAI Observability, and the same run appears in the app as a timeline: every tool, every policy verdict, every applied decision, and the runtime it executed on.
 
 The database owns availability, holds, and visits, with a PostgreSQL exclusion constraint that makes double-booking a room impossible even under concurrent requests. The model never touches booking state directly. That split is why the agent can be trusted with a real house.
@@ -56,17 +56,17 @@ The database owns availability, holds, and visits, with a PostgreSQL exclusion c
 - **Two hosts, inviting independently.** The agent reconciles invitations from two people who did not consult each other, in two languages.
 - **Human approval only for social exceptions.** Impossible requests are refused deterministically. Possible-but-sensitive requests are the only ones that reach a person. The line between them is a pure function, versioned in code.
 - **Coordination continues after booking.** The proactive reconfirmation and escalation are the product; the calendar is a by-product.
-- **Memory that forgets the name.** The house remembers that a family prefers the ground floor and arrives late on Fridays, and nothing else about who they are.
+- **Memory with host control.** The house can recall a ground-floor preference or late Friday arrival within the family’s namespace, and a host can inspect and erase its records.
 
 ---
 
 ## 6. Proof that it is real
 
 - Live at `https://layalga.thecreativetoken.com`, operated by the two real hosts, with synthetic guests for the demo.
-- Every production run since 2026-09-03 executed on Amazon Bedrock AgentCore Runtime with Claude Sonnet 4.5 on Bedrock, and each run records that fact.
-- Nine automated release probes run against production before every release: health, capture, confirmation, a concurrent double-booking attempt where exactly one wins, interrupt and resume applied exactly once, clock-driven reconfirmation with exactly two host escalations and two emails, exact room coordination with a calendar event, guest isolation, and cleanup. All nine passed for the current release.
+- The recorded production configuration uses Amazon Bedrock AgentCore Runtime and Claude Sonnet 4.6 on Bedrock. Terminal run results record the executing runtime. Earlier Sonnet 4.5 trace evidence remains dated in [ADR 0002](../decisions/0002-agent-runtime.md); the [evidence guide](evidence.md) separates source inspection from live observation.
+- Nine automated release probes run against production before every release: health, capture, confirmation, a concurrent double-booking attempt where exactly one wins, interrupt and resume applied exactly once, clock-driven reconfirmation with exactly two host escalations and two emails, exact room coordination with a calendar event, guest isolation, and cleanup. ADR 0002 records all nine passing for v0.5.0; this is historical release evidence.
 - English and Spanish from the first screen, including every agent-written message.
-- Public repository under MIT, architecture diagram, README, and a three-minute video that shows all four beats on the live site.
+- Public repository under MIT, architecture diagram, README, and a three-minute video script. Recording and upload remain pending in the submission record.
 
 ---
 
@@ -80,7 +80,7 @@ L’Ayalga does not send WhatsApp or SMS, does not write into Google or Apple ca
 
 **Thirty seconds.** "L’Ayalga is an AI coordinator for homes with more than one host. Paste an invitation, send the private link, and the agent finds dates and rooms that fit with everyone else, confirms the stay, and follows up before arrival. Code enforces the house rules. The hosts are pinged only when a guest's request needs a human answer. It runs on Strands and Amazon Bedrock AgentCore, and it is live."
 
-**Sixty seconds.** Add: "Two hosts invite people independently, in two languages. Rooms and dates overlap partly, not as a busy flag. Three rules run before any booking tool: enough beds, one family with children at a time, no overlapping pets. Impossible requests are refused on the spot. Sensitive ones pause the agent with a Strands interrupt, both hosts get one email, and the run resumes once after the decision. Three days before arrival the house asks the family to reconfirm; a day of silence escalates to the hosts. The house remembers each family's habits, never their name."
+**Sixty seconds.** Add: "Two hosts invite people independently, in two languages. Rooms and dates overlap partly, not as a busy flag. Three rules run before any booking tool: enough beds, one family with children at a time, no overlapping pets. Impossible requests are refused on the spot. Sensitive ones pause the agent with a Strands interrupt, both hosts get one email, and the run resumes once after the decision. Three days before arrival the house asks the family to reconfirm; a day of silence escalates to the hosts. The house recalls family preferences within a scoped memory store, with host inspection and erasure."
 
 **Two minutes.** Use sections 2, 3, and 4 in order, one paragraph each, and close with: "The agent coordinates, code protects the home, and people keep the judgment that matters."
 
@@ -91,7 +91,7 @@ L’Ayalga does not send WhatsApp or SMS, does not write into Google or Apple ca
 - "The best ones run quietly in the background and only ping you when there's a real decision to make." That is the brief. This is the agent.
 - "Denial is deterministic. Approval is human. Everything else is automatic."
 - "Partial overlap is a first-class concept, not a busy flag."
-- "The interrupt pauses before the tool writes, survives a restart, and resumes exactly once."
-- "The house remembers the family's habits, never the family's name."
+- "The interrupt pauses before the tool writes, survives a restart, and resumes with recorded decision application."
+- "The house recalls preferences, and the host can inspect and erase them."
 - "The calendar is the result of coordination, not the product."
 - "The agent coordinates, code protects the home, and people keep the judgment that matters."

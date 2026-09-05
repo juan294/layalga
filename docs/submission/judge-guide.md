@@ -1,84 +1,64 @@
-# Judge guide: evaluating L’Ayalga in ten minutes
+# Judge guide: evaluating L’Ayalga
 
-This page is for the hackathon judges. It gives a short path through the live site, says what to expect at each step, and points to the code behind each claim. It is organized by the five judging criteria so it can be scored from directly.
+L’Ayalga is an AI hospitality coordinator for a home shared by two hosts. It turns informal invitations into private guest links and conflict-aware stays, asks a host about social exceptions, and follows up before arrival.
 
-Live site: `https://layalga.thecreativetoken.com`. Everything you will touch is synthetic demo data, labeled as such. The two host names are the real operators; every guest, invitation, and message is invented.
+## Start with the repository
 
-Companion documents: the [pitch](pitch.md), the [Strands usage inventory](strands-usage.md), the [system guide](system-guide.md), the [architecture diagrams](../architecture/README.md), and the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals.
+This is the canonical review route for human and automated readers. A useful first pass takes three documents:
 
----
+1. Read the [eight implementation evidence cards](evidence.md): start with [cross-process Strands approval](evidence.md#strands-interrupt-and-resume-across-processes), [independent database race protection](evidence.md#postgresql-independently-rejects-competing-room-claims), and [reconfirmation recovery when the model omits a recipient](evidence.md#reconfirmation-recovery-covers-recipients-the-model-omits).
+2. Use the [Strands usage inventory](strands-usage.md) to inspect the selected SDK features and why they exist.
+3. Read the [architecture text and diagrams](../architecture/README.md), then follow the [local verification commands and evidence status](evidence.md#reproduce-local-verification).
+
+The evidence cards pin implementation and tests to integration revision `bf5041601b8910f92e632034c4c21b644dc6a3a9`, inspected on 2026-09-05. They distinguish source inspection, existing tests, local execution, and deployed observations. Historical runtime decisions are in [ADR 0002](../decisions/0002-agent-runtime.md). No new live-runtime check or published video is established by this guide.
+
+## Five-criterion evidence map
+
+The AWS Agents for Humans rules equally weight these five criteria in Stage Two. Stage One checks viability and required-tool fit; the rules permit automated analysis but do not identify the tools used. Selected Strands features support the product; the rules do not require every SDK feature. [Official rules, sections 4 and 6](https://agentsforhumans.devpost.com/rules).
+
+| Criterion                | What to evaluate                                                                                               | Evidence and demonstration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Remaining limit                                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Technical Implementation | Substantive Strands use, reliable human approval, authoritative booking state, and durable execution           | [SDK inventory](strands-usage.md); [approval](evidence.md#strands-interrupt-and-resume-across-processes), [room races](evidence.md#postgresql-independently-rejects-competing-room-claims), and [queue](evidence.md#accepted-work-has-durable-run-identity-and-leases) cards; walkthrough minutes 4–7                                                                                                                                                                                                                                     | Scripted framework tests do not measure live-model reasoning or prove cloud availability.                             |
+| Design                   | Host and guest journeys, room choices, visible approval, language and mobile behavior                          | [Host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md); [host approval browser test](https://github.com/juan294/layalga/blob/bf5041601b8910f92e632034c4c21b644dc6a3a9/tests/e2e/host-view.spec.ts#L49), [Spanish keyboard selection test](https://github.com/juan294/layalga/blob/bf5041601b8910f92e632034c4c21b644dc6a3a9/tests/e2e/guest-link.spec.ts#L50), [mobile journey test](https://github.com/juan294/layalga/blob/bf5041601b8910f92e632034c4c21b644dc6a3a9/tests/e2e/mobile-guest-host.spec.ts#L10) | Tests cover selected journeys; they do not establish universal accessibility or multilingual model-output quality.    |
+| Potential Impact         | Coordination burden for a real household with two independent hosts                                            | [Audience and problem in the pitch](pitch.md); [proactive follow-through](evidence.md#reconfirmation-recovery-covers-recipients-the-model-omits); walkthrough minutes 7–9                                                                                                                                                                                                                                                                                                                                                                 | Intended benefit, with no claimed adoption, measured time savings, or validated wider market.                         |
+| Creativity & Originality | Why partial room/date overlap, independent invitations, and social exceptions need more than a shared calendar | [Room-level race defense](evidence.md#postgresql-independently-rejects-competing-room-claims), [refreshed host approval](evidence.md#human-approval-refreshes-booking-authority), [reconfirmation recovery](evidence.md#reconfirmation-recovery-covers-recipients-the-model-omits); [system guide](system-guide.md)                                                                                                                                                                                                                       | These explain design choices; no claim of competitive uniqueness is established.                                      |
+| Presentation             | A clear, reproducible demonstration of capture, room proposal, host approval, and proactive follow-through     | [Ten-minute live route](#the-ten-minute-path), [video script](video-script.md), [demo-clock evidence](evidence.md#an-explicit-demo-clock-drives-the-application-state-machine)                                                                                                                                                                                                                                                                                                                                                            | The script describes the planned three-minute video; the submission draft has no uploaded video URL at this snapshot. |
+
+## Operating modes and live demonstration
+
+Live site: [layalga.thecreativetoken.com](https://layalga.thecreativetoken.com). Use the **Synthetic demo** entry points below. Demo guests, invitations, and messages are invented; the two host names identify the real operators. Shared demo state may have changed since the script was written.
+
+The documented selected production path is `AGENT_RUNTIME=agentcore`, with Bedrock, AgentCore Memory, and SES. Local verification uses the same agent factory with a scripted model and can disable memory and email. Inspect the individual run's runtime label; selection in configuration is not a fresh observation that every run completed there. Email depends on host consent and delivery being enabled, and the memory panel depends on memory being enabled. See [evidence modes and limits](evidence.md).
 
 ## The ten-minute path
 
 Use two browser windows: one for the host, one private window for the guest.
 
-**Minute 0 to 2: enter and capture.** Open the site, press "Enter as Host" (no Google account needed). Switch the language at the top if you prefer Spanish. In "New invitation", paste any informal invitation, for example: "Invite the Vega family from 18 to 21 September, two adults, two kids, and their dog." Press "Capture invitation". A progress page shows the run's timeline as it happens: "Recall household memory" (the Vega family has stayed before, so the house recalls their ground-floor preference), then "Capture invitation", then "Executed on AgentCore". Back on the host page, press "Prepare private guest link" and copy it.
+**Minute 0 to 2: enter and capture.** Open the site, press "Enter as Host" (no Google account needed). Switch the language at the top if you prefer Spanish. In "New invitation", paste any informal invitation, for example: "Invite the Vega family from 18 to 21 September, two adults, two kids, and their dog." Press "Capture invitation". A progress page shows the run's timeline as it happens: "Recall household memory" (the Vega family has stayed before, so the house recalls their ground-floor preference), then "Capture invitation", then the runtime that executed the run ("Executed on AgentCore" when that runtime is selected). Back on the host page, press "Prepare private guest link" and copy it.
 
 **Minute 2 to 4: rooms.** In the room ledger, type in "Agent room request": "Reserve the Garage Room for private use from 22 to 24 September." Press "Prepare proposal". A proposal appears with exact dates and rooms. Nothing has changed yet. Press "Apply". The Garage Room now shows "Private" for those dates.
 
-**Minute 4 to 7: the guest and the human exception.** In the private window, open the site and press "Enter as Guest". This opens the seeded Otero invitation in English, prefilled with a stay from 19 to 21 September, two adults, one dog, and a special request about ground-floor access for a wheelchair. Those are the dates the demo clock is tuned to. Press "Find available stays", pick a stay, keep the recommended room, and submit. Because the notes carry a request that needs a human answer, the run page shows "Waiting for a host". In the host window, a card appears in "Pending decisions" with the request in the guest's words, and both hosts receive an email. Approve it, optionally with a note. The saved run resumes once and the guest's page shows "Your stay is confirmed". To see the overflow variant instead, set the party to five adults before searching and choose the Guest Room and the Garage Room together; the consent box for the extra sleeping arrangement appears and the decision card names the exact rooms. A request that breaks a house rule, for example a second family with children on the same dates, is refused on the spot with a plain explanation and no host is asked.
+**Minute 4 to 7: the guest and the human exception.** In the private window, open the site and press "Enter as Guest". This opens the seeded Otero invitation in English, prefilled with a stay from 19 to 21 September, two adults, one dog, and a special request about ground-floor access for a wheelchair. Keep these dates for the custom-clock steps below. Press "Find available stays", pick a stay, keep the recommended room, and submit. Because the notes carry a request that needs a human answer, the run page shows "Waiting for a host". In the host window, a card appears in "Pending decisions" with the request in the guest's words, and consenting hosts receive an email when SES delivery is enabled. Approve it, optionally with a note. The saved run resumes and the guest's page shows "Your stay is confirmed". To see the overflow variant instead, set the party to five adults before searching and choose the Guest Room and the Garage Room together; the consent box for the extra sleeping arrangement appears and the decision card names the exact rooms. A request that breaks a house rule, for example a second family with children on the same dates, is refused on the spot with a plain explanation and no host is asked.
 
-**Minute 7 to 9: time.** In the host window, use the labeled demo clock: press "Reconfirmation chase", which moves the house clock to the morning of 15 September, three days before the seeded stays. The guest's link now asks "Please confirm that you are coming" and the calendar shows "Awaiting reconfirmation". Leave it unanswered and press "Host escalation", which moves the clock 24 hours on. The household record shows one escalation per host and the calendar shows "Needs attention". Both hosts receive a second email.
+**Minute 7 to 9: time.** In the host window, use the labeled demo clock's custom time control. For the Otero stay starting 19 September, set 16 September 2026 at 09:00 in the house timezone (Europe/Madrid), three days before arrival. The guest's link now asks "Please confirm that you are coming" and the calendar shows "Awaiting reconfirmation". Leave it unanswered, then set 17 September at 09:05 to pass the 24-hour escalation window. The preset "Reconfirmation chase" and "Host escalation" buttons instead target stays starting 18 September. The household record shows one escalation per host and the calendar shows "Needs attention". Consenting hosts receive another email when SES delivery is enabled.
 
-**Minute 9 to 10: memory and the record.** Open "What L’Ayalga remembers" to see the Vega family's records, written as household preferences with no name. Scroll the household record to see every tool call and policy verdict in order.
-
----
-
-## Scoring by criterion
-
-### 1. Technical implementation: use of Strands Agents
-
-What to look for, and where:
-
-| Claim                                                                                                    | Where to see it live                                             | Where it lives in code                                                                              |
-| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| One Strands `Agent` with ten typed tools, a Postgres session manager, and memory                         | The run timeline lists tool names                                | `src/agent/agent.ts`, `src/agent/tools/*.ts`, `src/agent/deps.ts`                                   |
-| A `BeforeToolCallEvent` hook gates every consequential tool                                              | "Policy checked" and "Host review required" rows on the timeline | `src/agent/policy-hook.ts`                                                                          |
-| `event.interrupt` pauses before the tool writes; resume uses `InterruptResponseContent` and applies once | The pending decision card, then "Host decision applied"          | `src/agent/run-task.ts`, `src/agent/host-decision-context.ts`, `src/agent/interrupt-resume.test.ts` |
-| Session snapshots in Postgres survive a process restart                                                  | The resume happens in a different run, minutes or hours later    | `src/agent/storage/postgres-storage.ts`                                                             |
-| `MemoryManager` over AgentCore Memory with tool-driven recall                                            | "Recall household memory" on the timeline; the memory panel      | `src/agent/memory.ts`, `src/agent/record-capture-memory.ts`                                         |
-| Every run executes on Amazon Bedrock AgentCore Runtime                                                   | "Executed on AgentCore" on every run                             | `src/agent/runtime/agentcore.ts`, `src/agent/runtime/handler.ts`, `scripts/deploy-agentcore.sh`     |
-| ADOT traces to CloudWatch GenAI Observability                                                            | `assets/agentcore-trace.png`                                     | `scripts/deploy-agentcore.sh`, `src/agent/telemetry.test.ts`                                        |
-
-The full inventory with snippets is in [strands-usage.md](strands-usage.md).
-
-### 2. Design: a complete product, not a proof of concept
-
-- Two languages from the first screen, including every agent-written message.
-- A host page that covers rooms, calendar, decisions, capture, email consent, memory, and history.
-- A guest page with search, exact rooms, overflow consent, run status, reconfirmation, change requests, and an optional Google-linked account with a visits page.
-- Revocable calendar subscription feeds for the hosts' phones.
-- Nine automated release probes run against production before every release, including a concurrent double-booking attempt and an interrupt-and-resume cycle.
-
-### 3. Potential impact
-
-The problem is lived: two real hosts, one real house, invitations that arrive by message from both sides. The pitch generalizes one step to any home with more than one host and stops there. Read section 2 of the [pitch](pitch.md).
-
-### 4. Creativity and originality
-
-- Partial overlap at the room and date level, not a busy flag on the house.
-- Two hosts inviting independently, reconciled by the agent.
-- Human approval only for social exceptions: impossible requests are denied by code, routine ones proceed, and only a special request or an overflow arrangement pauses for a person.
-- Coordination continues after booking: reconfirmation and escalation are the product, the calendar is the by-product.
-- Memory that remembers a family's habits and never its name.
-
-### 5. Presentation
-
-The video is three minutes and shows all four beats on the live site. The script is in [video-script.md](video-script.md). The architecture diagram is in `docs/architecture/`.
+**Minute 9 to 10: memory and the record.** Open "What L’Ayalga remembers" to inspect the seeded Vega household preferences when memory is enabled. These example records are not proof that arbitrary input is free of personal information. Scroll the household record to see every tool call and policy verdict in order.
 
 ---
 
-## What the judges should not expect
+## Scope and limitations
 
-- No WhatsApp or SMS. Hosts share the link through their own channel.
-- No writes into Google or Apple calendars. The feed is a one-way subscription.
-- No per-visit relaxation of the three house rules.
-- The demo clock exists only on the demo house so time-driven behavior can be shown in minutes.
-
----
+- Hosts share private links through their own channel; there is no WhatsApp or SMS integration.
+- Calendar feeds are revocable one-way subscriptions, without writes into Google or Apple calendars.
+- Deterministic house rules cannot be relaxed per visit; human approval handles social exceptions within those rules.
+- Memory is scoped by task and party, with host capture excluded from conversational extraction. Raw invitations can still contain names; [memory boundaries](evidence.md#agentcore-memory-follows-task-and-party-boundaries) are more specific than a claim that the provider never sees a name.
+- Accelerated time applies only to enabled demo homes and is labeled in the UI.
 
 ## If something looks wrong
 
-- A run that stays on "Working" for more than a minute is usually an AgentCore cold start. The page keeps polling and shows a "Check status" button.
-- If the demo data looks used up (rooms already private, decisions already answered), the hosts can reset the synthetic demo. Ask, or try again with different dates.
-- The two host email pings only arrive at the real hosts' inboxes; the site shows the same information in "Pending decisions" and the household record.
+- A run can be delayed by queueing, runtime startup, or a failure. Keep the exact run page open and use "Check status"; accepted work is not a completed result.
+- If rooms are already private or decisions already answered, the synthetic demo may have been used by another visitor. The hosts can reset it, or a separate invitation can use different dates. The preconfigured time beats depend on the seeded dates.
+- Email pings go to consenting hosts, not the judge's inbox. Pending decisions and the household record expose the same decision or escalation in the app.
+- If the site is unavailable, the repository route and local scripted verification remain inspectable; they do not establish live availability.
+
+Companion documents: [pitch](pitch.md), [system guide](system-guide.md), [host manual](../guides/host-manual.md), and [guest manual](../guides/guest-manual.md).

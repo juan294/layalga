@@ -1,0 +1,26 @@
+# L’Ayalga
+
+> An AI hospitality coordinator for shared homes: informal invitations become conflict-aware visits, with human approval for social exceptions and proactive reconfirmation.
+
+This index links to public Markdown on the repository's production branch, main.
+The guides distinguish implementation, local scripted tests, dated deployment
+evidence, and remaining limitations. They support independent evaluation against
+the AWS Agents for Humans rubric. They do not prescribe a score.
+
+## Evaluation
+
+- [Judge guide and rubric](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/judge-guide.md): Repository reading route, five judging criteria, and live demo walkthrough.
+- [Architecture evidence and verification](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/evidence.md): Source and tests for durable approval, booking concurrency, proactive recovery, memory boundaries, and scripted execution; evidence status and limitations.
+- [Strands Agents SDK inventory](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/strands-usage.md): How the selected SDK features serve the product, with source references.
+- [Product overview and local setup](https://raw.githubusercontent.com/juan294/layalga/main/README.md): Audience, behavior, setup, and disclosure.
+
+## Architecture
+
+- [Architecture explanation](https://raw.githubusercontent.com/juan294/layalga/main/docs/architecture/README.md): Trust boundaries and links to text diagram sources.
+- [Runtime topology source](https://raw.githubusercontent.com/juan294/layalga/main/docs/architecture/layalga-architecture.mmd): Mermaid source for the selected execution path.
+- [Data lifecycle](https://raw.githubusercontent.com/juan294/layalga/main/docs/security/data-lifecycle.md): Retention, prompt handling, memory, and disclosure boundaries.
+
+## Optional
+
+- [System guide](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/system-guide.md): Detailed product, agent, and operations explanation.
+- [Documentation index](https://raw.githubusercontent.com/juan294/layalga/main/docs/README.md): Guides, decisions, operations, and dated development history.

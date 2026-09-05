@@ -129,9 +129,9 @@ You get an email in exactly two situations: a decision is waiting, or a family h
 
 ### 3.9 Returning families
 
-The second time you invite a family, the coordinator already knows their habits: that they prefer the ground floor, that they usually arrive late on Friday, that they bring a dog. You will see it in the "The house remembers" line when you capture the invitation, and their form will be prefilled sensibly.
+When you invite a returning family, the coordinator can recall saved preferences such as a ground-floor room or late Friday arrival. You may see these in "The house remembers" when you capture the invitation. The guest form is filled from the invitation details, not directly from remembered preferences.
 
-The house remembers habits and needs, never the family's name, and never lets a memory change what the family actually asked for this time. Open "What L’Ayalga remembers" to read what is stored about each family. "Forget this family" erases all of it.
+Saved preferences are kept separately for each family. Details in invitation text or notes can still include names. Remembered preferences do not replace what the family asks for this time. Open "What L’Ayalga remembers" to read what is stored about each family. "Forget this family" erases all of it.
 
 ---
 
@@ -145,7 +145,7 @@ Juan invites Ana and Luis, two adults, no children, no pets. They open the link,
 
 On its own: the rooms are held, the house rules are checked, the visit is confirmed.
 
-You see: "Confirmed" on the calendar with the room label, one line in the household record, and the stay on your phone calendar a little later. You did nothing.
+You see: "Confirmed" on the app calendar with the room label and one line in the household record. If you subscribe an external calendar, it can appear there after that app refreshes. The repository demonstrates local feed parsing; an external subscription has not been demonstrated.
 
 ### 4.2 Two families, same weekend, no problem
 

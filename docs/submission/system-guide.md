@@ -1,6 +1,6 @@
 # L’Ayalga system guide
 
-Date: 2026-09-04. Describes release v0.5.1 and the production state recorded in ADR 0002.
+Date: 2026-09-05. Describes source baseline [`bf5041601b8910f92e632034c4c21b644dc6a3a9`](https://github.com/juan294/layalga/tree/bf5041601b8910f92e632034c4c21b644dc6a3a9) on `develop`, package version 0.5.1. Production observations in ADR 0002 are historical; the selected model was subsequently recorded as Sonnet 4.6. This documentation update does not verify current deployment health. See the [evidence guide](evidence.md).
 
 Audience: the two host operators (Juan González and Jordan Lynn), and anyone producing videos, tutorials, or diagrams about the project. The guide is written so that each chapter can stand alone as a script source. Chapters 1 and 2 explain what the product is and how it is scored. Chapters 3 to 7 explain the architecture, the AWS services, the Strands agent, durable execution, and rooms. Chapters 8 and 9 are the host journey and the guest journey. Chapter 10 collects the safety contracts, chapter 11 is the operating manual, and chapter 12 turns the material into video chapters and diagram lists.
 
@@ -18,7 +18,7 @@ Everything below is grounded in the repository at the date above. Where a fact l
 
 **The design principle.** The model interprets language and prepares. Deterministic code and PostgreSQL decide. People keep authority over anything sensitive. Written as a sentence for the video: "The agent coordinates, code protects the home, and people keep the judgment that matters."
 
-**What it is not.** It does not send WhatsApp or SMS. It does not write into Google Calendar or iCloud. It does not let the model change booking state directly. It does not store or send a family's name to the model provider's memory. It does not expose one guest to another.
+**What it is not.** It does not send WhatsApp or SMS. It does not write into Google Calendar or iCloud. It does not let the model change booking state directly. Guest memory access is party-scoped and host capture conversations are excluded from extraction; free text is not guaranteed anonymous. It does not expose one guest to another.
 
 **The name.** "Ayalga" is Asturian for a treasure found. The sign-in page carries that tagline.
 
@@ -45,11 +45,11 @@ Everything below is grounded in the repository at the date above. Where a fact l
 
 All five are equally weighted.
 
-1. **Technical implementation: "How thoroughly and skillfully does the project use Strands Agents?"** L’Ayalga uses the Strands TypeScript SDK for the agent loop, ten typed tools, a `BeforeToolCallEvent` policy hook, `event.interrupt` for human decisions, `InterruptResponseContent` for resume, a Postgres-backed `SessionManager`, `MemoryManager` over AgentCore Memory, and OpenTelemetry trace attributes. Every production run executes on a live Amazon Bedrock AgentCore Runtime and records that fact on the run itself. Chapter 5 covers this in detail.
+1. **Technical implementation: "How thoroughly and skillfully does the project use Strands Agents?"** L’Ayalga uses the Strands TypeScript SDK for the agent loop, task-scoped typed tools, a `BeforeToolCallEvent` policy hook, `event.interrupt` for human decisions, `InterruptResponseContent` for resume, a Postgres-backed `SessionManager`, `MemoryManager` over AgentCore Memory, and OpenTelemetry trace attributes. Every production run executes on a live Amazon Bedrock AgentCore Runtime and records that fact on the run itself. Chapter 5 covers this in detail.
 2. **Design: a complete, coherent product experience, not a proof of concept.** Two languages from the first screen. A host dashboard with a room ledger, a visit calendar, pending decisions, invitation capture, email pings, memory, and a labeled demo clock. A guest page with search, exact room choice, overflow consent, run status, reconfirmation, and an optional Google-claimed account. Sign-in, sign-out, revocable calendar feeds. Chapters 8 and 9.
 3. **Potential impact: a credible, specific case for a real audience.** The two real hosts operate the site. The rules are the actual rules of one household, generalized one step to any home with more than one host.
-4. **Creativity and originality: a non-obvious use of Strands Agents.** Two hosts inviting independently, partial overlap as a first-class concept, and human approval only for social exceptions. The interrupt pauses before the tool writes, survives a process restart, and resumes exactly once. The house remembers a returning family without ever storing its name.
-5. **Presentation: the video shows the project working end to end.** The four-beat demo script in `docs/submission/video-script.md` is timed to 2:55 for a three-minute video.
+4. **Creativity and originality: a non-obvious use of Strands Agents.** Two hosts inviting independently, partial overlap as a first-class concept, and human approval only for social exceptions. The interrupt pauses before the tool writes, survives a process restart, and resumes with recorded decision application. The house recalls preferences within party scopes, with host inspection and erasure.
+5. **Presentation: the planned video demonstrates the end-to-end flow.** The four-beat demo script in `docs/submission/video-script.md` is timed to 2:55 for a three-minute video.
 
 ### 2.3 The AWS Builder items
 
@@ -58,7 +58,7 @@ There is no separate "extracurricular" award in the published rules. Two Builder
 - **AWS Builder ID.** A required submission field. As of 2026-09-03 it was still on the to-do list. Create it before filing on Devpost.
 - **builder.aws.com posts bonus.** Up to 0.6 bonus points on top of the 1 to 5 score, 0.2 per post, at most three posts. The rules say: "Publish a post on builder.aws.com covering your build journey and use of AWS for this hackathon. Use Agents for Humans in your title." Posts must be public before the submission deadline. Three drafts already exist in `docs/submission/posts/`: a deterministic policy layer under a Strands agent, interrupts for household decisions, and proactive follow-through with a controllable clock. Publishing them is an outward-facing action that needs explicit authorization and the "Agents for Humans" title prefix.
 
-So yes, the project is reaching for the full bonus. It is the cheapest 0.6 available: the content is written and only the titles and the publication step remain.
+The three drafts support a possible bonus submission. Their eligibility and publication must still be confirmed; drafts alone earn no bonus.
 
 ### 2.4 Submission status on 2026-09-04
 
@@ -95,7 +95,7 @@ flowchart LR
     state["Homes • rooms • invitations • visits<br/>runs • sessions • decisions • jobs • audit"]
   end
 
-  models["Amazon Bedrock<br/>Claude Sonnet 4.5"]
+  models["Amazon Bedrock<br/>Claude Sonnet 4.6"]
   memory["AgentCore Memory<br/>household preferences • facts"]
   ses["Amazon SES<br/>host-only email pings"]
 
@@ -123,7 +123,7 @@ This is the sentence structure to reuse in every explanation.
 
 | Layer                                | Owns                                                                                                                                          | Does not own                                     |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Model (Claude Sonnet 4.5 on Bedrock) | Reading informal text, choosing typed tools, writing bilingual messages                                                                       | Availability, capacity, policy, any state change |
+| Model (Claude Sonnet 4.6 on Bedrock) | Reading informal text, choosing typed tools, writing bilingual messages                                                                       | Availability, capacity, policy, any state change |
 | Deterministic code (TypeScript)      | The overlap policy, room recommendation, room selection verdicts, idempotency, scheduling                                                     | Interpreting language                            |
 | PostgreSQL (Supabase)                | Rooms, occupancies, visits, holds, decisions, jobs, sessions, audit. Range and exclusion constraints stop two concurrent bookings of one room | Nothing above it can override a constraint       |
 | People (the two hosts)               | Applying room changes, approving or declining social exceptions, erasing memory, revoking feeds                                               | Repetitive coordination                          |
@@ -143,7 +143,7 @@ This is the sentence structure to reuse in every explanation.
 | Web application   | Vercel project `thecreativetoken/layalga`, domain `layalga.thecreativetoken.com`                                                             | IAM user `layalga-web`, Postgres login `layalga_web`                      |
 | Agent runtime     | Amazon Bedrock AgentCore Runtime `layalga_agent-mONXXjFms4`, account `106403001709`, region `us-east-1`                                      | IAM role `layalga-agentcore-runtime`, Postgres login `layalga_agent`      |
 | Database and auth | Supabase hosted project, Postgres with Google OAuth                                                                                          | Owner connection reserved for migrations                                  |
-| Model             | Amazon Bedrock inference profile `us.anthropic.claude-sonnet-4-5-20250929-v1:0`                                                              | Called from the AgentCore runtime                                         |
+| Model             | Amazon Bedrock inference profile `us.anthropic.claude-sonnet-4-6`                                                                            | Called from the AgentCore runtime                                         |
 | Memory            | AgentCore Memory resource `LayalgaHouseholdMemory-CBgKZc7mK4`                                                                                | Data-plane IAM policy scoped to that one resource                         |
 | Email             | Amazon SES, verified domain `thecreativetoken.com`, sender `noreply@layalga.thecreativetoken.com`                                            | IAM policy restricted to the sender and a two-address recipient allowlist |
 | Traces and logs   | CloudWatch log group `/aws/bedrock-agentcore/runtimes/layalga_agent-mONXXjFms4-DEFAULT`, 14-day retention, Transaction Search at 100 percent | Runtime role                                                              |
@@ -154,7 +154,7 @@ This is the sentence structure to reuse in every explanation.
 
 ### 4.1 Amazon Bedrock (the model)
 
-The Strands `BedrockModel` is constructed in `src/agent/agent.ts` with region and model id from the environment, only when `MODEL=bedrock`. It is wrapped in a `PromptMinimizingModel` (`src/agent/prompt-minimization.ts`) that strips the host display name, the family name, and the arrival and note tail from known prompt shapes before every call. The model therefore never sees who the family is, only what the household needs to know.
+The Strands `BedrockModel` is constructed in `src/agent/agent.ts` with region and model id from the environment, only when `MODEL=bedrock`. It is wrapped in a `PromptMinimizingModel` (`src/agent/prompt-minimization.ts`) that strips the host display name, the family name, and the arrival and note tail from known prompt shapes before every call. Host capture and guest change prompts retain free text, and tool content may also contain names. These pattern replacements do not provide general anonymization; see `src/agent/run-task.ts:1188`, `:1209` and the [data lifecycle](../security/data-lifecycle.md).
 
 For tests and the deterministic demo driver, `MODEL=scripted` selects an in-process scripted model that replays fixed tool sequences. The production runtime environment sets `MODEL=bedrock`.
 
@@ -179,17 +179,17 @@ The history is in ADR 0002: a day-one spike failed because the Anthropic use cas
 - **Strategies.** `HouseholdPreferences` (user preference strategy, namespace `/parties/{actorId}/preferences`) and `HouseholdFacts` (semantic strategy, namespace `/parties/{actorId}/facts`).
 - **Namespaces.** One per party: actor id `home-<homeId>/party-<partyId>`. A guest task can only search its own party's namespace. A host capture task without a matched party reads the whole home subtree read-only.
 - **How recall works.** Strands `MemoryManager` with prompt injection off and the `add_memory` tool off. The agent must call `search_memory` explicitly. Every successful call is audited as a `tool_call` row and appears on the run timeline as "Recall household memory".
-- **How writing works.** Only `guest_submit` and `guest_change` conversations are extraction-backed. Host capture is never extracted because it contains the raw host message. Instead, a deterministic, name-free event is written per capture (`src/agent/record-capture-memory.ts`) with the run id as the idempotency token.
-- **The name rule.** No family name is ever written to memory or sent in a prompt that memory extraction sees. The guest-task prompt tells the model to refer to the family only as "this family". Version 0.5.1 removed capture conversations from extraction after a name showed up in an extracted record.
+- **How writing works.** Only `guest_submit` and `guest_change` conversations are extraction-backed. Host capture is never extracted because it contains the raw host message. Instead, a deterministic event omitting the `partyName` field is written per capture (`src/agent/record-capture-memory.ts`) with the run id as the idempotency token.
+- **Identity minimization.** Guest prompt templates omit the stored family-name field and ask the model to use "this family". The separate capture event omits `partyName`, but copies selected structured text; free-text requests and guest conversations can still contain identifying information. Version 0.5.1 removed capture conversations from extraction after a name showed up in an extracted record.
 - **Host controls.** The "What L’Ayalga remembers" panel lists each party's records. "Forget this family" deletes every record and raw event and writes a `memory_forgotten` audit event.
 - **Guard rail.** Recalled facts inform the summary and a separate `rememberedContext` field. They never change adults, children, pets, dates, arrival time, or special requests. A guard drops any special request that merely restates a remembered fact, so a remembered "ground floor" preference cannot silently become a policy interrupt the family never asked for.
 
 ### 4.4 AgentCore Observability, ADOT, and CloudWatch
 
 - ADOT for Node is loaded through `NODE_OPTIONS=--require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register` in the runtime environment, with `OTEL_SERVICE_NAME=layalga-agent` and 100 percent sampling for the demo period.
-- Strands emits `invoke_agent`, `chat`, and `execute_tool` spans. The agent attaches `layalga.home_id`, `layalga.task`, and `session.id` as trace attributes; never names.
+- Strands emits `invoke_agent`, `chat`, and `execute_tool` spans. The agent attaches `layalga.home_id`, `layalga.task`, and `session.id` as application-added trace attributes, with no name fields. SDK span content may also carry conversation and tool text; those fields are not guaranteed anonymous.
 - `scripts/enable-transaction-search.sh` enabled CloudWatch Transaction Search at the account level and set the runtime log group to 14-day retention.
-- A captured production trace is in `docs/submission/assets/agentcore-trace.png`: a host capture run, nine spans, one model call at about 8 seconds, roughly 10,500 tokens, zero errors.
+- The historical 2026-09-04 Sonnet 4.5 trace in `docs/submission/assets/agentcore-trace.png` records a host capture run with nine spans, about 8 seconds model latency, roughly 10,500 tokens, and zero errors. It is evidence of that observed run, not a fresh trace of the currently selected model.
 
 ### 4.5 Amazon SES (host-only email pings)
 
@@ -218,11 +218,11 @@ S3 for versioned agent bundles. SQS for the scheduler dead-letter queue. IAM use
 
 Sessions live in the `agent_sessions` table through a small `PostgresStorage` adapter. Session ids are `capture_<hostId>`, `room_<hostId>`, `inv_<invitationId>`, and `tick_<jobId>`. A resume run reuses the paused run's session.
 
-### 5.2 The ten typed tools
+### 5.2 Task-scoped typed tools
 
 | Tool                    | Purpose                                                                                      | Who it serves         |
 | ----------------------- | -------------------------------------------------------------------------------------------- | --------------------- |
-| `capture_invitation`    | Structure a host's message, create or reuse the party, return the private guest link         | Host                  |
+| `capture_invitation`    | Structure the invitation and return IDs; the app reveals the private link separately         | Host                  |
 | `find_visit_options`    | Candidate stays in a window with capacity and anonymous overlap counts                       | Guest change requests |
 | `evaluate_overlap`      | Preview the beds, children, pets, and special-request policy without changing anything       | Guest path            |
 | `create_temporary_hold` | Place a 48-hour hold on exact rooms; policy runs first                                       | Guest submission      |
@@ -233,7 +233,7 @@ Sessions live in the `agent_sessions` table through a small `PostgresStorage` ad
 | `find_room_options`     | Recommend guest-safe rooms for an exact stay, marking overflow                               | Host room requests    |
 | `prepare_room_action`   | Prepare one pending private block, opening, or closure; never applies it                     | Host room requests    |
 
-`search_memory` is an eleventh tool supplied by the SDK's `MemoryManager` when memory is on.
+`search_memory` is an additional tool supplied by the SDK’s `MemoryManager` when a memory store applies to the task.
 
 A host room request gets exactly the three room tools. Every other task gets the other seven.
 
@@ -265,7 +265,7 @@ Three records are related but distinct:
 
 - The **Strands session snapshot** holds the paused tool execution.
 - The **pending decision** row holds what a host needs to read: party summary, reason, stay, request detail, and an integrity hash of the proposed stay.
-- The **resume run** consumes the decision, supplies `InterruptResponseContent`, and writes a `decision_applied` audit event. `applied_run_id` on the decision guarantees the tool executes at most once. A failed resume records `application_error` and the host sees a retry button.
+- The **resume run** consumes the decision, supplies `InterruptResponseContent`, and writes a `decision_applied` audit event. `applied_run_id` records the run consuming the decision; the cross-process regression test checks one hold-tool execution and one decision-application audit (`src/agent/interrupt-resume.test.ts:111`). This is evidence for that path rather than a universal exactly-once guarantee. A failed resume records `application_error` and the host sees a retry button.
 
 ### 5.6 Prompt shapes
 
@@ -369,7 +369,7 @@ The whole host experience is one page at `/en` or `/es`, plus a run status page.
 | Receive an invitation by message, voice, or in person        | Paste or type it into "New invitation"                                                                                                                       | Structures party, counts, dates, arrival, requests; recalls what the house remembers; creates or reuses the party | Mints the private link on reveal, stores its HMAC, 30-day expiry                              |
 | Send the link                                                | Copy and send it through your own channel                                                                                                                    | Nothing                                                                                                           | Nothing                                                                                       |
 | Guest picks dates and rooms                                  | Nothing                                                                                                                                                      | Places the hold, confirms when policy allows, writes the outcome                                                  | Policy verdict, exclusion constraint, hold expiry after 48 hours                              |
-| Social exception (special request or overflow)               | Read the card, add a note, Approve or Decline. Answer the email if you are not in the app                                                                    | Pauses before the tool, resumes once after your decision                                                          | Saves the snapshot, the decision, and the applied run id; sends the email ping to both of you |
+| Social exception (special request or overflow)               | Read the card, add a note, Approve or Decline. Follow the email link back to the app                                                                         | Pauses before the tool, resumes once after your decision                                                          | Saves the snapshot, the decision, and the applied run id; sends the email ping to both of you |
 | Reserve a room for yourselves                                | Either fill "Private room use" yourself, or type "Reserve the Garage Room for family use from the 22nd to the 24th" and press "Prepare proposal", then Apply | Prepares a bounded proposal with exact dates and room ids                                                         | Applies it once under the same occupancy constraint as a guest stay                           |
 | Open a withheld room for one stay, or close a room for dates | Date controls, or an agent request and Apply                                                                                                                 | Prepares the proposal                                                                                             | Applies it once                                                                               |
 | Enter or edit real rooms                                     | Room inventory form                                                                                                                                          | Nothing                                                                                                           | Draft or incomplete rooms stay unavailable                                                    |
@@ -382,7 +382,7 @@ The whole host experience is one page at `/en` or `/es`, plus a run status page.
 
 ### 8.4 A day in the life
 
-**Monday, Juan.** A cousin writes on WhatsApp in Spanish: "¿Podemos ir el puente de octubre con los niños y el perro?" Juan opens `/es`, pastes it, presses "Capture invitation". The run page shows "Recall household memory", "Capture invitation", and completes in a few seconds on AgentCore. Juan presses "Prepare private guest link", copies it, and replies on WhatsApp with the link. Done. Two minutes.
+**Illustrative scenario, not measured usage or timing. Monday, Juan.** A cousin writes on WhatsApp in Spanish: "¿Podemos ir el puente de octubre con los niños y el perro?" Juan opens `/es`, pastes it, presses "Capture invitation". The run page shows "Recall household memory", "Capture invitation", and completes on AgentCore; latency depends on the runtime and model. Juan presses "Prepare private guest link", copies it, and replies on WhatsApp with the link. The invitation is ready for the guest.
 
 **Tuesday, Jordan.** Independently, Jordan pastes an English invitation for friends who want the same weekend. Same flow. Neither host has to check with the other yet.
 
@@ -409,11 +409,11 @@ Two channels reach you. In-app notifications appear in the household record and 
 ### 8.7 What you do not have to worry about
 
 - A crashed web request losing a submission. Work is queued before it runs.
-- A run being executed twice after an approval. The applied run id guarantees once.
+- An already recorded decision being applied again through the normal resume path. Decision records, claims, and audit checks guard replay.
 - Two guests booking the same room at the same second. The database constraint refuses the second.
 - Duplicate alerts on retries. Jobs, notifications, and emails carry idempotency keys.
 - A guest seeing another guest's name, hidden rooms, internal names, or private notes.
-- A family name leaking into memory or into the model provider. Prompts are minimized at the source.
+- Unscoped guest memory recall. Guest stores are limited to their own party; host capture extraction is disabled. Free text still requires care because it can contain names.
 - Old prompts piling up. Retention runs daily.
 - The model inventing a room, a date, or an approval. Tools take trusted server-side state, and the hook runs before every consequential tool.
 
@@ -459,12 +459,12 @@ A URL of the form `https://layalga.thecreativetoken.com/es/g/<43-character token
 The guest lands on the run status page and watches the timeline: Queued, Working, then "Recall household memory", "Place temporary hold", "Policy checked", "Confirm visit", Completed, "Executed on AgentCore". Three terminal shapes:
 
 - **Confirmed.** Back on the link: "Your stay is confirmed", the stay, the party counts, and "Your rooms" with labels.
-- **Waiting for a host.** "A host decision is needed before this update can continue." The rooms are on hold for 48 hours. The guest can wait or request a change. Nothing tells the guest who the host is or what the other party is.
+- **Waiting for a host.** "A host decision is needed before this update can continue." A hold-tool interrupt pauses before the rooms are reserved. The guest can wait or request a change; availability is checked again after approval. Nothing tells the guest who the host is or what the other party is.
 - **Not possible.** The model relays a fixed policy sentence in the guest's language, for example that another family with children overlaps those dates, without naming anyone. The guest searches again with other dates.
 
 ### 9.4 What the agent does for the guest
 
-- Reads what the household already knows so the form is prefilled and the host's summary already reflects the family's habits.
+- Prefills the form from the structured invitation; memory can inform the host’s capture summary. Memory-based room ranking is not implemented at this baseline.
 - Turns a vague "some weekend in October" into concrete candidate stays that already respect beds, children, and pets.
 - Recommends a room set, and explains overflow honestly instead of hiding it.
 - Places the hold, runs the policy, and either confirms or gets a human involved, without the guest having to negotiate with two hosts by message.
@@ -489,7 +489,7 @@ Cannot see: any other family's name or rooms, hidden or withheld rooms that are 
 
 ### 9.7 A returning family
 
-The link is a new invitation on the same party. The form opens with the household's structured knowledge already in place. The host's capture summary mentions what the house remembers, for example a ground-floor preference or a late Friday arrival. Those memories never change counts or dates and are never shown to the guest as a list. If the family claimed an earlier link with Google, the account aside shows "Saved to your account" with a link to their visits.
+The link is a new invitation on the same party. The form opens with fields from the structured invitation already in place; it does not populate directly from a memory record. The host's capture summary mentions what the house remembers, for example a ground-floor preference or a late Friday arrival. Those memories never change counts or dates and are never shown to the guest as a list. If the family claimed an earlier link with Google, the account aside shows "Saved to your account" with a link to their visits.
 
 ---
 
@@ -502,7 +502,7 @@ The link is a new invitation on the same party. The form opens with the househol
 - Private notes, internal names, and real house source material stay out of prompts, guest output, WebMCP output, audit payloads, and calendar text.
 - Host identity is Google OAuth mapped to one explicit host and home; unmatched identities fail closed.
 - Web and agent use separate non-owner Postgres roles with explicit grants; RLS is enabled with no direct client policies.
-- No family name is written to memory or sent to the model provider; a host can erase a family's memory entirely.
+- Guest templates and the separate capture-memory event omit the stored family-name field. Host capture is excluded from extraction; free text and SDK trace content can still contain names. Hosts can erase party memory records and raw events.
 - Email goes to hosts only, idempotently, and can be turned off.
 - Synthetic demo data is labeled everywhere it appears, and the demo clock affects demo data only.
 - Release probes tag and delete only their own data.
@@ -580,8 +580,8 @@ Three GitHub Actions jobs on every pull request: unit (typecheck, lint, coverage
 - "Turns informal invitations into confirmed, conflict-aware visits."
 - "Partial overlap is a first-class concept, not a busy flag."
 - "Denial is deterministic. Approval is human. Everything else is automatic."
-- "The interrupt pauses before the tool writes, survives a restart, and resumes exactly once."
-- "The house remembers the family's habits, never the family's name."
+- "The interrupt pauses before the tool writes, survives a restart, and resumes with recorded decision application."
+- "The house recalls preferences, and the host can inspect and erase them."
 - "Every run says where it ran."
 - "The calendar is the result of coordination, not the product."
 

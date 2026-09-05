@@ -4,6 +4,11 @@ One line per document. Start with the README at the repository root for the prod
 
 ## For judges and readers
 
+Start with the [judge guide](submission/judge-guide.md) for a short repository
+route. The [evidence index](submission/evidence.md) pairs claims with source,
+tests, operating modes, and limits. The public-site discovery index is
+[`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
+
 | Document                                                   | What it is                                                                                                      |
 | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [submission/judge-guide.md](submission/judge-guide.md)     | A ten-minute path through the live site, organized by the five judging criteria                                 |
