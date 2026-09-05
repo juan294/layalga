@@ -101,7 +101,7 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 
 ## Testing instructions
 
-1. Open `https://layalga.thecreativetoken.com`. On the sign-in page, use a demo-host button to enter as Juan (Spanish) or Jordan (English) without Google OAuth; the banner reads `Synthetic demo` throughout.
+1. Open `https://layalga.thecreativetoken.com`. On the sign-in page, press "Enter as Host" to enter the demo house without Google OAuth (switch the page language to Spanish or English at the top); the banner reads `Synthetic demo` throughout. "Enter as Guest" opens a prepared guest invitation the same way.
 2. Beat 1: as Juan, paste a Spanish invitation for a synthetic family. The agent structures the party, and the run status page and the embedded poller show each tool call and policy verdict as it happens.
 3. Beat 2: ask the coordinator to reserve a room for private household use, review the prepared proposal, and apply it.
 4. Beat 3: open the private guest link in a separate window, select dates and rooms, and try both a standard-capacity choice and an overflow-only choice; the overflow choice pauses for a host decision, which appears on the host page and arrives as an email to both hosts if `EMAIL=ses` is active on the deployed candidate.
@@ -129,4 +129,4 @@ Finally, a controllable clock is more than a demo shortcut. It makes proactive b
 
 ## Eligibility disclosure
 
-The repository was created during the hackathon submission period. Pre-existing cc-rpi v1.28.2 files provided development-process scaffolding. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period. The two host names identify the real operators; all guest identities, invitations, visits, and notifications in the demonstration are synthetic.
+The repository was created during the hackathon submission period. Pre-existing cc-rpi files (v1.28.2 at bootstrap, synced to v1.29.0 on 2026-09-01) provided development-process scaffolding. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period. The two host names identify the real operators; all guest identities, invitations, visits, and notifications in the demonstration are synthetic.

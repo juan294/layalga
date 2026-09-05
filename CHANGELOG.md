@@ -4,6 +4,18 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- A run started synchronously is inserted already claimed, so the per-minute drain can no longer dispatch it first and fail the caller with "Agent run is no longer active". The AgentCore database URL now uses the transaction-mode pooler port (#95).
+
+### Changed
+
+- The demo sign-in button reads "Enter as Host" instead of the host's name, and the Spanish sign-in tagline is written in Spanish (#94).
+
+### Documentation
+
+- System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
+
 ## [0.5.1] - 2026-09-04
 
 ### Fixed
