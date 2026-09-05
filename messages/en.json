@@ -359,7 +359,26 @@
     "requests": "Requests needing a host decision",
     "requestsHelp": "For accommodations or exceptions. The hosts will review this before confirmation.",
     "capturedRequests": "Requests already shared by your host",
-    "visitNotes": "Your information for the hosts"
+    "visitNotes": "Your information for the hosts",
+    "roomPreferences": {
+      "title": "Why we suggested these rooms",
+      "off": "Saved room preferences are not being used for this suggestion.",
+      "empty": "No room preferences are saved for your party yet.",
+      "unavailable": "We could not retrieve your saved room preferences this time.",
+      "unusable": "Your saved preferences do not describe a room feature we can verify.",
+      "conflicting": "Your saved room preferences conflict, so none were used.",
+      "matched": "Recommended rooms include: {preferences}.",
+      "unmatched": "The recommended rooms do not match: {preferences}. You can review the other available rooms below.",
+      "choice": "We suggested available rooms that fit your group. Choose the rooms you want using the checkboxes below.",
+      "selectionChanged": "Your current selection differs from our suggestion. The preference explanation above still describes the recommended rooms.",
+      "groundFloor": "A ground-floor label does not guarantee step-free or wheelchair access. Ask your hosts about any access needs.",
+      "labels": {
+        "ground_floor": "ground floor",
+        "upper_floor": "upper floor",
+        "separate_beds": "separate beds",
+        "double_bed": "double bed"
+      }
+    }
   },
   "GuestAccount": {
     "eyebrow": "Optional guest account",

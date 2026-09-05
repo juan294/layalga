@@ -18,6 +18,7 @@ import type {
 
 import styles from "./guest-ledger.module.css";
 import { Field } from "./field";
+import { RoomPreferenceExplanation } from "./room-preference-explanation";
 import { GuestWebMcpRegistration } from "@/components/webmcp/guest-registration";
 
 const initialOptionState: GuestOptionState = {
@@ -341,6 +342,18 @@ function GuestRoomReview({
           );
         })}
       </fieldset>
+
+      {selectedOption?.preferenceExplanation ? (
+        <RoomPreferenceExplanation
+          explanation={selectedOption.preferenceExplanation}
+          selectionChanged={
+            selectedIds.length !== selectedOption.recommendedRoomIds.length ||
+            selectedIds.some(
+              (id) => !selectedOption.recommendedRoomIds.includes(id),
+            )
+          }
+        />
+      ) : null}
 
       {selectedOption ? (
         <fieldset className={styles.roomList}>

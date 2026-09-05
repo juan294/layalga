@@ -7,6 +7,12 @@ import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
 import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
+import { loadPartyRoomPreferences } from "@/core/memory/room-preferences";
+import type { MemoryClient } from "@/core/memory/client";
+import {
+  explainRoomPreferences,
+  type RoomPreferenceExplanation,
+} from "@/core/rooms/preferences";
 import {
   loadGuestRoomSearchWindow,
   roomOptionsForStay,
@@ -24,6 +30,7 @@ export interface GuestOption {
   rooms: GuestRoomChoice[];
   recommendedRoomIds: string[];
   hasOverlap: boolean;
+  preferenceExplanation?: RoomPreferenceExplanation;
 }
 
 export interface GuestSearchCriteria {
@@ -77,6 +84,7 @@ export interface ValidatedSubmitInput {
 export async function findGuestOptionsForAuthority(
   authority: GuestInvitationAuthority,
   input: ValidatedOptionInput,
+  memoryOptions?: { client?: MemoryClient },
 ): Promise<GuestOptionState> {
   const connection = getDatabaseConnection();
   const clock = new SystemClock();
@@ -94,6 +102,11 @@ export async function findGuestOptionsForAuthority(
     clock,
     authority.homeId,
     [input.from, input.to],
+  );
+  const preferences = await loadPartyRoomPreferences(
+    connection.db,
+    { homeId: authority.homeId, partyId: authority.partyId },
+    memoryOptions,
   );
 
   for (
@@ -120,6 +133,7 @@ export async function findGuestOptionsForAuthority(
     const recommendation = recommendRoomsWithOverflow(
       availableRooms,
       partySize,
+      preferences.preferences,
     );
     const effectiveVerdict =
       verdict.decision === "deny" &&
@@ -139,6 +153,10 @@ export async function findGuestOptionsForAuthority(
         stay,
         rooms: availableRooms.map(toGuestRoomChoice),
         recommendedRoomIds: recommendation.rooms.map(({ id }) => id),
+        preferenceExplanation: explainRoomPreferences(
+          preferences,
+          recommendation.rooms,
+        ),
         hasOverlap: state.visits.some(
           (visit) =>
             visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),

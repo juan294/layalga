@@ -57,7 +57,7 @@ Deferred as in the accepted assessment: per-night room packing, remote OAuth MCP
 - [x] Phase 1: cancellation and access lifecycle.
 - [x] Phase 2: decision semantics and policy settings.
 - [x] Phase 3: consented guest reminder delivery.
-- [ ] Phase 4: memory-informed recommendations.
+- [x] Phase 4: memory-informed recommendations.
 - [ ] Phase 5: host and guided-demo experience.
 - [ ] Phase 6: outcome evidence, comprehensive docs, integration PR and healthy CI.
 

@@ -359,7 +359,26 @@
     "requests": "Solicitudes que necesitan una decisión",
     "requestsHelp": "Para adaptaciones o excepciones. Los anfitriones lo revisarán antes de confirmar.",
     "capturedRequests": "Solicitudes ya compartidas por tu anfitrión",
-    "visitNotes": "Tu información para los anfitriones"
+    "visitNotes": "Tu información para los anfitriones",
+    "roomPreferences": {
+      "title": "Por qué sugerimos estas habitaciones",
+      "off": "No se están usando preferencias guardadas para esta sugerencia.",
+      "empty": "Tu grupo todavía no tiene preferencias de habitación guardadas.",
+      "unavailable": "Esta vez no hemos podido consultar tus preferencias guardadas.",
+      "unusable": "Tus preferencias guardadas no describen una característica de habitación que podamos verificar.",
+      "conflicting": "Tus preferencias guardadas se contradicen, así que no se ha usado ninguna.",
+      "matched": "Las habitaciones recomendadas incluyen: {preferences}.",
+      "unmatched": "Las habitaciones recomendadas no cumplen: {preferences}. Puedes revisar las otras habitaciones disponibles abajo.",
+      "choice": "Hemos sugerido habitaciones disponibles con capacidad para tu grupo. Elige las habitaciones que quieras con las casillas de abajo.",
+      "selectionChanged": "Tu selección actual es distinta de nuestra sugerencia. La explicación anterior sigue refiriéndose a las habitaciones recomendadas.",
+      "groundFloor": "La etiqueta de planta baja no garantiza acceso sin escalones ni para silla de ruedas. Consulta con tus anfitriones cualquier necesidad de acceso.",
+      "labels": {
+        "ground_floor": "planta baja",
+        "upper_floor": "planta superior",
+        "separate_beds": "camas separadas",
+        "double_bed": "cama doble"
+      }
+    }
   },
   "GuestAccount": {
     "eyebrow": "Cuenta opcional de huésped",
