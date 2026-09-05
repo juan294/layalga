@@ -220,7 +220,7 @@ export async function taggedInvitationIds(
   suffix: string,
 ): Promise<string[]> {
   const rows = await sql<{ id: string }[]>`
-    select invitation.id
+    select distinct invitation.id
     from public.runs run
     join public.audit_events audit
       on audit.run_id = run.id

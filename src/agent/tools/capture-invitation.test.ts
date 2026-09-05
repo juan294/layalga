@@ -15,7 +15,7 @@ const url =
   "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
 const sql = postgres(url, { prepare: false });
 
-describe("captureInvitationTool: rememberedContext", () => {
+describe("captureInvitationTool", () => {
   afterAll(() => sql.end());
 
   const previousSecret = process.env.LINK_TOKEN_SECRET;
@@ -111,6 +111,53 @@ describe("captureInvitationTool: rememberedContext", () => {
         select structured from public.invitations where id = ${result.invitationId}
       `;
       expect(row!.structured).not.toHaveProperty("rememberedContext");
+    } finally {
+      await cleanupHost(sql, fixture);
+    }
+  });
+
+  it("reuses the invitation this run already captured instead of creating a second one", async () => {
+    const fixture = await seedHost(sql, `Capture idempotent ${randomUUID()}`);
+    const runId = randomUUID();
+    try {
+      await sql`
+        insert into public.runs (id, home_id, session_id, task, status, payload)
+        values (
+          ${runId}, ${fixture.homeId}, ${`capture_${fixture.hostId}`},
+          'host_capture', 'running',
+          ${JSON.stringify({
+            task: "host_capture",
+            homeId: fixture.homeId,
+            hostId: fixture.hostId,
+            rawMessage: "Invite the Riveras for a weekend in October.",
+            locale: "en",
+          })}::text::jsonb
+        )
+      `;
+      const deps = agentDeps(fixture.homeId, fixture.hostId);
+      const input = {
+        partyName: "Rivera",
+        partyLocale: "en" as const,
+        adults: 2,
+        children: 0,
+        pets: 0,
+        flexibleDates: { text: "a weekend in October" },
+        specialRequests: [],
+        rawMessage: "Invite the Riveras for a weekend in October.",
+      };
+      const context = { invocationState: { runId } } as never;
+      const first = await captureInvitationTool(deps).invoke(input, context);
+      const second = await captureInvitationTool(deps).invoke(
+        { ...input, adults: 3 },
+        context,
+      );
+
+      expect(second.invitationId).toBe(first.invitationId);
+      const [invitations] = await sql<{ count: number }[]>`
+        select count(*)::integer as count from public.invitations
+        where home_id = ${fixture.homeId}
+      `;
+      expect(invitations?.count).toBe(1);
     } finally {
       await cleanupHost(sql, fixture);
     }

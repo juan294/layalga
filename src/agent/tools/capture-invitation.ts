@@ -2,6 +2,7 @@ import { tool } from "@strands-agents/sdk";
 import { z } from "zod";
 
 import { captureInvitation } from "@/core/booking/invitations";
+import { sqlClient } from "@/core/db/client";
 import { foldText } from "@/lib/text-fold";
 
 import type { AgentDeps } from "../ports";
@@ -24,7 +25,7 @@ export function captureInvitationTool(deps: AgentDeps) {
   return tool({
     name: "capture_invitation",
     description:
-      "Structure a host's invitation, create or reuse the invited party, and return the private guest link.",
+      "Structure a host's invitation and create or reuse the invited party. Call it once per host message; the application delivers the private guest link outside this conversation.",
     inputSchema: z.object({
       partyName: z.string().min(1).max(MAX_PARTY_NAME_LENGTH),
       partyLocale: z.enum(["en", "es"]),
@@ -57,6 +58,41 @@ export function captureInvitationTool(deps: AgentDeps) {
       const authority = requireAuthority(deps);
       if (!authority.hostId) {
         throw new Error("Host capture authority is required");
+      }
+      // A model may call this tool again after a success; the run's first
+      // capture is authoritative, so a repeat returns it instead of minting
+      // a second invitation and guest link.
+      const runId =
+        typeof context?.invocationState.runId === "string"
+          ? context.invocationState.runId
+          : null;
+      if (runId) {
+        const [captured] = await sqlClient(deps.db)<
+          { invitation_id: string; party_id: string }[]
+        >`
+          select invitation.id as invitation_id, invitation.party_id
+          from public.audit_events audit
+          join public.invitations invitation
+            on invitation.id::text = audit.payload->>'invitationId'
+           and invitation.home_id = audit.home_id
+          where audit.run_id = ${runId}
+            and audit.home_id = ${authority.homeId}
+            and audit.kind = 'tool_call'
+            and audit.payload->>'name' = 'capture_invitation'
+          order by audit.created_at desc
+          limit 1
+        `;
+        if (captured) {
+          await audit(deps, authority.homeId, context, "tool_call", {
+            name: "capture_invitation",
+            invitationId: captured.invitation_id,
+            reused: true,
+          });
+          return {
+            invitationId: captured.invitation_id,
+            partyId: captured.party_id,
+          };
+        }
       }
       const rememberedContext = input.rememberedContext ?? [];
       // Deterministic guard: a specialRequest that only echoes a recalled

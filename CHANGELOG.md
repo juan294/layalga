@@ -4,6 +4,11 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- `capture_invitation` reuses the invitation a run already captured instead of creating a duplicate when the model calls the tool again; the reuse is recorded as a second `tool_call` audit row.
+- Release probes and the shared tagged-artifact cleanup identify captured invitations through the run's enqueue payload and the capture audit row, not the model-restated `raw_message`, which Sonnet 4.6 may return without the probe tag.
+
 ## [1.0.0] - 2026-09-05
 
 ### Added
