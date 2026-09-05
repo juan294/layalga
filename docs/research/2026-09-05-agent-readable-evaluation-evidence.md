@@ -1,5 +1,7 @@
 # Research: making L’Ayalga easy for judging agents to evaluate
 
+Documentation status, September 5, 2026: Dated research snapshot, preserved without rewriting its observations. The documentation follow-through is in the current [judge guide](../submission/judge-guide.md); use that guide for implemented capabilities and evidence limits.
+
 Date: 2026-09-05. Research and recommendations requested by the owner; this is not an implemented documentation change or a submission-ready evaluation guide.
 
 ## Recommendation

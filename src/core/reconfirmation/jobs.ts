@@ -1,3 +1,5 @@
+import type { TransactionSql } from "postgres";
+
 import type { Clock } from "@/core/clock";
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import type { ScheduledJobKind, ScheduledJobStatus } from "@/core/db/schema";
@@ -114,7 +116,16 @@ export async function scheduleJobs(
       continue;
     }
 
-    const [inserted] = await sql<JobRow[]>`
+    const row = await sql.begin(async (transaction) => {
+      await transaction`select pg_advisory_xact_lock(hashtextextended(${operation.homeId}::text, 0))`;
+      const [active] = await transaction`
+        select id from public.visits where id = ${operation.visitId}
+          and home_id = ${operation.homeId} and status <> 'cancelled'
+      `;
+      // An already prepared scheduling operation must not resurrect work
+      // after cancellation has acquired the same household lock.
+      if (!active) return undefined;
+      const [inserted] = await transaction<JobRow[]>`
       insert into public.scheduled_jobs (home_id, visit_id, kind, due_at, status)
       values (
         ${operation.homeId}, ${operation.visitId}, ${operation.kind},
@@ -123,10 +134,10 @@ export async function scheduleJobs(
       on conflict do nothing
       returning id, home_id, visit_id, kind, due_at, status, external_ref
     `;
-    const row =
-      inserted ??
-      (
-        await sql<JobRow[]>`
+      const row =
+        inserted ??
+        (
+          await transaction<JobRow[]>`
           select id, home_id, visit_id, kind, due_at, status, external_ref
           from public.scheduled_jobs
           where visit_id = ${operation.visitId}
@@ -135,8 +146,11 @@ export async function scheduleJobs(
           order by created_at, id
           limit 1
         `
-      )[0];
-    if (!row) throw new Error(`Failed to persist ${operation.kind} job`);
+        )[0];
+      if (!row) throw new Error(`Failed to persist ${operation.kind} job`);
+      return row;
+    });
+    if (!row) continue;
 
     const externalRef = await ensureExternalSchedule(database, scheduler, row);
     scheduled.push(toScheduledJob(row, externalRef));
@@ -207,6 +221,10 @@ export async function dispatchDueJobs(
     attemptedJobIds.push(job.id);
     try {
       const action = await prepareClaimedJob(database, clock, scheduler, job);
+      if (!(await jobIsCurrent(sqlClient(database), job))) {
+        results.push(result(job, "none", "skipped"));
+        continue;
+      }
       if (action === "none") {
         await completeClaimedJob(database, job);
         results.push(result(job, action, "done"));
@@ -244,6 +262,10 @@ export async function dispatchDueJobs(
         runId: queued.runId,
       });
     } catch (error) {
+      if (!(await jobIsCurrent(sqlClient(database), job))) {
+        results.push(result(job, "none", "skipped"));
+        continue;
+      }
       await recordJobFailure(database, clock.now(), job);
       console.error("[SCHEDULED_JOB_DISPATCH_FAILED]", {
         jobId: job.id,
@@ -338,12 +360,16 @@ async function executeClaimedJob(
 ): Promise<JobRunResult> {
   try {
     const action = await prepareClaimedJob(database, clock, scheduler, job);
+    if (!(await jobIsCurrent(sqlClient(database), job)))
+      return result(job, "none", "skipped");
     if (action !== "none") {
       await agentInvoker.run({
         task: "tick",
         homeId: job.home_id,
         jobId: job.id,
       });
+      if (!(await jobIsCurrent(sqlClient(database), job)))
+        return result(job, "none", "skipped");
       if (!(await deliveryIsComplete(database, job))) {
         // The model sometimes does not call notify for every required
         // recipient (e.g. it asks for more information instead). Fall back
@@ -361,6 +387,8 @@ async function executeClaimedJob(
     await completeClaimedJob(database, job);
     return result(job, action, "done");
   } catch (error) {
+    if (!(await jobIsCurrent(sqlClient(database), job)))
+      return result(job, "none", "skipped");
     await recordJobFailure(database, clock.now(), job);
     throw error;
   }
@@ -379,16 +407,21 @@ async function deliverRequiredNotifications(
   job: JobRow,
 ): Promise<{ inserted: number }> {
   const sql = sqlClient(database);
-  const [visit] = await sql<{ party_id: string; family_name: string }[]>`
+  return sql.begin(async (transaction) => {
+    await transaction`select pg_advisory_xact_lock(hashtextextended(${job.home_id}::text, 0))`;
+    if (!(await jobIsCurrent(transaction, job))) return { inserted: 0 };
+    const [visit] = await transaction<
+      { party_id: string; family_name: string }[]
+    >`
     select visit.party_id, party.family_name
     from public.visits visit
     join public.parties party on party.id = visit.party_id
     where visit.id = ${job.visit_id}
   `;
-  if (!visit) return { inserted: 0 };
+    if (!visit) return { inserted: 0 };
 
-  if (job.kind === "reconfirm_chase") {
-    const [row] = await sql<{ id: string }[]>`
+    if (job.kind === "reconfirm_chase") {
+      const [row] = await transaction<{ id: string }[]>`
       insert into public.notifications (
         home_id, recipient_kind, recipient_id, visit_id, scheduled_job_id,
         kind, body_en, body_es
@@ -401,12 +434,12 @@ async function deliverRequiredNotifications(
       on conflict do nothing
       returning id
     `;
-    if (!row) return { inserted: 0 };
-    await recordFallbackAudit(database, job, [visit.party_id]);
-    return { inserted: 1 };
-  }
+      if (!row) return { inserted: 0 };
+      await recordFallbackAudit(transaction, job, [visit.party_id]);
+      return { inserted: 1 };
+    }
 
-  const missingHosts = await sql<{ id: string }[]>`
+    const missingHosts = await transaction<{ id: string }[]>`
     select host.id
     from public.hosts host
     where host.home_id = ${job.home_id}
@@ -419,9 +452,9 @@ async function deliverRequiredNotifications(
       )
     order by host.created_at, host.id
   `;
-  const insertedRecipientIds: string[] = [];
-  for (const host of missingHosts) {
-    const [row] = await sql<{ id: string }[]>`
+    const insertedRecipientIds: string[] = [];
+    for (const host of missingHosts) {
+      const [row] = await transaction<{ id: string }[]>`
       insert into public.notifications (
         home_id, recipient_kind, recipient_id, visit_id, scheduled_job_id,
         kind, body_en, body_es
@@ -434,20 +467,20 @@ async function deliverRequiredNotifications(
       on conflict do nothing
       returning id
     `;
-    if (row) insertedRecipientIds.push(host.id);
-  }
-  if (insertedRecipientIds.length > 0) {
-    await recordFallbackAudit(database, job, insertedRecipientIds);
-  }
-  return { inserted: insertedRecipientIds.length };
+      if (row) insertedRecipientIds.push(host.id);
+    }
+    if (insertedRecipientIds.length > 0) {
+      await recordFallbackAudit(transaction, job, insertedRecipientIds);
+    }
+    return { inserted: insertedRecipientIds.length };
+  });
 }
 
 async function recordFallbackAudit(
-  database: DatabaseClient,
+  sql: TransactionSql,
   job: JobRow,
   recipients: readonly string[],
 ): Promise<void> {
-  const sql = sqlClient(database);
   await sql`
     insert into public.audit_events (home_id, run_id, actor, kind, payload)
     values (
@@ -469,7 +502,9 @@ async function prepareClaimedJob(
   job: JobRow,
 ): Promise<JobRunResult["action"]> {
   const sql = sqlClient(database);
-  const { transition, changed } = await sql.begin(async (transaction) => {
+  const prepared = await sql.begin(async (transaction) => {
+    await transaction`select pg_advisory_xact_lock(hashtextextended(${job.home_id}::text, 0))`;
+    if (!(await jobIsCurrent(transaction, job))) return null;
     const [visitRow] = await transaction<VisitRow[]>`
         select id, home_id, lower(stay)::text as stay_start, status,
           confirmed_at, reconfirm_requested_at, reconfirmed_at, escalated_at
@@ -494,6 +529,8 @@ async function prepareClaimedJob(
     return { transition: next, changed: next.visit !== visit };
   });
 
+  if (!prepared) return "none";
+  const { transition, changed } = prepared;
   await scheduleJobs(database, scheduler, transition.jobs);
   const candidateAction = actionFor(job.kind, transition);
   return candidateAction !== "none" &&
@@ -501,6 +538,20 @@ async function prepareClaimedJob(
     (await deliveryIsComplete(database, job))
     ? "none"
     : candidateAction;
+}
+
+async function jobIsCurrent(
+  sql: ReturnType<typeof sqlClient> | TransactionSql,
+  job: JobRow,
+): Promise<boolean> {
+  const [current] = await sql`
+    select job.id from public.scheduled_jobs job
+    join public.visits visit on visit.id = job.visit_id
+    where job.id = ${job.id} and job.home_id = ${job.home_id}
+      and job.status = 'running' and job.claim_token = ${job.claim_token}
+      and visit.status <> 'cancelled'
+  `;
+  return Boolean(current);
 }
 
 async function completeClaimedJob(

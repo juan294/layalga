@@ -3,6 +3,9 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import { getDatabaseConnection } from "@/core/db/client";
+import { SystemClock } from "@/core/clock";
+import { resolveGuestReturnCapability } from "@/core/notifications/guest-contact";
+import { GUEST_EMAIL_COOKIE } from "./guest-email-session";
 
 import { DEMO_GUEST_COOKIE, readDemoGuestCookie } from "./demo-session";
 
@@ -14,9 +17,24 @@ export interface GuestInvitationRecord {
 }
 
 export async function getCurrentGuestInvitation(): Promise<GuestInvitationRecord | null> {
-  if (process.env.DEMO_MODE !== "true") return null;
-
   const cookieStore = await cookies();
+  const capability = cookieStore.get(GUEST_EMAIL_COOKIE)?.value;
+  if (capability) {
+    const authority = await resolveGuestReturnCapability(
+      getDatabaseConnection().db,
+      capability,
+      new SystemClock(),
+    );
+    if (authority)
+      return {
+        invitationId: authority.invitationId,
+        homeId: authority.homeId,
+        partyId: authority.partyId,
+        partyLocale: authority.locale,
+      };
+    return null;
+  }
+  if (process.env.DEMO_MODE !== "true") return null;
   const invitationId = readDemoGuestCookie(
     cookieStore.get(DEMO_GUEST_COOKIE)?.value,
   );

@@ -1,97 +1,37 @@
-# L’Ayalga pitch: Everyday Agents track
+# L’Ayalga: an Everyday Agents pitch
 
-Track text, as published: "Everyday Agents: an agent that takes the busywork out of daily life, home, money, health, errands, family. The best ones run quietly in the background and only ping you when there's a real decision to make."
+L’Ayalga coordinates visits to a shared household. A host pastes an invitation; guests choose suitable rooms; routine stays complete; explicit requests return to a person. Before arrival, it asks whether the guests are still coming and brings unanswered requests back to the hosts.
 
-That sentence is L’Ayalga's design brief. This document is the pitch for that track, built to be read by a judge in three minutes and reused, sentence by sentence, in the video, the Devpost description, and the builder.aws posts.
+The product is designed for a concrete burden: more than one host can invite independently, but room availability, children, pets and social requests still need one consistent answer. A calendar records dates. This workflow also records who needs to decide and what happens next.
 
----
+## Why an agent belongs here
 
-## 1. The pitch in one breath
+Language is useful at the edges: interpreting an informal invitation, understanding a change request, preparing a room action and explaining an outcome in the recipient's language. Strands connects that interpretation to typed tools and durable human interruption.
 
-Two people share a country house. Friends and family get invited by message, by each of them, independently. L’Ayalga is the agent that takes every one of those invitations, turns it into a private link, finds dates and rooms that fit with everyone already coming, confirms the stay, follows up before arrival, and pings the hosts only when a decision needs a human. It runs on Amazon Bedrock AgentCore with the Strands Agents SDK, and it is live today at layalga.thecreativetoken.com with the two real hosts operating it.
+The booking facts remain deterministic. Rooms and household rules are rechecked before writes. Overflow requires explicit guest consent and host approval. A saved approval cannot override a newly occupied room or a changed policy. A cancellation message prepares review; a person confirms the exact current stay before it is cancelled.
 
----
+## Why the experience now holds together
 
-## 2. The problem, the audience, and why it matters
+The routine path demonstrates the benefit first. A thank-you is retained as information, without manufacturing a host decision. When something does need judgment, the decision is prominent and the reason is explicit. After approval, the saved run resumes against the current state.
 
-**The problem.** A home with more than one host has a coordination problem that calendars do not solve. "Come the second weekend of October, bring the kids" arrives on one host's phone. "Sure, that long weekend works" leaves the other host's phone the same week. Both are right, and both are half wrong: the dates overlap partly, one family brings children, the other brings a dog, the sofa bed is the only way five people fit, and one of the guests would rather not share the house with strangers. Every one of those questions today is a thread of messages between the hosts, then between each host and their guest, then back again. The busywork is not the calendar entry. It is the fifteen messages around it, repeated for every invitation, all season.
+Memory has a visible job: supported remembered preferences rank feasible room combinations. The guest sees what matched and can choose differently. Missing, conflicting or unavailable recall is explained. A ground-floor preference never becomes a promise of accessibility or an unsolicited special request.
 
-**The audience.** Any home with more than one host. Two partners with different friend groups. Siblings who inherited a house and share it with their families. Co-parents with a shared holiday flat. A friend group with a cabin. The house in this project is real and so are its two hosts; the project addresses their need to coordinate independent invitations, room choices, and social exceptions in one place.
+Follow-through includes answered reconfirmation, unanswered escalation, optional verified guest reminders, and explicit cancellation or withdrawal. Delivery trouble is distinguished from non-response. Cancellation releases rooms and suppresses pending work that no longer has authority.
 
-**Why it matters.** Hospitality is one of the last daily-life chores that people still do entirely by hand, because it is social. The moments that need a person are real: is this combination of guests comfortable, is the sofa bed acceptable for this family, do we say yes to the wheelchair on the ground floor. Everything around those moments is mechanical, and it currently steals the time and goodwill that should go to the guests. An agent that removes the mechanical part without touching the human part makes people better hosts, not just faster ones.
+## The technical foundation
 
----
+Strands supplies the loop, typed tool execution, the policy hook, interruption/resumption, session storage and optional memory integration. The current model configuration is Claude Sonnet 4.6 on Bedrock. AgentCore Runtime, AgentCore Memory and CloudWatch support the deployed architecture; PostgreSQL owns booking truth. The [Strands guide](strands-usage.md) links the actual implementation rather than asking a reviewer to infer depth from a technology list.
 
-## 3. How L’Ayalga matches the track, clause by clause
+Privacy is enforced at specific boundaries. Guest contacts are web-only; notes, arrival details and request prose are excluded from the guest-submission prompt. Raw host text may still contain personal information and is read by the model. Host capture conversations are not extracted into memory, and guests cannot read another party's details or private room notes.
 
-**"Takes the busywork out of daily life."** The host's entire job shrinks to what it was before software: invite someone, in whatever channel, in whatever words. L’Ayalga reads the message, structures it, remembers what the house already knows about that family, creates a private link, and hands it back. From then on the guest self-serves against real availability, room by room, and the agent confirms, reallocates, and follows up.
+## The evidence and the honest limit
 
-**"Home, family."** It is literally the home and literally the family. The two hosts are a couple. The guests are their friends, siblings, cousins, parents. The rules it enforces are household rules: how many beds, one family with children at a time, whether two dogs can share the garden.
+The implementation at `618701c` has local regression and browser coverage. The [coordination evidence](coordination-evidence.md) measures actual scripted operations and persisted outcomes. Historical AgentCore tracing separately supports the earlier production runtime. The new completion features have not yet completed production rollout.
 
-**"Handle it end to end."** The loop closes. Invitation in, structured party out. Guest link, date search, exact room selection, capacity check, hold, confirmation. Three days before arrival, an automatic reconfirmation request. Twenty-four hours of silence, an escalation to both hosts. A change request from the guest, a reschedule that goes back through the same rules. A revocable calendar feed is available as an output; local parsing is verified, while a real phone-calendar subscription has not been demonstrated. Routine booking checks and follow-through run automatically; hosts still capture invitations and resolve social exceptions.
+We have not measured human time savings, adoption or participant satisfaction. The [participant protocol](participant-protocol.md) is the next step toward testing that impact. The product's strongest award case is a complete, inspectable household workflow with useful agency and visible human control; winning remains a judging decision.
 
-**"Run quietly in the background."** The selected production path queues agent work for Amazon Bedrock AgentCore Runtime and records its outcome. Reconfirmation and escalation timers run on a per-minute schedule with bounded retries, leases, and idempotent notification records. Exhausted attempts remain visible for operator recovery. The hosts do not watch it. They open the page when they invite someone, and otherwise they see stays appear on their calendar.
+## Suggested spoken close
 
-**"Only ping you when there's a real decision to make."** This is the heart of the design, and it is enforced by code, not by a prompt. Three deterministic rules run before any booking tool: enough beds, at most one family with children, no overlapping pets unless the house allows it. If a request breaks a rule, it is denied on the spot with a plain explanation to the guest, and no host is asked, because there is nothing to decide. If it passes, it proceeds, and no host is asked, because there is nothing to decide. Only in two situations does the agent pause: the guest wrote a request that needs a human answer, or the party fits only with an overflow sleeping arrangement. Then a Strands interrupt stops the run before the tool writes anything, a decision card appears on the host page, and both hosts get one email. They approve or decline, with a note, and the saved run resumes with recorded decision application. The other ping is the escalation when a family goes quiet before arrival. That is the complete list of times a host is interrupted.
+“L’Ayalga handles routine coordination, brings the right exceptions to people, and follows through until the household knows what happens next.”
 
----
-
-## 4. Why this is a Strands agent and not a form with a chatbot
-
-Judges score how thoroughly the project uses Strands Agents. L’Ayalga uses the SDK for the parts where an agent earns its keep, and refuses to use it for the parts where it would be dangerous.
-
-- **The model interprets.** It reads informal Spanish or English, structures the party, chooses among task-scoped typed tools, and writes bilingual messages to guests and hosts.
-- **A hook decides.** A `BeforeToolCallEvent` hook runs the household policy before every consequential tool. It can allow, deny, or interrupt. The model cannot skip it and cannot approve its own request.
-- **An interrupt pauses, and the pause survives.** The session snapshot lives in Postgres. A host decides hours later, from an email, on a phone. A new run restores the session, supplies the decision, and the paused tool executes once. This is the SDK's interrupt and resume contract used as a product feature, not a demo trick.
-- **Memory with explicit boundaries.** Strands `MemoryManager` over AgentCore Memory gives each returning family its own namespace of preferences and facts. Recall is an explicit tool call the agent must make, it is audited, and guest recall is scoped to that party. Capture conversation extraction is disabled, and the separate capture event omits the family-name field. Free text can still contain names; these controls are not general anonymization. A host can read and erase everything remembered about a family.
-- **Every run is visible.** ADOT tracing sends each agent cycle, model call, and tool call to CloudWatch GenAI Observability, and the same run appears in the app as a timeline: every tool, every policy verdict, every applied decision, and the runtime it executed on.
-
-The database owns availability, holds, and visits, with a PostgreSQL exclusion constraint that makes double-booking a room impossible even under concurrent requests. The model never touches booking state directly. That split is why the agent can be trusted with a real house.
-
----
-
-## 5. What makes it original
-
-- **Partial overlap is a first-class concept.** Rooms and date ranges, not a busy flag on the house. Two families can be confirmed for the same weekend without either knowing who the other is.
-- **Two hosts, inviting independently.** The agent reconciles invitations from two people who did not consult each other, in two languages.
-- **Human approval only for social exceptions.** Impossible requests are refused deterministically. Possible-but-sensitive requests are the only ones that reach a person. The line between them is a pure function, versioned in code.
-- **Coordination continues after booking.** The proactive reconfirmation and escalation are the product; the calendar is a by-product.
-- **Memory with host control.** The house can recall a ground-floor preference or late Friday arrival within the family’s namespace, and a host can inspect and erase its records.
-
----
-
-## 6. Proof that it is real
-
-- Live at `https://layalga.thecreativetoken.com`, operated by the two real hosts, with synthetic guests for the demo.
-- The recorded production configuration uses Amazon Bedrock AgentCore Runtime and Claude Sonnet 4.6 on Bedrock. Terminal run results record the executing runtime. Earlier Sonnet 4.5 trace evidence remains dated in [ADR 0002](../decisions/0002-agent-runtime.md); the [evidence guide](evidence.md) separates source inspection from live observation.
-- Nine automated release probes run against production before every release: health, capture, confirmation, a concurrent double-booking attempt where exactly one wins, interrupt and resume applied exactly once, clock-driven reconfirmation with exactly two host escalations and two emails, exact room coordination with a calendar event, guest isolation, and cleanup. ADR 0002 records all nine passing for v0.5.0; this is historical release evidence.
-- English and Spanish from the first screen, including every agent-written message.
-- Public repository under MIT, architecture diagram, README, and a three-minute video script. Recording and upload remain pending in the submission record.
-
----
-
-## 7. Honest scope
-
-L’Ayalga does not send WhatsApp or SMS, does not write into Google or Apple calendars (the feed is a one-way subscription), and does not let hosts relax the three house rules per visit. Each of those is a deliberate cut: the first two need consent and identity work that a hackathon should not fake, and the third would move a safety rule from code into judgment. The demo uses labeled synthetic guests and a labeled synthetic clock so that time-driven behavior can be shown in three minutes without pretending.
-
----
-
-## 8. Ready-made versions
-
-**Thirty seconds.** "L’Ayalga is an AI coordinator for homes with more than one host. Paste an invitation, send the private link, and the agent finds dates and rooms that fit with everyone else, confirms the stay, and follows up before arrival. Code enforces the house rules. The hosts are pinged only when a guest's request needs a human answer. It runs on Strands and Amazon Bedrock AgentCore, and it is live."
-
-**Sixty seconds.** Add: "Two hosts invite people independently, in two languages. Rooms and dates overlap partly, not as a busy flag. Three rules run before any booking tool: enough beds, one family with children at a time, no overlapping pets. Impossible requests are refused on the spot. Sensitive ones pause the agent with a Strands interrupt, both hosts get one email, and the run resumes once after the decision. Three days before arrival the house asks the family to reconfirm; a day of silence escalates to the hosts. The house recalls family preferences within a scoped memory store, with host inspection and erasure."
-
-**Two minutes.** Use sections 2, 3, and 4 in order, one paragraph each, and close with: "The agent coordinates, code protects the home, and people keep the judgment that matters."
-
----
-
-## 9. Lines to reuse verbatim
-
-- "The best ones run quietly in the background and only ping you when there's a real decision to make." That is the brief. This is the agent.
-- "Denial is deterministic. Approval is human. Everything else is automatic."
-- "Partial overlap is a first-class concept, not a busy flag."
-- "The interrupt pauses before the tool writes, survives a restart, and resumes with recorded decision application."
-- "The house recalls preferences, and the host can inspect and erase them."
-- "The calendar is the result of coordination, not the product."
-- "The agent coordinates, code protects the home, and people keep the judgment that matters."
+For the demonstration sequence, use the [judge guide](judge-guide.md) and [video script](video-script.md). Recording, upload and submission remain owner actions; no finished video is implied by this draft.

@@ -4,12 +4,26 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Reproducible local coordination benchmark, separate participant protocol, refreshed product/submission guides and editable architecture diagrams.
+- Explicit guest/host cancellation and invitation withdrawal, including retirement of related rooms, jobs, pending decisions and stale queued work (#101).
+- Verified, consenting guest reminder contacts, account-free verification and revocable return capabilities; web-only outbox and attempt receipts distinguish accepted, failed and unknown sends. Production IAM and rollout remain pending (#100).
+- Informational notes separated from immutable approval requests; hosts can configure versioned household rules under the booking lock (#102, #107).
+- Actual guest-room recommendations use bounded party-scoped memory, explain supported preferences and fallbacks, and preserve policy and exact guest choice (#106).
+- Decision-first host dashboard, current visit outcomes, automatic secure capture handoff, and reset-separated guided routine/exception scenarios (#104, #105).
+
 ### Fixed
 
+- Guided scenario and clock controls wait for their JavaScript handler before accepting clicks, preventing lost starts during a cold page load (#104).
+
+- Invitation access extends through at least checkout plus seven days on confirmation, reschedule and reissue, retaining expiry and revocation checks (#103).
+- Guest date defaults and search use household time; expired holds no longer hide rooms, and demo resets renew finite bearer access. Semantic clock controls select actual current reminder jobs, recover eligible delivery retries, preserve unanswered guidance and handle repeated no-work steps (#104).
 - A run started synchronously is inserted already claimed, so the per-minute drain can no longer dispatch it first and fail the caller with "Agent run is no longer active". The AgentCore database URL now uses the transaction-mode pooler port (#95).
 
 ### Changed
 
+- Git-triggered Vercel deployments are enabled only for `main`; feature and `develop` previews are disabled (#110).
 - The demo sign-in button reads "Enter as Host" instead of the host's name, and the Spanish sign-in tagline is written in Spanish (#94).
 
 ### Documentation

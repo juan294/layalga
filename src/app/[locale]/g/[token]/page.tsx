@@ -1,7 +1,10 @@
+import { GuestEmailPreferences } from "@/components/guest/guest-email-preferences";
+import { CancellationReview } from "@/components/guest/cancellation-review";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
-import { guestInvitationDefaults } from "@/components/guest/guest-invitation-defaults";
+import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
+import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
 import styles from "@/components/guest/guest-ledger.module.css";
 import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
@@ -11,6 +14,7 @@ import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
 import { createClient } from "@/lib/supabase/server";
 
 import {
+  cancelGuest,
   findGuestOptions,
   reconfirmGuest,
   requestGuestChange,
@@ -19,7 +23,7 @@ import {
 
 interface GuestPageProps {
   params: Promise<{ locale: "en" | "es"; token: string }>;
-  searchParams: Promise<{ claim?: string }>;
+  searchParams: Promise<{ claim?: string; cancel?: string; email?: string }>;
 }
 
 export default async function GuestPage({
@@ -54,13 +58,19 @@ export default async function GuestPage({
     );
   }
 
+  const cancellationState = (await searchParams).cancel;
+  const cancellationReview =
+    cancellationState === "review" || cancellationState === "changed";
   const status = invitation.visit?.status ?? "invited";
   const presentation = invitation.visit
     ? guestVisitPresentation(invitation.visit)
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const defaults = guestInvitationDefaults(invitation.structured);
+  const { defaults, demo } = await loadGuestInvitationDefaults(
+    invitation.homeId,
+    invitation.structured,
+  );
   const supabase = await createClient();
   const {
     data: { user },
@@ -90,6 +100,10 @@ export default async function GuestPage({
             })}
           </p>
 
+          {demo ? (
+            <DemoGuestGuide invitationId={invitation.id} locale={locale} />
+          ) : null}
+
           {status === "invited" ? (
             <GuestInviteForm
               defaults={defaults}
@@ -107,6 +121,24 @@ export default async function GuestPage({
               visit={invitation.visit}
             />
           ) : null}
+
+          <GuestEmailPreferences
+            locale={locale}
+            context={{ kind: "token", token }}
+            feedback={(await searchParams).email}
+          />
+
+          <CancellationReview
+            locale={locale}
+            action={cancelGuest}
+            visit={
+              invitation.visit?.status === "cancelled" ? null : invitation.visit
+            }
+            anchorId="cancel-request"
+            changed={cancellationState === "changed"}
+            open={cancellationReview}
+            token={token}
+          />
 
           <aside className={styles.claim}>
             <div>

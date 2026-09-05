@@ -1,3 +1,4 @@
+import { prepareCancellationTool } from "./tools/prepare-cancellation";
 import type { Tool } from "@strands-agents/sdk";
 
 import { captureInvitationTool } from "./tools/capture-invitation";
@@ -32,6 +33,11 @@ export function buildTools(deps: AgentDeps, task: AgentTask["task"]): Tool[] {
     createTemporaryHoldTool(deps),
     confirmVisitTool(deps),
     rescheduleVisitTool(deps),
+    ...(task === "guest_change" ||
+    task === "guest_reconfirm" ||
+    task === "resume"
+      ? [prepareCancellationTool(deps)]
+      : []),
     notifyTool(deps),
   ];
 }

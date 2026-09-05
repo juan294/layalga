@@ -40,6 +40,7 @@ export function createTemporaryHoldTool(deps: AgentDeps) {
       };
       const visit = await createTemporaryHold(deps.db, deps.clock, {
         ...trustedInput,
+        guestNotes: deps.authority?.guestSubmission?.notes ?? "",
         roomIds:
           deps.authority?.guestSubmission?.roomIds ?? trustedInput.roomIds,
         overflowConsent:

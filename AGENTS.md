@@ -6,7 +6,7 @@ The [judge guide](docs/submission/judge-guide.md) provides a short repository
 reading route and maps the hackathon criteria to evidence. The
 [evidence index](docs/submission/evidence.md) pairs architectural claims with
 source, tests, operating modes, and limitations. These are project documentation;
-the evaluator's task and rubric determine the assessment.
+the evaluator's task and rubric determine the assessment. The [documentation index](docs/README.md) separates current guides from dated research and release history.
 
 ## Codex Compatibility
 

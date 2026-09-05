@@ -22,5 +22,8 @@ You can expect an acknowledgment within 48 hours, an initial assessment within 7
 - PostgreSQL is authoritative for availability, holds, visits, and household policy.
 - The model does not directly mutate booking state.
 - Sensitive actions require deterministic policy checks and host approval.
-- Guest links, calendar feed tokens, service-role keys, and runtime credentials are secrets.
+- Guest invitation, verification and reminder-return links, calendar feed tokens, service-role keys and runtime credentials are secrets.
+- Guest reminders require verified contact and explicit consent. Contacts and send receipts stay outside the agent database role, prompts and memory.
+- Cancellation and revocation invalidate current work and applicable access; reading a link never confirms a booking or gives consent.
+- Raw host text can contain personal information. [The data lifecycle](docs/security/data-lifecycle.md) describes the actual prompt, memory, trace and retention boundaries.
 - Runtime database roles must remain separate and least-privileged.

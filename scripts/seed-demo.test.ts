@@ -16,6 +16,28 @@ const sql = postgres(databaseUrl, { prepare: false });
 describe("seedDemo", () => {
   afterAll(() => sql.end());
 
+  it("renews finite bearer access for thirty real days when a demo resets", async () => {
+    const before = Date.now();
+    await seedDemo(databaseUrl, "seed-demo-test-secret");
+    const after = Date.now();
+    const rows = await sql<
+      { expiry: Date }[]
+    >`select link_token_expires_at as expiry from public.invitations where home_id=${DEMO_SEED.home.id}`;
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.expiry.getTime()).toBeGreaterThanOrEqual(
+        before + 30 * 86_400_000,
+      );
+      expect(row.expiry.getTime()).toBeLessThanOrEqual(after + 30 * 86_400_000);
+    }
+    await sql`update public.invitations set link_token_expires_at='2001-01-01',link_token_revoked_at=now() where home_id=${DEMO_SEED.home.id}`;
+    await seedDemo(databaseUrl, "seed-demo-test-secret");
+    const [restored] = await sql<
+      { live: number }[]
+    >`select count(*)::int as live from public.invitations where home_id=${DEMO_SEED.home.id} and link_token_expires_at>now() and link_token_revoked_at is null`;
+    expect(restored?.live).toBe(2);
+  });
+
   it("removes every agent session linked to an earlier demo run", async () => {
     await seedDemo(databaseUrl, "seed-demo-test-secret");
     const sessionId = "tick_40000000-0000-4000-8000-000000000999";

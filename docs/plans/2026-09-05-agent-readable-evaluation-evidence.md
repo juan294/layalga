@@ -1,5 +1,15 @@
 # Implementation: agent-readable evaluation evidence
 
+Historical workstream status: the baseline documentation work was implemented
+in `1babff56fd4a7914f46dbd00b94db3a41110dea9`. Its scope, observations and
+validation remain tied to the recorded baseline; they are not current
+completion test totals. The [Everyday Agents completion plan](2026-09-05-everyday-agents-completion.md)
+and [judge guide](../submission/judge-guide.md) govern current product status.
+[Implementation evidence](../submission/evidence.md) preserves both snapshots;
+[coordination evidence](../submission/coordination-evidence.md) records the
+separate measured workflow. The authorization statements below describe this
+historical workstream, not a new permission request or production authorization.
+
 Source: `docs/research/2026-09-05-agent-readable-evaluation-evidence.md`.
 The owner explicitly authorized implementation from the research, inclusion of
 `/llms.txt`, completion without phase stops, local merge to `develop`, and worktree

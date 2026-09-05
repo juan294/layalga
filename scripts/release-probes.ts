@@ -8,6 +8,7 @@ import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { hashLinkToken } from "../src/core/booking/invitations";
 import { parseStoredRunResult } from "../src/agent/task";
 import { DEMO_SEED, seedDemo } from "./seed-demo";
+import { demoLinkExpiresAt } from "../src/lib/demo/reset";
 import { runDemoE2E } from "./demo-e2e";
 import {
   cleanupTaggedRunArtifacts,
@@ -719,7 +720,7 @@ async function cleanupDemoArtifacts(
       update public.parties
       set locale = ${party.locale},
         link_token = ${hashLinkToken(token, linkTokenSecret)},
-        link_token_expires_at = ${party.linkTokenExpiresAt}
+        link_token_expires_at = ${demoLinkExpiresAt()}
       where id = ${party.id} and home_id = ${DEMO_SEED.home.id}
     `;
   }

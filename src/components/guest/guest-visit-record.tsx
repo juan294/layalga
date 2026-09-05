@@ -51,6 +51,13 @@ export async function GuestVisitRecord({
         </dd>
       </dl>
 
+      {visit.guestNotes ? (
+        <div>
+          <h3>{t("visitNotes")}</h3>
+          <p style={{ whiteSpace: "pre-wrap" }}>{visit.guestNotes}</p>
+        </div>
+      ) : null}
+
       {visit.hasOverlap ? (
         <p className={styles.sharedNote}>{t("sharedStayNote")}</p>
       ) : null}

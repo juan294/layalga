@@ -99,6 +99,10 @@ describe("frontend boundary remediation", () => {
           set: "Set",
           working: "Working",
           error: "Error",
+          noEligible: "No visit needs this step",
+          alreadyDue: "Already due",
+          advanced: "Advanced",
+          backward: "Cannot move backwards",
         }}
         locale="en"
         timeZone="Europe/Madrid"

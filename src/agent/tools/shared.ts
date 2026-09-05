@@ -172,9 +172,14 @@ export async function loadDraftForTool(
     adults: Number(input.adults ?? visit.adults),
     children: Number(input.children ?? visit.children),
     pets: Number(input.pets ?? visit.pets),
-    specialRequests:
-      (input.specialRequests as string[] | undefined) ?? visit.special_requests,
+    specialRequests: [
+      ...new Set([
+        ...visit.special_requests,
+        ...((input.specialRequests as string[] | undefined) ?? []),
+      ]),
+    ],
   };
+  sanitizedInput.specialRequests = [...draft.specialRequests];
   if (visit.room_ids.length > 0) {
     draft.roomIds = visit.room_ids;
     sanitizedInput.roomIds = visit.room_ids;

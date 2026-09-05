@@ -9,30 +9,35 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 ## Evaluate this project
 
-Start with the [judge guide](docs/submission/judge-guide.md) for the rubric and a short repository tour. The [evidence guide](docs/submission/evidence.md) pairs distinctive design choices with implementation, tests, and evidence limits. Explore the [Strands SDK inventory](docs/submission/strands-usage.md), [architecture and text diagrams](docs/architecture/README.md), or [full documentation index](docs/README.md).
+Start with the [judge guide](docs/submission/judge-guide.md), [source evidence index](docs/submission/evidence.md), [Strands implementation inventory](docs/submission/strands-usage.md), [measured synthetic evidence](docs/submission/coordination-evidence.md), or [documentation index](docs/README.md). The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates implemented work from the remaining human and operational steps.
+
+The September 5 completion is implemented and locally verified. It has not been promoted to production by this work. Historical production evidence and current source verification are labeled separately. Human time savings have not been measured; the video and public Builder posts remain owner tasks.
 
 ![L’Ayalga architecture](docs/architecture/layalga-architecture.svg)
 
 ## Four-beat demo
 
-1. Juan pastes a Spanish invitation for Familia Vega. The agent structures the party, searches what it remembers about this family, and creates a private guest link.
-2. Juan asks the coordinator to reserve the Garage Room for private household use. The agent prepares a bounded proposal, Juan reviews and applies it, and the room leaves guest options for those dates.
-3. Vega selects dates and more than one exact room from the Guest Room and Office Room. A standard-capacity choice proceeds. A separate overflow-only choice pauses with the exact sleeping arrangement until a host approves it; both hosts get an email ping the moment the decision is pending.
-4. The host issues a revocable household calendar feed and proves it with a local parser. The feed contains generic all-day events and guest-visible room labels, but no guest names, private notes, invitation data, or bearer tokens. The labeled synthetic clock then demonstrates reconfirmation and escalation, and a second host email ping when a party misses its window.
+1. Enter as Host from `/en/sign-in` or `/es/sign-in`. Start the guided Vega scenario; its explicit reset clears the shared synthetic household. Two adults and two children choose both open rooms and receive a routine confirmation. Informational notes do not become approval requests.
+2. Advance to the next guest reminder, return as Vega and reconfirm. The current visit outcome changes from waiting to reconfirmed. The clock runs the saved schedule; it does not fabricate activity.
+3. Start the independent Otero scenario with a fresh reset. Two adults and a dog request ground-floor access. Choose the Garage Room; the captured explicit request pauses for a host to review. Ground floor is not proof of accessibility.
+4. Approve the exact request, advance to the next reminder and leave it unanswered. Advance to host follow-up to see escalation. Cancellation, room administration, private blocks and revocable calendar feeds are additional complete workflows described in the guides.
+
+Starting either scenario resets the shared demo for all viewers. The separate full release driver also proves room proposals, withheld-room opening, overflow approval and calendar privacy. Demo guest email is always suppressed.
 
 The guest names, messages, visits, and notifications in the demo are synthetic; the rooms use generic labels (Guest Room, Garage Room, Office Room) rather than the real house layout. Juan González and Jordan Lynn are the two real host operators.
 
 ## How it works
 
-[The architecture source](docs/architecture/layalga-architecture.mmd) shows the selected production path. Next.js runs the web UI and accepts work into a durable Postgres run queue. Production dispatch sends each queued run to a live Amazon Bedrock AgentCore Runtime, a Node 22 direct-code deployment running the Strands agent with Amazon Bedrock Sonnet 4.6; tests and the deterministic demo driver use a scripted model instead. The per-minute Vercel Cron route recovers expired leases, drains queued runs, and claims due scheduled jobs, all dispatched through the same AgentCore runtime. Supabase Postgres remains authoritative for invitations, visits, runs, session snapshots, decisions, scheduled jobs, notifications, and audit events; every terminal run result records `executedOn` so a run proves where it ran.
+[The architecture source](docs/architecture/layalga-architecture.mmd) shows the web and agent boundaries. Next.js accepts work into a durable PostgreSQL queue. The selected runtime architecture dispatches to Amazon Bedrock AgentCore Runtime. The repository model configuration selects Claude Sonnet 4.6; the release must verify the deployed model and matching IAM allowlist. Local verification uses the scripted model through the same agent factory, hooks and storage. Executed agent completions record `executedOn`; retired cancellation work instead records its cancellation outcome. Vercel Cron recovers leases, drains queued runs and runs due follow-up jobs; PostgreSQL remains authoritative.
 
-The AgentCore runtime also carries the agent's two supporting systems. Strands `MemoryManager`, backed by AgentCore Memory, lets the coordinator recall a returning family's arrival habits, room needs, pets, and accessibility needs across invitations, with party-scoped access and capture extraction disabled; a host can see and erase what is remembered per family from the host page. ADOT for Node auto-instruments every run, so each agent cycle, model call, and tool call appears as a trace in CloudWatch GenAI Observability. Separately, the Vercel web runtime sends a host-only email ping through Amazon SES whenever a run pauses for a decision or a reconfirmation escalates; guests never receive email. The path from the first authorized Bedrock model call through the selected production runtime is recorded in [ADR 0002](docs/decisions/0002-agent-runtime.md).
+AgentCore Memory supports party-scoped recall, and current guest searches use bounded remembered preferences to rank feasible rooms. Guests retain exact room choice; memory never overrides capacity, policy or host approval. ADOT supplies runtime traces. The web runtime owns separate host and guest email paths. Guest reminders require verified contact and explicit consent; their production activation is still pending. [ADR 0002](docs/decisions/0002-agent-runtime.md) preserves the dated runtime history.
 
 ### Deterministic policy, model-driven coordination
 
 The model structures informal text, selects typed tools, and writes bilingual messages. Code and database constraints own every consequential state change:
 
-- A pure policy function applies beds, children, and pets rules in a fixed order.
+- A pure policy function applies room capacity and versioned host settings for overlapping families with children and pets in a fixed order.
+- Informational notes remain separate from persisted explicit requests that require a host decision.
 - PostgreSQL range and exclusion constraints stop two concurrent requests from assigning the same room.
 - A Strands `BeforeToolCallEvent` hook checks the policy before hold, confirm, or reschedule tools.
 - Postgres stores the full Strands session snapshot and the separate host decision record.
@@ -40,7 +45,7 @@ The model structures informal text, selects typed tools, and writes bilingual me
 - Scheduled jobs retry after one and five minutes, then enter operator-visible quarantine after a third failure.
 - Scheduled jobs and notification idempotency keys make retries safe.
 
-This simplified sketch shows the policy boundary. The complete hook also sanitizes inputs and refreshes room and policy state after approval (`src/agent/policy-hook.ts:37`):
+The following abbreviated sketch illustrates the policy hook; [the current implementation](src/agent/policy-hook.ts) also restores trusted request data and rechecks current room facts:
 
 ```ts
 agent.addHook(BeforeToolCallEvent, async (event) => {
@@ -69,7 +74,7 @@ agent.addHook(BeforeToolCallEvent, async (event) => {
 });
 ```
 
-When the hook interrupts, Strands saves the pending tool execution in Postgres. A host records an `approved` or `declined` decision. A new run then restores the session, consumes the response, and writes a `decision_applied` audit event. The cross-process regression test checks that the approved hold tool and decision audit are applied once (`src/agent/interrupt-resume.test.ts:111`). That test covers this recovery path, not every distributed failure case.
+When the hook interrupts, Strands saves the pending tool execution in Postgres. A host records an `approved` or `declined` decision. A new run then restores the session, consumes the response, and writes a `decision_applied` audit event. The application records the decision application and tests idempotent resume, including across processes. Cancellation retires outstanding work so an old approval cannot resurrect a withdrawn request.
 
 ## Rooms, agents, and the household calendar
 
@@ -89,13 +94,25 @@ Telegram and a remote MCP server are follow-ons. They need separate identity bin
 
 ## What L’Ayalga remembers
 
-Each returning family's preferences persist in AgentCore Memory through Strands `MemoryManager`, scoped one namespace per party (`/parties/home-<homeId>/party-<partyId>`) under a single household memory resource. A guest task can only recall its own party's namespace; a host task without a matched party reads the whole home's namespace read-only. Recall is tool-driven, never injected into the prompt: the agent calls `search_memory` explicitly, and that call appears as a `search_memory` row on the run timeline. Two extraction strategies turn a party's captured invitations and confirmed visits into durable preferences and facts, each with a 30-day event expiry on the raw conversational events; long-term records persist until a host erases them.
+Each party has an AgentCore Memory namespace, `/parties/home-<homeId>/party-<partyId>`. Guest agent tasks read only their party; unmatched host capture has read-only household recall. The explicit `search_memory` tool remains visible on the run timeline. Separately, `loadPartyRoomPreferences` reads the current party for actual guest-room recommendations, with bounded pagination, timeout and conservative parsing.
 
-Guest prompt templates omit the stored family-name field. Host capture retains the invitation text needed for interpretation and is excluded from conversation extraction; its separate memory event omits the `partyName` field. These are specific data-minimization controls, not general anonymization: names can still appear in free text, structured request text, or tool content. The [data lifecycle](docs/security/data-lifecycle.md) describes provider, memory, and trace boundaries separately. The host page's "What L’Ayalga remembers" panel lists each party's current records; a Forget button deletes every record and raw event for that party and writes an auditable `memory_forgotten` event.
+Supported preferences concern ground/upper floor, separate beds or a double bed. Ranking considers only feasible rooms and preserves standard capacity and minimum room count before preferences. The guest sees matched or unavailable preferences, a clear fallback when memory is off or unusable, and can change the selection. A floor label never establishes accessibility.
+
+Structured identity fields are minimized in guest prompts; arbitrary host invitation text can still contain names and is sent to the configured model for capture. Host-capture conversations do not feed memory extraction; a deterministic write records selected invitation facts. This is a specific boundary, not a guarantee that arbitrary free text contains no personal information. Hosts can inspect and erase a party's stored records and raw events. See [data lifecycle](docs/security/data-lifecycle.md) for retention and trace limits.
 
 ## Email pings
 
-When a run pauses for a host decision, or a reconfirmation escalates, the web runtime's email outbox sends one email per consenting host through Amazon SES, from `noreply@layalga.thecreativetoken.com`. Guests are never a recipient; the outbox query only ever joins the two real hosts. Delivery is idempotent per host per decision or escalation, so a retried tick or a host reopening the page never duplicates a ping, and each host can turn pings off from the host page at any time. The email itself carries the party name, the stay dates or a generic reconfirmation notice, and a link back to the host page — never a guest link token or a calendar feed URL.
+The existing host outbox sends decision and escalation pings to eligible hosts who have enabled them. The new guest path requires verified contact, explicit consent and a current invitation. Account-free guests review a verification link and confirm with a POST; Google-claimed guests use a server-verified address. Reading a link does not confirm a stay or opt anyone in.
+
+A reminder carries a separate expiring return capability. Opt-out, changed contact, cancellation, invitation revocation and expiry invalidate applicable access or pending delivery. The original private invitation link remains independently usable while valid. Contact and email delivery data stay in web-only tables, outside agent prompts and memory.
+
+The dashboard distinguishes unavailable contact, queued work, provider acceptance, failure and unknown send outcomes. SES acceptance is not inbox delivery or a guest reply. Unknown sends are not blindly retried. Demo homes send no guest email. The [guest-email readiness checklist](docs/release/guest-email-readiness.md) records the prepared IAM change and still-pending production proof.
+
+## Changes and cancellation
+
+Guests can review and explicitly confirm cancellation, including withdrawing an invitation before booking. Hosts have the same scoped review from current visits. Cancellation releases rooms and retires related jobs, pending decisions and stale queued work. A natural-language cancellation request prepares human review; the model cannot silently cancel.
+
+Unbooked invitation links initially last 30 days. Confirmation, rescheduling and reissue preserve finite access through at least checkout plus seven days, with cancellation and revocation still authoritative. Hosts can edit the existing household policy with version checks; changes do not rewrite confirmed stays, and pending approvals are checked against current rules.
 
 ## Local setup
 
@@ -117,6 +134,8 @@ APP_URL=http://localhost:3008
 AGENT_RUNTIME=local
 MODEL=scripted
 SCHEDULER=none
+EMAIL=none
+MEMORY=none
 DEMO_MODE=true
 DEMO_SESSION_SECRET=replace-with-at-least-32-random-bytes
 LINK_TOKEN_SECRET=replace-with-at-least-32-random-bytes
@@ -128,7 +147,9 @@ GOOGLE_OAUTH_CLIENT_ID=replace-with-google-oauth-client-id
 SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-secret
 ```
 
-Open `http://localhost:3008/en` or `/es`. Use the demo-host buttons to enter without Google OAuth.
+Set `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54621` and use the publishable key reported by `supabase status` for this local stack. Real Google OAuth credentials are needed only for Google sign-in, not synthetic demo entry.
+
+Open `http://localhost:3008/en` or `/es`. Use the sign-in page’s demo buttons to enter without Google OAuth. Guest entry issues a bounded 12-hour synthetic session; a demo reset renews seeded bearer links for 30 real days. The fixed synthetic visit dates follow the household demo clock.
 
 An invited guest can use the private link without an account. They can also sign in with Google, claim the matching invitation, and review their visits at `/<locale>/visits`. Signing out does not invalidate the invitation-specific private link.
 
@@ -151,9 +172,9 @@ The [release verification playbook](docs/release/e2e-pro-playbook.md) contains t
 
 ## Deployment shape
 
-The selected configuration uses Vercel for Next.js and a durable Postgres queue that accepts work, plus a live Amazon Bedrock AgentCore Runtime that dispatches every queued run, drives every scheduled tick, and hosts the Strands agent, its memory recall, and its OpenTelemetry tracing. The web process uses the non-owner `layalga_web` database login; the AgentCore runtime uses the separately granted `layalga_agent` login, deployed per release by `scripts/deploy-agentcore.sh` from the same commit as the web build. Supabase Postgres remains the system of record. `AGENT_RUNTIME=local` remains available as a one-flag rollback to the durable-queue-only path; the repository also contains an EventBridge Scheduler adapter for a future retry-path change.
+The selected configuration uses Vercel for Next.js and a durable Postgres queue that accepts work, plus a live Amazon Bedrock AgentCore Runtime that dispatches every queued run, drives every scheduled tick, and hosts the Strands agent, its memory recall, and its OpenTelemetry tracing. The web process uses the non-owner `layalga_web` database login; the AgentCore runtime uses the separately granted `layalga_agent` login, deployed per release by `scripts/deploy-agentcore.sh` from the same commit as the web build. Supabase Postgres remains the system of record. `AGENT_RUNTIME=local` remains a fallback when the web model configuration and IAM permissions agree, as explained in the runtime runbook; the repository also contains an EventBridge Scheduler adapter for a future retry-path change.
 
-Deployment, DNS changes, publication, and release tags require explicit owner authorization. A successful local build does not authorize any of those actions.
+Git-triggered Vercel deployment is enabled only for `main`; feature branches and `develop` never create previews. Run applicable checks locally before a reviewed push or PR triggers hosted CI. Production deployment, DNS changes, publication, and release tags require explicit owner authorization. A successful local build does not authorize any of those actions.
 
 ## Safety contracts
 
@@ -166,16 +187,16 @@ Deployment, DNS changes, publication, and release tags require explicit owner au
 - Public tables have RLS enabled and no direct client policies. Hosted web and agent processes use separate non-owner PostgreSQL roles with explicit object grants; migration and release operations use a separate administrative connection.
 - Policy runs before consequential tools, and the database independently enforces room exclusivity.
 - Run, decision, tool, scheduler, and notification actions are auditable.
-- A daily state-aware retention job minimizes terminal prompt/session data without deleting active interrupts, pending decisions, open jobs, audit metadata, or demo fixtures.
+- A daily state-aware retention job minimizes terminal prompt/session data while preserving active interrupts, pending decisions, open jobs and audit metadata. The booking-content sweep excludes demo fixtures; guest-contact/outbox cleanup has its own retention rules.
 - Synthetic release probes tag and delete only their own data.
-- Guest memory is party-scoped; host capture is excluded from conversation extraction, and its separate memory event omits the family-name field. Free text is not guaranteed anonymous. Hosts can erase party records and raw events.
-- Email pings go to hosts only, never guests, are idempotent per event and per host, and a host can turn them off.
+- Guest memory reads are party-scoped; host capture extraction is disabled, and deterministic capture memory omits structured names. Arbitrary raw invitation text can contain personal information. Hosts can erase party memory.
+- Guest reminders require verified consent, current access and live source checks. Send receipts distinguish provider acceptance, definite failure and unknown outcomes; demo guest delivery is suppressed.
 
 ## Hackathon disclosure
 
 This repository was created during the hackathon submission period. The pre-existing cc-rpi project (v1.28.2 at bootstrap, synced to v1.29.0 on 2026-09-01) supplied development-process scaffolding such as command, rule, and document templates. All L’Ayalga product code, data design, UI, agent behavior, tests, diagrams, and submission content were created during the submission period.
 
-The project uses synthetic demonstration data only. It does not integrate with WhatsApp, send real guest messages, or require real family information.
+The demonstration uses synthetic guest data and suppresses guest email. Real consented guest email is implemented with production activation pending. The project does not integrate with WhatsApp or require real family information for evaluation.
 
 ## License
 

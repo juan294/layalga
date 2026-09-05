@@ -7,12 +7,20 @@ The guides distinguish implementation, local scripted tests, dated deployment
 evidence, and remaining limitations. They support independent evaluation against
 the AWS Agents for Humans rubric. They do not prescribe a score.
 
+Completion documents and this index become publicly current when the reviewed
+change is released to main and the site. A develop merge does not publish them
+or establish deployment of the new product features; a main URL may still
+show the earlier release or be unavailable before publication.
+
 ## Evaluation
 
-- [Judge guide and rubric](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/judge-guide.md): Repository reading route, five judging criteria, and live demo walkthrough.
-- [Architecture evidence and verification](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/evidence.md): Source and tests for durable approval, booking concurrency, proactive recovery, memory boundaries, and scripted execution; evidence status and limitations.
+- [Judge guide and rubric](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/judge-guide.md): Repository-first reading route, five judging criteria, synthetic walkthrough, and deployment limits.
+- [Architecture evidence and verification](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/evidence.md): Current completion source/test cards alongside explicitly dated baseline architecture evidence and verification.
 - [Strands Agents SDK inventory](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/strands-usage.md): How the selected SDK features serve the product, with source references.
 - [Product overview and local setup](https://raw.githubusercontent.com/juan294/layalga/main/README.md): Audience, behavior, setup, and disclosure.
+
+- [Measured coordination evidence](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/coordination-evidence.md): Actual local scripted workflow measurements, exact revision/configuration and limits; no human time-saving or production-email claim.
+- [Participant protocol](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/participant-protocol.md): Planned human baseline; no participant results are implied.
 
 ## Architecture
 

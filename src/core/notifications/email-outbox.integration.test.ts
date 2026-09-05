@@ -221,6 +221,55 @@ describe("email outbox", () => {
     expect(rows.every((row) => row.status === "sent")).toBe(true);
   });
 
+  it("retires an obsolete claimed ping when a visit is cancelled between recipients", async () => {
+    stubEmailEnv();
+    const clock = new FakeClock(new Date("2026-09-10T09:00:00Z"));
+    const { send, calls } = fakeSend(async () => {
+      await sql`update public.visits set status = 'cancelled' where id = ${visitId}`;
+      return { messageId: "msg-before-cancellation" };
+    });
+
+    const result = await dispatchHostEmailPings(sql, clock, send);
+
+    expect(result).toEqual({ sent: 1, skipped: 1 });
+    expect(calls).toHaveLength(1);
+    const [retired] = await sql<{
+      status: string;
+      error_name: string | null;
+      message_id: string | null;
+    }[]>`
+      select status, error_name, message_id from public.host_email_pings
+      where home_id = ${homeId} and host_id = ${hostIds[1]}
+    `;
+    expect(retired).toEqual({
+      status: "failed",
+      error_name: "ObsoleteNotification",
+      message_id: null,
+    });
+
+    // Even if the source later becomes eligible again, this retired delivery
+    // must not be mistaken for a transient SES failure and retried.
+    await sql`update public.visits set status = 'hold' where id = ${visitId}`;
+    clock.advance(6 * 60 * 1_000);
+    const retry = await dispatchHostEmailPings(sql, clock, send);
+    expect(retry.sent).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("suppresses historical escalation after visit cancellation", async () => {
+    stubEmailEnv();
+    await sql`update public.pending_decisions set status = 'declined' where id = ${decisionId}`;
+    await sql`update public.visits set status = 'cancelled' where id = ${visitId}`;
+    await sql`
+      insert into public.notifications (home_id, recipient_kind, recipient_id, visit_id, kind, body_en, body_es)
+      values (${homeId}, 'host', ${hostIds[0]}, ${visitId}, 'reconfirm_escalation', 'Please review', 'Revisa')
+    `;
+    const { send, calls } = fakeSend(() => ({ messageId: "must-not-send" }));
+    const clock = new FakeClock(new Date("2026-09-10T09:00:00Z"));
+    expect((await dispatchHostEmailPings(sql, clock, send)).sent).toBe(0);
+    expect(calls).toHaveLength(0);
+  });
+
   it("never selects a guest as a recipient", async () => {
     stubEmailEnv();
     const clock = new FakeClock(new Date("2026-09-10T09:00:00Z"));

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { getAgentClient } from "@/agent/client";
 import { DbDemoClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
+import {
+  advanceDemoClock,
+  demoClockInput,
+  DemoClockError,
+} from "@/core/demo/advance-clock";
 import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
 import { runDueJobs } from "@/core/reconfirmation/jobs";
 import {
@@ -11,17 +15,14 @@ import {
   authorizeDemoMutation,
 } from "@/lib/auth/demo-mutation";
 
-const clockInput = z.object({
-  homeId: z.uuid(),
-  now: z.iso.datetime({ offset: true }),
-});
-
 export async function POST(request: Request): Promise<NextResponse> {
   if (process.env.DEMO_MODE !== "true") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const parsed = clockInput.safeParse(await request.json().catch(() => null));
+  const parsed = demoClockInput.safeParse(
+    await request.json().catch(() => null),
+  );
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid_clock" }, { status: 400 });
   }
@@ -45,30 +46,20 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const connection = getDatabaseConnection();
-    const [clockRow] = await connection.sql<{ home_id: string }[]>`
-    insert into public.demo_clock (home_id, now, enabled)
-    select id, ${new Date(parsed.data.now).toISOString()}, true
-    from public.homes
-    where id = ${parsed.data.homeId} and demo = true
-    on conflict (home_id) do update
-    set now = excluded.now, enabled = true
-    returning home_id
-  `;
-    if (!clockRow) {
-      return NextResponse.json(
-        { error: "demo_home_not_found" },
-        { status: 404 },
-      );
-    }
-
+    const result = await advanceDemoClock(connection.db, parsed.data);
     const clock = await DbDemoClock.load(parsed.data.homeId, connection.db);
-    const jobs = await runDueJobs(
-      connection.db,
-      clock,
-      getAgentClient(),
-      parsed.data.homeId,
-    );
-    await dispatchHostEmailPingsSafely(connection.db, clock);
+    const jobs =
+      result.outcome === "no_eligible"
+        ? []
+        : await runDueJobs(
+            connection.db,
+            clock,
+            getAgentClient(),
+            parsed.data.homeId,
+          );
+    if (result.outcome !== "no_eligible") {
+      await dispatchHostEmailPingsSafely(connection.db, clock);
+    }
     const notifications = await connection.sql<
       {
         id: string;
@@ -90,12 +81,28 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     return NextResponse.json({
       now: clock.now().toISOString(),
+      outcome: result.outcome,
       jobs,
       notifications: notifications.map((notification) => ({
         ...notification,
         created_at: new Date(notification.created_at).toISOString(),
       })),
     });
+  } catch (error) {
+    if (error instanceof DemoClockError) {
+      return NextResponse.json(
+        { error: error.code },
+        {
+          status:
+            error.code === "demo_home_not_found"
+              ? 404
+              : error.code === "backward_clock"
+                ? 409
+                : 400,
+        },
+      );
+    }
+    throw error;
   } finally {
     await releaseLease();
   }

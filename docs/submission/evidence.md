@@ -2,11 +2,59 @@
 
 This is the source-backed companion to the [judge guide](judge-guide.md). Each card connects a user benefit to an implementation decision and an inspectable test. The [Strands inventory](strands-usage.md) gives broader SDK detail; the [architecture index](../architecture/README.md) includes text-readable Mermaid sources.
 
-## Revision and evidence status
+## Current completion evidence
+
+The completion source reference is **`54eab0860de93ae9d9289f228a4c6f38f24d8194`**, which includes the product phases completed at `618701c` and the reviewed benchmark implementation. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code, not a new test run performed by editing this index.
+
+The [coordination evidence report](coordination-evidence.md) records the actual measured artifact, its own exact source revision, configuration and operation definitions. Its local scripted results are separate from the older baseline test totals preserved later in this document. Neither result measures human effort, live-model quality, production memory quality or inbox delivery. See the [participant protocol](participant-protocol.md) for the unmeasured human baseline.
+
+### Cancellation closes outstanding authority
+
+**Value and claim:** A guest or host explicitly confirms the reviewed current stay, or withdraws an unbooked invitation. Cancellation releases occupancy and retires obsolete decisions, runs, jobs and delivery work; natural language can prepare review but cannot commit cancellation.
+
+**Source and tests:** [cancellation service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/cancellation.ts), [prepareCancellationTool](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/tools/prepare-cancellation.ts), and [cancellation integration regressions](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/cancellation.integration.test.ts).
+
+**Mode and limit:** Local database/agent coverage exercises current-state and race boundaries. Withdrawal prevents subsequent send authorization; it cannot recall an already authorized in-flight external email. This supports technical implementation and a complete guest journey.
+
+### Information and explicit requests have different effects
+
+**Value and claim:** Informational notes remain visible without manufacturing a host decision. Captured explicit requests remain trusted and persist through resumption. Host changes to pets/children policy use version checks and serialize with booking; approval rechecks current rules.
+
+**Source and tests:** [trusted task and resume handling](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/run-task.ts), [policy settings service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/policy/settings.ts), [tenant and request-integrity tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/tenant-scope.test.ts), and [settings integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/policy/settings.integration.test.ts).
+
+**Mode and limit:** Scripted/database tests exercise application authority. Omitting notes, arrival details and request prose from the guest-submit prompt is field minimization; raw host/change text and captured free-text facts can still identify people.
+
+### Verified reminders give a guest controlled return access
+
+**Value and claim:** Real reminder enrollment requires explicit consent and verified contact. Verification GET only reviews; POST verifies deliberately. Return capability authority is revalidated on every guest request and invalidated by applicable consent/access changes. Contact and send receipts stay in web-only services.
+
+**Source and tests:** [guest contact service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-contact.ts), [guest outbox](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-outbox.ts), [guest return browser journey](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/tests/e2e/guest-email.spec.ts), and [delivery integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-delivery.integration.test.ts).
+
+**Mode and limit:** Local tests inject a sender and use synthetic fixtures without real email. SES acceptance, definite failure and unknown send outcomes are distinct from inbox receipt or a guest reply. Production guest permissions and real-recipient proof remain pending in [guest email readiness](../release/guest-email-readiness.md).
+
+### Memory affects feasible room recommendations
+
+**Value and claim:** Trusted party-scoped recall can rank valid room combinations using supported floor/bed preferences. Guests see matches, unmatched preferences or an honest fallback and retain manual selection. Standard capacity and room count precede preference ranking.
+
+**Source and tests:** [loadPartyRoomPreferences](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/memory/room-preferences.ts), [recommendRooms](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/rooms/recommendation.ts), and [actual guest-search integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/guest-preferences.integration.test.ts).
+
+**Mode and limit:** Mocked-memory/local database tests cover the actual search integration. This bounded direct read is separate from SDK `search_memory` recall. Unsupported or conflicting input cannot become an invented requirement; a ground-floor label is not an accessibility guarantee.
+
+### The guided clock follows saved work
+
+**Value and claim:** Fresh routine and exception scenarios demonstrate booking, answered reconfirmation, approval and unanswered follow-up. Semantic controls choose eligible persisted jobs, preserve retry/lease/current-cycle guards and report when no work remains. Guest defaults and search use household time, while real access expiry remains real-time.
+
+**Source and tests:** [semantic clock service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/demo/advance-clock.ts), [clock integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/demo/advance-clock.integration.test.ts), [guest search clock tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/guest-clock.integration.test.ts), and [guided browser regression](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/tests/e2e/guided-demo.spec.ts).
+
+**Mode and limit:** Synthetic local English and Spanish/mobile journeys use explicit shared resets. Simulated time jumps are not production uptime, and automated action durations are not human time saved.
+
+These current cards complement the five-criterion mapping in the judge guide. New completion features are locally implemented; production rollout and publication are separate pending actions. Historical AgentCore observations, the pending video and unpublished Builder drafts must not be represented as current deployment or publication proof.
+
+## Historical baseline: revision and evidence status
 
 All source and test permalinks below refer to the integration baseline **`bf5041601b8910f92e632034c4c21b644dc6a3a9`**, inspected on **2026-09-05**. Symbols support navigation in later checkouts; pinned lines preserve what was actually inspected. Feature-branch work is outside this evidence snapshot.
 
-**Status for every card: implemented source inspected; test exists and inspected.** These labels do not assert a fresh passing test run. Local validation results, if recorded for a later documentation commit, apply to that stated revision and environment. Historical deployment observations are recorded in [ADR 0002](../decisions/0002-agent-runtime.md); they are not a fresh observation of this snapshot. No uploaded video URL is recorded in the submission draft at this baseline.
+**Status for every historical baseline card: implemented source inspected; test exists and inspected.** These labels do not assert a fresh passing test run. Local validation results, if recorded for a later documentation commit, apply to that stated revision and environment. Historical deployment observations are recorded in [ADR 0002](../decisions/0002-agent-runtime.md); they are not a fresh observation of this snapshot. No uploaded video URL is recorded in the submission draft at this baseline.
 
 ## Human approval refreshes booking authority
 
@@ -160,7 +208,7 @@ Follow the sequential commands in the [README local checks](../../README.md#loca
 
 Local scripted probes cover application flow. A deployed candidate needs separate authorized runtime, model, memory, email, and observability checks; local success cannot substitute for those observations.
 
-## Local verification recorded on 2026-09-05
+## Historical baseline verification recorded on 2026-09-05
 
 The documentation implementation was checked locally on Node.js 24.19.0 and
 pnpm 11.22.0, against the executable source at the pinned integration baseline.

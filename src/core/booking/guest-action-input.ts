@@ -6,6 +6,7 @@ import {
   MAX_CHILDREN,
   MAX_GUEST_NOTES_LENGTH,
   MAX_PETS,
+  MAX_SPECIAL_REQUEST_LENGTH,
 } from "@/agent/task-limits";
 import { MAX_ROOM_SELECTION } from "@/core/rooms/limits";
 
@@ -40,6 +41,7 @@ export const guestSessionSubmitInput = z.object({
   overflowConsent: z.boolean(),
   arrivalTime: z.string().max(MAX_ARRIVAL_TIME_LENGTH).optional(),
   notes: z.string().max(MAX_GUEST_NOTES_LENGTH).optional(),
+  requests: z.string().max(MAX_SPECIAL_REQUEST_LENGTH).optional(),
 });
 
 export const guestTokenSubmitInput = guestSessionSubmitInput.safeExtend({

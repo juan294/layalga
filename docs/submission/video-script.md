@@ -1,103 +1,88 @@
-# L’Ayalga three-minute demo script
+# L’Ayalga demo video script
 
-Target length: 2:55. Hard limit: 3:00.
+Draft for owner recording on 13 September 2026. Target about three minutes; the [official maximum](https://agentsforhumans.devpost.com/rules) is five minutes. The final video URL is pending recording and upload authorization.
 
-The three-minute cut keeps the four beats that judges score: capture with memory, real-room boundary, the overflow interrupt with resume, and durable follow-through. WebMCP, the calendar feed, and the architecture diagram become short cutaways. Nothing is claimed that the recorded target cannot show.
+The story is routine coordination, then a fresh exception, then follow-through. Use the [judge guide](judge-guide.md) as the canonical sequence and the [evidence report](coordination-evidence.md) for any numerical claims.
 
 ## Before recording
 
-- Run `pnpm run demo:e2e -- --base <target>` once, then reset the synthetic demo.
-- Run `scripts/seed-memory.ts` (or `pnpm exec tsx scripts/seed-memory.ts`) against the target's `MEMORY_ID` before recording, so the seeded Vega party already has recallable memory; do not write and read in the same take.
-- Prepare every input in advance: the second Vega invitation text, the private-use host message, the withheld-room date range, the guest dates and party counts, and the overflow party counts. Typing on camera costs seconds the cut does not have.
-- Open one Spanish host tab as Juan and one English host tab as Jordan.
-- Open the prepared guest invitation in a separate browser profile or private window.
-- Keep the host room ledger above the visit calendar and use a narrow second window for the guest flow.
-- Have a phone (or a phone-width browser window on the email inbox) ready to show the host email pings live, if `EMAIL=ses` is active on the target; otherwise skip the phone cutaways and say so in the narration.
-- Have `docs/submission/assets/agentcore-trace.png` and `docs/architecture/layalga-architecture.svg` ready to show full-screen.
-- Issue the demonstration calendar feed locally before recording and have the parser output ready as a still. Use only the local HTTP and parser proof. Do not subscribe a real Google, iCloud, or family calendar.
-- If the recording browser does not provide `document.modelContext`, use a still of the automated WebMCP component proof. Do not enable an unreviewed polyfill or claim native browser execution.
-- Confirm that the banner says `Synthetic demo` and that the clock is visibly labeled.
-- Close password managers, notifications, bookmarks, and unrelated tabs.
-- Keep this script on a second screen. Do not show secrets, terminal history, cloud account numbers, full guest links, calendar bearer URLs, memory record raw JSON, or private source paths.
+- Select a verified target revision. The completion implementation is `618701c`; do not assume the public site already contains it. Record the target's model/runtime/memory/email configuration.
+- Use synthetic data and the clearly labeled demo clock. Each guided scenario resets shared state; show that transition rather than implying both visits coexist.
+- Prepare one Spanish host view and an English guest view. Keep unrelated tabs, personal notifications, passwords, bearer links and raw memory records out of frame.
+- Use the automatic capture completion flow if showing a newly captured invitation. Do not insert the obsolete manual link-preparation step. Copying and sending remain explicit.
+- With `MEMORY=none`, show the honest fallback. Only show preference-based ranking on a target where usable scoped recall has actually been verified; do not claim an unobserved memory result.
+- Local synthetic evidence uses `EMAIL=none`. Guest demo invitations do not send guest email. Show delivery state honestly; live enrollment or sending requires separate authorization and operational readiness.
+- Have the [architecture](../architecture/README.md) and dated [AgentCore trace](assets/agentcore-trace.png) ready. Identify historical evidence as historical.
+- Do not run remote seed, deployment, IAM, email or publishing commands just to prepare the recording without separate authorization.
 
-## 0:00-0:30 - The problem, the authority boundary, and what the house remembers
+## 0:00–0:20 — The household problem
 
-**On screen:** L’Ayalga title for two seconds, then the host room ledger and visit calendar. Paste the prepared second Vega invitation into the host capture form and submit. Show the run timeline filling in: `search_memory`, then `capture_invitation`. Show the completed summary mentioning the remembered ground-floor preference.
+**Screen:** Title, then the decisions-first host dashboard and guided demo panel.
 
 **Narration:**
 
-“This is L’Ayalga, an AI hospitality coordinator for homes with more than one host. Invitations arrive as messages. A calendar cannot tell which rooms fit, whether an overlap is comfortable, or when a person must decide.
+“L’Ayalga coordinates visits for a household with more than one host. Invitations arrive through different people, but rooms, household rules and follow-up need one consistent answer. The agent interprets and prepares. Code protects booking facts. People decide the exceptions.”
 
-The agent interprets and prepares. Code and Postgres decide. People keep the final say.
+## 0:20–0:55 — A routine stay completes
 
-This family has stayed before. The agent searches what the household remembers, and the summary already reflects their ground-floor preference. No family name ever reached that memory or the model.”
-
-## 0:30-0:55 - Real rooms, private use, and a withheld room
-
-**On screen:** Show the door strip and expand one room: guest label, sleeping arrangement, standard and maximum capacity, inventory state. Submit the prepared host message asking to reserve one room for private use. Show the proposal, press Apply. Then open the withheld room for the prepared date range.
+**Screen:** Start Vega, visibly resetting the synthetic scenario. Search for four guests and keep both open rooms. Briefly show the preference explanation or its honest fallback. Add an informational thank-you, submit, and show the confirmed guest result and host outcome.
 
 **Narration:**
 
-“The repository holds synthetic rooms only. A host enters the real inventory here, and an incomplete room stays unavailable.
+“Here is a routine visit. The guest selects actual available rooms. A thank-you stays with the visit without asking a host to approve it. The booking completes and both sides can see the result.
 
-I ask the coordinator to reserve this room for family use. The Strands tool prepares a bounded proposal with exact dates and rooms. Nothing changes until I apply it. And this withheld room opens only for one guest's complete stay.”
+When supported household memory is available, preferences rank valid rooms. The explanation shows what matched, and the guest can choose differently.”
 
-## 0:55-1:35 - The guest chooses exact rooms, overflow pauses for a human
+Do not imply memory influenced this particular result when the displayed state is off or unavailable.
 
-**On screen:** Switch to the guest window. Search with the prepared dates and counts. Show that the private room is absent and the opened room is present. Submit the prepared overflow party that fits only at maximum capacity, tick the consent box, submit. Show the run page at "Waiting for a host". Cut to the phone: the pending-decision email. Switch to the host tab, approve, and show the run completing once and the visit confirmed.
+## 0:55–1:15 — The guest answers
 
-**Narration:**
-
-“The guest sees only rooms that are safe for this invitation, with guest-facing labels. Never hidden rooms, private notes, or another family.
-
-This party fits only with the documented overflow arrangement. The policy hook pauses before the booking tool writes anything. Both hosts get an email the moment that happens.
-
-Jordan approves. The saved run reloads current availability, rejects a stale arrangement, and otherwise resumes the paused tool call exactly once. A party above maximum capacity is denied, not escalated.”
-
-## 1:35-2:05 - Durable coordination after booking
-
-**On screen:** Use the labeled synthetic clock: "Reconfirmation chase". Show the reconfirmation request on the guest link and the "Awaiting reconfirmation" chip. Leave it unanswered. Press "Host escalation". Show one escalation per host in the household record and the "Needs attention" chip. Cut to the phone for the escalation email.
+**Screen:** Run Advance to next guest reminder, open the guest journey, answer Yes, we are coming, and return to the reconfirmed host outcome.
 
 **Narration:**
 
-“Coordination does not end at booking. I move the clearly labeled synthetic clock instead of pretending to wait months.
+“Coordination continues after booking. This labeled clock advances to an actual scheduled reconfirmation job. The guest answers, and the pending escalation is no longer needed.”
 
-Three days before arrival, the same state machine asks each party to reconfirm. One party stays silent. Twenty-four hours later, one scheduled job sends exactly one escalation to each host, in the app and in their inbox. Idempotency keys mean retries never duplicate an alert.”
+## 1:15–1:55 — A fresh exception needs a person
 
-## 2:05-2:30 - Private calendar feed and browser agents
-
-**On screen:** Show the feed controls with the URL covered, then the local parser still: generic all-day events, guest count, room labels, and the assertion that private text is absent. Then a five-second WebMCP cutaway: a prepared form with the submit button still waiting.
+**Screen:** Start Otero, showing that this resets the first scenario. Search for two guests and select the Garage Room. Highlight the captured explicit request, submit, then show the waiting run and the host decision. Approve, show completion and the confirmed outcome.
 
 **Narration:**
 
-“Each host can issue and revoke calendar subscriptions. The database stores only an HMAC of the token. Events say Guest stay or Private room use with counts and room labels. No names, no notes, no tokens. This is a local proof, not a live family calendar.
+“This separate scenario contains an explicit request. The agent pauses before the relevant booking operation and asks a host. Approval resumes the saved execution only after checking current availability and household policy. A stale approval cannot force an invalid booking through.”
 
-When a browser provides WebMCP, page tools can read visible state and fill a form. A person still submits.”
+The request is distinct from an informational note. Do not describe it as an overflow booking unless the recorded selection actually requires overflow.
 
-## 2:30-2:50 - Inside the run
+## 1:55–2:20 — Unanswered follow-through
 
-**On screen:** `docs/submission/assets/agentcore-trace.png` full-screen, then `docs/architecture/layalga-architecture.svg`.
-
-**Narration:**
-
-“Every run executed on a live Amazon Bedrock AgentCore Runtime. Here is the trace in CloudWatch: the agent loop, the Sonnet 4.5 call, the tool execution. Next.js queues the work, AgentCore runs Strands with typed tools and household memory, and Supabase Postgres stays authoritative for every booking fact.”
-
-## 2:50-2:55 - Close
-
-**On screen:** Room ledger, then the L’Ayalga title.
+**Screen:** Run Advance to next guest reminder for Otero, leave it unanswered, then Advance to next host follow-up. Show the unresolved host outcome and delivery state. Repeat an exhausted shortcut briefly if time allows.
 
 **Narration:**
 
-“The agent coordinates, code protects the home, and people keep the judgment that matters.”
+“This time the guest has not answered. After the configured interval, the coordinator brings follow-up to the hosts. A delivery problem is shown separately from no reply. The clock works from persisted jobs; repeating an exhausted step does not invent another alert.”
+
+Do not promise inbox delivery. SES acceptance and recipient receipt are different facts.
+
+## 2:20–2:40 — Clear closure and consent
+
+**Screen:** Show the guest's exact cancellation review, explicitly confirm it, then show cancellation completion, the removed active host outcome and released rooms. A short preferences-panel cutaway can show optional verified reminders and opt-out without enrolling a real address.
+
+**Narration:**
+
+“A change of plans has a complete ending. A person confirms cancellation, the rooms are released, and obsolete decisions and follow-up stop. Real guests can separately consent to verified reminders and opt out. A cancellation message alone never cancels a stay.”
+
+## 2:40–3:00 — Implementation and evidence
+
+**Screen:** Architecture, then the dated AgentCore trace with a historical caption. End with the measured evidence report and title; keep any actual numerical result consistent with that report.
+
+**Narration:**
+
+“Strands provides the agent loop, typed tools and durable human interruption. This earlier production trace shows AgentCore execution; the current model configuration is Sonnet 4.6. Our local synthetic benchmark measures completed workflows, not human time saved.
+
+L’Ayalga handles routine coordination, brings exceptions to people, and follows through.”
 
 ## After recording
 
-- Confirm the file is under 180 seconds with `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 <video>`.
-- Watch once with sound and once muted. Check that every action is understandable in both modes.
-- Check that Spanish and English each appear at least once.
-- Check that no guest token, calendar URL, secret, personal notification, private room note, memory record raw payload, or source path is readable.
-- Confirm that the WebMCP cutaway says or shows whether it used the native browser API or the component proof.
-- Confirm that the calendar segment says local proof and does not imply a live family-calendar subscription or direct calendar write.
-- Confirm the phone cutaways are present only if `EMAIL=ses` was active on the recorded target, and that the narration did not promise an email the target could not send.
-- Confirm the trace screenshot and the run timeline segment do not display a family name or a guest link token.
-- Record the final video URL in `docs/submission/devpost.md` only after upload authorization.
+Check duration, sound, muted comprehensibility, English/Spanish visibility and that every claimed action appears on screen. Mask tokens, calendar URLs, contact addresses, private notes and cloud account identifiers. Label local/scripted and historical evidence accurately. If an optional WebMCP or calendar cutaway is added, identify whether it is a native-browser demonstration or local component/parser proof; do not imply direct calendar writes.
+
+Only after authorized upload, place the real URL in [Devpost draft](devpost.md). Do not mark the entry submitted or the Builder posts published until those owner actions actually occur.

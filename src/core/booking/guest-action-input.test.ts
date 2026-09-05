@@ -61,3 +61,26 @@ describe("guest action input schemas", () => {
     ).toBe(true);
   });
 });
+
+it("bounds information and explicit requests independently", () => {
+  const input = {
+    locale: "en",
+    stay: "2026-10-02|2026-10-04",
+    adults: 2,
+    children: 0,
+    pets: 0,
+    roomIds: ["10000000-0000-4000-8000-000000000001"],
+    overflowConsent: false,
+    notes: "n".repeat(1000),
+    requests: "r".repeat(500),
+  };
+  expect(guestSessionSubmitInput.safeParse(input).success).toBe(true);
+  expect(
+    guestSessionSubmitInput.safeParse({ ...input, notes: "n".repeat(1001) })
+      .success,
+  ).toBe(false);
+  expect(
+    guestSessionSubmitInput.safeParse({ ...input, requests: "r".repeat(501) })
+      .success,
+  ).toBe(false);
+});

@@ -1,13 +1,15 @@
 # Assessment: Country House Hospitality Agent for the AWS "Agents for Humans" hackathon
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 Date: 2026-08-29
 Sources:
 
-- https://agentsforhumans.devpost.com/ (main, /rules, /details/dates fetched
+- <https://agentsforhumans.devpost.com/> (main, /rules, /details/dates fetched
   2026-08-29)
-- https://github.com/strands-agents/harness-sdk/blob/main/strands-ts/README.md
-- https://github.com/strands-agents/harness-sdk/blob/main/site/src/content/docs/user-guide/concepts/interrupts.mdx
-- https://github.com/strands-agents/harness-sdk/blob/main/site/src/content/docs/user-guide/concepts/agents/session-management.mdx
+- <https://github.com/strands-agents/harness-sdk/blob/main/strands-ts/README.md>
+- <https://github.com/strands-agents/harness-sdk/blob/main/site/src/content/docs/user-guide/concepts/interrupts.mdx>
+- <https://github.com/strands-agents/harness-sdk/blob/main/site/src/content/docs/user-guide/concepts/agents/session-management.mdx>
 
 Evidence labels: VERIFIED = read in an official source this session. INFERRED =
 reasoned judgment not stated directly by those sources.

@@ -9,6 +9,7 @@ import { parseServerEnvironment } from "@/lib/server/env";
 import { sesSend, type EmailSender } from "./ses-client";
 
 const RETRY_AFTER_MS = 5 * 60 * 1_000;
+const OBSOLETE_NOTIFICATION = "ObsoleteNotification";
 
 interface CandidateRow {
   source_id: string;
@@ -67,8 +68,20 @@ export interface RenderedPing {
 export async function selectPendingPings(
   database: DatabaseClient,
   now: Date,
+  target?: Pick<PendingPingCandidate, "kind" | "sourceId" | "hostId" | "homeId">,
 ): Promise<PendingPingCandidate[]> {
   const sql = sqlClient(database);
+  // Restrict each source before its joins when revalidating one claimed ping.
+  const decisionScope = target
+    ? sql`d.id = ${target.sourceId} and d.home_id = ${target.homeId}
+        and ${target.kind} = 'pending_decision'`
+    : sql`true`;
+  const escalationScope = target
+    ? sql`notification.id = ${target.sourceId}
+        and notification.home_id = ${target.homeId}
+        and host.id = ${target.hostId}
+        and ${target.kind} = 'reconfirm_escalation'`
+    : sql`true`;
   const rows = await sql<CandidateRow[]>`
     with decisions as (
       select
@@ -79,6 +92,7 @@ export async function selectPendingPings(
         d.reason
       from public.pending_decisions d
       where d.status = 'pending'
+        and ${decisionScope}
         and d.created_at > ${now.toISOString()}::timestamptz - interval '7 days'
     ),
     decision_candidates as (
@@ -104,6 +118,15 @@ export async function selectPendingPings(
       )
       left join public.parties party
         on party.id = coalesce(visit.party_id, invitation.party_id)
+      where ${target ? sql`host.id = ${target.hostId}` : sql`true`}
+        and (visit.id is null or visit.status <> 'cancelled')
+        and (invitation.id is null or invitation.status <> 'cancelled')
+        and not exists (
+          select 1 from public.invitations withdrawn
+          where decisions.home_id = withdrawn.home_id
+            and withdrawn.status = 'cancelled'
+            and run.session_id = 'inv_' || withdrawn.id::text
+        )
     ),
     escalation_candidates as (
       select
@@ -119,9 +142,13 @@ export async function selectPendingPings(
         on host.id = notification.recipient_id
        and host.home_id = notification.home_id
       left join public.visits visit on visit.id = notification.visit_id
+      left join public.invitations invitation on invitation.id = visit.invitation_id
       left join public.parties party on party.id = visit.party_id
       where notification.kind = 'reconfirm_escalation'
+        and ${escalationScope}
         and notification.recipient_kind = 'host'
+        and visit.status = 'escalated'
+        and (invitation.id is null or invitation.status <> 'cancelled')
     ),
     candidates as (
       select * from decision_candidates
@@ -162,6 +189,7 @@ export async function selectPendingPings(
      and ping.source_id = candidate.source_id
      and ping.host_id = candidate.host_id
     where coalesce(settings.email_pings, true)
+      and ping.error_name is distinct from ${OBSOLETE_NOTIFICATION}
     order by candidate.source_id, candidate.host_id
   `;
 
@@ -255,6 +283,17 @@ async function sendCandidatePing(
   if (!pingId) return "skipped";
 
   try {
+    const [current] = await selectPendingPings(sql, now, candidate);
+    if (!current || current.toAddress !== candidate.toAddress) {
+      // Keep the terminal reason without claiming an email was sent. The
+      // selector excludes this marker so an obsolete row is never retried.
+      await sql`
+        update public.host_email_pings
+        set status = 'failed', error_name = ${OBSOLETE_NOTIFICATION}
+        where id = ${pingId} and status = 'sending'
+      `;
+      return "skipped";
+    }
     const { messageId } = await send({
       fromAddress,
       toAddress: candidate.toAddress,

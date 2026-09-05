@@ -135,13 +135,17 @@
       "title": "Mueve el reloj del hogar",
       "description": "Avanza el reloj de demostración para probar seguimientos y avisos.",
       "current": "Hora actual de la demostración",
-      "chase": "Recordatorio de reconfirmación",
-      "escalation": "Aviso al anfitrión",
+      "chase": "Avanzar al próximo recordatorio",
+      "escalation": "Avanzar al próximo aviso a anfitriones",
       "custom": "Fecha y hora personalizadas",
       "set": "Fijar reloj",
       "working": "Ajustando el reloj…",
       "notLive": "Los cambios de hora son simulados y solo afectan a los datos de demostración.",
-      "error": "No se pudo actualizar el reloj de demostración."
+      "error": "No se pudo actualizar el reloj de demostración.",
+      "noEligible": "Ninguna visita actual necesita este paso de recordatorio.",
+      "alreadyDue": "Este paso ya estaba pendiente. Consulta el estado actual de las visitas.",
+      "advanced": "El reloj de demostración ha avanzado. Consulta el resultado en las visitas actuales.",
+      "backward": "El reloj no puede retroceder. Reinicia la demostración para volver a empezar."
     },
     "calendar": {
       "eyebrow": "El mes de un vistazo",
@@ -169,9 +173,9 @@
       "failedError": "No se pudo registrar la invitación.",
       "queued": "Invitación en cola",
       "statusLink": "Abrir el estado de la ejecución",
-      "reveal": "Preparar el enlace privado",
-      "revealing": "Preparando el enlace privado…",
-      "completionFailed": "No se pudo cargar la invitación terminada. Inténtalo de nuevo."
+      "reveal": "Volver a preparar el enlace",
+      "revealing": "Preparando tu enlace privado para huéspedes…",
+      "completionFailed": "No se ha podido preparar el enlace privado. Inténtalo de nuevo."
     },
     "emailPings": {
       "eyebrow": "Notificaciones",
@@ -232,7 +236,8 @@
       "empty": "No hay actividad registrada.",
       "noDetail": "Sin detalles adicionales",
       "policyDetail": "Decisión de la política: {decision}",
-      "toolDetail": "Herramienta del agente: {name}"
+      "toolDetail": "Herramienta del agente: {name}",
+      "policyUpdatedDetail": "Las normas actualizadas guían las nuevas solicitudes de reserva."
     },
     "activityKinds": {
       "decisionApplied": "Decisión del anfitrión aplicada",
@@ -242,7 +247,9 @@
       "reconfirmEscalation": "Reconfirmación avisada al anfitrión",
       "memoryWritten": "Memoria del hogar actualizada",
       "memoryForgotten": "Memoria del hogar olvidada",
-      "other": "Actividad del hogar"
+      "other": "Actividad del hogar",
+      "invitationCancelled": "Invitación cancelada",
+      "householdPolicyUpdated": "Normas de la casa actualizadas"
     },
     "activityTools": {
       "captureInvitation": "Registrar invitación",
@@ -256,13 +263,17 @@
       "listGuestRooms": "Consultar habitaciones visibles para huéspedes",
       "findRoomOptions": "Buscar opciones de habitación",
       "searchMemory": "Recordar memoria del hogar",
-      "other": "Acción del hogar"
+      "other": "Acción del hogar",
+      "prepareCancellation": "Preparar cancelación"
     },
     "activityPolicies": {
       "allow": "Permitida",
       "deny": "No permitida",
       "interrupt": "Requiere revisión del anfitrión",
       "other": "Política comprobada"
+    },
+    "visitInformation": {
+      "title": "Información de los huéspedes"
     }
   },
   "Guest": {
@@ -315,7 +326,7 @@
     "children": "Menores",
     "pets": "Mascotas",
     "arrivalTime": "Hora de llegada",
-    "notes": "Notas o necesidades de acceso",
+    "notes": "Información para tus anfitriones",
     "submitInvalid": "Revisa los datos del grupo y la estancia elegida.",
     "submitFailed": "No se pudo enviar la estancia.",
     "submitting": "Enviando estancia…",
@@ -347,6 +358,30 @@
       "reconfirmed": "Reconfirmada",
       "escalated": "En revisión",
       "cancelled": "Cancelada"
+    },
+    "notesHelp": "Solo información. Pon lo que necesite una respuesta en Solicitudes.",
+    "requests": "Solicitudes que necesitan una decisión",
+    "requestsHelp": "Para adaptaciones o excepciones. Los anfitriones lo revisarán antes de confirmar.",
+    "capturedRequests": "Solicitudes ya compartidas por tu anfitrión",
+    "visitNotes": "Tu información para los anfitriones",
+    "roomPreferences": {
+      "title": "Por qué sugerimos estas habitaciones",
+      "off": "No se están usando preferencias guardadas para esta sugerencia.",
+      "empty": "Tu grupo todavía no tiene preferencias de habitación guardadas.",
+      "unavailable": "Esta vez no hemos podido consultar tus preferencias guardadas.",
+      "unusable": "Tus preferencias guardadas no describen una característica de habitación que podamos verificar.",
+      "conflicting": "Tus preferencias guardadas se contradicen, así que no se ha usado ninguna.",
+      "matched": "Las habitaciones recomendadas incluyen: {preferences}.",
+      "unmatched": "Las habitaciones recomendadas no cumplen: {preferences}. Puedes revisar las otras habitaciones disponibles abajo.",
+      "choice": "Hemos sugerido habitaciones disponibles con capacidad para tu grupo. Elige las habitaciones que quieras con las casillas de abajo.",
+      "selectionChanged": "Tu selección actual es distinta de nuestra sugerencia. La explicación anterior sigue refiriéndose a las habitaciones recomendadas.",
+      "groundFloor": "La etiqueta de planta baja no garantiza acceso sin escalones ni para silla de ruedas. Consulta con tus anfitriones cualquier necesidad de acceso.",
+      "labels": {
+        "ground_floor": "planta baja",
+        "upper_floor": "planta superior",
+        "separate_beds": "camas separadas",
+        "double_bed": "cama doble"
+      }
     }
   },
   "GuestAccount": {
@@ -416,5 +451,140 @@
     "errorBody": "El registro del hogar está a salvo. Intenta abrir esta página de nuevo.",
     "retry": "Intentar de nuevo",
     "home": "Ir al libro"
+  },
+  "Cancellation": {
+    "openVisit": "Cancelar esta visita",
+    "openRequest": "Retirar esta solicitud de invitación",
+    "visitReview": "¿Cancelar la visita del {stay}?",
+    "requestReview": "¿Retirar esta invitación y cualquier solicitud pendiente de aprobación?",
+    "consequence": "Se liberarán las habitaciones reservadas, se detendrán los recordatorios y se cerrarán las aprobaciones pendientes. El enlace de invitación dejará de funcionar. Si cambias de idea, necesitarás otra invitación.",
+    "confirmLabel": "He revisado esta solicitud y quiero cancelarla.",
+    "confirm": "Confirmar cancelación",
+    "pending": "Cancelando…",
+    "keep": "Para mantener tus planes, deja la casilla sin marcar y cierra esta sección.",
+    "doneTitle": "Tu solicitud está cancelada",
+    "doneBody": "Se han liberado las habitaciones reservadas y se han detenido los recordatorios. Los anfitriones pueden ver la cancelación. Si cambias de planes, pídeles otra invitación.",
+    "account": "Tus visitas",
+    "hostTitle": "Cancelar una visita o retirar una invitación",
+    "noStay": "Fechas pendientes",
+    "changed": "Esta solicitud ha cambiado desde que la revisaste. Comprueba los datos actuales y vuelve a confirmar solo si quieres cancelarla.",
+    "pendingInvitations": "Invitaciones pendientes de visita"
+  },
+  "HouseholdPolicy": {
+    "title": "Normas de la casa",
+    "description": "Estas normas guían las nuevas reservas y los cambios pendientes de aprobación. Las estancias confirmadas se mantienen.",
+    "petsTogether": "Permitir mascotas de distintas familias visitantes al mismo tiempo",
+    "families": "Máximo de familias visitantes con niños al mismo tiempo",
+    "capacity": "La capacidad para dormir depende de las habitaciones. Cambiar una norma no añade camas ni aprueba solicitudes especiales.",
+    "save": "Guardar normas de la casa",
+    "saving": "Guardando…",
+    "saved": "Normas guardadas. Las nuevas solicitudes usarán estas normas.",
+    "reload": "Recargar y revisar las normas actuales",
+    "errors": {
+      "invalid": "Elige un número entero entre 1 y 20.",
+      "stale": "Otro anfitrión ha actualizado las normas. Revisa las normas actuales antes de volver a guardar.",
+      "failed": "No se han podido guardar las normas. Inténtalo de nuevo."
+    }
+  },
+  "GuestDeliveryHost": {
+    "title": "Recordatorios para los huéspedes",
+    "description": "Comprueba si cada huésped puede recibir recordatorios, por separado de si ha respondido.",
+    "unavailable": "El envío de correo no está disponible. Los huéspedes pueden seguir reconfirmando desde su invitación.",
+    "acceptanceNote": "La aceptación del correo no confirma su llegada a la bandeja de entrada ni una respuesta del huésped.",
+    "statuses": {
+      "no_contact": "Sin dirección para recordatorios",
+      "unverified": "Pendiente de verificar el correo",
+      "disabled": "Recordatorios por correo desactivados",
+      "ready": "Listo para el próximo recordatorio",
+      "queued": "Recordatorio pendiente de envío",
+      "sent": "Aceptado por el servicio de correo",
+      "failed": "No se ha podido enviar el correo",
+      "demo": "Demostración sintética: recordatorio solo en la aplicación",
+      "unknown": "Resultado del correo desconocido: revisa antes de reintentar",
+      "unavailable_access": "Acceso a la invitación no disponible: revisa el enlace del huésped"
+    }
+  },
+  "GuestEmail": {
+    "title": "Recordatorios de la visita por correo",
+    "body": "Recibe recordatorios de reconfirmación y un enlace seguro para volver a esta visita. Tu dirección no se incluye en las conversaciones del agente.",
+    "email": "Dirección de correo",
+    "googleAddress": "Usar tu dirección verificada de Google: {email}",
+    "consent": "Quiero recibir recordatorios por correo sobre esta visita. Puedo desactivarlos aquí cuando quiera.",
+    "enable": "Activar recordatorios",
+    "verifySend": "Enviar correo de verificación",
+    "pending": "Guardando…",
+    "disable": "Desactivar recordatorios",
+    "demo": "Esta es una demo con datos ficticios. No se envían correos a los huéspedes.",
+    "unverified": "Revisa tu correo, abre el enlace de verificación y confirma. Los recordatorios seguirán desactivados hasta entonces.",
+    "enabled": "Los recordatorios están activados para {email}.",
+    "disabled": "Los recordatorios por correo están desactivados.",
+    "no_contact": "Los recordatorios por correo son opcionales. Puedes reservar sin ellos.",
+    "unavailable": "El envío de correo no está disponible. Tu reserva no cambia. Inténtalo de nuevo más tarde.",
+    "rate_limit": "Espera un poco antes de pedir otro correo de verificación.",
+    "invalid": "No hemos podido guardar tu preferencia. Revisa tu dirección y consentimiento e inténtalo de nuevo.",
+    "invalidLinkTitle": "Este enlace de correo ya no está disponible",
+    "invalidLinkBody": "Puede haber caducado, haberse usado ya o estar desactivado. Abre tu invitación original o tu cuenta para pedir otro correo de verificación.",
+    "verifyTitle": "Confirma los recordatorios por correo",
+    "verifyBody": "Confirma abajo para verificar esta dirección y activar los recordatorios. Esto no reconfirma ni cambia tu reserva.",
+    "verify": "Verificar correo y activar recordatorios",
+    "openAccount": "Abrir cuenta de huésped",
+    "preferencesTitle": "Preferencias de correo actualizadas",
+    "deliveryFailed": "No se ha podido enviar el último correo. Puedes actualizar la dirección o desactivar los recordatorios.",
+    "deliveryUnavailable": "El envío de correo no está disponible en este momento. Tu reserva no cambia.",
+    "deliveryPending": "Tu correo está pendiente de envío."
+  },
+  "HostOutcomes": {
+    "eyebrow": "Qué requiere atención",
+    "title": "Visitas actuales",
+    "empty": "Todavía no hay próximas visitas. Comparte una invitación para empezar a planificar una estancia.",
+    "calendar": "El calendario de abajo muestra todas las visitas.",
+    "status": {
+      "hold": "Hay una reserva temporal.",
+      "expired": "La reserva temporal ha caducado.",
+      "confirmed": "La visita está confirmada.",
+      "reconfirm_pending": "Esperando que el huésped reconfirme.",
+      "reconfirmed": "El huésped ha reconfirmado.",
+      "escalated": "El huésped no ha respondido; un anfitrión debe contactar.",
+      "arrived": "Han comenzado las fechas previstas de la visita."
+    },
+    "next": {
+      "hold": "Revisa las decisiones pendientes de anfitriones que aparezcan arriba.",
+      "expired": "Habla con el huésped para acordar una nueva invitación o cancela esta reserva provisional caducada.",
+      "confirmed": "La reserva está confirmada. Revisa las nuevas peticiones que aparezcan arriba.",
+      "reconfirm_pending": "Comprueba el estado del recordatorio antes de contactar personalmente.",
+      "reconfirmed": "No hace falta otra reconfirmación.",
+      "escalated": "Contacta con el huésped para comprobar sus planes. El estado del correo es distinto de una respuesta.",
+      "arrived": "Consulta los detalles de la visita y confirma la llegada con los huéspedes."
+    }
+  },
+  "GuidedDemo": {
+    "title": "Prueba la coordinación de la casa",
+    "intro": "Dos situaciones independientes usan familias ficticias y el proceso real de reserva. Prueba primero la visita habitual y después la petición que necesita a un anfitrión.",
+    "sharedReset": "Iniciar cualquiera de las situaciones reinicia esta casa de demostración compartida y borra sus visitas, peticiones y actividad de prueba para todas las personas que la estén usando.",
+    "vegaTitle": "1. Vega: una visita familiar habitual",
+    "vegaBody": "Dos adultos y dos niños caben entre las dos habitaciones abiertas. Mantén ambas seleccionadas y envía la solicitud para ver el resultado de la reserva.",
+    "oteroTitle": "2. Otero: una petición para los anfitriones",
+    "oteroBody": "Empieza de nuevo con dos adultos, un perro y una petición de acceso a planta baja ya recogida. Elige Garage Room, envía y revisa la petición como anfitrión. La etiqueta de planta no demuestra accesibilidad.",
+    "startVega": "Reiniciar demo y empezar con Vega",
+    "startOtero": "Reiniciar demo y empezar con Otero",
+    "starting": "Reiniciando y abriendo la visita…",
+    "resetFailed": "No se ha podido reiniciar la demo. Puede estar ocupada o tu sesión de anfitrión puede haber caducado. Inténtalo de nuevo o vuelve a entrar desde la página de acceso.",
+    "entryFailed": "La demo se ha reiniciado, pero no se ha podido abrir la visita. Intenta empezar de nuevo desde aquí.",
+    "followTitle": "Después, prueba el seguimiento",
+    "followBody": "Tras confirmar una visita, avanza a su próximo recordatorio con el control de abajo. Vuelve como ese huésped para reconfirmar, o deja la petición sin respuesta y avanza al próximo aviso a anfitriones. Si ninguna visita actual necesita ese paso, el reloj se queda donde está.",
+    "returnGuest": "Volver al huésped de demo actual",
+    "entry": "Acceso a la demo",
+    "synthetic": "Demo sintética compartida · no se envían correos a huéspedes"
+  },
+  "DemoGuestGuide": {
+    "title": "Tu papel en esta demostración",
+    "vega": "Vega: dos adultos y dos niños. Busca las fechas sugeridas, mantén seleccionadas las dos habitaciones abiertas y envía. Su capacidad habitual conjunta permite alojar a las cuatro personas.",
+    "otero": "Otero: dos adultos y un perro, con una petición explícita de acceso ya recogida. Busca las fechas sugeridas, elige Garage Room en planta baja y envía. Los anfitriones deben revisar la petición antes de confirmar.",
+    "generic": "Busca fechas, elige las habitaciones exactas que quieras y envía. La visita o petición resultante muestra el siguiente paso.",
+    "access": "La planta baja no garantiza acceso sin escalones ni para silla de ruedas. Esta situación pide a los anfitriones que revisen la necesidad; no demuestra que la habitación sea accesible.",
+    "pending": "Si la petición está esperando aprobación, vuelve a la vista de anfitrión y revisa la decisión pendiente. Después abre de nuevo este huésped para ver el resultado real.",
+    "follow": "Tras confirmar, vuelve como anfitrión y avanza al próximo recordatorio. Regresa aquí para responder antes de la escalada o déjalo sin respuesta para probarla. Después de la escalada, un anfitrión contacta con el huésped.",
+    "host": "Volver a la vista de anfitrión",
+    "shared": "Estos datos ficticios son compartidos. Otra persona puede reiniciar la demo mientras la usas. No se envían correos a huéspedes."
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { checkDatabaseHealth, healthStatus } from "./route";
+import { checkDatabaseHealth, healthStatus } from "./health";
 
 describe("database health check", () => {
   it("degrades when mode-aware configuration is not ready", () => {

@@ -1,150 +1,72 @@
-# L’Ayalga guest guide
+# Guest manual
 
-You have been invited to stay at a house that uses L’Ayalga to organise visits. This guide explains what the link you received does, what you will see, and what happens in each situation. It is written for you as a guest. Your hosts have their own guide.
+L’Ayalga helps you arrange a stay with a household. You choose dates and rooms; household rules protect availability; a host decides when an explicit request or an overflow arrangement needs approval.
 
-In short: your host sends you a private link. You open it, choose the dates and the rooms you want from what is actually free, and you are done. The house checks that your stay fits with everyone else's, confirms it, and asks you once, three days before you arrive, whether you are still coming. Your hosts are only involved if something needs their personal say.
+This guide describes the implementation at commit `618701c` (5 September 2026). These completion features have passed local verification; their production rollout is separate. For a reproducible synthetic visit, start with the [judge guide](../submission/judge-guide.md).
 
----
+## 1. Open your invitation
 
-## 1. Your link
+Your host sends a private invitation link. You can use it without creating an account. Treat it as private: anyone holding a valid link can access that invitation. A new unbooked link normally lasts 30 days. Confirmation and rescheduling extend a valid, unrevoked invitation through checkout plus seven days when needed. Cancellation or withdrawal ends that invitation's access; an extension never revives a revoked or cancelled link.
 
-Your host will send you a link that looks like `https://layalga.thecreativetoken.com/es/g/...` (or `/en/` for English). It is yours alone:
+You can also sign in with Google and use a party already claimed by your verified account. A reminder return link provides a separate, revocable guest session after its capability is validated. These routes all authorize the invitation on the server; knowing a visit identifier is insufficient.
 
-- It opens in any browser, on a phone or a computer. No app, no account, no password.
-- It is in your language. Your host chose Spanish or English for you when they invited you; you can switch at the top of the page.
-- It works for 30 days from the invitation. After that, ask your host for a new one. Nothing about a visit you already booked is lost.
-- Anyone who has the link can use it as you, so do not forward it.
+An expired or revoked link cannot be recovered by changing the URL. Contact your host. Signing out clears account and guest-session cookies; it does not erase a private link that someone already holds.
 
-If the page says "This invitation link is not available", the link has expired or the invitation was cancelled. Ask your host for a new link.
+## 2. Search and choose rooms
 
----
+1. Check the party's adults, children and pets, then choose a stay or a search window.
+2. Find options. Only rooms available for the whole stay are offered. Private blocks, closed rooms and rooms occupied by live holds or visits are excluded. A withheld room needs an opening covering the complete stay.
+3. Review the recommended room set, sleeping arrangements and capacity. You can change the selected rooms before submitting.
+4. If the party fits only with a documented overflow arrangement, explicitly accept that arrangement. A host must then approve it. A party above maximum capacity cannot proceed.
 
-## 2. What you see when you open it
+Defaults use the household's date and timezone. Synthetic homes use their labeled demo clock. Valid future invitation dates are preserved; stale or invalid dates receive a usable future default.
 
-The page greets you by your family name: "Familia Vega, choose dates and tell the household who is coming." Under it there are three short steps.
+### Remembered preferences
 
-**Step 1, Find dates.** From and To dates, the number of nights, and how many adults, children, and pets are coming. Your host's invitation has already filled these in as far as they knew. Correct anything that is wrong, then press "Find available stays".
+When memory is enabled and usable, a previous ground-floor, upper-floor, separate-bed or double-bed preference can rank otherwise valid room combinations. The explanation identifies matched and unmatched preferences and distinguishes the recommended set from your current choice.
 
-**Step 2, Choose your exact rooms.** The page lists the stays that work for your party in that period. Pick one. Then pick the rooms. Each room shows what guests are allowed to know: its name, which floor, how people sleep there, how many it sleeps comfortably, and the most it can take. One combination is marked "Recommended". You can take it or choose differently, including more than one room.
+Missing, unavailable, conflicting or unsupported memory produces an explicit fallback. A recommendation never changes your dates, party counts, requests or consent, and never overrides availability or household rules. A ground-floor match is a room attribute, not a promise of step-free access or accessibility. Ask the host about any specific access requirement.
 
-**Step 3, Review and send.** When you expect to arrive, and a notes box for anything you want the hosts to know. Press "Submit stay".
+## 3. Information and requests are different
 
-At the bottom there is an optional "Sign in with Google to keep this link". Ignore it unless you want a page of your own that lists all your visits (see section 6).
+Use **informational notes** for details such as “Thank you for having us.” These are retained with the visit for authorized guests and hosts, but do not themselves ask a host to make a decision. The field accepts up to 1,000 characters.
 
----
+Use **requests needing a host decision** for something you need the household to approve. This field accepts up to 500 characters. Requests already captured in the invitation remain visible and cannot be silently removed by editing the form. They remain attached when an interrupted booking resumes.
 
-## 3. What happens after you press Submit
+Notes, arrival details and explicit request prose are kept out of the assembled guest-submission model prompt. They remain trusted application data. A free-text change message is different: the agent must read it to interpret the requested change. Avoid unnecessary personal or sensitive information.
 
-A progress page opens and shows the house working: checking the rooms, checking the house rules, confirming. It normally takes a few seconds. Then you return to your link, which now shows one of three things.
+## 4. Submit and read the outcome
 
-**"Your stay is confirmed."** Done. The page shows your dates, your party, and your rooms. Your hosts see the same stay on their calendar.
+Submission queues a run and displays its progress. A normal request can place a temporary hold and confirm without a host decision. An explicit request or overflow arrangement pauses for approval before the relevant booking operation. An interrupted request does not necessarily have a hold yet.
 
-**"Your rooms are on hold" and "Waiting for a host".** Your request needs a personal decision from a host (see 4.3 and 4.4). Your rooms are kept for you for 48 hours while they decide. You can close the page; come back to the same link later to see the answer.
+- **Confirmed:** the stay and rooms are booked.
+- **Waiting for a host:** a decision is needed. Refreshing or opening the same invitation preserves the result.
+- **Unavailable or denied:** current capacity, availability or household rules do not allow the request. Review the explanation and change your selection.
+- **Expired hold:** those rooms are no longer reserved. Use change controls if they are still offered. Otherwise contact your host for a new invitation, or cancel the old request.
+- **Failed run:** follow the displayed recovery guidance. A technical failure is not an approval.
 
-**A message that the stay is not possible.** The house rules did not allow it. The page tells you why in plain words, never who else is there, and you can search again with other dates or another set of rooms. Nothing was booked.
+Households can configure their children-family limit and whether parties with pets may overlap. Capacity remains a hard boundary. A host's approval of a special request does not override a rule or an occupancy conflict. Availability and policy are checked again when a booking is written or resumed.
 
----
+## 5. Change, cancel or withdraw
 
-## 4. Situations
+Use **Request a change** to describe new dates or another change. If your message means you cannot attend, the agent prepares a cancellation review. It cannot cancel merely because you sent that message.
 
-### 4.1 Everything fits
+The cancellation control shows the exact current stay and requires your explicit confirmation. An invitation without an active visit offers withdrawal of the request instead. If the stay changes between review and confirmation, you must review the refreshed state; stale details are not accepted.
 
-Two adults, no children, no pets, the Guest Room for two nights. Confirmed on the spot. You will not hear from anyone unless you want to change something.
+Confirmed cancellation releases the rooms and retires associated outstanding decisions, runs, reconfirmation jobs and obsolete delivery work. Your invitation then stops granting guest access. Ask your host for a new invitation if your plans change again.
 
-### 4.2 Someone else is at the house those days
+## 6. Reconfirm and choose reminders
 
-When you search, a stay may carry the note "Another party may also be at the house. Their identity stays private." The house is shared; the rooms you are offered are already the ones not taken. You will never be shown who the other guests are, and they will never be shown you.
+Three days before arrival, the coordinator requests reconfirmation. Return to your invitation and choose **Yes, we are coming** or request a change. If no answer is recorded after 24 hours, the household receives a follow-up task. Delivery problems are shown separately from an unanswered request.
 
-### 4.3 Your party only fits with the extra bed
+Real guests can optionally enable email reminders with explicit consent. Enter an address and open the verification email. Opening its link only displays a review; the verification POST requires a deliberate confirmation. For a matching claimed party, the server can use a verified Google address directly. A typed address is never treated as verified just because it was entered.
 
-Say five of you are coming and the two rooms you like sleep four comfortably, five with a sofa bed. The room card says so: "Extra sleeping arrangement: sofa bed in the same room". Below the rooms a line reads "Selected capacity: 4 standard, 5 maximum for 5 guests", and a checkbox appears: "I accept the listed extra sleeping arrangements and understand that the host must approve them."
+A reminder's return link opens the authorized visit, including reconfirmation, changes and cancellation. Its capability is checked on every request. Changing the address, opting out, cancellation, revocation or expiry can invalidate old links. After an address update from an email session, use the new verification guidance rather than the old session.
 
-Tick it and submit. Your rooms are held, and a host is asked to approve exactly that arrangement. When they do, your link shows "Your stay is confirmed". If they decline, the page tells you so, with any note they wrote, and you can choose other rooms or other dates.
+Use the preference panel to turn reminders off. Email delivery must be configured by the operator; the interface reports unavailable or failed delivery instead of promising an inbox message. An SES acceptance is not proof of receipt. Synthetic demo invitations do not enroll or email real guest addresses.
 
-### 4.4 You wrote a request in the notes
+## 7. Privacy and help
 
-Anything you write as a wish or a question in the notes, for example "Could we have the ground floor for my mother?", is shown to your hosts before your rooms are confirmed, so that they can say yes knowingly. Your link shows "Waiting for a host" until they answer. Use the notes for things that matter to you, not for small talk, because each note pauses the booking for a human answer.
+You see your party's authorized details and guest-facing room labels, not another family's name or a room's private notes. Informational notes are retained under the [data lifecycle](../security/data-lifecycle.md), including terminal-state cleanup. Hosts can inspect and erase their household's stored party memory.
 
-### 4.5 The house says no
-
-Three rules apply to everyone, and the house applies them before any host is bothered:
-
-- There must be enough beds for everyone in your party.
-- Only one family with children can be at the house at a time.
-- Two parties with pets cannot overlap.
-
-If your request breaks one of them, you see a short explanation, such as "another family with children overlaps these dates" or "there are not enough free beds for these dates", and you search again. This is not a host saying no; nobody was asked. If it matters, talk to your host directly; they may suggest other dates.
-
-### 4.6 You change your mind before submitting
-
-Change any date or number and the page says "Dates or party details changed. Find available stays again." Search again and pick anew. Nothing has been booked until you press Submit.
-
-### 4.7 You need to change dates after you are confirmed
-
-Open your link. Under your visit there is "Request a change" with a box: "Tell the household what needs to change." Write it as you would to a person: "Could we arrive on Saturday instead of Friday?" or "We can only come the following weekend now."
-
-The house looks for stays around your new dates, checks the rules again, and moves your visit and rooms. Your link then shows the new dates. If the new dates are not possible, you are told why and your original visit is kept as it was. If the change needs a host's say, you see "Waiting for a host" again.
-
-### 4.8 More or fewer people than planned
-
-Write it in the same box: "My sister is joining, so we are five now." The house rechecks the rules and your rooms as far as it can. If your rooms no longer fit the new size, tell your host directly as well, so they can settle the rooms with you. A bigger party may bring you back to the extra-bed approval in 4.3.
-
-### 4.9 You are waiting for a host and change your mind
-
-You can still write a change request while "Waiting for a host" is showing. Your new request is handled first, and the earlier question to your hosts is dropped if it no longer applies.
-
-### 4.10 Nobody answered within two days
-
-If a host did not decide within 48 hours, your rooms are released and your link says "This room hold has expired. It is not a confirmation." Write to your host, and use "Request a change" to say what you want; it comes back to them as a fresh question.
-
-### 4.11 Three days before you arrive
-
-Your link changes to "Please confirm that you are coming", with a message from the house. Press "Yes, we are coming". That is all; the page shows "Reconfirmed".
-
-If your plans changed, write it in "Request a change" instead, as in 4.7.
-
-If you do neither within 24 hours, your hosts are told that you have not confirmed, and they will get in touch. Your booking is not cancelled by silence, but it is flagged, so answer when you can.
-
-### 4.12 You cannot come at all
-
-There is no cancel button on your link in this version. Write it in "Request a change" ("We cannot come after all, sorry") and tell your host directly so they can free the rooms.
-
----
-
-## 5. What you can and cannot see
-
-You can see: the dates that work for your party, the rooms you are allowed to choose with their guest-facing description, the rooms assigned to you, whether another party may be at the house during your stay, your own reconfirmation request, and the progress of your own booking.
-
-You cannot see: other guests' names or rooms, rooms the hosts keep private, the hosts' internal room names or notes, or any other family's booking. The same protection applies to you: no other guest can see your name, your rooms, or anything you wrote.
-
-You will never receive an email from the house. Everything comes through your link, in your language.
-
----
-
-## 6. Keeping your visits under your own account (optional)
-
-At the bottom of your link, "Sign in with Google to keep this link" connects this invitation to your Google account. Afterwards:
-
-- The page shows "Saved to your account" and a link to "My visits", which lists every stay you have booked at the house with its dates and status.
-- Your private link keeps working exactly as before. Signing out of Google does not affect it.
-- If a Google account is already connected to a different guest, the page tells you so and the invitation stays as it was.
-
-You never need to do this. It is a convenience for people who visit often.
-
----
-
-## 7. Coming back another time
-
-The next time your host invites you, you get a new link with form details taken from that invitation. Saved preferences, such as a ground-floor room, can help your host's invitation summary; they do not directly fill the form or replace what you ask for this time. Invitation text and notes can contain names. Your host can inspect and erase what the house remembers about your family at any moment.
-
----
-
-## 8. In one screen
-
-1. Open the link within 30 days.
-2. Check dates and how many are coming. Find available stays.
-3. Pick a stay and your rooms. Tick the extra-bed box only if you accept the arrangement described.
-4. Add your arrival time and anything the hosts should know. Submit.
-5. Read the result on the same link: confirmed, waiting for a host, or try other dates.
-6. Three days before arrival, press "Yes, we are coming".
-7. To change anything, write it in "Request a change".
+If an invitation is unavailable, a request remains unresolved, or you need an access arrangement, contact your host. The [host manual](host-manual.md) explains their controls.

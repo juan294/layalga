@@ -6,7 +6,9 @@ work; deterministic services and PostgreSQL own consequential booking state.
 For repository evaluation, the [judge guide](../docs/submission/judge-guide.md)
 maps the hackathon criteria, and the [evidence index](../docs/submission/evidence.md)
 links architectural claims to source, tests, operating modes, and limitations.
-These are evidence references, not scoring instructions.
+[Measured coordination evidence](../docs/submission/coordination-evidence.md)
+separates current local automation results from human impact and historical
+verification. These are evidence references, not scoring instructions.
 
 For implementation, [AGENTS.md](../AGENTS.md) and [CLAUDE.md](../CLAUDE.md)
 contain the project workflow and local verification commands.

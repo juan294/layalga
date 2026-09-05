@@ -23,21 +23,29 @@ a score.
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
-- Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the one-flag rollback
-- Amazon Bedrock Claude Sonnet 4.6 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
-- AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host-only email pings through Amazon SES (`EMAIL=ses`)
+- Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the fallback, subject to compatible model permissions
+- Amazon Bedrock Claude Sonnet 4.6 in the current example configuration (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
+- AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host email pings through Amazon SES (`EMAIL=ses`); consented guest delivery is implemented with separate web-only state and prepared production activation
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
 - Vercel Cron `/api/ticks` every minute for lease recovery, bounded queue draining, due jobs, and email dispatch; an implemented but unselected EventBridge Scheduler adapter (`SCHEDULER=none` in production)
 - Supabase Auth with Google OAuth, optional guest invitation claims, and signed synthetic-demo sessions
 
 ADR 0002 records the initial Anthropic access failure, the AgentCore model-and-tool proof, the 2026-09-03 decision that made AgentCore the selected production runtime, and the tracing, memory, and release addenda since.
 
+## Current product
+
+The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, actual preference-informed room ranking, and guided time-aware demo flows. This completion is locally verified; production deployment and guest SES IAM application remain separately authorized rollout work.
+
+The [synthetic coordination evidence](docs/submission/coordination-evidence.md) and [current roadmap](docs/roadmap.md) distinguish source verification, production observations and measured human impact.
+
 ## Product Safety Contracts
 
 - The database is authoritative for availability, holds, visits, and household policy. The model must not invent or directly mutate booking state.
 - A deterministic policy or hook must interrupt sensitive actions for host approval.
 - The demo uses synthetic guests and an explicitly labeled injectable clock.
-- Do not expose another guest's identity without approval.
+- Do not expose another guest's identity without approval. Raw host invitation text can contain names; prompt minimization is not general free-text anonymization.
+- Guest contact/consent/delivery state belongs to the web boundary and never enters agent prompts or memory. SES acceptance does not prove inbox delivery or a reply.
+- Cancellation requires explicit human confirmation; memory recommendations never bypass policy, verified room facts or guest choice.
 - Treat a queued acknowledgement as accepted work, not as a completed agent result. Poll the exact run to a terminal state.
 - Keep Vercel and AgentCore on separate non-owner database roles. Do not use the database owner URL at runtime.
 - Do not add WhatsApp or Twilio integration for the hackathon submission.
@@ -80,6 +88,8 @@ Run verification sequentially. Database-backed tests, browser tests, the demo dr
 Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description`.
 
 ## Deployment
+
+Git-triggered Vercel deployments are enabled only for `main` through `vercel.json` `git.deploymentEnabled`. Feature branches and `develop` must never create preview deployments. Keep this restriction in the first commit pushed for any new branch. GitHub Actions still runs for PRs and pushes to `develop`/`main`; batch reviewed work and pass the applicable checks locally before pushing.
 
 The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v0.4.0 and v0.5.0 were released on 2026-09-04 through the nine-probe gate, with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` deployed from the same commit. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 

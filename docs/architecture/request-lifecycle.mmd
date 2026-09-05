@@ -6,8 +6,9 @@ sequenceDiagram
   participant CRON as Vercel Cron<br/>GET /api/ticks
   participant AC as AgentCore Runtime<br/>handleAgentCoreRequest
   participant S as Strands agent loop
-  participant M as Bedrock<br/>Sonnet 4.5
+  participant M as Bedrock<br/>Sonnet 4.6
   participant T as Typed tools
+  participant EMAIL as Web guest delivery<br/>SES adapter
 
   B->>W: submit form
   W->>DB: startRun: insert status queued<br/>intent_key per home, replay if already seen
@@ -41,6 +42,12 @@ sequenceDiagram
       AC->>DB: claimQueuedRun
       AC-->>W: {status accepted}
       W->>W: dispatchHostEmailPingsSafely
+      W->>EMAIL: dispatchGuestEmailPingsSafely<br/>real clock, synthetic homes excluded
+      EMAIL->>DB: claim source + contact generation with lease
+      EMAIL->>DB: under home lock recheck consent, access,<br/>current visit/job cycle and prearrival,<br/>persist authorized attempt
+      EMAIL->>EMAIL: send through SES outside transaction
+      EMAIL->>DB: persist provider acceptance independently<br/>of later cancellation or opt-out
+      Note over EMAIL,DB: Unresolved authorized attempt becomes unknown,<br/>never blindly resend. Acceptance is not inbox delivery.
     end
 
     AC->>S: agent.invoke(prompt), 240 s budget<br/>session stored in agent_sessions
@@ -56,4 +63,14 @@ sequenceDiagram
   end
 
   B->>B: poller renders timeline<br/>tool_call, policy_verdict, decision_applied
+  opt Newly captured invitation, exact run completed
+    B->>W: authorized POST revealCapturedInvitationAction<br/>one automatic attempt, explicit retry after failure
+    W->>DB: verify current host, home and completed capture run
+    W-->>B: private link in action result only
+  end
+  opt Guest enables reminders on a real invitation
+    B->>W: explicit consent POST, typed address or verified Google identity
+    W->>DB: scoped contact generation and verification outbox
+    Note over B,DB: Account-free GET only previews verification,<br/>explicit POST verifies. Return capability is checked<br/>against live access and consent on every guest request.
+  end
   Note over B: After deadline_at the poller stops<br/>and shows a Retry status button.

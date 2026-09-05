@@ -1,5 +1,7 @@
 # Design Brief: Agent-First Room Coordination
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 > Brainstormed on 2026-08-31 from the current L’Ayalga implementation, the private house-source review, Juan's current room rules, and current official platform documentation.
 
 ## Problem
