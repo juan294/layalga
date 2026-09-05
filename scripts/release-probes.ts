@@ -18,6 +18,7 @@ import {
   requiredEnvironment,
   responseJson,
   safeErrorMessage,
+  taggedInvitationIds,
   type ReleaseCliOptions,
 } from "./release-helpers";
 
@@ -91,14 +92,15 @@ export async function runReleaseProbes(
 
     const demo = await runDemoE2E({ ...options, runMarker });
 
+    const captureIds = await taggedInvitationIds(
+      sql,
+      DEMO_SEED.home.id,
+      markerSuffix(runMarker),
+    );
     const [captured] = await sql<{ count: number }[]>`
       select count(*)::integer as count
       from public.invitations
-      where home_id = ${DEMO_SEED.home.id}
-        and (
-          raw_message = ${demo.rawMessages[0]}
-          or raw_message = ${demo.rawMessages[1]}
-        )
+      where id = any(${sql.array(captureIds)}::uuid[])
         and status = 'tentative'
     `;
     assert.equal(
@@ -362,12 +364,15 @@ async function probeGuestConfirmation(
   sql: Sql,
   rawMessage: string,
 ): Promise<void> {
+  const invitationIds = await taggedInvitationIds(
+    sql,
+    DEMO_SEED.home.id,
+    rawMessage,
+  );
   const [visit] = await sql<{ id: string }[]>`
     select visit.id
     from public.visits as visit
-    join public.invitations as invitation on invitation.id = visit.invitation_id
-    where invitation.home_id = ${DEMO_SEED.home.id}
-      and invitation.raw_message = ${rawMessage}
+    where visit.invitation_id = any(${sql.array(invitationIds)}::uuid[])
   `;
   assert.ok(visit, "tagged guest visit was not created");
   const [audit] = await sql<{ holds: number; confirmations: number }[]>`
@@ -642,14 +647,17 @@ async function probeInterruptResume(
       and kind = 'decision_applied'
   `;
   assert.equal(applied?.count, 1);
+  const invitationIds = await taggedInvitationIds(
+    sql,
+    DEMO_SEED.home.id,
+    rawMessage,
+  );
   const [toolExecution] = await sql<{ count: number }[]>`
     select count(*)::integer as count
     from public.audit_events event
     join public.visits visit
       on event.payload->>'visitId' = visit.id::text
-    join public.invitations invitation
-      on invitation.id = visit.invitation_id
-    where invitation.raw_message = ${rawMessage}
+    where visit.invitation_id = any(${sql.array(invitationIds)}::uuid[])
       and event.kind = 'tool_call'
       and event.payload->>'name' = 'create_temporary_hold'
   `;
