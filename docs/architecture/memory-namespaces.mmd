@@ -15,6 +15,10 @@ flowchart TB
   end
 
   searchTool["search_memory tool<br/>tool-driven recall, injection off, max 5 results<br/>each call audited as tool_call"]
+  optionSearch["Guest options and agent room search<br/>trusted home + party scope"]
+  preferenceRead["loadPartyRoomPreferences<br/>3 pages / 100 records / 2 seconds<br/>ground / upper / separate beds / double bed"]
+  rank["Deterministic feasible-room ranking<br/>standard capacity first • room count first<br/>preference match then waste and display order<br/>guest manual selection retained"]
+  fallback["off / missing / unavailable / unusable / conflicting<br/>visible fallback • no accessibility inference"]
   captureEvent["recordCaptureMemory<br/>after a completed host_capture<br/>one CreateEvent, clientToken = run id<br/>party size • dates text • arrival<br/>special requests • pets"]
 
   subgraph aws["AgentCore Memory • LayalgaHouseholdMemory • us-east-1"]
@@ -26,7 +30,7 @@ flowchart TB
 
   auditWritten["audit memory_written"]
   auditForgotten["audit memory_forgotten<br/>actor host"]
-  boundary["Name boundary<br/>prompt minimization strips names before model calls<br/>host_capture transcripts name the family, so they are never extracted<br/>the capture event carries no family name and no invitation, party, or run id<br/>rememberedContext is never echoed back into memory"]
+  boundary["Privacy boundary<br/>known identity fields omitted; raw text may still name people<br/>host_capture conversations excluded from extraction<br/>deterministic capture event omits family-name field<br/>contact address, visit notes and capabilities excluded<br/>rememberedContext is never echoed back into memory"]
 
   captureMatched -- "party namespace" --> searchTool
   guestWrite -- "party namespace" --> searchTool
@@ -40,6 +44,10 @@ flowchart TB
   captureEvent -- "CreateEvent" --> events
   events -- "async extraction<br/>two strategies" --> records
   panel -- "ListMemoryRecords" --> records
+  optionSearch --> preferenceRead
+  preferenceRead -- "exact party namespace; no whole-home fallback" --> records
+  preferenceRead --> rank
+  preferenceRead --> fallback
   forget -- "BatchDelete<br/>MemoryRecords" --> records
   forget -- "DeleteEvent per session" --> events
   captureEvent -.-> auditWritten
@@ -55,6 +63,7 @@ flowchart TB
   class events,records,homeScope selected;
   class captureMatched,captureUnmatched,guestWrite,partyRead core;
   class noStore off;
-  class captureEvent,searchTool,panel,forget app;
+  class captureEvent,searchTool,panel,forget,optionSearch,preferenceRead,rank app;
+  class fallback off;
   class auditWritten,auditForgotten store;
   class boundary person;

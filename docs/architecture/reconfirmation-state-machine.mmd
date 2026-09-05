@@ -10,7 +10,7 @@ stateDiagram-v2
     hold --> cancelled: hold expires<br/>expireTemporaryHolds
     confirmed --> reconfirm_pending: reconfirm_chase runs<br/>09:00 house time, 3 days before<br/>schedules reconfirm_escalate +24 h
     reconfirm_pending --> reconfirmed: guest answers yes<br/>reconfirm_escalate cancelled
-    reconfirm_pending --> escalated: 24 h silence<br/>one escalation per host<br/>SES ping to each host
+    reconfirm_pending --> escalated: 24 h silence<br/>one escalation per host<br/>SES ping to each eligible host
     reconfirm_pending --> confirmed: reschedule_visit<br/>chase rescheduled
     reconfirmed --> confirmed: reschedule_visit
     escalated --> confirmed: reschedule_visit
@@ -26,7 +26,7 @@ stateDiagram-v2
     state "cancelled" as job_cancelled
     [*] --> scheduled: reconfirm_chase or reconfirm_escalate<br/>one open job per visit and kind
     scheduled --> running: claimDueJob<br/>10 min lease, attempt +1
-    running --> done: every recipient reached
+    running --> done: required in-app notifications persisted
     running --> scheduled: failure, attempt 1<br/>retry after 1 min
     running --> scheduled: failure, attempt 2<br/>retry after 5 min
     running --> quarantined: failure, attempt 3<br/>audited
@@ -46,6 +46,26 @@ stateDiagram-v2
     rows and audits notification_fallback.
     A queued tick that under-delivers fails
     the job and retries on this ladder.
+    An escalation delivery retry can run after
+    the visit already became escalated.
+    Notification completion is not email delivery.
+  end note
+
+  note right of reconfirm_pending
+    A party chase can enqueue a separate guest email
+    only with verified consent and live invitation access.
+    Real prearrival source checks suppress obsolete work.
+    Demo homes never send guest email.
+    Provider acceptance, failure and unknown outcome
+    are shown separately from the guest's reply.
+  end note
+
+  note right of Visit
+    Explicit cancellation retires open work and access.
+    Confirm and reschedule extend finite bearer access
+    through checkout plus 7 days without undoing revocation.
+    Semantic demo controls select the next eligible
+    persisted job; no job means no invented activity.
   end note
 
   style hold fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px

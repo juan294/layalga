@@ -1,5 +1,7 @@
 # Design Brief: L'Ayalga
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 > Brainstormed on 2026-08-29. Derived from the approved assessment
 > (`docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md`) plus
 > the owner's decisions recorded the same day. A full brainstorm session was
@@ -53,7 +55,7 @@ only when a social exception needs a human decision.
   surfaces. DECIDED.
 - Injectable clock and an explicitly labeled synthetic demo mode, built from
   day one, never exposed in the normal product.
-- Deliverables: public MIT repo (VERIFIED: https://github.com/juan294/layalga,
+- Deliverables: public MIT repo (VERIFIED: <https://github.com/juan294/layalga>,
   created 2026-08-29T13:11:54Z, inside the submission window), README,
   architecture diagram, 5-minute video with the four-beat demo, optional live
   demo link, up to three builder.aws posts once the demo is stable.

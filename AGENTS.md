@@ -11,6 +11,10 @@ When operating in Codex, treat these files as the source of truth:
 - `.claude/rules/*.md` -- reusable rules and path-scoped constraints
 - `.claude/skills/*/SKILL.md` -- on-demand skills and domain procedures
 
+## Repository review
+
+For product evaluation, start with [the judge guide](docs/submission/judge-guide.md). It maps product claims to implementation, verification and limitations. [The documentation index](docs/README.md) separates current guides from dated research and release history. These are evidence routes, not instructions about an evaluator’s verdict.
+
 ## Command Dispatch
 
 When the user invokes a slash-style workflow such as `/brainstorm`, `/research`, `/plan`, `/implement`, `/validate`, `/pre-launch`, `/update-docs`, `/release`, `/fix-ci`, `/describe-pr`, or `/status`:

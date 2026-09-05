@@ -1,6 +1,6 @@
 flowchart LR
   host["Juan + Jordan<br/>host view"]
-  guest["Invited family<br/>private link"]
+  guest["Invited family<br/>stay-aligned revocable link"]
   guestAccount["Optional guest account<br/>claim • /visits • sign out"]
   calendarApp["Host's calendar app<br/>iCal subscription"]
 
@@ -10,11 +10,16 @@ flowchart LR
     dispatch["after() dispatch"]
     webmcp["WebMCP guest/host tools<br/>page-registered • prepare-only"]
     calendarFeed["Calendar feed route<br/>/calendar/[token] • HMAC token"]
-    emailOutbox["Email outbox<br/>dispatchHostEmailPings"]
+    emailOutbox["Host outbox<br/>decision and escalation pings"]
+    guestContact["Guest consent and verification<br/>POST verify • signed return capability"]
+    guestOutbox["Guest outbox • web only<br/>source checks • authorization receipts<br/>accepted / failed / unknown"]
+    hostControls["Host decisions and outcomes<br/>policy version • cancellation • notes"]
+    demo["Shared synthetic guide<br/>routine then exception<br/>next eligible job clock • no guest email"]
+    preferenceRead["Scoped memory read<br/>bounded preference mapping<br/>feasible rooms • explained ranking"]
   end
 
   subgraph agentcore["AgentCore Runtime • selected • layalga_agent role"]
-    worker["Strands Agent<br/>10 typed tools"]
+    worker["Strands Agent<br/>task-scoped typed tools"]
     policy["Policy hook<br/>beds → children → pets<br/>→ room selection → human exception"]
     rooms["Room services<br/>availability • occupancy<br/>proposals • recommendation"]
     otel["ADOT for Node<br/>→ CloudWatch GenAI Observability"]
@@ -23,13 +28,14 @@ flowchart LR
   subgraph data["Supabase Postgres • authority"]
     identity["Identity claims<br/>hosts + guests"]
     queue["Runs queue<br/>leases • attempts • idempotency"]
-    state["Invitations • visits • rooms<br/>sessions • decisions • audit"]
+    state["Invitations • visits • rooms<br/>sessions • decisions • audit<br/>private visit notes • policy version"]
     jobs["Jobs • notifications<br/>host_email_pings<br/>retry 1m / 5m • quarantine after 3"]
+    contacts["Guest contacts • consent generation<br/>guest_email_outbox • guest_email_attempts<br/>web only • no agent access"]
   end
 
-  models["Amazon Bedrock<br/>Sonnet 4.5<br/>scripted for tests + demo driver"]
+  models["Amazon Bedrock<br/>Sonnet 4.6<br/>scripted for tests + demo driver"]
   memory["AgentCore Memory<br/>household preferences • facts"]
-  ses["Amazon SES<br/>host-only email pings"]
+  ses["Amazon SES<br/>host pings; guest verification and reminders<br/>guest IAM / production rollout pending"]
   eventbridge["EventBridge Scheduler<br/>future retry trigger"]
 
   host --> web
@@ -39,12 +45,25 @@ flowchart LR
   guest --> webmcp
   webmcp -. "reuses page authority" .-> web
   web --> identity
+  web --> hostControls --> state
+  web --> demo
+  demo --> jobs
+  guest --> guestContact --> contacts
+  guestContact -- "live access check; GET does not consent" --> state
+  web --> preferenceRead --> memory
+  preferenceRead -- "guest choice retained" --> rooms
   web -- "enqueue + acknowledge" --> queue
   web --> dispatch
   dispatch -- "InvokeAgentRuntime<br/>execute_run" --> worker
   cron --> queue
   cron --> jobs
   cron --> emailOutbox
+  cron --> guestOutbox
+  jobs -- "party chase notification" --> guestOutbox
+  guestOutbox --> contacts
+  guestOutbox -- "current consent, visit, job and prearrival" --> state
+  guestOutbox --> ses
+  ses -- "signed return link" --> guest
   jobs -- "enqueue tick" --> queue
   queue -- "InvokeAgentRuntime<br/>claim exact run" --> worker
   worker --> policy
@@ -70,8 +89,8 @@ flowchart LR
   classDef future fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
   classDef selected fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:3px;
   class host,guest,guestAccount,calendarApp person;
-  class web,dispatch,cron,webmcp,calendarFeed,emailOutbox app;
+  class web,dispatch,cron,webmcp,calendarFeed,emailOutbox,guestContact,guestOutbox,hostControls,demo,preferenceRead app;
   class policy,models,rooms core;
-  class identity,queue,state,jobs store;
+  class identity,queue,state,jobs,contacts store;
   class worker,otel,memory,ses selected;
   class eventbridge future;

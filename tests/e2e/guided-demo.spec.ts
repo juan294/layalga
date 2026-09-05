@@ -44,7 +44,8 @@ for (const [locale, suffix] of [
     await expect(page.getByTestId("guided-demo-panel")).toBeVisible();
 
     await page.getByTestId("guided-demo-start-vega").click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/guest$`));
+    // Reset and guest entry can compile separate routes in a cold dev server.
+    await page.waitForURL(new RegExp(`/${locale}/guest$`), { timeout: 30_000 });
     await expect(page.getByTestId("demo-guest-guide")).toHaveAttribute(
       "data-scenario",
       "vega",
@@ -62,7 +63,14 @@ for (const [locale, suffix] of [
         .getByTestId("host-outcomes")
         .locator('[data-visit-outcome="confirmed"]'),
     ).toHaveCount(1);
+    const routineChase = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/demo/clock") &&
+        response.request().method() === "POST",
+      { timeout: 30_000 },
+    );
     await page.getByTestId("demo-clock-chase").click();
+    expect((await (await routineChase).json()).outcome).toBe("advanced");
     await expect(
       page
         .getByTestId("host-outcomes")
@@ -81,7 +89,7 @@ for (const [locale, suffix] of [
         .locator('[data-visit-outcome="reconfirmed"]'),
     ).toHaveCount(1);
     await page.getByTestId("guided-demo-start-otero").click();
-    await expect(page).toHaveURL(new RegExp(`/${locale}/guest$`));
+    await page.waitForURL(new RegExp(`/${locale}/guest$`), { timeout: 30_000 });
     await expect(page.getByTestId("demo-guest-guide")).toHaveAttribute(
       "data-scenario",
       "otero",

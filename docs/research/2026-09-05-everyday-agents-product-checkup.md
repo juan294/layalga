@@ -1,5 +1,7 @@
 # Everyday Agents product checkup
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 Date: 2026-09-05. Repository: `develop`, `bf50416`.
 
 Scope: user-requested product assessment and recommendations against the current hackathon. Read-only inspection of product code, roadmap and submission documents, plus browser inspection of the live sign-in and host dashboard. No booking, model run, email, deployment, publication, or test suite was triggered. Recommendations are included because the user explicitly requested gaps and opportunities; this is not an implementation plan.

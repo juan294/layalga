@@ -57,3 +57,9 @@ implementation must use the four-state recovery vocabulary rather than one
 undifferentiated blocked state. There is no release-duration or workflow-
 count budget yet because there is no release history to measure; the
 playbook records where that budget will be filled in once a release runs.
+
+## September 5 status addendum
+
+The no-release context above is historical. The release playbook records completed v0.4.0 and v0.5.0 production verification. A representative duration budget has not yet been measured; no synthetic percentile is asserted. The standing A–E classification and recovery vocabulary are unchanged.
+
+The Everyday Agents completion refreshes existing local verification and adds a separately labeled synthetic coordination report. It does not promote that benchmark, real-recipient email observation, a participant study or diagram rendering into a new mandatory remote release gate. Guest SES/IAM activation is a separately authorized rollout task with explicit evidence limits. Feature/develop previews stay disabled, and remote CI is used only for an intentionally reviewed state after local checks. See [guest readiness](../release/guest-email-readiness.md) and [coordination evidence](../submission/coordination-evidence.md).

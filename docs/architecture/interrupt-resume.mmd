@@ -10,6 +10,7 @@ sequenceDiagram
   participant W as Server action<br/>decideAction
 
   M->>S: tool use create_temporary_hold
+  Note over HOST,DB: Hosts update existing pets/children policy with expected version.<br/>Only changed values increment version and audit.<br/>Settings and booking share the home advisory lock.<br/>Existing confirmed stays are not rewritten.
   S->>H: BeforeToolCallEvent (gated tool)
   H->>DB: loadDraftForTool: trusted draft,<br/>approvalStayHash, sanitized input
   H->>P: evaluateRoomSelection (capacity, overflow)
@@ -29,7 +30,7 @@ sequenceDiagram
     S->>DB: pending_decisions row<br/>(session, interrupt_id, reason)
     Note over DB: run-task.ts executeClaimedAgentTask
     O->>DB: selectPendingPings: one address per host
-    O->>HOST: one SES ping per host<br/>on conflict (kind, source_id, host_id) do nothing
+    O->>HOST: SES ping per eligible host<br/>on conflict (kind, source_id, host_id) do nothing
     HOST->>W: approve or decline, optional note
     W->>DB: pending_decisions status approved or declined,<br/>decided_by_host_id, note, application_error null
     W->>DB: enqueue task resume {sessionId, interruptId, response}
@@ -43,12 +44,12 @@ sequenceDiagram
     alt declined
       H-->>S: event.cancel Declined by host, note
     else approved
-      H->>P: re-evaluate overlap and room selection
+      H->>P: re-evaluate current household policy,<br/>overlap and room selection
       H->>H: compare overflow fingerprint<br/>(rooms + arrangements)
       alt house changed to deny, or fingerprint differs
         H-->>S: event.cancel with reason
       else still allowed
-        H-->>S: input.approvedBy = hostId, tool executes once
+        H-->>S: input.approvedBy = hostId, tool executes once<br/>booking transaction rechecks current state under home lock
       end
     end
     S->>DB: audit decision_applied {pendingDecisionId, runId}<br/>only if not already recorded
@@ -61,3 +62,4 @@ sequenceDiagram
       W->>DB: enqueue resume again
     end
   end
+  Note over HOST,DB: Guest or host cancellation requires explicit review and POST.<br/>Withdrawal before booking retires queued work and decisions.<br/>Cancelled authority cannot resume into a new visit.<br/>Informational notes never become approval requests.

@@ -1,257 +1,81 @@
-# L’Ayalga host manual
+# Host manual
 
-For Juan and Jordan. This is how you use L’Ayalga day to day as a host of the house. It describes what you do, what happens on its own, and what you will see in each situation. There is a separate manual for guests.
+L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
 
-L’Ayalga does one job: it takes the invitations you make to friends and family, turns each one into a private link, lets the guest pick dates and rooms that actually work for the house, and only comes back to you when a decision needs a person. You keep inviting people the way you always have. The coordination afterwards stops being your job.
+This guide describes commit `618701c` (5 September 2026), locally verified completion features. Production rollout is a separate operation. Start with the [judge guide](../submission/judge-guide.md) for the synthetic walkthrough.
 
----
+## 1. Sign in and understand the home
 
-## 1. Signing in
+Use your authorized Google identity. The server binds an allowed host identity to its household; posting another home's identifier does not grant access. Synthetic demo entry uses a signed, household-scoped demo session and is visibly labeled.
 
-Open `https://layalga.thecreativetoken.com`. Pick your language at the top of the page: English or Español. Everything you see, and every message a guest receives, follows the language of the page.
+The demo contains synthetic rooms and families. Its shared reset clears scenario progress, so finish one demonstration before starting another. Enter real inventory only in an appropriately provisioned non-demo household; this guide does not authorize changing production identities or configuration.
 
-Press "Continue with Google" and sign in with the Google account you registered as a host. Only the two host accounts can enter. Any other account is turned away with a message that it is not on the host list.
+## 2. Dashboard order
 
-During the hackathon demo period the page also shows two buttons, "Enter as Host" and "Enter as Guest". Those let judges walk through the demo house without a Google account. They only work for the demo house.
+The dashboard puts actionable coordination first: pending decisions, invitation capture, current visit outcomes and delivery status. The guided demo and clock follow on synthetic homes. Room administration, calendar subscriptions, household settings, memory and the household record remain available further down the page.
 
-Sign out from the link at the top of the page when you are on a shared computer. Signing out never breaks the links you already sent to guests.
+Current outcomes distinguish held, confirmed, awaiting reconfirmation, reconfirmed and escalated visits, with the next relevant action. An unanswered request remains unresolved even if its planned arrival has passed. Cancelled visits leave this active list. The calendar is useful context; the decision and outcome cards tell you what requires attention.
 
----
+## 3. Capture an invitation and send its link
 
-## 2. What is on your page
+Paste the invitation message, check the language, and capture it. The agent structures the party, counts, dates and explicit requests. The embedded progress view follows that exact run. Once it completes successfully, the page automatically prepares the private link through an authorized server action.
 
-Everything you need is on one page. From top to bottom:
+Copying and sending the link are still your deliberate actions. If secure preparation fails, the page offers a retry. Reloading or duplicate completion renders must not repeatedly prepare it. Tokens are delivered outside the model transcript and are not exposed through the run-status API.
 
-**Room ledger.** Your rooms and their state for the month: Available, Occupied, Private, Closed, Withheld, Inactive, or Draft. This is where you describe the rooms, take a room for yourselves, open or close a room for certain dates, ask the coordinator to prepare a room change, and review its proposals.
+A new unbooked invitation normally lasts 30 days. Confirming or rescheduling extends a valid, unrevoked invitation through checkout plus seven days where needed. Revoked or cancelled invitations are never revived by this extension. Demo reset renews the finite access window of the seeded invitations.
 
-**Calendar feeds.** Where you create and revoke the subscription links that put the house calendar on your phone or computer.
+Raw invitation text may contain personal information and is processed by the model. Avoid unnecessary sensitive details. Host capture conversations are excluded from automatic memory extraction; a separate bounded capture event omits the family-name field. Its arrival and request facts can still contain personal information.
 
-**Visit calendar.** The month at a glance. Each stay shows the family name, the dates, its status, and which rooms it uses. Move between months with the arrows.
+## 4. Routine stays and decisions
 
-**Pending decisions.** Requests that are waiting for one of you. Empty most of the time. When something is here, it is the only thing in the whole system that is blocked on you.
+Guests search exact rooms and confirm their selection. A normal selection within capacity and household rules can complete without host intervention.
 
-**New invitation.** Where you paste or type an invitation and get a private link to send.
+Informational notes, including thanks, are visible to authorized hosts and guests but do not request approval. Explicit requests needing a host decision are separate. Captured requests are preserved in the trusted booking draft and survive an interrupted run and resumption.
 
-**Email pings.** Whether you receive an email when a decision is waiting or a family has gone quiet. One switch.
+A decision card explains the request or overflow arrangement, stay, party and selected rooms. Approve or decline it, optionally adding a note. Approval resumes the paused tool only after reloading the current booking and policy. Changed capacity, room arrangement or policy can prevent application; a saved approval is not a guarantee of a completed booking. If application fails, use the displayed retry or recovery action.
 
-**What L’Ayalga remembers.** What the house has learned about each returning family, and a button to forget it.
+An interrupted request does not necessarily hold rooms: the interruption can occur before a hold exists. A live hold lasts 48 hours. Expired holds release availability.
 
-**Household record.** The recent history: what the coordinator did, which rules it checked, and what you decided. Useful when you want to know why something happened.
+## 5. Household rules and rooms
 
-On the demo house you will also see a "Synthetic demo" banner and a demo clock. The clock only exists so the demo can show what happens days later. It has no effect on real time.
+Household settings configure the maximum simultaneous families with children and whether parties with pets may overlap. Updates are authorized, versioned and serialized with booking operations. Defaults in the synthetic household allow one family with children and disallow overlapping parties with pets.
 
----
+Capacity is always enforced. A request that only fits a documented overflow arrangement requires guest consent and host approval. An above-maximum request is denied. Approving a social request cannot override room occupancy or a household rule.
 
-## 3. Everyday tasks
+The room ledger supports guest labels, sleeping arrangements, standard and maximum capacity, inventory state, overflow arrangements and private notes. Draft or incomplete rooms are not offered. A withheld room needs a date opening covering the full requested stay. Private use and guest stays share a database occupancy constraint.
 
-### 3.1 Inviting someone
+You can enter a private block or date control directly, or ask the agent to prepare one. An agent proposal does nothing until you explicitly apply it. Guest-facing labels should not contain private household information. The seeded Guest Room and Garage Room are open; the Office Room is withheld until opened.
 
-You do this exactly the way you invite people today: by message, by phone, or in person. The only new step is telling L’Ayalga.
+## 6. Cancel a stay or withdraw a request
 
-1. In "New invitation", paste the message you received or write a line of your own. For example: "Invita a la familia Vega el puente de octubre, vienen con los dos niños y el perro." Or: "Ana and Luis, first weekend of October, no kids."
-2. Press "Capture invitation".
-3. A progress page opens and shows what the coordinator is doing: recalling what the house knows about this family, reading the message, structuring the party. It usually takes a few seconds.
-4. Back on your page, press "Prepare private guest link", then "Copy link".
-5. Send the link to the guest through whatever channel you normally use.
+Use the cancellation control to review the exact stay before confirming. For an active invitation without a current visit, withdraw the request. A stale review must be refreshed if the visit changes before confirmation.
 
-That is all. From here the guest picks dates and rooms through the link, and you are only involved if something needs a person.
+Cancellation releases occupancy and retires related pending decisions, agent runs, scheduled follow-up and obsolete queued delivery. Do not decline an old decision as a substitute for cancellation. Guests also have explicit cancellation and withdrawal controls; a natural-language cancellation request prepares review and cannot commit the cancellation itself.
 
-What you will see: the captured details (how many adults, children, and pets, the dates they mentioned, any wishes), and a line that begins "The house remembers" if the family has stayed before. Check the numbers. If the message was vague, the guest will fix the details on their side.
+## 7. Follow-through and delivery
 
-The link is private to that one family and works for 30 days. Anyone who has it can use it, so send it directly to the family, not to a group.
+Confirmation schedules reconfirmation for 09:00 household time three days before arrival, or immediately when already inside that window. A chase opens a reconfirmation request; an unanswered request can escalate after 24 hours. A guest answer cancels the current escalation. Cancellation and rescheduling suppress obsolete work from the old state or cycle.
 
-### 3.2 Describing the rooms
+Host email pings cover pending decisions and reconfirmation escalations when configured and enabled for the host. Real guests can independently consent to verified email reminders and opt out. Guest contacts and their delivery records are web-only data, outside the agent database role and model prompt.
 
-Do this once, and again whenever a room changes.
+Read delivery state separately from guest response. A failure to send is not evidence of silence. SES acceptance is not proof of inbox delivery; an uncertain provider outcome is retained without blindly retrying and risking a duplicate. See [guest email readiness](../release/guest-email-readiness.md) before any production activation. Synthetic guest scenarios do not send guest email.
 
-For each room you fill in: a name for yourselves, the label guests will see, the floor, how people sleep there (for example "one double bed" or "two singles and a sofa bed"), how many it sleeps comfortably, the most it can sleep in a pinch, and a private note that only the two of you see.
+## 8. Remembered room preferences
 
-Then choose a state:
+When available, scoped memory can rank valid room combinations using supported ground-floor, upper-floor, separate-bed or double-bed preferences. Guests see what matched, what did not, and whether their manual selection differs from the recommendation. Missing, unsupported, conflicting or unavailable recall falls back honestly.
 
-- **Available.** Guests can pick it.
-- **Withheld.** Guests cannot see it unless you open it for their exact dates. Use this for a room you would rather keep for special cases.
-- **Draft.** Not finished yet. Never offered.
-- **Inactive.** Out of use.
+Memory does not change party counts, dates, explicit requests, consent or household rules. A ground-floor label is not an accessibility certification. Inspect stored party memory and use **Forget this family** when appropriate.
 
-If a room can sleep more people than it comfortably should, set "overflow needs host approval" and describe the extra arrangement, such as "sofa bed in the same room". A guest who needs that extra space will see the description, will have to accept it, and you will be asked to approve.
+## 9. Calendar subscriptions
 
-Guests never see the private name, the private note, or a room that is draft, inactive, or withheld.
+Create a labeled feed, copy its bearer URL once, and subscribe in a calendar application. Keep the URL private and revoke it if exposed. Events use generic stay/private-use summaries, counts and guest-facing room labels; they omit names and notes. Stable identifiers and cancellation tombstones support removal of cancelled events.
 
-### 3.3 Taking a room for yourselves
+Feeds are read-only. Refresh timing belongs to the subscribing application. Calendar edits do not write back into L’Ayalga.
 
-When family is coming to stay with you, or you simply want a room kept free:
+## 10. Guided demo and recovery
 
-- Fill "Private room use": tick the rooms, pick the dates, give it a short label that is safe to appear on the calendar, and add a private note if you like. Or:
-- Type it to the coordinator in "Agent room request": "Reserve the Garage Room for us from the 22nd to the 24th." Press "Prepare proposal". A proposal appears with the exact rooms and dates. Read it, then press "Apply".
+Start the routine Vega scenario first: four guests, both open rooms, ordinary booking, then a reconfirmation answer. Start Otero next; its action resets shared synthetic state. The two-person Garage Room request contains an explicit request and pauses for approval. After approval, use **Advance to next guest reminder**, leave that request unanswered, then **Advance to next host follow-up**.
 
-Either way the room disappears from guest options for those dates. The coordinator can only prepare. Nothing changes until you press Apply, and you can dismiss a proposal you do not want.
+Clock shortcuts select eligible persisted jobs and their retry times instead of fixed calendar dates. They preserve current-cycle, pre-arrival and lease rules. Repeating an exhausted action reports no eligible work. Custom time must move forward. The clock affects synthetic household behavior; real invitation authentication still uses real expiry.
 
-### 3.4 Opening or closing a room for certain dates
-
-- To offer a withheld room to one family, open it for their full stay in "Date controls" or ask the coordinator to prepare it. Guests searching those dates will then see it.
-- To take an available room out of circulation for a while, close it for those dates the same way.
-
-### 3.5 Answering a decision
-
-When a request needs your judgment, a card appears in "Pending decisions" and, if email pings are on, both of you receive "A decision is waiting for you at L’Ayalga".
-
-The card tells you who is asking, how many adults, children, and pets, the dates, the reason (for example a special request, or an overflow sleeping arrangement with the exact rooms named), and how many other stays overlap those dates.
-
-You can write a short note for the guest. Then press Approve or Decline. A progress page shows the booking finishing. The guest sees the result on their link.
-
-Either of you can answer. The first answer counts. If the booking did not finish after your answer, the card shows a Retry button; press it once.
-
-Two days is the limit. A guest's rooms are held for 48 hours while a decision is pending. If neither of you answers in that time, the hold lapses and the guest is told to ask you to look at the visit again.
-
-### 3.6 Reading the calendar
-
-Each stay on the visit calendar carries a status:
-
-- **On hold.** The guest has chosen rooms and the booking is finishing or waiting for a decision.
-- **Confirmed.** Done. The rooms are theirs.
-- **Awaiting reconfirmation.** Three days before arrival, the family has been asked whether they are still coming.
-- **Reconfirmed.** They said yes.
-- **Needs attention.** They did not answer within a day. See 4.11.
-
-### 3.7 Putting the house calendar on your phone
-
-1. In "Calendar feeds", type a label such as "Juan iPhone" or "Family shared calendar" and press "Create feed".
-2. Copy the link straight away. It is shown only once.
-3. In Google Calendar, add a calendar "From URL" and paste it. In Apple Calendar, choose "New Calendar Subscription" and paste it.
-
-Your calendar then shows every confirmed stay and every private room use as an all-day event, such as "Guest stay, Guests 4, Rooms Guest Room, Office Room". Names never appear, so the feed is safe on a shared family calendar.
-
-Create one feed per device or per shared calendar. If a link ever leaks, press Revoke next to that feed. The others keep working. Calendar apps refresh on their own schedule, so a new stay can take a few hours to show up.
-
-### 3.8 Email pings
-
-You get an email in exactly two situations: a decision is waiting, or a family has not reconfirmed. Never for anything else, and guests never receive email from the system. Turn the switch off if you prefer to check the page yourself.
-
-### 3.9 Returning families
-
-The second time you invite a family, the coordinator already knows their habits: that they prefer the ground floor, that they usually arrive late on Friday, that they bring a dog. You will see it in the "The house remembers" line when you capture the invitation, and their form will be prefilled sensibly.
-
-The house remembers habits and needs, never the family's name, and never lets a memory change what the family actually asked for this time. Open "What L’Ayalga remembers" to read what is stored about each family. "Forget this family" erases all of it.
-
----
-
-## 4. What happens when
-
-Every scenario below says what the guest does, what happens on its own, and what you see.
-
-### 4.1 The simple weekend
-
-Juan invites Ana and Luis, two adults, no children, no pets. They open the link, choose the second weekend of October, tick the Guest Room, and submit.
-
-On its own: the rooms are held, the house rules are checked, the visit is confirmed.
-
-You see: "Confirmed" on the calendar with the room label, one line in the household record, and the stay on your phone calendar a little later. You did nothing.
-
-### 4.2 Two families, same weekend, no problem
-
-Jordan invites a couple for the same weekend. They choose the Office Room.
-
-On its own: the rules are checked again with Ana and Luis already in the house. Enough beds, no children on either side, no pets. Confirmed.
-
-You see: two stays on the same dates. The guests each see only a note that another party may also be at the house. Neither learns who.
-
-### 4.3 Two families with children
-
-The Vega family, with two children, is confirmed for the October long weekend. A week later Jordan's friends, also with children, ask for the same dates.
-
-On its own: the children rule allows one family with children at a time. The request is refused before it reaches you. The friends see, in their language, that another family with children overlaps those dates, and are invited to try other dates.
-
-You see: nothing to do. A "Policy decision: Not allowed" line in the household record if you look. If you want to make an exception, that is not something the system asks you; talk to the families and have one of them pick other dates.
-
-### 4.4 Pets
-
-Same pattern. The house does not allow two parties with pets at the same time. A second party with a dog is refused for overlapping dates. Nobody is asked, nothing is blocked on you.
-
-### 4.5 Not enough beds
-
-A family of five asks for a weekend when only the two-person Guest Room is free. Refused on the spot. The guest is told there are not enough free beds for those dates and searches again.
-
-### 4.6 A bigger party needs the sofa bed
-
-The Vega family grows to five. The Guest Room and Office Room sleep four comfortably, five with the sofa bed in the Office Room. The guest sees the extra arrangement described, ticks the box that accepts it, and submits.
-
-On its own: the rooms are held and the booking pauses.
-
-You see: a card in "Pending decisions" saying the Vega family requests an overflow arrangement for those dates, with the two rooms and the sofa bed named. Both of you get an email. One of you approves, perhaps with a note: "The sofa bed is fine, bring your own sheets." The booking finishes and the visit shows "Confirmed".
-
-If you decline, the guest sees that the host declined and your note, and can search for other dates or a different set of rooms.
-
-### 4.7 A special request
-
-Ana writes in her notes: "Could we bring my mother's wheelchair? She needs the ground floor." Anything a guest writes as a request is treated as a question for you.
-
-You see: a card with the request in her words, Approve and Decline, and the email ping. Approve, and the booking finishes. Nothing about the request is decided by the system; it only makes sure you see it before the rooms are confirmed.
-
-### 4.8 The guest changes their mind before submitting
-
-They searched for one weekend, then change the dates or the number of people. The page tells them to search again. Nothing has been booked. You see nothing.
-
-### 4.9 The guest changes their dates after confirmation
-
-Ana and Luis are confirmed, then write in "Request a change" on their link: "Can we come one week later instead?"
-
-On its own: the coordinator looks for stays around the new dates, checks the rules again against whoever is in the house that week, moves the visit, and reallocates rooms.
-
-You see: the stay moved on the calendar, and your phone calendar updated on its next refresh. If the new week now overlaps someone with children or pets in a way the rules refuse, the move is refused and the guest is told; the original visit stays as it was. If the move needs your judgment (for example the earlier approval covered the old dates only), a new card appears in "Pending decisions".
-
-### 4.10 The guest changes their mind while a decision is pending
-
-They wrote a change request while you were still deciding. The change is handled first through the same rules; a decision you have not yet answered may no longer apply. If you open the card and it says the older review no longer matches a verified stay, decline it and wait for the fresh one.
-
-### 4.11 Three days before arrival
-
-On its own: at nine in the morning three days before each confirmed stay, the family is asked on their link "Please confirm that you are coming". The calendar shows "Awaiting reconfirmation".
-
-- They press "Yes, we are coming". The calendar shows "Reconfirmed". You see nothing else.
-- They write a change instead. Handled as in 4.9.
-- They do nothing for 24 hours. The calendar shows "Needs attention", the household record shows "Reconfirmation escalated", and both of you get "Reconfirmation needed at L’Ayalga". This is your cue to call them. The system will not chase them again; it hands the conversation back to you.
-
-### 4.12 You did not answer in time
-
-A decision waited more than two days. The guest's rooms are released and their link says the hold has expired and they should ask you to review the visit. Talk to them and, if you both still want it, have them submit the request again from their link; it will come back to you as a fresh card.
-
-### 4.13 The link stopped working
-
-The guest says the link shows "This invitation link is not available". It is more than 30 days old, or the invitation was cancelled. Capture the invitation again in "New invitation" and send the new link. Their previous visits are unaffected.
-
-### 4.14 You and Jordan invite people for the same dates
-
-Nothing special. Each invitation is its own link. When both families choose rooms, the rules are checked against everything already in the house, in the order the requests arrive. If the second request needs judgment, the card names how many other stays overlap without naming them, so you can decide with full context.
-
-### 4.15 You want the house to yourselves for a week
-
-Reserve every room with "Private room use" for those dates, or tell the coordinator "Reserve all rooms for private use from the 1st to the 7th of August" and apply the proposal. The house looks full to every guest search for those dates.
-
-### 4.16 A guest wants to keep their visits under their own account
-
-They can sign in with Google from their link. After that they have a "My visits" page listing every stay they have booked. This is optional for them and changes nothing for you.
-
----
-
-## 5. Things to check now and then
-
-- **Pending decisions.** Once a day is enough. A card there is the only thing waiting on you.
-- **Needs attention on the calendar.** A family went quiet before arrival.
-- **Withheld rooms.** If a guest says nothing is available, check whether the room they need is withheld and open it for their dates.
-- **Proposals.** Apply or dismiss them; they do not expire on their own.
-- **Calendar feed links.** Treat each one like a password. Revoke it if it was shared by mistake.
-
-## 6. What you never need to do
-
-- Answer a guest about whether dates are free. The link does that.
-- Check whether two families with children or two dogs would overlap. Refused automatically.
-- Worry that two guests could book the same room. They cannot.
-- Chase a family before arrival. They are asked automatically, and you are told only if they go quiet.
-- Keep a separate calendar up to date. Subscribe once.
-- Send emails. Guests get everything through their link.
-
-## 7. What this version does not do
-
-- There is no Cancel button for a confirmed stay on your page. If a family cancels, ask them to write it in "Request a change" on their link, and reserve the rooms for private use for those dates if you want them to look taken until a cancel control exists.
-- It does not send messages on WhatsApp or by text, and it does not write into your Google or Apple calendar. The subscription is one way, from the house to you.
-- It does not let you relax the house rules (children, pets, beds) per visit. They apply to everyone.
+For technical failures, use the displayed retry and operator guidance in the [runtime runbook](../release/runtime-database-and-identity.md). Do not assume that a failed run booked a stay, or that an email reached its recipient. The [coordination evidence](../submission/coordination-evidence.md) distinguishes synthetic checks from human outcomes.

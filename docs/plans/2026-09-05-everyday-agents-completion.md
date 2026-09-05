@@ -28,6 +28,8 @@ Deferred as in the accepted assessment: per-night room packing, remote OAuth MCP
 
 ## Implementation map
 
+This is the baseline map recorded before implementation; current behavior is described by the completed phase evidence and current guides.
+
 - `src/core/booking/holds.ts:327`: existing cancellation releases rooms/jobs and updates calendar, but lacks caller scope, audit and pending-decision retirement.
 - `src/core/booking/guest-actions.ts:197`: changes currently enqueue rescheduling; token and demo/account actions resolve their own trusted authority.
 - `src/agent/run-task.ts:1080`: notes become trusted special requests, including across resumed runs.
