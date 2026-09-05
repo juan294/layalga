@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  clockInputToIso,
-  clockInputValue,
-  formatHouseholdDateTime,
-} from "@/components/frontend-utils";
+import { useHydrated } from "@/components/use-hydrated";
+
+import { clockInputToIso, clockInputValue } from "@/components/frontend-utils";
 
 import {
   buttonStyle,
@@ -33,6 +31,10 @@ interface DemoClockPanelProps {
     set: string;
     working: string;
     error: string;
+    noEligible: string;
+    alreadyDue: string;
+    advanced: string;
+    backward: string;
   };
 }
 
@@ -40,42 +42,77 @@ export function DemoClockPanel({
   current,
   currentLabel,
   homeId,
-  locale,
   timeZone,
   labels,
 }: DemoClockPanelProps) {
-  const [now, setNow] = useState(current);
-  const [nowLabel, setNowLabel] = useState(currentLabel);
   const router = useRouter();
-  const [custom, setCustom] = useState(clockInputValue(current, timeZone));
+  const hydrated = useHydrated();
+  const [customState, setCustom] = useState({
+    source: current,
+    value: clockInputValue(current, timeZone),
+  });
+  const custom =
+    customState.source === current
+      ? customState.value
+      : clockInputValue(current, timeZone);
   const [working, setWorking] = useState<
     "chase" | "escalation" | "custom" | null
   >(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<"error" | "backward" | null>(null);
+  const [feedback, setFeedback] = useState<
+    "noEligible" | "alreadyDue" | "advanced" | null
+  >(null);
 
-  async function warp(
-    value: string,
-    action: "chase" | "escalation" | "custom",
-  ) {
+  async function warp(action: "chase" | "escalation" | "custom") {
     setWorking(action);
-    setFailed(false);
+    setFailed(null);
+    setFeedback(null);
     try {
+      const payload =
+        action === "custom"
+          ? { homeId, now: clockInputToIso(custom, timeZone) }
+          : { homeId, action };
       const response = await fetch("/api/demo/clock", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ homeId, now: value }),
+        body: JSON.stringify(payload),
       });
-      if (!response.ok) throw new Error("clock");
-      const result = (await response.json()) as { now?: string };
+      const result = (await response.json()) as {
+        now?: string;
+        outcome?: string;
+        error?: string;
+      };
+      if (!response.ok) {
+        setFailed(result.error === "backward_clock" ? "backward" : "error");
+        return;
+      }
       if (!result.now || Number.isNaN(new Date(result.now).getTime())) {
         throw new Error("clock_response");
       }
-      setNow(result.now);
-      setNowLabel(formatHouseholdDateTime(result.now, locale, timeZone));
-      setCustom(clockInputValue(result.now, timeZone));
-      router.refresh();
+      if (
+        !["no_eligible", "already_due", "advanced"].includes(
+          result.outcome ?? "",
+        )
+      )
+        throw new Error("clock_response");
+      setFeedback(
+        result.outcome === "no_eligible"
+          ? "noEligible"
+          : result.outcome === "already_due"
+            ? "alreadyDue"
+            : "advanced",
+      );
+      setCustom({
+        source: result.now,
+        value: clockInputValue(result.now, timeZone),
+      });
+      // A no-work response has no visit mutation to refresh. Avoid racing the
+      // guest navigation with a redundant host refresh after repeated presses.
+      if (result.outcome !== "no_eligible" || result.now !== current) {
+        router.refresh();
+      }
     } catch {
-      setFailed(true);
+      setFailed("error");
     } finally {
       setWorking(null);
     }
@@ -91,7 +128,7 @@ export function DemoClockPanel({
     >
       <p style={{ ...labelStyle, color: teal }}>{labels.current}</p>
       <time
-        dateTime={now}
+        dateTime={current}
         style={{
           color: graphite,
           display: "block",
@@ -100,13 +137,14 @@ export function DemoClockPanel({
           margin: "0.45rem 0 0.8rem",
         }}
       >
-        {nowLabel}
+        {currentLabel}
       </time>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
         <button
           aria-busy={working === "chase"}
-          disabled={working !== null}
-          onClick={() => warp("2026-09-15T07:00:00.000Z", "chase")}
+          data-testid="demo-clock-chase"
+          disabled={!hydrated || working !== null}
+          onClick={() => warp("chase")}
           style={{ ...quietButtonStyle, opacity: working ? 0.55 : 1 }}
           type="button"
         >
@@ -114,8 +152,9 @@ export function DemoClockPanel({
         </button>
         <button
           aria-busy={working === "escalation"}
-          disabled={working !== null}
-          onClick={() => warp("2026-09-16T07:05:00.000Z", "escalation")}
+          data-testid="demo-clock-escalation"
+          disabled={!hydrated || working !== null}
+          onClick={() => warp("escalation")}
           style={{ ...quietButtonStyle, opacity: working ? 0.55 : 1 }}
           type="button"
         >
@@ -137,23 +176,30 @@ export function DemoClockPanel({
       >
         <input
           id="demo-clock-custom"
-          disabled={working !== null}
-          onChange={(event) => setCustom(event.target.value)}
+          disabled={!hydrated || working !== null}
+          onChange={(event) =>
+            setCustom({ source: current, value: event.target.value })
+          }
           style={fieldStyle}
           type="datetime-local"
           value={custom}
         />
         <button
           aria-busy={working === "custom"}
-          disabled={working !== null || !custom}
-          onClick={() => warp(clockInputToIso(custom, timeZone), "custom")}
+          disabled={!hydrated || working !== null || !custom}
+          onClick={() => warp("custom")}
           style={{ ...buttonStyle, opacity: working ? 0.55 : 1 }}
           type="button"
         >
           {working === "custom" ? labels.working : labels.set}
         </button>
       </div>
-      {failed ? <p role="alert">{labels.error}</p> : null}
+      {feedback ? (
+        <p data-testid="demo-clock-feedback" role="status">
+          {labels[feedback]}
+        </p>
+      ) : null}
+      {failed ? <p role="alert">{labels[failed]}</p> : null}
     </div>
   );
 }

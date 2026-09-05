@@ -20,7 +20,7 @@ export type VisitStatus =
   | "reconfirmed"
   | "escalated"
   | "cancelled";
-export type DecisionStatus = "pending" | "approved" | "declined";
+export type DecisionStatus = "pending" | "approved" | "declined" | "cancelled";
 export type RunStatus =
   "queued" | "running" | "completed" | "interrupted" | "failed";
 export type ScheduledJobKind = "reconfirm_chase" | "reconfirm_escalate";
@@ -79,6 +79,7 @@ export const homes = pgTable("homes", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
   timezone: text("timezone").notNull(),
+  policyVersion: integer("policy_version").notNull().default(1),
   petsTogetherAllowed: boolean("pets_together_allowed")
     .notNull()
     .default(false),
@@ -202,6 +203,7 @@ export const visits = pgTable("visits", {
   children: integer("children").notNull().default(0),
   pets: integer("pets").notNull().default(0),
   specialRequests: text("special_requests").array().notNull().default([]),
+  guestNotes: text("guest_notes").notNull().default(""),
   status: text("status").$type<VisitStatus>().notNull().default("hold"),
   holdExpiresAt: timestamp("hold_expires_at", {
     withTimezone: true,
@@ -618,4 +620,95 @@ export const hostNotificationSettings = pgTable("host_notification_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
+});
+
+/** Private web-runtime contact data; migrations own RLS and composite scope constraints. */
+export const guestContacts = pgTable("guest_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  invitationId: uuid("invitation_id")
+    .notNull()
+    .unique()
+    .references(() => invitations.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  partyId: uuid("party_id")
+    .notNull()
+    .references(() => parties.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  locale: text("locale").$type<Locale>().notNull(),
+  generation: integer("generation").notNull().default(1),
+  consent: boolean("consent").notNull().default(false),
+  verifiedAt: timestamp("verified_at", { withTimezone: true, mode: "date" }),
+  requestedAt: timestamp("requested_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  rateWindowAt: timestamp("rate_window_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  rateCount: integer("rate_count").notNull().default(1),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+
+export const guestEmailOutbox = pgTable(
+  "guest_email_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    homeId: uuid("home_id")
+      .notNull()
+      .references(() => homes.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => guestContacts.id, { onDelete: "cascade" }),
+    generation: integer("generation").notNull(),
+    kind: text("kind").$type<"verification" | "reconfirm_chase">().notNull(),
+    sourceId: uuid("source_id").notNull(),
+    status: text("status")
+      .$type<"queued" | "sending" | "sent" | "failed" | "cancelled">()
+      .notNull()
+      .default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    availableAt: timestamp("available_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    claimToken: uuid("claim_token"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true, mode: "date" }),
+    messageId: text("message_id"),
+    errorName: text("error_name"),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true, mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("guest_email_outbox_source_contact_generation_idx").on(
+      table.kind,
+      table.sourceId,
+      table.contactId,
+      table.generation,
+    ),
+  ],
+);
+
+export const guestEmailAttempts = pgTable("guest_email_attempts", {
+  claimToken: uuid("claim_token").primaryKey(),
+  outboxId: uuid("outbox_id")
+    .notNull()
+    .references(() => guestEmailOutbox.id, { onDelete: "cascade" }),
+  homeId: uuid("home_id").notNull(),
+  status: text("status")
+    .$type<"authorized" | "accepted" | "failed" | "unknown">()
+    .notNull(),
+  authorizedAt: timestamp("authorized_at", {
+    withTimezone: true,
+    mode: "date",
+  }).notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
+  messageId: text("message_id"),
 });

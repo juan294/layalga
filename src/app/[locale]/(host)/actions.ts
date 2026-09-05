@@ -9,6 +9,10 @@ import {
   MAX_DECISION_NOTE_LENGTH,
   MAX_HOST_MESSAGE_LENGTH,
 } from "@/agent/task-limits";
+import { CancellationChangedError } from "@/core/booking/cancellation-error";
+import { withdrawInvitation } from "@/core/booking/cancellation";
+import { cancellationReviewInput } from "@/core/booking/cancellation-input";
+import { schedulerForHome } from "@/agent/scheduler";
 import { reissueInvitationLink } from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
@@ -248,4 +252,36 @@ export async function forgetPartyMemoryAction(
 
 function localeValue(formData: FormData): "en" | "es" {
   return formData.get("locale") === "es" ? "es" : "en";
+}
+
+export async function cancelHostInvitation(formData: FormData): Promise<void> {
+  const locale = localeValue(formData);
+  const host = await requireHost(locale);
+  const invitationId = z.uuid().parse(formData.get("invitationId"));
+  const review = cancellationReviewInput(formData);
+  const connection = getDatabaseConnection();
+  const [home] = await connection.sql<
+    { demo: boolean }[]
+  >`select demo from public.homes where id = ${host.homeId}`;
+  if (!home) return;
+  try {
+    await withdrawInvitation(
+      connection.db,
+      {
+        homeId: host.homeId,
+        invitationId,
+        actor: { kind: "host", hostId: host.id },
+        ...review,
+      },
+      schedulerForHome({ homeDemo: home.demo }),
+    );
+  } catch (error) {
+    if (error instanceof CancellationChangedError)
+      redirect(
+        `/${locale}?cancel=changed&invitation=${invitationId}#cancel-${invitationId}`,
+      );
+    throw error;
+  }
+
+  revalidatePath(`/${locale}`);
 }

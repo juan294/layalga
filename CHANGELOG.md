@@ -4,13 +4,37 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
-## [0.5.1] - 2026-09-04
+## [1.0.0] - 2026-09-05
+
+### Added
+
+- Reproducible local coordination benchmark, separate participant protocol, refreshed product/submission guides and editable architecture diagrams.
+- Explicit guest/host cancellation and invitation withdrawal, including retirement of related rooms, jobs, pending decisions and stale queued work (#101).
+- Verified, consenting guest reminder contacts, account-free verification and revocable return capabilities; web-only outbox and attempt receipts distinguish accepted, failed and unknown sends. Production IAM and rollout remain pending (#100).
+- Informational notes separated from immutable approval requests; hosts can configure versioned household rules under the booking lock (#102, #107).
+- Actual guest-room recommendations use bounded party-scoped memory, explain supported preferences and fallbacks, and preserve policy and exact guest choice (#106).
+- Decision-first host dashboard, current visit outcomes, automatic secure capture handoff, and reset-separated guided routine/exception scenarios (#104, #105).
 
 ### Fixed
 
-- Family names stay out of household memory: capture conversations no longer feed memory extraction, and only the deterministic name-free capture write records a capture. Guest prompts steer the model to say "this family".
+- Guided scenario and clock controls wait for their JavaScript handler before accepting clicks, preventing lost starts during a cold page load (#104).
+- Invitation access extends through at least checkout plus seven days on confirmation, reschedule and reissue, retaining expiry and revocation checks (#103).
+- Guest date defaults and search use household time; expired holds no longer hide rooms, and demo resets renew finite bearer access. Semantic clock controls select actual current reminder jobs, recover eligible delivery retries, preserve unanswered guidance and handle repeated no-work steps (#104).
+- A run started synchronously is inserted already claimed, so the per-minute drain can no longer dispatch it first and fail the caller with "Agent run is no longer active". The AgentCore database URL now uses the transaction-mode pooler port (#95).
+- Capture conversations no longer feed memory extraction; a separate deterministic capture event omits the `partyName` field. This minimizes stored identity fields but does not remove names from arbitrary free text. Guest prompts steer the model to say "this family".
 - The "What L'Ayalga remembers" panel renders preference records as text, one row per record with its date, and hides duplicates.
 - The memory seed's forget path is covered end to end so a reseed leaves only the seeded facts.
+
+### Changed
+
+- Git-triggered Vercel deployments are enabled only for `main`; feature and `develop` previews are disabled (#110).
+- The demo sign-in button reads "Enter as Host" instead of the host's name, and the Spanish sign-in tagline is written in Spanish (#94).
+
+### Documentation
+
+- Added a repository review route, rubric evidence cards, agent entry-point links, and a public `/llms.txt` index. Clarified current model configuration, pending video status, and the limits of scripted tests, memory minimization, and tracing.
+
+- System guide, three-minute demo script, host and guest manuals, the Everyday Agents pitch, a Strands usage inventory, a judge guide, a docs index, four supporting diagrams, and a refreshed draw.io architecture view (#94, #96, #97, and this release).
 
 ## [0.5.0] - 2026-09-04
 
@@ -19,7 +43,7 @@ All notable changes to L’Ayalga are documented in this file.
 - Per-run agent timeline on the run status page and the capture poller: every tool call, policy verdict, and applied decision in order, with the runtime that executed the run. Events carry only the kind, time, tool name, and verdict decision.
 - OpenTelemetry tracing from the AgentCore runtime through ADOT for Node and Strands 1.16.0, with CloudWatch Transaction Search enabled, 100 percent sampling for the demo, and 14-day retention on the runtime log group. `scripts/enable-transaction-search.sh` applies the account setup.
 - Host email pings through Amazon SES: a web-runtime outbox sends one email per consenting host when a run pauses for a decision and when a reconfirmation escalates, idempotent per source, with a per-host consent toggle and a masked address on the host page. Guests never receive email.
-- Returning-guest memory through Strands MemoryManager and AgentCore Memory: per-party stores scoped by task, tool-driven recall through `search_memory`, a deterministic name-free capture write, and a host panel that lists and forgets what the house remembers.
+- Returning-guest memory through Strands MemoryManager and AgentCore Memory: per-party stores scoped by task, tool-driven recall through `search_memory`, a deterministic capture event that omits the party-name field, and a host panel that lists and forgets what the house remembers.
 - `--expect-runtime`, `--expect-email`, and `--expect-memory` on the release probes; `scripts/create-memory.sh`, `scripts/seed-memory.ts`, and `--s3-version-id` on `scripts/deploy-agentcore.sh`.
 - A light and dark override on top of the seasonal palette, and a signed guest session entry for the demo.
 

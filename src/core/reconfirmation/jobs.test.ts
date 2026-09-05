@@ -8,6 +8,7 @@ import { runAgentTask } from "@/agent/run-task";
 import { ScriptedModel } from "@/agent/scripted-model";
 import type { AgentTask } from "@/agent/task";
 import { FakeClock } from "@/core/clock";
+import { withdrawInvitation } from "@/core/booking/cancellation";
 
 import {
   dispatchDueJobs,
@@ -58,6 +59,88 @@ describe("reconfirmation jobs", () => {
   });
 
   afterAll(() => sql.end());
+
+  it("does not create late reminder jobs after withdrawal", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    await withdrawInvitation(sql, {
+      homeId,
+      invitationId,
+      actor: { kind: "guest", partyId },
+      expectedVisitId: visitId,
+      expectedStay: ["2026-09-18", "2026-09-21"],
+    });
+    const scheduled = await scheduleJobs(sql, new NoopScheduler(), [
+      {
+        type: "create",
+        homeId,
+        visitId,
+        kind: "reconfirm_escalate",
+        dueAt: clock.now(),
+      },
+    ]);
+    expect(scheduled).toEqual([]);
+    const open =
+      await sql`select id from public.scheduled_jobs where visit_id = ${visitId} and status <> 'cancelled'`;
+    expect(open).toEqual([]);
+  });
+
+  it("suppresses fallback delivery when a guest cancels while the model is running", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    const outcome = await runDueJobs(
+      sql,
+      clock,
+      {
+        async run() {
+          await withdrawInvitation(sql, {
+            homeId,
+            invitationId,
+            actor: { kind: "guest", partyId },
+            expectedVisitId: visitId,
+            expectedStay: ["2026-09-18", "2026-09-21"],
+          });
+        },
+      },
+      homeId,
+    );
+    expect(outcome).toEqual([expect.objectContaining({ status: "skipped" })]);
+    expect(await notificationCount()).toBe(0);
+    expect(await fallbackAuditCount()).toBe(0);
+    expect(await visitStatus()).toBe("cancelled");
+    const open =
+      await sql`select id from public.scheduled_jobs where visit_id = ${visitId} and status <> 'cancelled'`;
+    expect(open).toEqual([]);
+  });
+
+  it("skips dispatch when cancellation wins while the external schedule is being created", async () => {
+    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    const enqueued: string[] = [];
+    const result = await dispatchDueJobs(
+      sql,
+      clock,
+      {
+        async enqueue(task) {
+          enqueued.push(task.jobId);
+          throw new Error("Cancelled work must not be enqueued");
+        },
+      },
+      homeId,
+      {
+        async schedule() {
+          await withdrawInvitation(sql, {
+            homeId,
+            invitationId,
+            actor: { kind: "guest", partyId },
+            expectedVisitId: visitId,
+            expectedStay: ["2026-09-18", "2026-09-21"],
+          });
+          return null;
+        },
+        async cancel() {},
+      },
+    );
+    expect(enqueued).toEqual([]);
+    expect(result).toEqual([expect.objectContaining({ status: "skipped" })]);
+  });
 
   it("claims once, chases at T-3, and escalates to both hosts after 24 hours", async () => {
     const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));

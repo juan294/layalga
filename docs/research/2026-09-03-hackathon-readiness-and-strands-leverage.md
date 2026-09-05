@@ -1,11 +1,13 @@
 # Research: Hackathon readiness and Strands / AgentCore surface coverage
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 Date: 2026-09-03
 Question: What has L’Ayalga implemented so far (agent runtime, Strands SDK usage, AgentCore, tools, safety hooks, demo, submission materials), and how does it map to the AWS Agents for Humans hackathon criteria?
 
 Sources:
 
-- https://agentsforhumans.devpost.com/ and https://agentsforhumans.devpost.com/rules (fetched 2026-09-03)
+- <https://agentsforhumans.devpost.com/> and <https://agentsforhumans.devpost.com/rules> (fetched 2026-09-03)
 - `strands-agents/harness-sdk` docs tree under `site/src/content/docs/user-guide/` (read via `gh api`, 2026-09-03)
 - `aws/bedrock-agentcore-sdk-typescript` `docs/MEMORY.md` and `src/` listing (2026-09-03)
 - npm registry: `@strands-agents/sdk` 1.16.0 published 2026-08-31; `bedrock-agentcore` 0.4.3

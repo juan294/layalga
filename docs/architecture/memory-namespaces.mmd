@@ -1,0 +1,69 @@
+flowchart TB
+  subgraph tasks["Agent tasks • memoryStoresForTask"]
+    direction LR
+    captureMatched["host_capture<br/>matched party<br/>read only, no extraction"]
+    captureUnmatched["host_capture<br/>no pre-match<br/>read only, whole home"]
+    guestWrite["guest_submit • guest_change<br/>writable<br/>extraction on InvocationTrigger"]
+    partyRead["guest_reconfirm • resume • tick<br/>party namespace<br/>read only, no extraction"]
+    noStore["host_room_request<br/>no memory store"]
+  end
+
+  subgraph host["Host panel • What L'Ayalga remembers"]
+    direction LR
+    panel["loadHostMemoryPanel<br/>records per party"]
+    forget["Forget<br/>forgetPartyMemory"]
+  end
+
+  searchTool["search_memory tool<br/>tool-driven recall, injection off, max 5 results<br/>each call audited as tool_call"]
+  optionSearch["Guest options and agent room search<br/>trusted home + party scope"]
+  preferenceRead["loadPartyRoomPreferences<br/>3 pages / 100 records / 2 seconds<br/>ground / upper / separate beds / double bed"]
+  rank["Deterministic feasible-room ranking<br/>standard capacity first • room count first<br/>preference match then waste and display order<br/>guest manual selection retained"]
+  fallback["off / missing / unavailable / unusable / conflicting<br/>visible fallback • no accessibility inference"]
+  captureEvent["recordCaptureMemory<br/>after a completed host_capture<br/>one CreateEvent, clientToken = run id<br/>party size • dates text • arrival<br/>special requests • pets"]
+
+  subgraph aws["AgentCore Memory • LayalgaHouseholdMemory • us-east-1"]
+    direction LR
+    events["Raw events<br/>actorId home-{homeId}/party-{partyId}<br/>sessionId = Strands session<br/>expire after 30 days"]
+    records["Party namespace<br/>/parties/home-{homeId}/party-{partyId}<br/>HouseholdPreferences<br/>userPreference, .../preferences<br/>HouseholdFacts<br/>semantic, .../facts"]
+    homeScope["Whole home subtree<br/>/parties/home-{homeId}<br/>read only"]
+  end
+
+  auditWritten["audit memory_written"]
+  auditForgotten["audit memory_forgotten<br/>actor host"]
+  boundary["Privacy boundary<br/>known identity fields omitted; raw text may still name people<br/>host_capture conversations excluded from extraction<br/>deterministic capture event omits family-name field<br/>contact address, visit notes and capabilities excluded<br/>rememberedContext is never echoed back into memory"]
+
+  captureMatched -- "party namespace" --> searchTool
+  guestWrite -- "party namespace" --> searchTool
+  partyRead -- "party namespace" --> searchTool
+  captureUnmatched -- "whole home" --> searchTool
+  searchTool --> records
+  searchTool --> homeScope
+  guestWrite -- "conversation turns" --> events
+  captureMatched -- "after completion" --> captureEvent
+  captureUnmatched -- "after completion" --> captureEvent
+  captureEvent -- "CreateEvent" --> events
+  events -- "async extraction<br/>two strategies" --> records
+  panel -- "ListMemoryRecords" --> records
+  optionSearch --> preferenceRead
+  preferenceRead -- "exact party namespace; no whole-home fallback" --> records
+  preferenceRead --> rank
+  preferenceRead --> fallback
+  forget -- "BatchDelete<br/>MemoryRecords" --> records
+  forget -- "DeleteEvent per session" --> events
+  captureEvent -.-> auditWritten
+  forget -.-> auditForgotten
+  boundary -.-> captureEvent
+
+  classDef person fill:#f6f0e4,stroke:#143f3b,color:#15201f,stroke-width:2px;
+  classDef app fill:#143f3b,stroke:#143f3b,color:#fffdf7,stroke-width:2px;
+  classDef core fill:#d7e5df,stroke:#143f3b,color:#15201f,stroke-width:2px;
+  classDef store fill:#fffdf7,stroke:#a46d3c,color:#15201f,stroke-width:2px;
+  classDef off fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
+  classDef selected fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:3px;
+  class events,records,homeScope selected;
+  class captureMatched,captureUnmatched,guestWrite,partyRead core;
+  class noStore off;
+  class captureEvent,searchTool,panel,forget,optionSearch,preferenceRead,rank app;
+  class fallback off;
+  class auditWritten,auditForgotten store;
+  class boundary person;

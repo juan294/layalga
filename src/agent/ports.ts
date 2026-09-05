@@ -1,5 +1,6 @@
 import type { Clock } from "@/core/clock";
 import type { DatabaseClient } from "@/core/db/client";
+import type { MemoryClient } from "@/core/memory/client";
 
 import type { Scheduler } from "./scheduler";
 
@@ -12,6 +13,8 @@ export interface AgentDeps {
   appUrl: string;
   locale: "en" | "es";
   authority?: AgentAuthority;
+  /** Injectable recall client; production uses the existing AgentCore client. */
+  memoryClient?: MemoryClient;
 }
 
 export interface AgentAuthority {
@@ -37,6 +40,7 @@ export interface AgentAuthority {
     children: number;
     pets: number;
     specialRequests: string[];
+    notes?: string;
     roomIds?: string[];
     overflowConsent?: boolean;
   };

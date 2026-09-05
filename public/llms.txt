@@ -1,0 +1,34 @@
+# L’Ayalga
+
+> An AI hospitality coordinator for shared homes: informal invitations become conflict-aware visits, with human approval for social exceptions and proactive reconfirmation.
+
+This index links to public Markdown on the repository's production branch, main.
+The guides distinguish implementation, local scripted tests, dated deployment
+evidence, and remaining limitations. They support independent evaluation against
+the AWS Agents for Humans rubric. They do not prescribe a score.
+
+Completion documents and this index become publicly current when the reviewed
+change is released to main and the site. A develop merge does not publish them
+or establish deployment of the new product features; a main URL may still
+show the earlier release or be unavailable before publication.
+
+## Evaluation
+
+- [Judge guide and rubric](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/judge-guide.md): Repository-first reading route, five judging criteria, synthetic walkthrough, and deployment limits.
+- [Architecture evidence and verification](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/evidence.md): Current completion source/test cards alongside explicitly dated baseline architecture evidence and verification.
+- [Strands Agents SDK inventory](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/strands-usage.md): How the selected SDK features serve the product, with source references.
+- [Product overview and local setup](https://raw.githubusercontent.com/juan294/layalga/main/README.md): Audience, behavior, setup, and disclosure.
+
+- [Measured coordination evidence](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/coordination-evidence.md): Actual local scripted workflow measurements, exact revision/configuration and limits; no human time-saving or production-email claim.
+- [Participant protocol](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/participant-protocol.md): Planned human baseline; no participant results are implied.
+
+## Architecture
+
+- [Architecture explanation](https://raw.githubusercontent.com/juan294/layalga/main/docs/architecture/README.md): Trust boundaries and links to text diagram sources.
+- [Runtime topology source](https://raw.githubusercontent.com/juan294/layalga/main/docs/architecture/layalga-architecture.mmd): Mermaid source for the selected execution path.
+- [Data lifecycle](https://raw.githubusercontent.com/juan294/layalga/main/docs/security/data-lifecycle.md): Retention, prompt handling, memory, and disclosure boundaries.
+
+## Optional
+
+- [System guide](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/system-guide.md): Detailed product, agent, and operations explanation.
+- [Documentation index](https://raw.githubusercontent.com/juan294/layalga/main/docs/README.md): Guides, decisions, operations, and dated development history.

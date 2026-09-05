@@ -1,4 +1,9 @@
 import postgres from "postgres";
+import type {
+  Message,
+  StreamOptions,
+  ModelStreamEvent,
+} from "@strands-agents/sdk";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { FakeClock } from "@/core/clock";
@@ -83,6 +88,102 @@ describe("agent task authority", () => {
     }
   });
 
+  it("never adds guest information or arrival details to the agent conversation", async () => {
+    const fixture = await seedHome("Guest information privacy");
+    const observed: string[] = [];
+    class ConversationRecorder extends ScriptedModel {
+      override async *stream(
+        messages: Message[],
+        options?: StreamOptions,
+      ): AsyncIterable<ModelStreamEvent> {
+        observed.push(JSON.stringify(messages));
+        yield* super.stream(messages, options);
+      }
+    }
+    try {
+      const result = await runAgentTask(
+        {
+          ...guestSubmit(fixture, {
+            notes: "Private person Ada; door code 9372",
+            requests: "Private accommodation detail",
+          }),
+          arrivalTime: "Private arrival via train QX9372",
+        },
+        agentDeps(new ConversationRecorder([{ text: "Ready" }])),
+      );
+      expect(result.status).toBe("completed");
+      expect(observed.join("\n")).toContain(fixture.invitationId);
+      expect(observed.join("\n")).not.toMatch(
+        /Ada|9372|Private accommodation detail/,
+      );
+      // This observes the actual messages before provider minimization, so
+      // memory extraction and session persistence cannot receive the raw fields
+      // through the user conversation either. Their canonical run payload remains.
+      const [run] = await sql<
+        { payload: { notes: string } }[]
+      >`select payload from public.runs where id = ${result.runId}`;
+      expect(run?.payload.notes).toBe("Private person Ada; door code 9372");
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
+  it("keeps a thank-you note informational while preserving it against model edits", async () => {
+    const fixture = await seedHome("Informational guest note");
+    class ConfirmingModel extends ScriptedModel {
+      private turn = 0;
+      override async *stream(
+        messages: Message[],
+        options?: StreamOptions,
+      ): AsyncIterable<ModelStreamEvent> {
+        if (this.turn++ === 1) {
+          const [visit] = await sql<
+            { id: string }[]
+          >`select id from public.visits where invitation_id = ${fixture.invitationId}`;
+          yield* new ScriptedModel([
+            {
+              toolUse: { name: "confirm_visit", input: { visitId: visit!.id } },
+            },
+          ]).stream(messages, options);
+          return;
+        }
+        yield* super.stream(messages, options);
+      }
+    }
+    try {
+      const result = await runAgentTask(
+        guestSubmit(fixture, { notes: "Thanks! We will arrive by train." }),
+        agentDeps(
+          new ConfirmingModel([
+            {
+              toolUse: {
+                name: "create_temporary_hold",
+                input: holdInput(fixture, {
+                  specialRequests: ["Invented accommodation"],
+                  guestNotes: "Model replacement",
+                }),
+              },
+            },
+            { text: "Ready" },
+          ]),
+        ),
+      );
+      expect(result.status).toBe("completed");
+      const [visit] =
+        await sql`select guest_notes, special_requests, status from public.visits where invitation_id = ${fixture.invitationId}`;
+      expect(visit).toMatchObject({
+        guest_notes: "Thanks! We will arrive by train.",
+        special_requests: [],
+        status: "confirmed",
+      });
+      const [pending] =
+        await sql`select count(*)::int count from public.pending_decisions where home_id = ${fixture.homeId}`;
+      expect(pending?.count).toBe(0);
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
   it("persists validated guest values instead of model-retyped values", async () => {
     const fixture = await seedHome("Canonical guest input", 6);
     try {
@@ -92,7 +193,8 @@ describe("agent task authority", () => {
           adults: 2,
           children: 1,
           pets: 1,
-          notes: "cot near the window",
+          requests: "cot near the window",
+          notes: "Thanks! We will arrive by train.",
         }),
         agentDeps(
           new ScriptedModel([
@@ -160,10 +262,11 @@ describe("agent task authority", () => {
           children: number;
           pets: number;
           special_requests: string[];
+          guest_notes: string;
         }[]
       >`
         select lower(stay)::text as stay_start, upper(stay)::text as stay_end,
-          adults, children, pets, special_requests
+          adults, children, pets, special_requests, guest_notes
         from public.visits where invitation_id = ${fixture.invitationId}
       `;
       expect(visit).toEqual({
@@ -173,6 +276,7 @@ describe("agent task authority", () => {
         children: 1,
         pets: 1,
         special_requests: ["cot near the window"],
+        guest_notes: "Thanks! We will arrive by train.",
       });
     } finally {
       await cleanup(fixture);
@@ -609,6 +713,7 @@ function guestSubmit(
     children: number;
     pets: number;
     notes: string;
+    requests: string;
     roomIds: string[];
     overflowConsent: boolean;
   }> = {},

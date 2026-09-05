@@ -1,6 +1,8 @@
 import { BeforeToolCallEvent, type Agent } from "@strands-agents/sdk";
 import type { JSONValue } from "@strands-agents/sdk";
 
+import { sqlClient } from "@/core/db/client";
+
 import { stayApprovalHash } from "@/core/booking/holds";
 import {
   evaluateOverlap,
@@ -36,6 +38,16 @@ export function approvalCovers(
 
 export function installPolicyHook(agent: Agent, deps: AgentDeps): void {
   agent.addHook(BeforeToolCallEvent, async (event) => {
+    if (deps.authority?.invitationId) {
+      const sql = sqlClient(deps.db);
+      const [active] =
+        await sql`select id from public.invitations where id = ${deps.authority.invitationId} and home_id = ${deps.authority.homeId} and status <> 'cancelled'`;
+      if (!active) {
+        event.cancel =
+          "The invitation was withdrawn. No further actions are allowed.";
+        return;
+      }
+    }
     if (!GATED.has(event.toolUse.name)) return;
     const input = asObject(event.toolUse.input);
     const { homeId, draft, approvalStayHash, sanitizedInput } =

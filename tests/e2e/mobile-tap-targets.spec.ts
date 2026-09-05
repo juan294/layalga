@@ -1,3 +1,4 @@
+import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
@@ -120,14 +121,11 @@ test("@mobile every surface stays touch-safe at 390px", async ({
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
-  await page.getByTestId("find-options").click();
+  await clickAndWaitForPost(page, "find-options");
   await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
   await page.getByTestId("guest-option").first().check();
   await page.getByTestId("guest-submit").click();
-  await expect(page.getByTestId("run-status")).toHaveAttribute(
-    "data-status",
-    "interrupted",
-  );
+  await expectRunStatus(page, "interrupted");
 
   await page.goto("/en");
   const approve = page.getByTestId("approve-decision");

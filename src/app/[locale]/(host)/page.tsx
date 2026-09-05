@@ -1,3 +1,10 @@
+import type { CSSProperties } from "react";
+import { HostOutcomes } from "@/components/host/host-outcomes";
+import { GuidedDemoPanel } from "@/components/host/guided-demo-panel";
+import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
+import { HostVisitNotes } from "@/components/host/host-visit-notes";
+import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
+import { HostCancellationPanel } from "@/components/host/cancellation-panel";
 import { getTranslations } from "next-intl/server";
 import { after } from "next/server";
 
@@ -33,7 +40,7 @@ import {
   RoomLedger,
   type RoomLedgerLabels,
 } from "@/components/host/room-ledger";
-import { updateEmailPingsAction } from "./actions";
+import { updateEmailPingsAction, cancelHostInvitation } from "./actions";
 import { loadHostMemoryPanel } from "./memory-data";
 import { loadHostRoomLedger } from "./room-data";
 import {
@@ -59,9 +66,21 @@ import {
   teal,
 } from "@/components/host/host-styles";
 
+const sectionGridStyle: CSSProperties = {
+  alignItems: "start",
+  display: "grid",
+  gap: "clamp(1rem, 3vw, 2rem)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
+  marginTop: "clamp(1.5rem, 4vw, 3rem)",
+};
+
 interface HostPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{
+    month?: string;
+    cancel?: string;
+    invitation?: string;
+  }>;
 }
 
 interface VisitRow {
@@ -110,7 +129,7 @@ export default async function HostPage({
     select dc.now, h.timezone
     from public.homes h
     left join public.demo_clock dc
-      on dc.home_id = h.id and dc.enabled
+      on dc.home_id = h.id and dc.enabled and h.demo
     where h.id = ${host.homeId}
   `;
   const timeZone = clockRows[0]?.timezone ?? "UTC";
@@ -395,53 +414,8 @@ export default async function HostPage({
           </div>
         </header>
 
-        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
-          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("rooms.title")}</h2>
-          <div style={panelStyle}>
-            <RoomLedger
-              data={roomData}
-              labels={roomLedgerLabels(t)}
-              locale={safeLocale}
-            />
-          </div>
-        </section>
-
-        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
-          <p style={labelStyle}>{t("calendar.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("calendar.title")}</h2>
-          <div style={panelStyle}>
-            <CalendarLedger
-              emptyLabel={t("calendar.empty")}
-              locale={safeLocale}
-              month={calendarMonth}
-              navigation={{
-                previousHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, -1)}`,
-                previousLabel: t("calendar.previous"),
-                nextHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, 1)}`,
-                nextLabel: t("calendar.next"),
-                visitCountLabel: t("calendar.visitCount", {
-                  count: visits.length,
-                }),
-              }}
-              roomsLabel={t("calendar.rooms")}
-              statusLabels={statusLabels}
-              visits={visits}
-            />
-          </div>
-        </section>
-
-        <div
-          style={{
-            alignItems: "start",
-            display: "grid",
-            gap: "clamp(1rem, 3vw, 2rem)",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
-            marginTop: "clamp(1.5rem, 4vw, 3rem)",
-          }}
-        >
-          <section style={panelStyle}>
+        <div style={sectionGridStyle}>
+          <section id="host-decisions" style={panelStyle}>
             <p style={labelStyle}>{t("decisions.eyebrow")}</p>
             <h2 style={headingStyle}>{t("decisions.title")}</h2>
             <PendingDecisions
@@ -470,7 +444,7 @@ export default async function HostPage({
             />
           </section>
 
-          <section style={panelStyle}>
+          <section id="capture-invitation" style={panelStyle}>
             <p style={labelStyle}>{t("capture.eyebrow")}</p>
             <h2 style={headingStyle}>{t("capture.title")}</h2>
             <CaptureInvitationForm
@@ -498,7 +472,106 @@ export default async function HostPage({
               timeZone={timeZone}
             />
           </section>
+        </div>
 
+        <div style={sectionGridStyle}>
+          <HostOutcomes homeId={host.homeId} locale={safeLocale}>
+            <HostCancellationPanel
+              database={getDatabaseConnection().db}
+              homeId={host.homeId}
+              locale={locale === "es" ? "es" : "en"}
+              action={cancelHostInvitation}
+              changedInvitation={
+                (await searchParams).cancel === "changed"
+                  ? (await searchParams).invitation
+                  : undefined
+              }
+            />
+          </HostOutcomes>
+          <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
+        </div>
+
+        {process.env.DEMO_MODE === "true" && host.demo ? (
+          <div style={sectionGridStyle}>
+            <GuidedDemoPanel homeId={host.homeId} locale={safeLocale} />
+            {clockRows[0]?.now ? (
+              <section style={panelStyle}>
+                <p style={labelStyle}>{t("demo.eyebrow")}</p>
+                <h2 style={headingStyle}>{t("demo.title")}</h2>
+                <p style={{ color: graphite, lineHeight: 1.6, margin: 0 }}>
+                  {t("demo.description")}
+                </p>
+                <DemoClockPanel
+                  current={new Date(clockRows[0].now).toISOString()}
+                  currentLabel={formatHouseholdDateTime(
+                    String(clockRows[0].now),
+                    safeLocale,
+                    clockRows[0].timezone,
+                  )}
+                  homeId={host.homeId}
+                  labels={{
+                    current: t("demo.current"),
+                    chase: t("demo.chase"),
+                    escalation: t("demo.escalation"),
+                    custom: t("demo.custom"),
+                    set: t("demo.set"),
+                    working: t("demo.working"),
+                    error: t("demo.error"),
+                    noEligible: t("demo.noEligible"),
+                    alreadyDue: t("demo.alreadyDue"),
+                    advanced: t("demo.advanced"),
+                    backward: t("demo.backward"),
+                  }}
+                  locale={safeLocale}
+                  timeZone={clockRows[0].timezone}
+                />
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+
+        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
+          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("rooms.title")}</h2>
+          <div style={panelStyle}>
+            <RoomLedger
+              data={roomData}
+              labels={roomLedgerLabels(t)}
+              locale={safeLocale}
+            />
+          </div>
+        </section>
+
+        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
+          <p style={labelStyle}>{t("calendar.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("calendar.title")}</h2>
+          <div style={panelStyle}>
+            <HostVisitNotes
+              database={getDatabaseConnection().db}
+              homeId={host.homeId}
+              locale={safeLocale}
+            />
+            <CalendarLedger
+              emptyLabel={t("calendar.empty")}
+              locale={safeLocale}
+              month={calendarMonth}
+              navigation={{
+                previousHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, -1)}`,
+                previousLabel: t("calendar.previous"),
+                nextHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, 1)}`,
+                nextLabel: t("calendar.next"),
+                visitCountLabel: t("calendar.visitCount", {
+                  count: visits.length,
+                }),
+              }}
+              roomsLabel={t("calendar.rooms")}
+              statusLabels={statusLabels}
+              visits={visits}
+            />
+          </div>
+        </section>
+
+        <div style={sectionGridStyle}>
           <section style={panelStyle}>
             <p style={labelStyle}>{t("emailPings.eyebrow")}</p>
             <h2 style={headingStyle}>{t("emailPings.title")}</h2>
@@ -539,6 +612,12 @@ export default async function HostPage({
             )}
           </section>
 
+          <HouseholdPolicyPanel
+            homeId={host.homeId}
+            hostId={host.id}
+            locale={safeLocale}
+          />
+
           <MemoryPanel
             locale={safeLocale}
             parties={memoryPartyRecords}
@@ -550,38 +629,6 @@ export default async function HostPage({
               forget: t("memory.forget"),
             }}
           />
-
-          {process.env.DEMO_MODE === "true" &&
-          host.demo &&
-          clockRows[0]?.now ? (
-            <section style={panelStyle}>
-              <p style={labelStyle}>{t("demo.eyebrow")}</p>
-              <h2 style={headingStyle}>{t("demo.title")}</h2>
-              <p style={{ color: graphite, lineHeight: 1.6, margin: 0 }}>
-                {t("demo.description")}
-              </p>
-              <DemoClockPanel
-                current={new Date(clockRows[0].now).toISOString()}
-                currentLabel={formatHouseholdDateTime(
-                  String(clockRows[0].now),
-                  safeLocale,
-                  clockRows[0].timezone,
-                )}
-                homeId={host.homeId}
-                labels={{
-                  current: t("demo.current"),
-                  chase: t("demo.chase"),
-                  escalation: t("demo.escalation"),
-                  custom: t("demo.custom"),
-                  set: t("demo.set"),
-                  working: t("demo.working"),
-                  error: t("demo.error"),
-                }}
-                locale={safeLocale}
-                timeZone={clockRows[0].timezone}
-              />
-            </section>
-          ) : null}
         </div>
 
         <section
@@ -731,6 +778,8 @@ function activityDetail(
       ? activity.detail
       : t("activity.noDetail");
   }
+  if (activity.kind === "household_policy_updated")
+    return t("activity.policyUpdatedDetail");
   const detail = objectValue(activity.detail);
   if (typeof detail?.name === "string") {
     const key = activityToolLabelKey(detail.name);

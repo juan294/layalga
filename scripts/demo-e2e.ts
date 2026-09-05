@@ -411,9 +411,6 @@ export async function captureInvitation(
   await page.getByTestId("host-capture-message").fill(rawMessage);
   await page.getByTestId("host-capture-submit").click();
   await page.getByTestId("capture-queued").waitFor();
-  const reveal = page.getByTestId("capture-reveal");
-  await reveal.waitFor();
-  await reveal.click();
   const guestLink = page.getByTestId("guest-link");
   await guestLink.waitFor();
   const href = await guestLink.getAttribute("href");

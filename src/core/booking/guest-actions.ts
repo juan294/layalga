@@ -1,18 +1,23 @@
+import { withdrawInvitation, type CancellationInput } from "./cancellation";
+import { requestsCancellationReview } from "./cancellation-intent";
 import { getAgentClient } from "@/agent/client";
 import { schedulerForHome } from "@/agent/scheduler";
-import { DbDemoClock, SystemClock } from "@/core/clock";
+import { DbDemoClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
 import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
+import { loadPartyRoomPreferences } from "@/core/memory/room-preferences";
+import type { MemoryClient } from "@/core/memory/client";
+import {
+  explainRoomPreferences,
+  type RoomPreferenceExplanation,
+} from "@/core/rooms/preferences";
 import {
   loadGuestRoomSearchWindow,
   roomOptionsForStay,
 } from "@/core/rooms/search";
-import {
-  toGuestRoomChoice,
-  type GuestRoomChoice,
-} from "./guest-room-contract";
+import { toGuestRoomChoice, type GuestRoomChoice } from "./guest-room-contract";
 
 import {
   type GuestInvitationAuthority,
@@ -25,6 +30,7 @@ export interface GuestOption {
   rooms: GuestRoomChoice[];
   recommendedRoomIds: string[];
   hasOverlap: boolean;
+  preferenceExplanation?: RoomPreferenceExplanation;
 }
 
 export interface GuestSearchCriteria {
@@ -72,14 +78,16 @@ export interface ValidatedSubmitInput {
   overflowConsent: boolean;
   arrivalTime?: string;
   notes?: string;
+  requests?: string;
 }
 
 export async function findGuestOptionsForAuthority(
   authority: GuestInvitationAuthority,
   input: ValidatedOptionInput,
+  memoryOptions?: { client?: MemoryClient },
 ): Promise<GuestOptionState> {
   const connection = getDatabaseConnection();
-  const clock = new SystemClock();
+  const clock = await DbDemoClock.load(authority.homeId, connection.db);
   const broadDraft = {
     stay: [input.from, input.to] as const,
     adults: input.adults,
@@ -94,6 +102,11 @@ export async function findGuestOptionsForAuthority(
     clock,
     authority.homeId,
     [input.from, input.to],
+  );
+  const preferences = await loadPartyRoomPreferences(
+    connection.db,
+    { homeId: authority.homeId, partyId: authority.partyId },
+    memoryOptions,
   );
 
   for (
@@ -120,6 +133,7 @@ export async function findGuestOptionsForAuthority(
     const recommendation = recommendRoomsWithOverflow(
       availableRooms,
       partySize,
+      preferences.preferences,
     );
     const effectiveVerdict =
       verdict.decision === "deny" &&
@@ -139,6 +153,10 @@ export async function findGuestOptionsForAuthority(
         stay,
         rooms: availableRooms.map(toGuestRoomChoice),
         recommendedRoomIds: recommendation.rooms.map(({ id }) => id),
+        preferenceExplanation: explainRoomPreferences(
+          preferences,
+          recommendation.rooms,
+        ),
         hasOverlap: state.visits.some(
           (visit) =>
             visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),
@@ -180,6 +198,7 @@ export async function submitGuestVisitForAuthority(
     ...(input.overflowConsent ? { overflowConsent: true } : {}),
     arrivalTime: clean(input.arrivalTime),
     notes: clean(input.notes),
+    requests: clean(input.requests),
     locale: input.locale,
   });
   return { runId: result.runId };
@@ -189,7 +208,13 @@ export async function requestGuestChangeCore(
   invitation: GuestInvitationData,
   message: string,
   locale: "en" | "es",
-): Promise<{ runId: string } | null> {
+): Promise<
+  | { runId: string; cancellationRequested?: never }
+  | { cancellationRequested: true; runId?: never }
+  | null
+> {
+  if (requestsCancellationReview(message))
+    return { cancellationRequested: true };
   if (!invitation.visit || !message) return null;
 
   const result =
@@ -258,5 +283,26 @@ function rangesOverlap(
 ): boolean {
   return (
     String(left[0]) < String(right[1]) && String(right[0]) < String(left[1])
+  );
+}
+
+export async function cancelGuestInvitationCore(
+  invitation: GuestInvitationData,
+  review: Pick<CancellationInput, "expectedVisitId" | "expectedStay">,
+): Promise<void> {
+  const connection = getDatabaseConnection();
+  const [home] = await connection.sql<
+    { demo: boolean }[]
+  >`select demo from public.homes where id = ${invitation.homeId}`;
+  if (!home) throw new Error("Household not found");
+  await withdrawInvitation(
+    connection.db,
+    {
+      homeId: invitation.homeId,
+      invitationId: invitation.id,
+      actor: { kind: "guest", partyId: invitation.partyId },
+      ...review,
+    },
+    schedulerForHome({ homeDemo: home.demo }),
   );
 }

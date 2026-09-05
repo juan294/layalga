@@ -1,5 +1,7 @@
 # Research: Room Inventory, Allocation, and Agent Surfaces
 
+Documentation status, September 5, 2026: Historical snapshot: the observations, open items and recommendations below describe the recorded date and revision. Current product behavior and remaining work supersede this snapshot in the [roadmap](../roadmap.md) and [judge guide](../submission/judge-guide.md).
+
 > Researched on 2026-08-31. This document describes the current repository. It does not propose changes.
 
 ## Research question

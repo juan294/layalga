@@ -2,6 +2,10 @@ import postgres from "postgres";
 
 import { hashLinkToken } from "@/core/booking/invitations";
 
+export function demoLinkExpiresAt(now = new Date()): string {
+  return new Date(now.getTime() + 30 * 86_400_000).toISOString();
+}
+
 export const DEMO_SEED = {
   home: {
     id: "00000000-0000-4000-8000-000000000001",
@@ -72,7 +76,6 @@ export const DEMO_SEED = {
       familyName: "Familia Vega",
       locale: "es",
       guestLink: "/es/g/vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
-      linkTokenExpiresAt: "2026-10-01T00:00:00+02:00",
       invitation: {
         id: "00000000-0000-4000-8000-000000000401",
         hostId: "00000000-0000-4000-8000-000000000201",
@@ -91,7 +94,6 @@ export const DEMO_SEED = {
       familyName: "The Oteros",
       locale: "en",
       guestLink: "/en/g/ooooooooooooooooooooooooooooooooooooooooooo",
-      linkTokenExpiresAt: "2026-10-01T00:00:00+02:00",
       invitation: {
         id: "00000000-0000-4000-8000-000000000402",
         hostId: "00000000-0000-4000-8000-000000000202",
@@ -164,6 +166,7 @@ export async function resetDemoHome(
   }
 
   const sql = postgres(connectionString, { prepare: false, max: 1 });
+  const linkExpiresAt = demoLinkExpiresAt();
 
   try {
     await sql.begin(async (transaction) => {
@@ -308,7 +311,7 @@ export async function resetDemoHome(
             ${transaction.json(structured)},
             'tentative',
             ${linkTokenHash},
-            ${party.linkTokenExpiresAt},
+            ${linkExpiresAt},
             null
           )
         `;

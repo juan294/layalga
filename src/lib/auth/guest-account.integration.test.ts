@@ -97,6 +97,7 @@ describe("guest account visit retrieval", () => {
           partyName: "Claimed family",
           stay: ["2026-10-10", "2026-10-13"],
           status: "confirmed",
+          guestNotes: "",
           timeZone: "Europe/Madrid",
         },
       ]);

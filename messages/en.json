@@ -38,7 +38,7 @@
     "invierno": "winter"
   },
   "DemoHost": {
-    "enterAs": "Enter as {name}",
+    "enterAsHost": "Enter as Host",
     "enterAsGuest": "Enter as Guest"
   },
   "Host": {
@@ -135,13 +135,17 @@
       "title": "Move the household clock",
       "description": "Advance the demo clock to test follow-ups and escalations.",
       "current": "Current demo time",
-      "chase": "Reconfirmation chase",
-      "escalation": "Host escalation",
+      "chase": "Advance to next guest reminder",
+      "escalation": "Advance to next host follow-up",
       "custom": "Custom date and time",
       "set": "Set clock",
       "working": "Setting clock…",
       "notLive": "Time changes are simulated and affect demo data only.",
-      "error": "The demo clock could not be updated."
+      "error": "The demo clock could not be updated.",
+      "noEligible": "No current visit needs this reminder step.",
+      "alreadyDue": "This step was already due. Check the visit outcomes for its current status.",
+      "advanced": "The demo clock advanced. Check the visit outcomes for the result.",
+      "backward": "The clock cannot move backwards. Reset the demo to start again."
     },
     "calendar": {
       "eyebrow": "Month at a glance",
@@ -169,9 +173,9 @@
       "failedError": "The invitation could not be captured.",
       "queued": "Invitation queued",
       "statusLink": "Open run status",
-      "reveal": "Prepare private guest link",
-      "revealing": "Preparing private link…",
-      "completionFailed": "The completed invitation could not be loaded. Try again."
+      "reveal": "Try preparing the link again",
+      "revealing": "Preparing your private guest link…",
+      "completionFailed": "The private guest link could not be prepared. Try again."
     },
     "emailPings": {
       "eyebrow": "Notifications",
@@ -232,7 +236,8 @@
       "empty": "No activity has been recorded.",
       "noDetail": "No additional details",
       "policyDetail": "Policy decision: {decision}",
-      "toolDetail": "Agent tool: {name}"
+      "toolDetail": "Agent tool: {name}",
+      "policyUpdatedDetail": "Updated rules now guide new booking requests."
     },
     "activityKinds": {
       "decisionApplied": "Host decision applied",
@@ -242,7 +247,9 @@
       "reconfirmEscalation": "Reconfirmation escalated",
       "memoryWritten": "Household memory updated",
       "memoryForgotten": "Household memory forgotten",
-      "other": "Household activity"
+      "other": "Household activity",
+      "invitationCancelled": "Invitation cancelled",
+      "householdPolicyUpdated": "Household rules updated"
     },
     "activityTools": {
       "captureInvitation": "Capture invitation",
@@ -256,13 +263,17 @@
       "listGuestRooms": "List guest-visible rooms",
       "findRoomOptions": "Find room options",
       "searchMemory": "Recall household memory",
-      "other": "Household action"
+      "other": "Household action",
+      "prepareCancellation": "Prepare cancellation"
     },
     "activityPolicies": {
       "allow": "Allowed",
       "deny": "Not allowed",
       "interrupt": "Host review required",
       "other": "Policy checked"
+    },
+    "visitInformation": {
+      "title": "Guest information"
     }
   },
   "Guest": {
@@ -315,7 +326,7 @@
     "children": "Children",
     "pets": "Pets",
     "arrivalTime": "Arrival time",
-    "notes": "Notes or access needs",
+    "notes": "Information for your hosts",
     "submitInvalid": "Check the guest details and selected stay.",
     "submitFailed": "The stay could not be submitted.",
     "submitting": "Submitting stay…",
@@ -347,6 +358,30 @@
       "reconfirmed": "Reconfirmed",
       "escalated": "Under review",
       "cancelled": "Cancelled"
+    },
+    "notesHelp": "For information only. Put anything needing an answer in Requests below.",
+    "requests": "Requests needing a host decision",
+    "requestsHelp": "For accommodations or exceptions. The hosts will review this before confirmation.",
+    "capturedRequests": "Requests already shared by your host",
+    "visitNotes": "Your information for the hosts",
+    "roomPreferences": {
+      "title": "Why we suggested these rooms",
+      "off": "Saved room preferences are not being used for this suggestion.",
+      "empty": "No room preferences are saved for your party yet.",
+      "unavailable": "We could not retrieve your saved room preferences this time.",
+      "unusable": "Your saved preferences do not describe a room feature we can verify.",
+      "conflicting": "Your saved room preferences conflict, so none were used.",
+      "matched": "Recommended rooms include: {preferences}.",
+      "unmatched": "The recommended rooms do not match: {preferences}. You can review the other available rooms below.",
+      "choice": "We suggested available rooms that fit your group. Choose the rooms you want using the checkboxes below.",
+      "selectionChanged": "Your current selection differs from our suggestion. The preference explanation above still describes the recommended rooms.",
+      "groundFloor": "A ground-floor label does not guarantee step-free or wheelchair access. Ask your hosts about any access needs.",
+      "labels": {
+        "ground_floor": "ground floor",
+        "upper_floor": "upper floor",
+        "separate_beds": "separate beds",
+        "double_bed": "double bed"
+      }
     }
   },
   "GuestAccount": {
@@ -416,5 +451,140 @@
     "errorBody": "The household record is safe. Try opening this page again.",
     "retry": "Try again",
     "home": "Go to the ledger"
+  },
+  "Cancellation": {
+    "openVisit": "Cancel this visit",
+    "openRequest": "Withdraw this invitation request",
+    "visitReview": "Cancel the visit on {stay}?",
+    "requestReview": "Withdraw this invitation and any request awaiting host approval?",
+    "consequence": "This releases any reserved rooms, stops follow-up reminders and closes pending approvals. Your invitation link will close. A new invitation is needed if you change your mind.",
+    "confirmLabel": "I have reviewed this request and want to cancel it.",
+    "confirm": "Confirm cancellation",
+    "pending": "Cancelling…",
+    "keep": "To keep your plans, leave this unchecked and close this section.",
+    "doneTitle": "Your request is cancelled",
+    "doneBody": "Any reserved rooms have been released and follow-up reminders have stopped. The hosts can see the cancellation. Contact your host for a new invitation if your plans change.",
+    "account": "Your visits",
+    "hostTitle": "Cancel a visit or withdraw an invitation",
+    "noStay": "Awaiting dates",
+    "changed": "This request changed since your review. Check the current details below, then confirm again only if you still want to cancel.",
+    "pendingInvitations": "Invitations awaiting a visit"
+  },
+  "HouseholdPolicy": {
+    "title": "Household rules",
+    "description": "These rules guide new bookings and changes awaiting approval. Confirmed stays remain in place.",
+    "petsTogether": "Allow pets from different visiting families at the same time",
+    "families": "Maximum visiting families with children at the same time",
+    "capacity": "Sleeping capacity comes from your rooms. A rule change never adds beds or approves a special request.",
+    "save": "Save household rules",
+    "saving": "Saving…",
+    "saved": "Household rules saved. New requests use these rules.",
+    "reload": "Reload and review current rules",
+    "errors": {
+      "invalid": "Choose a whole number from 1 to 20.",
+      "stale": "Another host updated the rules. Review the current rules before saving again.",
+      "failed": "The rules could not be saved. Please try again."
+    }
+  },
+  "GuestDeliveryHost": {
+    "title": "Guest reminders",
+    "description": "Check whether each guest can receive reminders, separately from whether they have replied.",
+    "unavailable": "Email sending is currently unavailable. Guests can still reconfirm from their invitation.",
+    "acceptanceNote": "Email acceptance does not confirm inbox delivery or a guest reply.",
+    "statuses": {
+      "no_contact": "No reminder address provided",
+      "unverified": "Waiting for email verification",
+      "disabled": "Email reminders turned off",
+      "ready": "Ready for the next reminder",
+      "queued": "Reminder waiting to send",
+      "sent": "Accepted by email service",
+      "failed": "Email could not be sent",
+      "demo": "Synthetic demo: in-app reminder only",
+      "unknown": "Email outcome unknown — review before retrying",
+      "unavailable_access": "Invitation access unavailable — review the guest link"
+    }
+  },
+  "GuestEmail": {
+    "title": "Visit reminders by email",
+    "body": "Receive reconfirmation reminders and a secure link back to this visit. Your address stays out of agent conversations.",
+    "email": "Email address",
+    "googleAddress": "Use your verified Google address: {email}",
+    "consent": "I want email reminders about this visit. I can turn them off here at any time.",
+    "enable": "Enable reminders",
+    "verifySend": "Send verification email",
+    "pending": "Saving…",
+    "disable": "Turn off reminders",
+    "demo": "This is a synthetic demo. No guest emails are sent.",
+    "unverified": "Check your email, then open the verification link and confirm. Reminders stay off until you verify.",
+    "enabled": "Reminders are enabled for {email}.",
+    "disabled": "Email reminders are off.",
+    "no_contact": "Email reminders are optional. Booking works without them.",
+    "unavailable": "Email delivery is unavailable. Your booking is unaffected. Please try again later.",
+    "rate_limit": "Please wait before requesting another verification email.",
+    "invalid": "We could not save that email preference. Check your email address and consent, then try again.",
+    "invalidLinkTitle": "This email link is no longer available",
+    "invalidLinkBody": "It may have expired, already been used, or been turned off. Open your original invitation or guest account to request a fresh verification email.",
+    "verifyTitle": "Confirm your email reminders",
+    "verifyBody": "Confirm below to verify this address and enable visit reminders. This will not reconfirm or change your booking.",
+    "verify": "Verify email and enable reminders",
+    "openAccount": "Open guest account",
+    "preferencesTitle": "Email preferences updated",
+    "deliveryFailed": "The last email could not be sent. You can update your address or turn reminders off.",
+    "deliveryUnavailable": "Email delivery is currently unavailable. Your booking is unaffected.",
+    "deliveryPending": "Your email is waiting to be sent."
+  },
+  "HostOutcomes": {
+    "eyebrow": "What needs attention",
+    "title": "Current visits",
+    "empty": "No upcoming visits yet. Share an invitation to start planning a stay.",
+    "calendar": "The calendar below has the full view of your visits.",
+    "status": {
+      "hold": "A temporary hold is in place.",
+      "expired": "The temporary hold has expired.",
+      "confirmed": "The visit is confirmed.",
+      "reconfirm_pending": "Waiting for the guest to reconfirm.",
+      "reconfirmed": "The guest has reconfirmed.",
+      "escalated": "The guest has not replied; a host should follow up.",
+      "arrived": "The scheduled stay dates have begun."
+    },
+    "next": {
+      "hold": "Review any pending host decision above.",
+      "expired": "Contact the guest to agree on a new invitation, or cancel this expired hold.",
+      "confirmed": "The booking is confirmed. Review any new request above.",
+      "reconfirm_pending": "Check the reminder status before following up personally.",
+      "reconfirmed": "No further reconfirmation is needed.",
+      "escalated": "Contact the guest to check their plans. Email status is separate from a reply.",
+      "arrived": "Check the visit details and confirm arrival with your guests."
+    }
+  },
+  "GuidedDemo": {
+    "title": "Try the household coordinator",
+    "intro": "Two independent scenarios use synthetic families and the real booking process. Try the routine visit first, then the request that needs a host.",
+    "sharedReset": "Starting either scenario resets this shared demo household and clears its demo visits, requests and activity for everyone using it.",
+    "vegaTitle": "1. Vega: a routine family visit",
+    "vegaBody": "Two adults and two children fit the two open rooms together. Keep both rooms selected and submit to see the booking outcome.",
+    "oteroTitle": "2. Otero: a request for the hosts",
+    "oteroBody": "Start afresh with two adults, a dog and a captured ground-floor access request. Select the Garage Room, submit, then review the request as a host. A floor label does not establish accessibility.",
+    "startVega": "Reset demo and start Vega",
+    "startOtero": "Reset demo and start Otero",
+    "starting": "Resetting and opening the guest…",
+    "resetFailed": "The demo could not be reset. It may be busy or your host session may have expired. Try again, or enter again from the sign-in page.",
+    "entryFailed": "The demo was reset, but the guest could not be opened. Try starting again from here.",
+    "followTitle": "Then see the follow-through",
+    "followBody": "After a visit is confirmed, advance to its next reminder below. Return as that guest to reconfirm, or leave it unanswered and advance to the next host follow-up. If no current visit needs that step, the clock stays where it is.",
+    "returnGuest": "Return to the current demo guest",
+    "entry": "Demo sign-in",
+    "synthetic": "Shared synthetic demo · no guest emails are sent"
+  },
+  "DemoGuestGuide": {
+    "title": "Your part in this synthetic demo",
+    "vega": "Vega: two adults and two children. Search the suggested dates, keep both open rooms selected, and submit. Their combined standard capacity fits all four guests.",
+    "otero": "Otero: two adults and a dog, with an explicit access request already captured. Search the suggested dates, choose the ground-floor Garage Room, and submit. The hosts must review the request before confirmation.",
+    "generic": "Search for dates, choose the exact rooms you want and submit. The resulting visit or request shows what happens next.",
+    "access": "Ground floor does not guarantee step-free or wheelchair access. This scenario asks the hosts to review the need; it does not establish that the room is accessible.",
+    "pending": "If the request is waiting for approval, return to the host view and review the pending decision. Then reopen this guest to see the actual result.",
+    "follow": "After confirmation, return as host and advance to the next reminder. Return here to answer before escalation, or leave it unanswered to try escalation. Once escalated, a host follows up with the guest.",
+    "host": "Return to the host view",
+    "shared": "This is shared synthetic data. Another person may reset the demo while you are using it. No guest email is sent."
   }
 }

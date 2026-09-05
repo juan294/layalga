@@ -1,5 +1,7 @@
 # Research: Release-pipeline over-engineering audit against the Coach case study
 
+Documentation status, September 5, 2026: Historical audit, preserved as the rationale for release-gate discipline. Current operating instructions are in the [release playbook](../release/e2e-pro-playbook.md); current product status is in the [roadmap](../roadmap.md).
+
 ## Question
 
 `~/code/coach/docs/release/release-pipeline-hardening-recovery-case-study.md` documents how Coach's release pipeline became unusable through a sequence of individually reasonable hardening commits, and how it was recovered. Does L'Ayalga's current release-pipeline design (docs, rules, commands, CI) already carry any of the same failure patterns, and where?

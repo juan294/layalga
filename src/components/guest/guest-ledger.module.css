@@ -353,3 +353,22 @@
     box-shadow: none;
   }
 }
+
+.cancellationToggle {
+  cursor: pointer;
+  min-height: var(--interactive-target, 44px);
+  padding: 0.75rem 0;
+}
+
+.emailConsent {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  min-height: var(--interactive-target, 44px);
+}
+
+.emailConsent input {
+  flex-shrink: 0;
+  height: 1.25rem;
+  width: 1.25rem;
+}

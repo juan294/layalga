@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isTickRequestAuthorized } from "./route";
+import { isTickRequestAuthorized } from "./authorization";
 
 describe("tick route authorization", () => {
   const tickSecret = "t".repeat(32);

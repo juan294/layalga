@@ -1,110 +1,45 @@
-# Interrupts for household decisions
+# Agents for Humans: durable interrupts for household decisions
 
-Status: Draft. Publication needs separate authorization.
+Unpublished Builder post draft, updated 5 September 2026 against product commit `618701c`. Publication and URL remain pending owner action. Current completion features have local verification; this article does not claim their production rollout.
 
-## The useful pause
+## A person may answer after the process ends
 
-An agent that coordinates a shared home should not try to remove people from every decision. It should remove the repeated work around those decisions.
+A household coordinator cannot keep a web request open while two hosts consider a guest's request. It also cannot treat any later “yes” as permission to book whatever rooms happen to be mentioned in a model transcript.
 
-L’Ayalga receives informal invitations, creates private guest links, checks overlapping stays, confirms rooms, and follows up before arrival. Most of that work is mechanical. One part is not: whether a special request is socially comfortable for the people sharing the home.
+L’Ayalga uses the Strands SDK's interruption and resumption to preserve the pending operation, with application records that define what a host actually approved.
 
-That boundary gave us a simple design rule. If a request is impossible, deny it with deterministic code. If it is safe and routine, continue. If it is possible but needs context, interrupt the agent before the consequential tool runs.
+## Three records, three jobs
 
-## Why a database row is not enough
+The SDK session snapshot preserves the paused execution. A pending-decision row presents the party, stay, request and proposed arrangement to the host. A resume run applies the saved response and records the result.
 
-A basic approval workflow can insert a `pending_decisions` row and start a new request after a host responds. That records the business state, but it does not preserve the agent’s execution state. The new request can make the model reconstruct what it was doing, which can repeat a tool call or produce a different plan.
+[`installPolicyHook`](../../../src/agent/policy-hook.ts) calls `event.interrupt` before a guarded booking operation when an explicit request or overflow arrangement needs a host. The host action records approval or decline. [`run-task.ts`](../../../src/agent/run-task.ts) reconstructs trusted state and supplies `InterruptResponseContent` to resume the SDK execution.
 
-Strands interrupts preserve a stronger contract. A `BeforeToolCallEvent` hook can call `event.interrupt(...)`. The SDK stops with the pending tool execution in its session snapshot. On resume, `InterruptResponseContent` returns the host response to that exact hook invocation. The agent continues from the paused point instead of asking the model to recreate it.
+An interrupted request does not necessarily hold rooms: the pause may happen before hold creation. The UI must describe the actual stage instead of implying that every waiting request already has a reservation.
 
-For L’Ayalga, the sequence is:
+## Approval is specific and can become stale
 
-1. The model requests `create_temporary_hold`.
-2. The policy hook loads the proposed stay and current house state.
-3. A special request produces `decision: "interrupt"`.
-4. The hook calls `event.interrupt({ name: "host_decision", reason })`.
-5. Strands saves the session snapshot to Postgres.
-6. L’Ayalga writes a pending decision that the host can understand and act on.
-7. The host records `approved` or `declined`.
-8. A new queued run restores the session and supplies the response.
-9. The hook continues. Approval permits the pending tool; decline cancels it.
+The trusted guest draft preserves captured requests and the exact proposed stay. Informational notes are separate and do not themselves interrupt. A later model call cannot clear a request to make approval unnecessary.
 
-The model does not need to call the tool again.
+On resume, current room selection, availability and versioned household policy are rechecked. Applied-run tracking and current queue claims prevent duplicate or stale workers from applying the same decision again. A failed application is shown as failed and can receive an authorized retry; a saved approval alone is not a confirmed stay.
 
-## Three records, three meanings
+This is a useful split: the SDK owns durable execution state, while the application owns the meaning and authority of the human decision.
 
-We first described a resume as “marking the decision applied.” That wording hid three different facts:
+## Cancellation must close pending authority
 
-- The host chose `approved` or `declined`.
-- A specific run consumed that choice.
-- Strands continued or cancelled the pending tool execution.
+The decision lifecycle includes cancellation as well as pending, approved and declined states. If a guest cancels while an agent is working, it is not enough to hide the calendar event. A worker must not subsequently persist a new decision or apply an old approval.
 
-Our schema allows only `pending`, `approved`, and `declined` for the decision itself. We kept that contract. The resume run records application with an audit event:
+The [cancellation service](../../../src/core/booking/cancellation.ts) serializes against current booking work and retires stale decisions, runs, follow-up jobs and queued delivery. Interruption persistence rechecks the invitation and run under the same household boundary. A cancelled decision cannot be resumed as if it were still pending.
 
-```json
-{
-  "kind": "decision_applied",
-  "payload": {
-    "pendingDecisionId": "…",
-    "runId": "…",
-    "interruptId": "…"
-  }
-}
-```
+The agent's `prepare_cancellation` tool can interpret a cancellation request and return a review instruction. It cannot execute the cancellation. The guest or host must review and explicitly confirm the current stay; a changed stay requires refreshed review. Unbooked invitations have an equivalent withdrawal path.
 
-This separation matters during a failure. A host can approve successfully, then a resume can fail before Strands consumes the response. The decision is still approved, but it has not yet been applied. A retry can use the same facts without inventing a new decision state.
+## Durable does not mean transport exactly once
 
-## The policy hook stays authoritative
+Host pings make decisions visible outside the dashboard when email is enabled. Optional guest verification/reminders use a separate consented, web-owned delivery path; they are not agent tools or agent-readable contact data.
 
-The hook does not accept a model claim that a request needs approval. It derives the verdict from typed input and current database state:
+Database idempotency prevents duplicate application records and unauthorized replay. It does not prove that an external provider or inbox delivers exactly once. Authorized attempt receipts distinguish known failure from an uncertain provider result, and uncertain sends are not blindly retried. Delivery problems remain separate from unanswered guest requests.
 
-```ts
-const { homeId, draft, approvalStayHash } = await loadDraftForTool(
-  deps,
-  event.toolUse.name,
-  input,
-);
-const verdict = evaluateOverlap(
-  draft,
-  await loadHouseState(deps, homeId, draft),
-);
+## Evidence
 
-if (verdict.decision === "deny") {
-  event.cancel = denyMessage(verdict);
-  return;
-}
+See [policy refresh tests](../../../src/agent/policy-hook-refresh.test.ts), [cancellation race regressions](../../../src/core/booking/cancellation.integration.test.ts), [tenant authority tests](../../../src/agent/tenant-scope.test.ts) and the [guided browser journey](../../../tests/e2e/guided-demo.spec.ts). The [evidence report](../coordination-evidence.md) records actual local scripted operations with its own exact revision and configuration.
 
-if (
-  verdict.decision === "interrupt" &&
-  !approvalCovers(draft, approvalStayHash)
-) {
-  const response = event.interrupt<HostDecision>({
-    name: "host_decision",
-    reason: verdict,
-  });
-  if (!response.approved) event.cancel = "Declined by host";
-}
-```
-
-The approval is tied to a hash of the proposed stay. If the dates or party details change, the old approval does not silently cover the new request.
-
-## Process restarts are part of the feature
-
-Serverless and managed agent runtimes make process lifetime an unreliable place to store user decisions. We therefore implemented the Strands `Storage` interface over Postgres and used stable session identifiers. Each accepted request also has a durable run row with a lease and bounded attempts. The browser polls the exact run instead of holding the original request open. Our tests interrupt one agent, destroy it, build a new agent with the same session, and resume. A separate-process test proves that the behavior does not depend on a module singleton.
-
-The important assertions are negative as well as positive:
-
-- Before approval, no hold exists and the tool audit count is zero.
-- After approval, exactly one hold exists and the tool audit count is one.
-- After decline, no hold exists.
-- Replaying the same response does not create another booking.
-- A changed stay needs a new decision.
-
-## A practical human-in-the-loop boundary
-
-An interrupt is useful when the system can explain a bounded choice. “The beds rule failed” is not a choice; it is a denial. “This request needs ground-floor access while another family is present” gives a host specific context and clear actions.
-
-That distinction keeps the agent helpful. People do not become a generic fallback for every uncertainty. They receive only the decisions that belong to them, with the agent’s work preserved on both sides of the pause.
-
-The result is not full autonomy. It is accountable continuity: the agent gets as far as code allows, waits where judgment starts, and resumes the exact work after a person decides.
-
-In production, a host finds out there is a decision waiting from an email, not by refreshing a tab: a separate, idempotent outbox pings each consenting host through Amazon SES the moment the interrupt is written, never the guest whose request triggered it.
+The demonstration is a fresh routine stay, then a separate explicit request and approval. It proves persisted application transitions under that configuration. Human savings, live-model interpretation quality and production email receipt remain separate questions.

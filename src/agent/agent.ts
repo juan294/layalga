@@ -54,8 +54,8 @@ export function buildAgent({
     systemPrompt,
     printer: false,
     toolExecutor: "sequential",
-    // Ids only, never guest or host names: prompt minimization strips
-    // names before any model call, and spans must hold to the same bound.
+    // These application-added attributes carry IDs only. SDK span content
+    // may include message/tool text; see docs/security/data-lifecycle.md.
     traceAttributes: {
       "layalga.home_id": homeId,
       "layalga.task": task,

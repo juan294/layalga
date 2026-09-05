@@ -1,3 +1,4 @@
+import { clickAndWaitForPost } from "./helpers/async-actions";
 import { expect, test, type Page } from "@playwright/test";
 
 import { seedDemo } from "../../scripts/seed-demo";
@@ -114,7 +115,7 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
     "invited",
   );
 
-  await page.getByTestId("find-options").click();
+  await clickAndWaitForPost(page, "find-options");
   await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
   const result = await executeWebMcpTool<
     {

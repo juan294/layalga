@@ -122,7 +122,7 @@ Database-backed suites need the local Supabase stack (`pnpm run db:start`, `pnpm
 | M2 | CloudWatch GenAI Observability shows an agent trace with model and tool spans for one production run. |
 | M3 | Both hosts receive one pending-decision email and one escalation email during the four-beat demo; the Vega family receives none. |
 | M4 | A second Vega invitation captured after memory seeding yields a structured summary that mentions the remembered ground-floor preference; the host panel lists it and Forget removes it. |
-| M5 | The recorded video is under 5 minutes and shows each beat on the live URL. |
+| M5 | The recorded video is under 3 minutes and shows each beat on the live URL. |
 
 ## 10. Risks
 

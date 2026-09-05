@@ -1,7 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState, useCallback, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   captureInvitationAction,
@@ -178,12 +185,13 @@ function CaptureQueuedPanel({
   const [snapshot, setSnapshot] = useState<RunSnapshot>(initial);
   const handleSnapshot = useCallback(
     (next: RunSnapshot) => {
+      if (next.id !== runId) return;
       setSnapshot(next);
       if (next.status !== "queued" && next.status !== "running") {
         onTerminal(next.id);
       }
     },
-    [onTerminal],
+    [onTerminal, runId],
   );
 
   return (
@@ -211,14 +219,14 @@ function CaptureQueuedPanel({
         showReturnLink={false}
         timeZone={timeZone}
       />
-      {snapshot.status === "completed" ? (
+      {snapshot.id === runId && snapshot.status === "completed" ? (
         <CaptureCompletionForm labels={labels} locale={locale} runId={runId} />
       ) : null}
     </section>
   );
 }
 
-function CaptureCompletionForm({
+export function CaptureCompletionForm({
   labels,
   locale,
   runId,
@@ -232,6 +240,15 @@ function CaptureCompletionForm({
     revealCapturedInvitationAction,
     initial,
   );
+  const attemptedRun = useRef<string | null>(null);
+  useEffect(() => {
+    if (attemptedRun.current === runId) return;
+    attemptedRun.current = runId;
+    const formData = new FormData();
+    formData.set("locale", locale);
+    formData.set("runId", runId);
+    startTransition(() => action(formData));
+  }, [action, locale, runId]);
 
   return (
     <form action={action} data-testid="capture-completion-form">
@@ -246,14 +263,18 @@ function CaptureCompletionForm({
               {labels.completionFailed}
             </p>
           ) : null}
-          <button
-            data-testid="capture-reveal"
-            disabled={pending}
-            style={{ ...buttonStyle, opacity: pending ? 0.55 : 1 }}
-            type="submit"
-          >
-            {pending ? labels.revealing : labels.reveal}
-          </button>
+          {state.status === "error" ? (
+            <button
+              data-testid="capture-reveal"
+              disabled={pending}
+              style={{ ...buttonStyle, opacity: pending ? 0.55 : 1 }}
+              type="submit"
+            >
+              {pending ? labels.revealing : labels.reveal}
+            </button>
+          ) : (
+            <p role="status">{labels.revealing}</p>
+          )}
         </>
       )}
     </form>

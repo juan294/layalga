@@ -22,3 +22,9 @@ L’Ayalga is a greenfield entry for the AWS Agents for Humans hackathon. The de
 ## Consequences
 
 The repository is ready for `/brainstorm` and `/plan`, but it is not a runnable application and cannot be released. The first plan must establish the application manifest, dependencies, verification commands, deployment providers, and a tested AgentCore fallback decision.
+
+## September 5 implementation addendum
+
+The bootstrap consequences above describe August 29, not the current runnable product. Subsequent releases selected AgentCore Runtime with a local fallback and added durable scheduled jobs, room coordination, memory and host SES pings. The [current completion plan](../plans/2026-09-05-everyday-agents-completion.md) implements cancellation, stay-aligned access, separate notes/requests, host policy settings, verified guest reminders, scoped room-preference ranking and guided synthetic scenarios. These additions remain within the existing web/agent/database boundaries; no new infrastructure channel is selected.
+
+Feature and develop branches must not create Vercel previews. Local verification precedes intentional hosted CI. Production migrations, IAM, deployment, real guest sends and publication require separate authorization; a develop merge is not a release. EventBridge scheduling, remote MCP, direct two-way calendars, WhatsApp/Twilio and per-night room packing remain deferred. The initial bootstrap decisions remain historical context; current operational instructions live in the [release playbook](../release/e2e-pro-playbook.md).

@@ -72,20 +72,37 @@ async function safeMemoryWrite(
   }
 }
 
-export async function runAgentTask(
-  payload: AgentTask,
-  deps: RunAgentDeps,
-): Promise<RunResult> {
-  const queued = await enqueueAgentTask(payload, deps);
-  return queued.status === "queued"
-    ? executeQueuedAgentRun(queued.runId, deps)
-    : queued;
+/**
+ * A run this call has already claimed for itself, before any other process
+ * (in particular a queue drain) could see it: `runId`/`sessionId`/`task`
+ * describe the run, and `claimToken` is the same token
+ * `executeClaimedAgentTask` would otherwise get from `claimQueuedRun`.
+ * `claimToken` is `null` when this is a still-in-flight duplicate of an
+ * existing intent that this call did not itself claim (see
+ * `enqueueAgentTaskInternal`'s "in-flight replay" case) -- the caller falls
+ * back to the normal `executeQueuedAgentRun` claim attempt for that case,
+ * exactly as before this fix.
+ */
+interface EnqueueStart {
+  runId: string;
+  sessionId: string;
+  task: AgentTask;
+  claimToken: string | null;
 }
 
-export async function enqueueAgentTask(
+/**
+ * Resolves authority and session id, then starts (or replays) the run, with
+ * or without claiming it in the same insert/update (`options.claimImmediately`).
+ * Shared by `enqueueAgentTask` (never claims immediately, so its return
+ * shape is unchanged for every existing caller) and `runAgentTask` (always
+ * claims immediately, for a run this process is about to execute
+ * synchronously -- see the module doc below).
+ */
+async function enqueueAgentTaskInternal(
   payload: AgentTask,
   deps: RunAgentDeps,
-): Promise<RunResult> {
+  options: { claimImmediately: boolean },
+): Promise<{ start: EnqueueStart } | { result: RunResult }> {
   const task = agentTaskSchema.parse(payload);
   const sql = sqlClient(deps.db);
   const authority = await authorityForTask(task, deps);
@@ -107,9 +124,89 @@ export async function enqueueAgentTask(
     startedAt: queuedAt,
     actorKey: actorKeyForTask(task),
     intentKey: await intentKeyForTask(task, sql, queuedAt),
+    claimImmediately: options.claimImmediately,
   });
-  if (runStart.replay) return runStart.result;
-  return queuedRunResult(runStart.runId, sessionId);
+  if (runStart.replay) {
+    // A genuinely terminal replay (completed/interrupted/failed with no
+    // retry) short-circuits with its final result. A still-in-flight
+    // replay (another request already has this exact intent queued or
+    // running) keeps its `queuedRunResult` shape and status "queued" --
+    // this call never claims it immediately, whatever `claimImmediately`
+    // was asked for, so the caller falls back to a normal claim attempt
+    // (which itself safely no-ops into "already being executed" if the
+    // other request still holds it).
+    if (runStart.result.status !== "queued") return { result: runStart.result };
+    return {
+      start: {
+        runId: runStart.result.runId,
+        sessionId: runStart.result.sessionId,
+        task,
+        claimToken: null,
+      },
+    };
+  }
+  return {
+    start: {
+      runId: runStart.runId,
+      sessionId,
+      task,
+      claimToken: runStart.claimToken,
+    },
+  };
+}
+
+/**
+ * Runs a task to completion in this process. A synchronous caller (the
+ * demo clock route ticking due jobs, a Server Action awaiting its own
+ * result) must never have its run sit visible as `queued` even for one
+ * round trip: the queue drain (`drainAgentQueue`, `src/agent/queue.ts`)
+ * polls `status = 'queued' and queue_available_at <= now` every minute, and
+ * a run inserted `queued` then claimed a moment later by *this* call was,
+ * in that moment, a legitimate drain target -- in production the drain won
+ * that race, dispatched the tick to AgentCore, and the synchronous
+ * execution here then lost its own claim and failed with "Agent run is no
+ * longer active".
+ *
+ * The fix inserts (or restarts) the row already claimed -- `status`
+ * `running`, `queue_claim_token` set, `queue_claimed_at`/`heartbeat_at`/
+ * `deadline_at` populated, `execution_attempt_count` 1 -- in the same
+ * statement that starts it (`enqueueAgentTaskInternal` with
+ * `claimImmediately: true`), so it is never visible in `queued` state to
+ * anything. Execution then proceeds directly against that held claim
+ * (`runClaimedTask`), skipping `claimQueuedRun`/`executeQueuedAgentRun`
+ * entirely for the common case. No schema change: every column this needs
+ * already exists (`queue_claim_token`, `queue_claimed_at`, `heartbeat_at`,
+ * `deadline_at`, `execution_attempt_count`).
+ *
+ * `enqueueAgentTask` and `AgentCoreClient`/`LocalAgentClient`'s
+ * queued-then-dispatch callers are unaffected: they never set
+ * `claimImmediately`, so their runs still start `queued` and get claimed
+ * later by whichever process (this one, opportunistically, or the drain)
+ * gets there first -- unchanged from before this fix.
+ */
+export async function runAgentTask(
+  payload: AgentTask,
+  deps: RunAgentDeps,
+): Promise<RunResult> {
+  const outcome = await enqueueAgentTaskInternal(payload, deps, {
+    claimImmediately: true,
+  });
+  if ("result" in outcome) return outcome.result;
+  const { runId, sessionId, task, claimToken } = outcome.start;
+  return claimToken
+    ? runClaimedTask(task, deps, { id: runId, claimToken }, sessionId)
+    : executeQueuedAgentRun(runId, deps);
+}
+
+export async function enqueueAgentTask(
+  payload: AgentTask,
+  deps: RunAgentDeps,
+): Promise<RunResult> {
+  const outcome = await enqueueAgentTaskInternal(payload, deps, {
+    claimImmediately: false,
+  });
+  if ("result" in outcome) return outcome.result;
+  return queuedRunResult(outcome.start.runId, outcome.start.sessionId);
 }
 
 export async function executeQueuedAgentRun(
@@ -156,16 +253,55 @@ export async function executeQueuedAgentRun(
     throw new Error("Persisted agent task is outside its run home");
   }
 
+  return runClaimedTask(
+    task,
+    deps,
+    { id: runId, claimToken: claimed.queue_claim_token },
+    claimed.session_id,
+  );
+}
+
+/**
+ * Executes a task the caller already holds the claim for -- whether from
+ * `claimQueuedRun` (`executeQueuedAgentRun`) or from an immediate claim
+ * taken at insert time (`runAgentTask`). Resolves authority fresh (never
+ * trusts a persisted or in-memory authority across the claim boundary) and
+ * marks the run failed on any error, the same recovery both callers relied
+ * on before this was factored out.
+ */
+async function runClaimedTask(
+  task: AgentTask,
+  deps: RunAgentDeps,
+  run: { id: string; claimToken: string },
+  sessionId: string,
+): Promise<RunResult> {
   try {
     const authority = await authorityForTask(task, deps);
+    if (task.task === "guest_submit") {
+      const [stored] = await sqlClient(deps.db)<
+        { payload: unknown }[]
+      >`select payload from public.runs where id = ${run.id}`;
+      const requests = specialRequestsFromRunPayload(stored?.payload);
+      if (requests)
+        authority.guestSubmission = canonicalGuestSubmission(
+          task,
+          {},
+          requests,
+        );
+    }
     return await executeClaimedAgentTask(
       task,
       { ...deps, authority },
-      { id: runId, claimToken: claimed.queue_claim_token },
-      claimed.session_id,
+      run,
+      sessionId,
     );
   } catch (error) {
-    await failClaimedRun(sql, runId, claimed.queue_claim_token, executedOn);
+    await failClaimedRun(
+      sqlClient(deps.db),
+      run.id,
+      run.claimToken,
+      runtimeOf(deps),
+    );
     throw error;
   }
 }
@@ -279,22 +415,28 @@ async function executeClaimedAgentTask(
     await safeMemoryWrite(run.id, "flush", () => agent.memoryManager?.flush());
 
     if (result.stopReason === "interrupt") {
-      const ids: string[] = [];
-      for (const interrupt of result.interrupts ?? []) {
-        const [decision] = await sql<{ id: string }[]>`
+      return await sql.begin(async (sql) => {
+        await sql`select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))`;
+        const [active] =
+          await sql`select id from public.runs where id = ${run.id} and status = 'running' and queue_claim_token = ${run.claimToken}`;
+        if (!active)
+          throw new Error("The request was withdrawn while awaiting review");
+        const ids: string[] = [];
+        for (const interrupt of result.interrupts ?? []) {
+          const [decision] = await sql<{ id: string }[]>`
           insert into public.pending_decisions (
             home_id, run_id, agent_session_id, interrupt_id, interrupt_name, reason
-          ) values (
+          ) select
             ${task.homeId}, ${run.id}, ${sessionId}, ${interrupt.id},
             ${interrupt.name}, ${JSON.stringify(interrupt.reason ?? null)}::text::jsonb
-          )
+          where exists (select 1 from public.runs where id = ${run.id} and status = 'running' and queue_claim_token = ${run.claimToken})
           on conflict (agent_session_id, interrupt_id) do update
           set reason = excluded.reason
           returning id
         `;
-        if (decision) ids.push(decision.id);
-      }
-      await sql`
+          if (decision) ids.push(decision.id);
+        }
+        await sql`
         update public.runs set status = 'interrupted', result = ${JSON.stringify(
           terminalResultJson(result.toString(), executedOn),
         )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()},
@@ -302,14 +444,15 @@ async function executeClaimedAgentTask(
         where id = ${run.id} and status = 'running'
           and queue_claim_token = ${run.claimToken}
       `;
-      return {
-        runId: run.id,
-        status: "interrupted",
-        sessionId,
-        pendingDecisionIds: ids,
-        summary: result.toString(),
-        executedOn,
-      };
+        return {
+          runId: run.id,
+          status: "interrupted",
+          sessionId,
+          pendingDecisionIds: ids,
+          summary: result.toString(),
+          executedOn,
+        };
+      });
     }
 
     if (task.task === "resume") {
@@ -320,7 +463,7 @@ async function executeClaimedAgentTask(
             set applied_run_id = ${run.id}, application_error = null
             where id = ${decision.id}
               and home_id = ${task.homeId}
-              and applied_run_id = ${run.id}
+              and applied_run_id = ${run.id} and status in ('approved', 'declined')
             returning id
           `;
           if (!applied) return;
@@ -405,10 +548,21 @@ interface StartRunInput {
   startedAt: Date;
   actorKey: string;
   intentKey: string;
+  /**
+   * Insert (or restart) the row already claimed -- `status` `running`,
+   * `queue_claim_token` set, `queue_claimed_at`/`heartbeat_at`/
+   * `deadline_at` populated, `execution_attempt_count` 1 -- in the same
+   * statement, so it is never visible to the queue drain in a `queued`
+   * state (see `runAgentTask`'s doc comment). `false` reproduces exactly
+   * today's insert/update (status `queued`, every claim column left at
+   * its default), unchanged for every caller but `runAgentTask`.
+   */
+  claimImmediately: boolean;
 }
 
 type StartRunResult =
-  { replay: false; runId: string } | { replay: true; result: RunResult };
+  | { replay: false; runId: string; claimToken: string | null }
+  | { replay: true; result: RunResult };
 
 interface ClaimedRunRow {
   id: string;
@@ -487,8 +641,31 @@ function queuedRunResult(runId: string, sessionId: string): RunResult {
 }
 
 async function startRun(input: StartRunInput): Promise<StartRunResult> {
-  const { sql, task, sessionId, runPayload, startedAt, actorKey, intentKey } =
-    input;
+  const {
+    sql,
+    task,
+    sessionId,
+    runPayload,
+    startedAt,
+    actorKey,
+    intentKey,
+    claimImmediately,
+  } = input;
+  // Reproduces exactly what `claimQueuedRun` would set a moment later, but
+  // in the same insert/update statement that starts the row, so it is never
+  // visible in `queued` state in between (see `runAgentTask`'s doc
+  // comment). `null`/`0` when not claiming immediately -- the same values
+  // an insert/update omitting these columns would leave -- so this is a
+  // no-op for every caller except `runAgentTask`.
+  const claimToken = claimImmediately ? randomUUID() : null;
+  const status = claimImmediately ? "running" : "queued";
+  const claimedAt = claimImmediately ? startedAt.toISOString() : null;
+  const heartbeatAt = claimImmediately ? startedAt.toISOString() : null;
+  const deadlineAt = claimImmediately
+    ? new Date(startedAt.getTime() + 4 * 60 * 1_000).toISOString()
+    : null;
+  const executionAttemptCount = claimImmediately ? 1 : 0;
+
   return sql.begin(async (transaction) => {
     await transaction`
       select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))
@@ -525,12 +702,12 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
         }
         const [restarted] = await transaction<{ id: string }[]>`
           update public.runs
-          set status = 'queued', result = null,
+          set status = ${status}, result = null,
             started_at = ${startedAt.toISOString()}, finished_at = null,
-            heartbeat_at = null, deadline_at = null,
+            heartbeat_at = ${heartbeatAt}, deadline_at = ${deadlineAt},
             queue_available_at = ${startedAt.toISOString()},
-            queue_claimed_at = null, queue_claim_token = null,
-            execution_attempt_count = 0,
+            queue_claimed_at = ${claimedAt}, queue_claim_token = ${claimToken},
+            execution_attempt_count = ${executionAttemptCount},
             last_error = null,
             payload = ${JSON.stringify(runPayload)}::text::jsonb,
             request_attempt_count = request_attempt_count + ${interactiveRetry ? 1 : 0}
@@ -538,7 +715,7 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
           returning id
         `;
         if (!restarted) throw new Error("Failed to retry the agent request");
-        return { replay: false, runId: restarted.id };
+        return { replay: false, runId: restarted.id, claimToken };
       }
       return {
         replay: true,
@@ -560,17 +737,21 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
     const [created] = await transaction<{ id: string }[]>`
       insert into public.runs (
         home_id, session_id, task, status, payload, queue_available_at,
-        actor_key, intent_key, started_at
+        actor_key, intent_key, started_at,
+        queue_claimed_at, queue_claim_token, heartbeat_at, deadline_at,
+        execution_attempt_count
       ) values (
-        ${task.homeId}, ${sessionId}, ${task.task}, 'queued',
+        ${task.homeId}, ${sessionId}, ${task.task}, ${status},
         ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
         ${actorKey}, ${intentKey},
-        ${startedAt.toISOString()}
+        ${startedAt.toISOString()},
+        ${claimedAt}, ${claimToken}, ${heartbeatAt}, ${deadlineAt},
+        ${executionAttemptCount}
       )
       returning id
     `;
     if (!created) throw new Error("Failed to start agent run");
-    return { replay: false, runId: created.id };
+    return { replay: false, runId: created.id, claimToken };
   });
 }
 
@@ -799,9 +980,13 @@ async function authorityForTask(
   if (task.task === "guest_change" || task.task === "guest_reconfirm") {
     const [visit] = await sql<{ invitation_id: string; party_id: string }[]>`
       select invitation_id, party_id from public.visits
-      where id = ${task.visitId} and home_id = ${task.homeId}
+      where id = ${task.visitId} and home_id = ${task.homeId} and status <> 'cancelled'
+        and exists (select 1 from public.invitations i where i.id = visits.invitation_id and i.status <> 'cancelled')
     `;
-    if (!visit) throw new Error("Visit does not belong to the task home");
+    if (!visit)
+      throw new Error(
+        "Visit does not belong to the task home or was cancelled",
+      );
     return {
       homeId: task.homeId,
       invitationId: visit.invitation_id,
@@ -815,6 +1000,8 @@ async function authorityForTask(
       from public.scheduled_jobs job
       join public.visits visit on visit.id = job.visit_id
       where job.id = ${task.jobId} and job.home_id = ${task.homeId}
+        and job.status <> 'cancelled' and visit.status <> 'cancelled'
+        and exists (select 1 from public.invitations i where i.id = visit.invitation_id and i.status <> 'cancelled')
     `;
     if (!job) throw new Error("Scheduled job does not belong to the task home");
     return {
@@ -848,7 +1035,7 @@ async function authorityForTask(
       select v.id as visit_id, i.party_id, i.structured
       from public.invitations i
       left join public.visits v on v.invitation_id = i.id and v.home_id = i.home_id
-      where i.id = ${invitationId} and i.home_id = ${task.homeId}
+      where i.id = ${invitationId} and i.home_id = ${task.homeId} and i.status <> 'cancelled'
       order by v.created_at desc nulls last
       limit 1
     `;
@@ -929,8 +1116,9 @@ function canonicalGuestSubmission(
       trustedSpecialRequests ??
       uniqueStrings([
         ...invitationSpecialRequests(structured),
-        ...(task.notes ? [task.notes] : []),
+        ...(task.requests ? [task.requests] : []),
       ]),
+    notes: task.notes?.trim() || undefined,
     roomIds: task.roomIds,
     overflowConsent: task.overflowConsent,
   };
@@ -1034,7 +1222,10 @@ async function buildPrompt(
     // older shape any in-flight session snapshot may still carry.
     const searchInstruction = memoryEnabled ? SEARCH_MEMORY_INSTRUCTION : "";
     const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
-    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets, arrival ${task.arrivalTime ?? "not given"}, notes: ${task.notes ?? "none"}. Place a hold, then confirm it, and tell the guest what happens next in their language.${searchInstruction}${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
+    // Information, arrival details and explicit request prose stay in trusted
+    // server state. The policy hook supplies requests for approval; the model
+    // does not need these raw fields in its conversation or memory extraction.
+    return `The invited party (invitation ${task.invitationId}) chose ${task.stay.join(" to ")}, ${task.adults} adults, ${task.children} children, ${task.pets} pets. Place a hold, then confirm it, and tell the guest what happens next in their language. The policy layer supplies any explicit requests needing host approval.${searchInstruction}${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (
     task.task === "guest_change" ||
@@ -1044,7 +1235,7 @@ async function buildPrompt(
     // "Party ... asks to change" regex is now a no-op for this text, kept
     // for the older shape any in-flight session snapshot may still carry.
     const nameSteer = memoryEnabled ? MEMORY_NAME_STEER_INSTRUCTION : "";
-    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". Use find_visit_options if dates are unclear, then reschedule_visit.${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
+    return `The invited party asks to change visit ${task.visitId}: """${task.message ?? "Please change the stay"}""". If this message means the guest cannot attend, wants to withdraw, or may mean cancellation, call prepare_cancellation, then explain the exact review and confirmation step. Never reschedule a cancellation request. No cancellation happens until the guest explicitly confirms in their invitation. Otherwise use find_visit_options if dates are unclear, then reschedule_visit.${nameSteer}${NO_NOTIFY_INSTRUCTION}`;
   }
   if (task.task === "guest_reconfirm") return "Record the reconfirmation.";
   const [job] = await sql<
