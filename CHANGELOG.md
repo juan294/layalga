@@ -4,9 +4,19 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-08
+
+### Added
+
+- Host dashboard restructured into a hub-and-spoke IA: a "Today" overview (pending decisions, current visits, invitation capture, demo tooling) plus five sub-routes (`/rooms`, `/calendar`, `/guests`, `/settings`, `/activity`) reached through status-bearing hub cards, each with a breadcrumb back to Today. Underlying functionality is unchanged, only relocated.
+- A seasonal-artwork header on the Today overview, cross-fading with the demo clock's date the same way the sign-in postcard already does.
+- A theme selector (Auto/Light/Dark) on the sign-in/landing page; it was previously only available once signed in.
+
 ### Fixed
 
 - `capture_invitation` bounds `rememberedContext` to five entries of at most 120 characters instead of rejecting the call; a production run had retried after a 121-character recall failed validation.
+- `infra/iam/web-bedrock-policy.json` uses region-wildcard foundation-model ARNs in place of per-region entries; the per-region version exceeded the 2048-byte inline user policy size limit on apply (#118).
+- `data-theme` is always stamped on `<html>` ("auto" by default) instead of left absent, so design-sync's token scanner can register the dark-theme custom properties a bare `:not([data-theme="light"])` selector hid from it.
 
 ### Changed
 
