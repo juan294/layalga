@@ -86,6 +86,17 @@ export function formatHouseholdDateTime(
   }).format(new Date(value));
 }
 
+export function formatHouseholdDate(
+  value: string,
+  locale: string,
+  timeZone: string,
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone,
+  }).format(new Date(value));
+}
+
 export function formatDateStay(
   stay: readonly [string, string],
   locale: string,

@@ -412,6 +412,16 @@ body:has(.postcard) .site-header {
     padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
   }
 
+  .postcard__topline {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+  }
+
+  .postcard__topline .site-header__controls {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+
   .postcard h1 {
     margin-top: 2rem;
   }
@@ -460,8 +470,11 @@ html[data-theme="dark"][data-season="invierno"] {
 }
 
 @media (prefers-color-scheme: dark) {
-  /* :not([data-theme="light"]) matches "dark" and absent (auto) alike. */
-  html:not([data-theme="light"]) {
+  /* html[data-theme="auto"] matches system dark once <html> always carries
+     data-theme (see THEME_INIT_SCRIPT / the layout's static attribute);
+     design-sync's token scanner cannot register a bare
+     :not([data-theme="light"]) selector, so "auto" is explicit here. */
+  html[data-theme="auto"] {
     color-scheme: dark;
     --paper: #101617;
     --sheet: #171f21;
@@ -474,15 +487,15 @@ html[data-theme="dark"][data-season="invierno"] {
     --state-closed: #a9a296;
   }
 
-  html:not([data-theme="light"])[data-season="primavera"] {
+  html[data-theme="auto"][data-season="primavera"] {
     --teal: #b9c46a;
   }
 
-  html:not([data-theme="light"])[data-season="otono"] {
+  html[data-theme="auto"][data-season="otono"] {
     --teal: #e08a63;
   }
 
-  html:not([data-theme="light"])[data-season="invierno"] {
+  html[data-theme="auto"][data-season="invierno"] {
     --teal: #8fb3c9;
   }
 }

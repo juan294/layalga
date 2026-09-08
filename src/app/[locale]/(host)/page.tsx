@@ -1,9 +1,6 @@
-import type { CSSProperties } from "react";
 import { HostOutcomes } from "@/components/host/host-outcomes";
 import { GuidedDemoPanel } from "@/components/host/guided-demo-panel";
 import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
-import { HostVisitNotes } from "@/components/host/host-visit-notes";
-import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
 import { getTranslations } from "next-intl/server";
 import { after } from "next/server";
@@ -13,83 +10,40 @@ import { SystemClock } from "@/core/clock";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { dispatchHostEmailPingsSafely } from "@/core/notifications/email-outbox";
-import { requireHost } from "@/lib/auth/current-host";
-import { maskHostEmail } from "@/lib/auth/host-emails";
 import { decisionReasonKey } from "@/lib/decision-reasons";
 import { objectValue } from "@/lib/json-object";
-import { parseServerEnvironment } from "@/lib/server/env";
 import {
-  calendarMonthFromSearch,
-  calendarMonthValue,
   calendarMonthWindow,
   formatDateStay,
+  formatHouseholdDate,
   formatHouseholdDateTime,
   householdMonth,
 } from "@/components/frontend-utils";
-import {
-  CalendarLedger,
-  type LedgerVisit,
-} from "@/components/host/calendar-ledger";
+import { householdSeason, SEASON_LABEL } from "@/lib/season";
 import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
 import { DemoClockPanel } from "@/components/host/demo-clock-panel";
-import {
-  MemoryPanel,
-  type MemoryPartyRecords,
-} from "@/components/host/memory-panel";
-import {
-  RoomLedger,
-  type RoomLedgerLabels,
-} from "@/components/host/room-ledger";
-import { updateEmailPingsAction, cancelHostInvitation } from "./actions";
-import { loadHostMemoryPanel } from "./memory-data";
-import { loadHostRoomLedger } from "./room-data";
+import { DemoSeasonSync } from "@/components/host/demo-season-sync";
+import { DemoZone } from "@/components/host/demo-zone";
+import { HubCards, type HubCard } from "@/components/host/hub-cards";
+import { TodayHero } from "@/components/host/today-hero";
+import { cancelHostInvitation } from "./actions";
+import { loadHostContext } from "./host-context";
+import { loadHubStatuses } from "./hub-status";
 import {
   PendingDecisions,
   type PendingDecisionItem,
 } from "@/components/host/pending-decisions";
 import {
-  activityKindLabelKey,
-  activityPolicyLabelKey,
-  activityToolLabelKey,
-} from "@/components/host/activity-labels";
-import {
-  buttonStyle,
   graphite,
   headingStyle,
-  ink,
   labelStyle,
   panelStyle,
-  paper,
-  quietButtonStyle,
-  rule,
-  sheet,
-  teal,
+  sectionGridStyle,
 } from "@/components/host/host-styles";
-
-const sectionGridStyle: CSSProperties = {
-  alignItems: "start",
-  display: "grid",
-  gap: "clamp(1rem, 3vw, 2rem)",
-  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
-  marginTop: "clamp(1.5rem, 4vw, 3rem)",
-};
 
 interface HostPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{
-    month?: string;
-    cancel?: string;
-    invitation?: string;
-  }>;
-}
-
-interface VisitRow {
-  id: string;
-  family_name: string;
-  stay_start: string;
-  stay_end: string;
-  status: string;
-  room_names: string[];
+  searchParams: Promise<{ cancel?: string; invitation?: string }>;
 }
 
 interface DecisionRow {
@@ -103,80 +57,21 @@ interface DecisionRow {
   created_at: Date | string;
 }
 
-interface ActivityRow {
-  id: string;
-  source: "audit" | "notification";
-  kind: string;
-  detail: unknown;
-  created_at: Date | string;
-}
-
-export default async function HostPage({
+export default async function HostTodayPage({
   params,
   searchParams,
 }: HostPageProps) {
   const { locale } = await params;
-  const safeLocale = locale === "es" ? "es" : "en";
-  const host = await requireHost(safeLocale);
+  const { host, locale: safeLocale, timeZone, demoNow } = await loadHostContext(locale);
   after(() =>
     dispatchHostEmailPingsSafely(getDatabaseConnection().db, new SystemClock()),
   );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
-  const clockRows = await sql<
-    { now: Date | string | null; timezone: string }[]
-  >`
-    select dc.now, h.timezone
-    from public.homes h
-    left join public.demo_clock dc
-      on dc.home_id = h.id and dc.enabled and h.demo
-    where h.id = ${host.homeId}
-  `;
-  const timeZone = clockRows[0]?.timezone ?? "UTC";
-  const defaultMonth = householdMonth(
-    clockRows[0]?.now ?? undefined,
-    undefined,
-    timeZone,
-  );
-  const calendarMonth = calendarMonthFromSearch(
-    (await searchParams).month,
-    defaultMonth,
-  );
-  const calendarWindow = calendarMonthWindow(calendarMonth);
+  const currentMonth = householdMonth(demoNow ?? undefined, undefined, timeZone);
+  const monthWindow = calendarMonthWindow(currentMonth);
 
-  const envConfig = parseServerEnvironment();
-
-  const [
-    roomData,
-    visitRows,
-    decisionRows,
-    activityRows,
-    emailPingsRows,
-    memoryParties,
-  ] = await Promise.all([
-    loadHostRoomLedger(sql, host.homeId, [
-      calendarWindow.from,
-      calendarWindow.to,
-    ]),
-    sql<VisitRow[]>`
-      select v.id, p.family_name, lower(v.stay)::text as stay_start,
-        upper(v.stay)::text as stay_end, v.status,
-        coalesce(array_agg(r.name order by r.name)
-          filter (where r.id is not null), '{}') as room_names
-      from public.visits v
-      join public.parties p on p.id = v.party_id
-      left join public.visit_rooms vr on vr.visit_id = v.id
-      left join public.rooms r on r.id = vr.room_id
-      where v.home_id = ${host.homeId}
-        and v.status <> 'cancelled'
-        and v.stay && daterange(
-          ${calendarWindow.from}::date,
-          ${calendarWindow.to}::date,
-          '[)'
-        )
-      group by v.id, p.family_name
-      order by lower(v.stay), p.family_name
-    `,
+  const [decisionRows, hubStatuses] = await Promise.all([
     sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
@@ -221,56 +116,14 @@ export default async function HostPage({
         )
       order by pd.created_at
     `,
-    sql<ActivityRow[]>`
-      (
-        select ae.id, 'audit'::text as source, ae.kind, ae.payload as detail,
-          ae.created_at
-        from public.audit_events ae
-        where ae.home_id = ${host.homeId}
-      )
-      union all
-      (
-        select n.id, 'notification'::text as source, n.kind,
-          to_jsonb(${safeLocale === "es" ? sql`n.body_es` : sql`n.body_en`}) as detail,
-          n.created_at
-        from public.notifications n
-        where n.home_id = ${host.homeId}
-          and n.recipient_kind = 'host'
-          and n.recipient_id = ${host.id}
-      )
-      order by created_at desc
-      limit 20
-    `,
-    sql<{ normalized_email: string | null; email_pings: boolean | null }[]>`
-      select claim.normalized_email, settings.email_pings
-      from public.hosts host
-      left join public.host_identity_claims claim on claim.host_id = host.id
-      left join public.host_notification_settings settings
-        on settings.host_id = host.id
-      where host.id = ${host.id}
-      order by claim.normalized_email
-      limit 1
-    `,
-    envConfig.memory === "agentcore" &&
-    envConfig.memoryId &&
-    envConfig.awsRegion
-      ? loadHostMemoryPanel(
-          sql,
-          host.homeId,
-          envConfig.memoryId,
-          envConfig.awsRegion,
-        )
-      : Promise.resolve([]),
+    loadHubStatuses(
+      getDatabaseConnection().db,
+      host.homeId,
+      host.id,
+      [monthWindow.from, monthWindow.to],
+    ),
   ]);
 
-  const visits: LedgerVisit[] = visitRows.map((visit) => ({
-    id: visit.id,
-    familyName: visit.family_name,
-    start: visit.stay_start,
-    end: visit.stay_end,
-    status: visit.status,
-    rooms: visit.room_names,
-  }));
   const decisions: PendingDecisionItem[] = decisionRows.map((decision) => {
     const context = verifiedHostDecisionContext(decision.reason);
     return {
@@ -311,190 +164,160 @@ export default async function HostPage({
       ),
     };
   });
-  const statusLabels = {
-    hold: t("status.hold"),
-    confirmed: t("status.confirmed"),
-    reconfirm_pending: t("status.reconfirmPending"),
-    reconfirmed: t("status.reconfirmed"),
-    escalated: t("status.escalated"),
-  };
-  const emailPingsSetting = emailPingsRows[0];
-  const maskedEmail = emailPingsSetting?.normalized_email
-    ? maskHostEmail(emailPingsSetting.normalized_email)
-    : null;
-  const emailPingsEnabled = emailPingsSetting?.email_pings ?? true;
-  const memoryPartyRecords: MemoryPartyRecords[] = memoryParties.map(
-    (party) => ({
-      partyId: party.partyId,
-      partyName: party.partyName,
-      records: party.records.map((record) => ({
-        id: record.id,
-        text: record.text,
-        createdAtLabel: formatHouseholdDateTime(
-          record.createdAt.toISOString(),
-          safeLocale,
-          timeZone,
-        ),
-      })),
-    }),
-  );
+
+  const monthLabel = new Intl.DateTimeFormat(safeLocale, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(currentMonth);
+  const hubCards: HubCard[] = [
+    {
+      href: `/${safeLocale}/calendar`,
+      eyebrow: t("calendar.eyebrow"),
+      title: t("calendar.title"),
+      status: t("hub.calendarStatus", {
+        month: monthLabel,
+        count: hubStatuses.visitsThisMonth,
+      }),
+    },
+    {
+      href: `/${safeLocale}/rooms`,
+      eyebrow: t("rooms.eyebrow"),
+      title: t("rooms.title"),
+      status: t("hub.roomsStatus", {
+        available: hubStatuses.roomsAvailable,
+        withheld: hubStatuses.roomsWithheld,
+      }),
+    },
+    {
+      href: `/${safeLocale}/guests`,
+      eyebrow: t("memory.eyebrow"),
+      title: t("memory.title"),
+      status: t("hub.guestsStatus", { count: hubStatuses.familiesOnFile }),
+    },
+    {
+      href: `/${safeLocale}/settings`,
+      eyebrow: t("settings.eyebrow"),
+      title: t("settings.title"),
+      status: t("hub.settingsStatus", {
+        pings: hubStatuses.emailPingsEnabled ? "on" : "off",
+        max: hubStatuses.maxFamiliesWithChildren,
+      }),
+    },
+    {
+      href: `/${safeLocale}/activity`,
+      eyebrow: t("activity.eyebrow"),
+      title: t("activity.title"),
+      status: t("hub.activityStatus", {
+        recorded: hubStatuses.activityRecorded ? "yes" : "no",
+      }),
+    },
+  ];
+
+  const season = householdSeason(demoNow ?? new Date().toISOString(), timeZone);
+  const dateSeasonLabel = `${formatHouseholdDate(
+    demoNow ?? new Date().toISOString(),
+    safeLocale,
+    timeZone,
+  )} · ${SEASON_LABEL[season]}`;
 
   return (
-    <main
-      style={{
-        background: paper,
-        color: ink,
-        display: "block",
-        fontFamily: "var(--font-inter, Arial, sans-serif)",
-        minHeight: "100dvh",
-        padding: "clamp(1rem, 4vw, 4rem)",
-        textAlign: "left",
-      }}
-    >
-      <div style={{ margin: "0 auto", maxWidth: "92rem" }}>
-        {process.env.DEMO_MODE === "true" && host.demo ? (
-          <aside
-            style={{
-              alignItems: "center",
-              background: teal,
-              color: sheet,
-              display: "flex",
-              flexWrap: "wrap",
-              fontFamily: "var(--font-jetbrains-mono, ui-monospace, monospace)",
-              fontSize: "0.75rem",
-              fontWeight: 750,
-              justifyContent: "space-between",
-              letterSpacing: "0.1em",
-              marginBottom: "1rem",
-              padding: "0.65rem 0.9rem",
-              textTransform: "uppercase",
+    <>
+      {demoNow ? <DemoSeasonSync demoNow={demoNow} timeZone={timeZone} /> : null}
+      <TodayHero
+        dateSeasonLabel={dateSeasonLabel}
+        eyebrow={t("eyebrow")}
+        locale={safeLocale}
+        season={season}
+        signOutLabel={t("account.signOut")}
+        title={t("title")}
+        welcomeLabel={t("welcome", { name: host.displayName })}
+      />
+
+      <div style={sectionGridStyle}>
+        <section id="host-decisions" style={panelStyle}>
+          <p style={labelStyle}>{t("decisions.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("decisions.title")}</h2>
+          <PendingDecisions
+            decisions={decisions}
+            labels={{
+              empty: t("decisions.empty"),
+              reason: t("decisions.reason"),
+              requestedStay: t("decisions.requestedStay"),
+              createdAt: t("decisions.createdAt"),
+              requestDetail: t("decisions.requestDetail"),
+              overlap: t("decisions.overlap"),
+              note: t("decisions.note"),
+              notePlaceholder: t("decisions.notePlaceholder"),
+              approve: t("decisions.approve"),
+              approving: t("decisions.approving"),
+              decline: t("decisions.decline"),
+              declining: t("decisions.declining"),
+              retryApproved: t("decisions.retryApproved"),
+              retryApproving: t("decisions.retryApproving"),
+              retryDeclined: t("decisions.retryDeclined"),
+              retryDeclining: t("decisions.retryDeclining"),
+              retryHelp: t("decisions.retryHelp"),
+              applying: t("decisions.applying"),
             }}
-          >
-            <span>{t("demo.banner")}</span>
-            <span>{t("demo.notLive")}</span>
-          </aside>
-        ) : null}
+            locale={safeLocale}
+          />
+        </section>
 
-        <header
-          style={{
-            alignItems: "end",
-            borderBottom: `3px double ${ink}`,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "1rem",
-            justifyContent: "space-between",
-            padding: "0.5rem 0 1.4rem",
-          }}
-        >
-          <div>
-            <p style={{ ...labelStyle, color: teal }}>{t("eyebrow")}</p>
-            <h1
-              style={{
-                fontFamily: "var(--font-fraunces, Georgia, serif)",
-                fontSize: "clamp(2.5rem, 8vw, 6rem)",
-                fontWeight: 560,
-                letterSpacing: "-0.055em",
-                lineHeight: 0.9,
-                margin: "0.7rem 0 0",
-              }}
-            >
-              {t("title")}
-            </h1>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ color: graphite, margin: "0 0 0.55rem" }}>
-              {t("welcome", { name: host.displayName })}
-            </p>
-            <form action="/auth/sign-out" method="post">
-              <input name="locale" type="hidden" value={safeLocale} />
-              <button style={quietButtonStyle} type="submit">
-                {t("account.signOut")}
-              </button>
-            </form>
-          </div>
-        </header>
+        <section id="capture-invitation" style={panelStyle}>
+          <p style={labelStyle}>{t("capture.eyebrow")}</p>
+          <h2 style={headingStyle}>{t("capture.title")}</h2>
+          <CaptureInvitationForm
+            labels={{
+              message: t("capture.message"),
+              placeholder: t("capture.placeholder"),
+              submit: t("capture.submit"),
+              pending: t("capture.pending"),
+              result: t("capture.result"),
+              structured: t("capture.structured"),
+              remembered: t("memory.remembered"),
+              guestLink: t("capture.guestLink"),
+              copy: t("capture.copy"),
+              copied: t("capture.copied"),
+              copyFailed: t("capture.copyFailed"),
+              emptyError: t("capture.emptyError"),
+              failedError: t("capture.failedError"),
+              queued: t("capture.queued"),
+              statusLink: t("capture.statusLink"),
+              reveal: t("capture.reveal"),
+              revealing: t("capture.revealing"),
+              completionFailed: t("capture.completionFailed"),
+            }}
+            locale={safeLocale}
+            timeZone={timeZone}
+          />
+        </section>
+      </div>
 
-        <div style={sectionGridStyle}>
-          <section id="host-decisions" style={panelStyle}>
-            <p style={labelStyle}>{t("decisions.eyebrow")}</p>
-            <h2 style={headingStyle}>{t("decisions.title")}</h2>
-            <PendingDecisions
-              decisions={decisions}
-              labels={{
-                empty: t("decisions.empty"),
-                reason: t("decisions.reason"),
-                requestedStay: t("decisions.requestedStay"),
-                createdAt: t("decisions.createdAt"),
-                requestDetail: t("decisions.requestDetail"),
-                overlap: t("decisions.overlap"),
-                note: t("decisions.note"),
-                notePlaceholder: t("decisions.notePlaceholder"),
-                approve: t("decisions.approve"),
-                approving: t("decisions.approving"),
-                decline: t("decisions.decline"),
-                declining: t("decisions.declining"),
-                retryApproved: t("decisions.retryApproved"),
-                retryApproving: t("decisions.retryApproving"),
-                retryDeclined: t("decisions.retryDeclined"),
-                retryDeclining: t("decisions.retryDeclining"),
-                retryHelp: t("decisions.retryHelp"),
-                applying: t("decisions.applying"),
-              }}
-              locale={safeLocale}
-            />
-          </section>
+      <div style={sectionGridStyle}>
+        <HostOutcomes homeId={host.homeId} locale={safeLocale}>
+          <HostCancellationPanel
+            database={getDatabaseConnection().db}
+            homeId={host.homeId}
+            locale={safeLocale}
+            action={cancelHostInvitation}
+            changedInvitation={
+              (await searchParams).cancel === "changed"
+                ? (await searchParams).invitation
+                : undefined
+            }
+          />
+        </HostOutcomes>
+        <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
+      </div>
 
-          <section id="capture-invitation" style={panelStyle}>
-            <p style={labelStyle}>{t("capture.eyebrow")}</p>
-            <h2 style={headingStyle}>{t("capture.title")}</h2>
-            <CaptureInvitationForm
-              labels={{
-                message: t("capture.message"),
-                placeholder: t("capture.placeholder"),
-                submit: t("capture.submit"),
-                pending: t("capture.pending"),
-                result: t("capture.result"),
-                structured: t("capture.structured"),
-                remembered: t("memory.remembered"),
-                guestLink: t("capture.guestLink"),
-                copy: t("capture.copy"),
-                copied: t("capture.copied"),
-                copyFailed: t("capture.copyFailed"),
-                emptyError: t("capture.emptyError"),
-                failedError: t("capture.failedError"),
-                queued: t("capture.queued"),
-                statusLink: t("capture.statusLink"),
-                reveal: t("capture.reveal"),
-                revealing: t("capture.revealing"),
-                completionFailed: t("capture.completionFailed"),
-              }}
-              locale={safeLocale}
-              timeZone={timeZone}
-            />
-          </section>
-        </div>
+      <HubCards cards={hubCards} openLabel={t("hub.open")} />
 
-        <div style={sectionGridStyle}>
-          <HostOutcomes homeId={host.homeId} locale={safeLocale}>
-            <HostCancellationPanel
-              database={getDatabaseConnection().db}
-              homeId={host.homeId}
-              locale={locale === "es" ? "es" : "en"}
-              action={cancelHostInvitation}
-              changedInvitation={
-                (await searchParams).cancel === "changed"
-                  ? (await searchParams).invitation
-                  : undefined
-              }
-            />
-          </HostOutcomes>
-          <GuestDeliveryPanel homeId={host.homeId} locale={safeLocale} />
-        </div>
-
-        {process.env.DEMO_MODE === "true" && host.demo ? (
+      {process.env.DEMO_MODE === "true" && host.demo ? (
+        <DemoZone tag={t("demoZone.tag")}>
           <div style={sectionGridStyle}>
             <GuidedDemoPanel homeId={host.homeId} locale={safeLocale} />
-            {clockRows[0]?.now ? (
+            {demoNow ? (
               <section style={panelStyle}>
                 <p style={labelStyle}>{t("demo.eyebrow")}</p>
                 <h2 style={headingStyle}>{t("demo.title")}</h2>
@@ -502,11 +325,11 @@ export default async function HostPage({
                   {t("demo.description")}
                 </p>
                 <DemoClockPanel
-                  current={new Date(clockRows[0].now).toISOString()}
+                  current={demoNow}
                   currentLabel={formatHouseholdDateTime(
-                    String(clockRows[0].now),
+                    demoNow,
                     safeLocale,
-                    clockRows[0].timezone,
+                    timeZone,
                   )}
                   homeId={host.homeId}
                   labels={{
@@ -523,240 +346,15 @@ export default async function HostPage({
                     backward: t("demo.backward"),
                   }}
                   locale={safeLocale}
-                  timeZone={clockRows[0].timezone}
+                  timeZone={timeZone}
                 />
               </section>
             ) : null}
           </div>
-        ) : null}
-
-        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
-          <p style={labelStyle}>{t("rooms.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("rooms.title")}</h2>
-          <div style={panelStyle}>
-            <RoomLedger
-              data={roomData}
-              labels={roomLedgerLabels(t)}
-              locale={safeLocale}
-            />
-          </div>
-        </section>
-
-        <section style={{ marginTop: "clamp(1.5rem, 4vw, 3.5rem)" }}>
-          <p style={labelStyle}>{t("calendar.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("calendar.title")}</h2>
-          <div style={panelStyle}>
-            <HostVisitNotes
-              database={getDatabaseConnection().db}
-              homeId={host.homeId}
-              locale={safeLocale}
-            />
-            <CalendarLedger
-              emptyLabel={t("calendar.empty")}
-              locale={safeLocale}
-              month={calendarMonth}
-              navigation={{
-                previousHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, -1)}`,
-                previousLabel: t("calendar.previous"),
-                nextHref: `/${safeLocale}?month=${calendarMonthValue(calendarMonth, 1)}`,
-                nextLabel: t("calendar.next"),
-                visitCountLabel: t("calendar.visitCount", {
-                  count: visits.length,
-                }),
-              }}
-              roomsLabel={t("calendar.rooms")}
-              statusLabels={statusLabels}
-              visits={visits}
-            />
-          </div>
-        </section>
-
-        <div style={sectionGridStyle}>
-          <section style={panelStyle}>
-            <p style={labelStyle}>{t("emailPings.eyebrow")}</p>
-            <h2 style={headingStyle}>{t("emailPings.title")}</h2>
-            {maskedEmail ? (
-              <>
-                <p
-                  style={{
-                    color: graphite,
-                    lineHeight: 1.6,
-                    margin: "0 0 1rem",
-                  }}
-                >
-                  {t("emailPings.description", { address: maskedEmail })}
-                </p>
-                <form action={updateEmailPingsAction}>
-                  <input name="locale" type="hidden" value={safeLocale} />
-                  <input
-                    name="emailPings"
-                    type="hidden"
-                    value={emailPingsEnabled ? "false" : "true"}
-                  />
-                  <button style={buttonStyle} type="submit">
-                    {emailPingsEnabled
-                      ? t("emailPings.turnOff")
-                      : t("emailPings.turnOn")}
-                  </button>
-                </form>
-                <p style={{ color: graphite, margin: "0.75rem 0 0" }}>
-                  {emailPingsEnabled
-                    ? t("emailPings.statusOn")
-                    : t("emailPings.statusOff")}
-                </p>
-              </>
-            ) : (
-              <p style={{ color: graphite, margin: 0 }}>
-                {t("emailPings.noAddress")}
-              </p>
-            )}
-          </section>
-
-          <HouseholdPolicyPanel
-            homeId={host.homeId}
-            hostId={host.id}
-            locale={safeLocale}
-          />
-
-          <MemoryPanel
-            locale={safeLocale}
-            parties={memoryPartyRecords}
-            labels={{
-              eyebrow: t("memory.eyebrow"),
-              title: t("memory.title"),
-              description: t("memory.description"),
-              recordsEmpty: t("memory.recordsEmpty"),
-              forget: t("memory.forget"),
-            }}
-          />
-        </div>
-
-        <section
-          style={{ ...panelStyle, marginTop: "clamp(1.5rem, 4vw, 3rem)" }}
-        >
-          <p style={labelStyle}>{t("activity.eyebrow")}</p>
-          <h2 style={headingStyle}>{t("activity.title")}</h2>
-          {activityRows.length ? (
-            <ol style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {activityRows.map((activity) => (
-                <li
-                  key={`${activity.source}-${activity.id}`}
-                  style={{
-                    alignItems: "baseline",
-                    borderTop: `1px solid ${rule}`,
-                    display: "grid",
-                    gap: "0.75rem",
-                    gridTemplateColumns: "minmax(8rem, 0.25fr) 1fr",
-                    padding: "0.75rem 0",
-                  }}
-                >
-                  <time
-                    dateTime={new Date(activity.created_at).toISOString()}
-                    style={labelStyle}
-                  >
-                    {formatHouseholdDateTime(
-                      String(activity.created_at),
-                      safeLocale,
-                      timeZone,
-                    )}
-                  </time>
-                  <div>
-                    <strong>
-                      {t(
-                        `activityKinds.${activityKindLabelKey(activity.kind) ?? "other"}`,
-                      )}
-                    </strong>
-                    <p
-                      style={{
-                        color: graphite,
-                        lineHeight: 1.5,
-                        margin: "0.2rem 0 0",
-                      }}
-                    >
-                      {activityDetail(activity, safeLocale, t)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p style={{ color: graphite, margin: 0 }}>{t("activity.empty")}</p>
-          )}
-        </section>
-      </div>
-    </main>
+        </DemoZone>
+      ) : null}
+    </>
   );
-}
-
-function roomLedgerLabels(
-  t: Awaited<ReturnType<typeof getTranslations>>,
-): RoomLedgerLabels {
-  return {
-    doorStripLabel: t("rooms.doorStripLabel"),
-    inventoryTitle: t("rooms.inventoryTitle"),
-    inventoryHelp: t("rooms.inventoryHelp"),
-    addRoom: t("rooms.addRoom"),
-    privateBlockTitle: t("rooms.privateBlockTitle"),
-    privateBlockHelp: t("rooms.privateBlockHelp"),
-    roomsLabel: t("rooms.roomsLabel"),
-    publicLabel: t("rooms.publicLabel"),
-    privateNote: t("rooms.privateNote"),
-    createBlock: t("rooms.createBlock"),
-    cancel: t("rooms.cancel"),
-    from: t("rooms.from"),
-    to: t("rooms.to"),
-    dateControlTitle: t("rooms.dateControlTitle"),
-    dateControlHelp: t("rooms.dateControlHelp"),
-    room: t("rooms.room"),
-    chooseRoom: t("rooms.chooseRoom"),
-    action: t("rooms.action"),
-    close: t("rooms.close"),
-    open: t("rooms.open"),
-    saveControl: t("rooms.saveControl"),
-    remove: t("rooms.remove"),
-    agentRequestTitle: t("rooms.agentRequestTitle"),
-    agentRequestHelp: t("rooms.agentRequestHelp"),
-    agentRequestLabel: t("rooms.agentRequestLabel"),
-    agentRequestPlaceholder: t("rooms.agentRequestPlaceholder"),
-    agentRequestSubmit: t("rooms.agentRequestSubmit"),
-    proposalTitle: t("rooms.proposalTitle"),
-    proposalHelp: t("rooms.proposalHelp"),
-    apply: t("rooms.apply"),
-    dismiss: t("rooms.dismiss"),
-    noProposals: t("rooms.noProposals"),
-    capacity: (standard, maximum) => t("rooms.capacity", { standard, maximum }),
-    states: {
-      available: t("rooms.states.available"),
-      occupied: t("rooms.states.occupied"),
-      private: t("rooms.states.private"),
-      closed: t("rooms.states.closed"),
-      withheld: t("rooms.states.withheld"),
-      inactive: t("rooms.states.inactive"),
-      draft: t("rooms.states.draft"),
-    },
-    actions: {
-      open: t("rooms.open"),
-      close: t("rooms.close"),
-      private_block: t("rooms.private_block"),
-    },
-    inventory: {
-      internalName: t("rooms.internalName"),
-      guestLabel: t("rooms.guestLabel"),
-      floor: t("rooms.floor"),
-      sleepingArrangement: t("rooms.sleepingArrangement"),
-      standardCapacity: t("rooms.standardCapacity"),
-      maximumCapacity: t("rooms.maximumCapacity"),
-      inventoryState: t("rooms.inventoryState"),
-      overflowPolicy: t("rooms.overflowPolicy"),
-      overflowArrangement: t("rooms.overflowArrangementField"),
-      displayOrder: t("rooms.displayOrder"),
-      privateNotes: t("rooms.privateNotes"),
-      none: t("rooms.none"),
-      hostApproval: t("rooms.hostApproval"),
-      save: t("rooms.saveRoom"),
-      create: t("rooms.createRoom"),
-    },
-  };
 }
 
 function reasonLabel(
@@ -766,36 +364,4 @@ function reasonLabel(
   const reason = objectValue(value);
   const key = decisionReasonKey(reason?.reason ?? reason?.decision);
   return t(`decisionReasons.${key}`);
-}
-
-function activityDetail(
-  activity: ActivityRow,
-  locale: string,
-  t: Awaited<ReturnType<typeof getTranslations>>,
-): string {
-  if (activity.source === "notification") {
-    return typeof activity.detail === "string"
-      ? activity.detail
-      : t("activity.noDetail");
-  }
-  if (activity.kind === "household_policy_updated")
-    return t("activity.policyUpdatedDetail");
-  const detail = objectValue(activity.detail);
-  if (typeof detail?.name === "string") {
-    const key = activityToolLabelKey(detail.name);
-    return t("activity.toolDetail", {
-      name: key ? t(`activityTools.${key}`) : t("activityTools.other"),
-    });
-  }
-  if (typeof detail?.decision === "string") {
-    const key = activityPolicyLabelKey(detail.decision);
-    return t("activity.policyDetail", {
-      decision: key
-        ? t(`activityPolicies.${key}`)
-        : t("activityPolicies.other"),
-    });
-  }
-  return `${t("activity.noDetail")} · ${new Intl.DateTimeFormat(locale, {
-    timeStyle: "short",
-  }).format(new Date(activity.created_at))}`;
 }

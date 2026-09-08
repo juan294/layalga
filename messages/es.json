@@ -274,6 +274,24 @@
     },
     "visitInformation": {
       "title": "Información de los huéspedes"
+    },
+    "nav": {
+      "backToToday": "← Estancias de invitados"
+    },
+    "hub": {
+      "open": "Abrir →",
+      "roomsStatus": "{available} disponibles · {withheld} reservadas",
+      "calendarStatus": "{month} · {count, plural, =0 {sin visitas todavía} one {# visita} other {# visitas}}",
+      "guestsStatus": "{count, plural, =0 {Ninguna familia registrada} one {# familia registrada} other {# familias registradas}}",
+      "settingsStatus": "{pings, select, on {Avisos por correo activados} other {Avisos por correo desactivados}} · {max, plural, =0 {Sin límite de familias} one {# familia con niños máx.} other {# familias con niños máx.}}",
+      "activityStatus": "{recorded, select, yes {Actividad reciente registrada} other {Nada registrado todavía}}"
+    },
+    "settings": {
+      "eyebrow": "Normas y notificaciones",
+      "title": "Ajustes"
+    },
+    "demoZone": {
+      "tag": "Herramientas de demo"
     }
   },
   "Guest": {

@@ -67,6 +67,22 @@ export const quietButtonStyle: CSSProperties = {
   color: ink,
 };
 
+/** The one <h1> a host sub-page carries, below its breadcrumb -- sized like
+ * the mock's h1.page on a sub-route (44px), smaller than the Today hero's
+ * H1 (56px, see TodayHero) but larger than a nested section's h2. */
+export const pageHeadingStyle: CSSProperties = {
+  ...headingStyle,
+  fontSize: "clamp(1.85rem, 5vw, 2.75rem)",
+};
+
+export const sectionGridStyle: CSSProperties = {
+  alignItems: "start",
+  display: "grid",
+  gap: "clamp(1rem, 3vw, 2rem)",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 24rem), 1fr))",
+  marginTop: "clamp(1.5rem, 4vw, 3rem)",
+};
+
 export const visuallyHiddenStyle: CSSProperties = {
   height: 1,
   margin: -1,

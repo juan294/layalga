@@ -1,0 +1,41 @@
+.hub {
+  display: grid;
+  gap: clamp(1rem, 3vw, 1.25rem);
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  margin-top: clamp(1.5rem, 4vw, 2rem);
+}
+
+.card {
+  background: var(--sheet);
+  border: 1px solid var(--ink);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 18%, transparent);
+  color: inherit;
+  display: block;
+  min-height: 9.5rem;
+  padding: 1.25rem;
+  text-decoration: none;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.card:hover,
+.card:focus-visible {
+  box-shadow: 6px 6px 0 color-mix(in srgb, var(--ink) 18%, transparent);
+  color: inherit;
+  transform: translate(-2px, -2px);
+}
+
+.status {
+  color: var(--graphite);
+  font-size: 0.875rem;
+  margin: 0.4rem 0 0;
+}
+
+.open {
+  color: var(--teal);
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  margin-top: 0.9rem;
+  text-transform: uppercase;
+}
