@@ -207,7 +207,7 @@ export async function updateEmailPingsAction(
       on conflict (host_id) do update
       set email_pings = excluded.email_pings, updated_at = now()
     `;
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/settings`);
   } catch (error) {
     reportActionError("email_settings_update_failed", error);
   }
@@ -244,7 +244,7 @@ export async function forgetPartyMemoryAction(
       config.memoryId,
       config.awsRegion,
     );
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/guests`);
   } catch (error) {
     reportActionError("memory_forget_failed", error);
   }

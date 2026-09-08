@@ -83,7 +83,7 @@ describe("host room actions", () => {
         roomId,
       }),
     );
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en/rooms");
 
     mocks.updateRoomInventory.mockRejectedValueOnce(
       new Error("stale or cross-home room"),
@@ -119,7 +119,7 @@ describe("host room actions", () => {
       locale: "es",
     });
     expect(mocks.redirect).toHaveBeenCalledWith(
-      "/es/runs/run-room-1/status?returnTo=%2Fes",
+      "/es/runs/run-room-1/status?returnTo=%2Fes%2Frooms",
     );
   });
 });

@@ -13,11 +13,14 @@ import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
 import { currentSeason } from "@/lib/season";
 
-// Stamps a forced light/dark override on <html> before first paint, so a
-// user whose stored preference disagrees with their OS setting never sees a
-// flash of the wrong theme. Absent (or "auto"/removed) leaves the
-// prefers-color-scheme media query in globals.css in control.
-const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('layalga-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}`;
+// Stamps data-theme on <html> before first paint, so a user whose stored
+// preference disagrees with their OS setting never sees a flash of the
+// wrong theme. data-theme is always present -- "auto" (the default) follows
+// prefers-color-scheme via html[data-theme="auto"] in globals.css; design-
+// sync's token scanner cannot register a bare :not([data-theme="light"])
+// scope, so "auto" is stamped explicitly rather than left absent. The static
+// data-theme="auto" below is the no-JS fallback.
+const THEME_INIT_SCRIPT = `try{var t=localStorage.getItem('layalga-theme');document.documentElement.dataset.theme=(t==='light'||t==='dark')?t:'auto'}catch(e){document.documentElement.dataset.theme='auto'}`;
 
 import "../globals.css";
 
@@ -71,6 +74,7 @@ export default async function LocaleLayout({
       lang={locale}
       data-scroll-behavior="smooth"
       data-season={currentSeason()}
+      data-theme="auto"
     >
       <head>
         <script

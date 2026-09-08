@@ -33,6 +33,9 @@ vi.mock("@/core/db/client", () => ({
 vi.mock("@/i18n/locale-switcher", () => ({
   LocaleSwitcher: () => null,
 }));
+vi.mock("@/components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));
 vi.mock("./postcard-art", () => ({ PostcardArt: () => null }));
 vi.mock("./sign-in-button", () => ({
   SignInButton: () => <button data-testid="google-sign-in">Google</button>,

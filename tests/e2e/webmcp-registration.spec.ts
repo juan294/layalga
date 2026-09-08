@@ -32,7 +32,9 @@ test("registers host WebMCP tools and prepares visible forms without a browser i
       value: createDemoHostCookie(nelHostId),
     },
   ]);
-  await page.goto("/en");
+  // The room-control WebMCP tools register on the Room ledger form, which
+  // now lives at its own route -- see the hub-and-spoke host restructure.
+  await page.goto("/en/rooms");
 
   await expectRegisteredTools(page, [
     "layalga.host.prepare_private_block",

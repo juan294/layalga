@@ -2,9 +2,9 @@ import { forgetPartyMemoryAction } from "@/app/[locale]/(host)/actions";
 
 import {
   graphite,
-  headingStyle,
   ink,
   labelStyle,
+  pageHeadingStyle,
   panelStyle,
   quietButtonStyle,
   rule,
@@ -45,7 +45,7 @@ export function MemoryPanel({
   return (
     <section style={panelStyle} data-testid="memory-panel">
       <p style={labelStyle}>{labels.eyebrow}</p>
-      <h2 style={headingStyle}>{labels.title}</h2>
+      <h1 style={pageHeadingStyle}>{labels.title}</h1>
       <p style={{ color: graphite, lineHeight: 1.6, margin: "0 0 1rem" }}>
         {labels.description}
       </p>

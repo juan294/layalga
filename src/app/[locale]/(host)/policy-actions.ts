@@ -34,7 +34,7 @@ export async function updateHouseholdPolicyAction(
       homeId: host.homeId,
       hostId: host.id,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/settings`);
     return { status: "saved", policy };
   } catch (error) {
     if (error instanceof PolicyVersionConflictError)
