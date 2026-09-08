@@ -67,7 +67,7 @@ describe("updateEmailPingsAction", () => {
     expect(values).toContain(host.id);
     expect(values).toContain(host.homeId);
     expect(values).not.toContain(otherHostId);
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en/settings");
   });
 
   it("reports and swallows a database failure instead of throwing", async () => {
@@ -129,7 +129,7 @@ describe("forgetPartyMemoryAction", () => {
       "mem-test",
       "us-east-1",
     );
-    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/en/guests");
   });
 
   it("does nothing when the party does not belong to the caller's home", async () => {

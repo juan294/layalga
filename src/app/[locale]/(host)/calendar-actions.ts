@@ -36,7 +36,7 @@ export async function issueCalendarFeedAction(
       secret,
     });
     const appUrl = parseServerEnvironment().appUrl.replace(/\/$/, "");
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
     return {
       status: "success",
       subscriptionUrl: `${appUrl}/calendar/${feed.token}`,
@@ -61,7 +61,7 @@ export async function revokeCalendarFeedAction(
       hostId: host.id,
       feedId: feedId.data,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("calendar_feed_revoke_failed", error);
   }

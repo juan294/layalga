@@ -49,7 +49,7 @@ export async function createRoomInventoryAction(formData: FormData) {
       hostId: host.id,
       ...parsed.data,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_inventory_create_failed", error);
   }
@@ -68,7 +68,7 @@ export async function updateRoomInventoryAction(formData: FormData) {
       hostId: host.id,
       ...parsed.data,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_inventory_update_failed", error);
   }
@@ -100,7 +100,7 @@ export async function createPrivateBlockAction(formData: FormData) {
       privateNote: parsed.data.privateNote,
       idempotencyKey: randomUUID(),
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("private_room_block_create_failed", error);
   }
@@ -117,7 +117,7 @@ export async function cancelPrivateBlockAction(formData: FormData) {
       blockId.data,
       host.id,
     );
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("private_room_block_cancel_failed", error);
   }
@@ -146,7 +146,7 @@ export async function createRoomOverrideAction(formData: FormData) {
       privateNote: parsed.data.privateNote,
       idempotencyKey: randomUUID(),
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_override_create_failed", error);
   }
@@ -163,7 +163,7 @@ export async function removeRoomOverrideAction(formData: FormData) {
       overrideId.data,
       host.id,
     );
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_override_remove_failed", error);
   }
@@ -180,7 +180,7 @@ export async function applyRoomProposalAction(formData: FormData) {
       hostId: host.id,
       proposalId: proposalId.data,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_proposal_apply_failed", error);
   }
@@ -197,7 +197,7 @@ export async function dismissRoomProposalAction(formData: FormData) {
       hostId: host.id,
       proposalId: proposalId.data,
     });
-    revalidatePath(`/${locale}`);
+    revalidatePath(`/${locale}/rooms`);
   } catch (error) {
     reportActionError("room_proposal_dismiss_failed", error);
   }
@@ -229,7 +229,7 @@ export async function requestRoomProposalAction(formData: FormData) {
     return;
   }
   redirect(
-    `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}`)}`,
+    `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}/rooms`)}`,
   );
 }
 

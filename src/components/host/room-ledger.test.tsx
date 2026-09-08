@@ -133,7 +133,7 @@ describe("host room ledger", () => {
       "utf8",
     );
     expect(source.match(/requireHost\(/g)?.length).toBeGreaterThanOrEqual(8);
-    expect(source).toContain("revalidatePath(`/${locale}`)");
+    expect(source).toContain("revalidatePath(`/${locale}/rooms`)");
     expect(source).not.toContain("homeId: String(formData");
   });
 });

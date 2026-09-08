@@ -274,6 +274,24 @@
     },
     "visitInformation": {
       "title": "Guest information"
+    },
+    "nav": {
+      "backToToday": "← Guest stays"
+    },
+    "hub": {
+      "open": "Open →",
+      "roomsStatus": "{available} available · {withheld} withheld",
+      "calendarStatus": "{month} · {count, plural, =0 {no visits yet} one {# visit} other {# visits}}",
+      "guestsStatus": "{count, plural, =0 {No families on file} one {# family on file} other {# families on file}}",
+      "settingsStatus": "{pings, select, on {Email pings on} other {Email pings off}} · {max, plural, =0 {No family limit} one {# family with children max} other {# families with children max}}",
+      "activityStatus": "{recorded, select, yes {Recent activity recorded} other {Nothing recorded yet}}"
+    },
+    "settings": {
+      "eyebrow": "Rules & notifications",
+      "title": "Settings"
+    },
+    "demoZone": {
+      "tag": "Demo tooling"
     }
   },
   "Guest": {

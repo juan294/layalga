@@ -90,30 +90,45 @@ test("switches the host view to Spanish", async ({ page }) => {
   );
 });
 
-test("shows the room ledger before the visit calendar with visible door states", async ({
+test("the Today overview links onward to the room ledger and visit calendar through the hub", async ({
   page,
 }) => {
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Guest stays",
+  );
+  const hub = page.getByTestId("hub-cards");
+  await expect(
+    hub.getByRole("heading", { level: 3, name: "Room ledger" }),
+  ).toBeVisible();
+  await expect(
+    hub.getByRole("heading", { level: 3, name: "Visit calendar" }),
+  ).toBeVisible();
+  // Room administration itself is off the overview now -- it lives at its
+  // own route, reached only through the hub card.
+  await expect(page.getByTestId("room-ledger")).toHaveCount(0);
+
+  await hub.getByRole("link", { name: /Room ledger/ }).click();
+  await expect(page).toHaveURL(/\/en\/rooms$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Room ledger",
+  );
+  await expect(
+    page.getByRole("link", { name: "← Guest stays" }),
+  ).toBeVisible();
+});
+
+test("shows the room ledger with visible door states", async ({ page }) => {
+  await page.goto("/en/rooms");
   const roomLedger = page.getByTestId("room-ledger");
-  const visitCalendar = page.getByRole("heading", {
-    level: 2,
-    name: "Visit calendar",
-  });
   await expect(roomLedger).toBeVisible();
   await expect(roomLedger.locator("[data-door-state]")).toHaveCount(3);
   await expect(
     roomLedger.locator('[data-door-state="withheld"]'),
   ).toContainText("Withheld");
-  await expect(visitCalendar).toBeVisible();
-  const headings = await page
-    .getByRole("heading", { level: 2 })
-    .allTextContents();
-  expect(headings.indexOf("Room ledger")).toBeLessThan(
-    headings.indexOf("Visit calendar"),
-  );
 });
 
 test("shows localized room states in Spanish", async ({ page }) => {
-  await page.goto("/es");
+  await page.goto("/es/rooms");
   const ledger = page.getByTestId("room-ledger");
   await expect(ledger).toBeVisible();
   await expect(ledger.locator('[data-door-state="withheld"]')).toContainText(
@@ -129,9 +144,10 @@ test("saves household rules and asks for renewed review after a competing update
   context,
 }) => {
   const stalePage = await context.newPage();
-  await stalePage.goto("/en");
+  await stalePage.goto("/en/settings");
   const staleForm = stalePage.getByTestId("household-policy-form");
   await expect(staleForm).toBeVisible();
+  await page.goto("/en/settings");
   const form = page.getByTestId("household-policy-form");
   await form.locator('[name="petsTogetherAllowed"]').check();
   await form.locator('[name="maxFamiliesWithChildren"]').fill("2");
@@ -152,18 +168,17 @@ test("saves household rules and asks for renewed review after a competing update
   await stalePage.close();
 });
 
-test("puts decisions, invitation capture, and current outcomes ahead of room administration", async ({
+test("puts decisions and current outcomes on the Today overview", async ({
   page,
 }) => {
   const headings = await page
     .getByRole("heading", { level: 2 })
     .allTextContents();
-  const roomPosition = headings.indexOf("Room ledger");
-  expect(roomPosition).toBeGreaterThan(-1);
   expect(headings.indexOf("Pending decisions")).toBeGreaterThan(-1);
-  expect(headings.indexOf("Pending decisions")).toBeLessThan(roomPosition);
   expect(headings.indexOf("Current visits")).toBeGreaterThan(-1);
-  expect(headings.indexOf("Current visits")).toBeLessThan(roomPosition);
+  expect(headings.indexOf("Pending decisions")).toBeLessThan(
+    headings.indexOf("Current visits"),
+  );
   await expect(page.getByTestId("host-outcomes")).toContainText(
     "No upcoming visits yet",
   );

@@ -4,6 +4,29 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-08
+
+### Added
+
+- Host dashboard restructured into a hub-and-spoke IA: a "Today" overview (pending decisions, current visits, invitation capture, demo tooling) plus five sub-routes (`/rooms`, `/calendar`, `/guests`, `/settings`, `/activity`) reached through status-bearing hub cards, each with a breadcrumb back to Today. Underlying functionality is unchanged, only relocated.
+- A seasonal-artwork header on the Today overview, cross-fading with the demo clock's date the same way the sign-in postcard already does.
+- A theme selector (Auto/Light/Dark) on the sign-in/landing page; it was previously only available once signed in.
+
+### Fixed
+
+- `capture_invitation` bounds `rememberedContext` to five entries of at most 120 characters instead of rejecting the call; a production run had retried after a 121-character recall failed validation.
+- `infra/iam/web-bedrock-policy.json` uses region-wildcard foundation-model ARNs in place of per-region entries; the per-region version exceeded the 2048-byte inline user policy size limit on apply (#118).
+- `data-theme` is always stamped on `<html>` ("auto" by default) instead of left absent, so design-sync's token scanner can register the dark-theme custom properties a bare `:not([data-theme="light"])` selector hid from it.
+
+### Changed
+
+- `infra/iam/web-bedrock-policy.json` allows Sonnet 4.6 as well as 4.5, applied to `layalga-web`, so the `AGENT_RUNTIME=local` fallback can invoke the production model.
+- The release procedure applies migrations before the release pull request merges into `main`, and documents `gh pr update-branch` for the up-to-date rule.
+
+### Documentation
+
+- ADR 0002 release addendum for v1.0.0 (runtime versions 20 and 21, bundle versions, the two Sonnet 4.6 findings); playbook status, history, rollback, and measured durations; runtime runbook fallback note; CLAUDE.md deployment state.
+
 ## [1.0.0] - 2026-09-05
 
 ### Added

@@ -116,6 +116,35 @@ describe("captureInvitationTool", () => {
     }
   });
 
+  it("bounds rememberedContext entries instead of rejecting an overlong recall", async () => {
+    const fixture = await seedHost(sql, `Capture bounded ${randomUUID()}`);
+    try {
+      const deps = agentDeps(fixture.homeId, fixture.hostId);
+      const long = "prefers the ground floor room because of the stairs ".repeat(5);
+      const result = await captureInvitationTool(deps).invoke({
+        partyName: "Suarez",
+        partyLocale: "es",
+        adults: 2,
+        children: 0,
+        pets: 0,
+        flexibleDates: { text: "octubre" },
+        specialRequests: [],
+        rememberedContext: [long, "a", "b", "c", "d", "e", "f"],
+        rawMessage: "Los Suarez quieren venir en octubre.",
+      });
+
+      const [row] = await sql<{ structured: Record<string, unknown> }[]>`
+        select structured from public.invitations where id = ${result.invitationId}
+      `;
+      const remembered = row!.structured.rememberedContext as string[];
+      expect(remembered).toHaveLength(5);
+      expect(remembered[0]).toHaveLength(120);
+      expect(remembered[0]).toBe(long.slice(0, 120));
+    } finally {
+      await cleanupHost(sql, fixture);
+    }
+  });
+
   it("reuses the invitation this run already captured instead of creating a second one", async () => {
     const fixture = await seedHost(sql, `Capture idempotent ${randomUUID()}`);
     const runId = randomUUID();

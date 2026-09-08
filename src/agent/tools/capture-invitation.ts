@@ -47,10 +47,18 @@ export function captureInvitationTool(deps: AgentDeps) {
       // arrivalTime, or specialRequests -- the guard below removes any
       // specialRequests entry that only restates a rememberedContext entry,
       // and nothing else in the codebase reads this field except the host
-      // capture summary display.
+      // capture summary display. The limits are enforced by truncation in
+      // the callback, not by schema rejection: a recall one character too
+      // long made a production run fail validation and retry the tool.
       rememberedContext: z
-        .array(z.string().max(MAX_REMEMBERED_CONTEXT_LENGTH))
-        .max(MAX_REMEMBERED_CONTEXT)
+        .array(
+          z
+            .string()
+            .describe(
+              `One short recalled fact, at most ${MAX_REMEMBERED_CONTEXT_LENGTH} characters`,
+            ),
+        )
+        .describe(`At most ${MAX_REMEMBERED_CONTEXT} entries`)
         .optional(),
       rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
     }),
@@ -94,7 +102,9 @@ export function captureInvitationTool(deps: AgentDeps) {
           };
         }
       }
-      const rememberedContext = input.rememberedContext ?? [];
+      const rememberedContext = (input.rememberedContext ?? [])
+        .slice(0, MAX_REMEMBERED_CONTEXT)
+        .map((entry) => entry.slice(0, MAX_REMEMBERED_CONTEXT_LENGTH));
       // Deterministic guard: a specialRequest that only echoes a recalled
       // fact (case/diacritic-insensitive exact match) is not something the
       // host's message stated, so it must not reach booking policy. This is

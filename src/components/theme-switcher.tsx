@@ -50,8 +50,10 @@ export function ThemeSwitcher() {
   const selected: ThemeOption = isStoredTheme(stored) ? stored : "auto";
 
   useEffect(() => {
-    if (selected === "auto") delete document.documentElement.dataset.theme;
-    else document.documentElement.dataset.theme = selected;
+    // Always stamp data-theme -- never remove it. html[data-theme="auto"]
+    // is what globals.css now scopes the system-dark block under (design-
+    // sync cannot register a bare :not([data-theme="light"]) selector).
+    document.documentElement.dataset.theme = selected;
   }, [selected]);
 
   return (

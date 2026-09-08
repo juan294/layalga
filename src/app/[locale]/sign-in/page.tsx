@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { getDatabaseConnection } from "@/core/db/client";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 import { PostcardArt } from "./postcard-art";
 import { SignInButton } from "./sign-in-button";
@@ -69,7 +70,10 @@ export default async function SignInPage({
       <section className="postcard__panel" aria-labelledby="sign-in-title">
         <div className="postcard__topline">
           <span className="postcard__wordmark">{brandT("name")}</span>
-          <LocaleSwitcher />
+          <div className="site-header__controls">
+            <LocaleSwitcher />
+            <ThemeSwitcher />
+          </div>
         </div>
         <p className="postcard__tagline">{t("tagline")}</p>
         <h1 id="sign-in-title">{t("title")}</h1>
