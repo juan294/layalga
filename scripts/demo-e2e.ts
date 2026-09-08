@@ -84,6 +84,7 @@ export async function runDemoE2E(
     );
     await resetDemo(page, options.baseUrl);
     await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "en");
+    await goToRooms(page, options.baseUrl, "en");
     await openWithheldRoom(page, DEMO_SEED.roomProof.hospitalityOpening);
 
     await enterHost(page, options.baseUrl, DEMO_SEED.hosts[0].id, "es");
@@ -201,6 +202,7 @@ async function runRoomCoordinationProof(
   const guestLink = new URL(DEMO_SEED.parties[0].guestLink, baseUrl).toString();
 
   await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
+  await goToRooms(page, baseUrl, "en");
   await requestRoomProposal(page, proof.privateBlock.request, "en");
   const proposals = await sql<
     { id: string; status: string; room_ids: string[] }[]
@@ -252,6 +254,7 @@ async function runRoomCoordinationProof(
   );
 
   await enterHost(page, baseUrl, DEMO_SEED.hosts[0].id, "en");
+  await goToRooms(page, baseUrl, "en");
   await openWithheldRoom(page, proof.openedStay);
   const [openedOverride] = await sql<{ action: string; room_id: string }[]>`
     select action, room_id::text from public.room_availability_overrides
@@ -329,6 +332,7 @@ async function runRoomCoordinationProof(
     "overflow approval must apply exactly once",
   );
 
+  await goToRooms(page, baseUrl, "en");
   const calendarRead = await issueAndReadCalendar(page);
   const parsedCalendar = parseICalendar(calendarRead.body);
   const calendarEventCount = parsedCalendar.events.length;
@@ -404,6 +408,18 @@ async function enterHost(
   await page.getByTestId("host-capture-form").waitFor();
 }
 
+/** Room administration (agent requests, proposals, withheld-room controls,
+ * calendar feeds) moved off the Today overview onto its own route -- see
+ * the host dashboard hub-and-spoke restructure. */
+async function goToRooms(
+  page: Page,
+  baseUrl: string,
+  locale: "en" | "es",
+): Promise<void> {
+  await page.goto(`${baseUrl}/${locale}/rooms`);
+  await page.getByTestId("room-ledger").waitFor();
+}
+
 export async function captureInvitation(
   page: Page,
   rawMessage: string,
@@ -441,7 +457,9 @@ async function requestRoomProposal(
   await page.waitForURL(new RegExp(`/${locale}/runs/[0-9a-f-]+/status`));
   await waitForRunStatus(page, "completed");
   await page.getByTestId("run-return").click();
-  await page.waitForURL(new RegExp(`/${locale}/?(?:[?#].*)?$`));
+  // requestRoomProposalAction's returnTo now points at /rooms, not root --
+  // see the host dashboard hub-and-spoke restructure.
+  await page.waitForURL(new RegExp(`/${locale}/rooms/?(?:[?#].*)?$`));
   await page
     .locator("input[name='proposalId']")
     .first()
