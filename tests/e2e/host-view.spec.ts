@@ -81,6 +81,7 @@ test("switches the host view to Spanish", async ({ page }) => {
   const heading = page.getByRole("heading", { level: 1 });
   const englishHeading = await heading.textContent();
 
+  await page.getByTestId("locale-switcher-trigger").click();
   await page.getByTestId("locale-switch-es").click();
 
   await expect(page).toHaveURL(/\/es(?:\/|$)/);

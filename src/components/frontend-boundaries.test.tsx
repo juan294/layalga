@@ -125,7 +125,10 @@ describe("frontend boundary remediation", () => {
     expect(globals).toContain("--interactive-target: 2.75rem");
     expect(globals).toContain("--interactive-target-compact: 2.25rem");
     expect(globals).toMatch(
-      /\.locale-switcher a \{[^}]*min-(?:block-)?size: var\(--interactive-target-compact\)/s,
+      /\.locale-switcher__trigger \{[^}]*min-(?:block-)?size: var\(--interactive-target-compact\)/s,
+    );
+    expect(globals).toMatch(
+      /\.theme-switcher button \{[^}]*min-(?:block-)?size: var\(--interactive-target\)/s,
     );
     expect(buttonStyle.minHeight).toBe("var(--interactive-target)");
     expect(buttonStyle.whiteSpace).toBe("normal");
