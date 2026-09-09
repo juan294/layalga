@@ -17,6 +17,7 @@ All notable changes to L’Ayalga are documented in this file.
 - `capture_invitation` bounds `rememberedContext` to five entries of at most 120 characters instead of rejecting the call; a production run had retried after a 121-character recall failed validation.
 - `infra/iam/web-bedrock-policy.json` uses region-wildcard foundation-model ARNs in place of per-region entries; the per-region version exceeded the 2048-byte inline user policy size limit on apply (#118).
 - `data-theme` is always stamped on `<html>` ("auto" by default) instead of left absent, so design-sync's token scanner can register the dark-theme custom properties a bare `:not([data-theme="light"])` selector hid from it.
+- `RunStatusPoller` compared the server's `runs.deadline_at` (computed from a demo home's simulated clock, routinely behind the real wall clock) directly against the browser's real `Date.now()`, so polling stopped before ever making a request even though the run was completing correctly on the backend. It now applies the deadline as a clock-agnostic duration relative to the client's own polling start time.
 
 ### Changed
 
