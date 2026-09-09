@@ -50,6 +50,9 @@
     },
     "RoomLedger": {
       "cardMode": "column"
+    },
+    "RunStatusPoller": {
+      "cardMode": "column"
     }
   }
 }

@@ -16,7 +16,8 @@
     "label": "Tema",
     "auto": "Auto",
     "light": "Claro",
-    "dark": "Oscuro"
+    "dark": "Oscuro",
+    "cycleLabel": "Tema: {state} — clic para cambiar"
   },
   "SignIn": {
     "tagline": "ayalga — asturiano para describir un tesoro encontrado",
