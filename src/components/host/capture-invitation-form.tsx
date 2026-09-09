@@ -211,7 +211,7 @@ function CaptureQueuedPanel({
         {labels.statusLink}
       </a>
       <RunStatusPoller
-        deadlineAt={null}
+        deadlineMs={null}
         initial={initial}
         locale={locale}
         onSnapshot={handleSnapshot}
