@@ -112,6 +112,13 @@ export default async function GuestSessionPage({
             changed={cancellationState === "changed"}
             open={cancellationReview}
           />
+
+          <form action="/auth/sign-out" method="post">
+            <input name="locale" type="hidden" value={locale} />
+            <button className={styles.secondaryButton} type="submit">
+              {t("signOut")}
+            </button>
+          </form>
         </div>
       </article>
     </main>
