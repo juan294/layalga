@@ -1,5 +1,5 @@
 import { SEASONS, type Season } from "@/lib/season";
-import { labelStyle, quietButtonStyle, teal } from "./host-styles";
+import { buttonStyle, labelStyle, teal } from "./host-styles";
 import styles from "./today-hero.module.css";
 
 /* Presentational: the page resolves the season, formats the date, and
@@ -47,7 +47,7 @@ export function TodayHero({
               only grandfathers the locale switcher as a sub-44px control. */}
           <form action="/auth/sign-out" className={styles.signOut} method="post">
             <input name="locale" type="hidden" value={locale} />
-            <button style={quietButtonStyle} type="submit">
+            <button style={buttonStyle} type="submit">
               {signOutLabel}
             </button>
           </form>

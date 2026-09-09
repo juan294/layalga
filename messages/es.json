@@ -383,6 +383,7 @@
     "requestsHelp": "Para adaptaciones o excepciones. Los anfitriones lo revisarán antes de confirmar.",
     "capturedRequests": "Solicitudes ya compartidas por tu anfitrión",
     "visitNotes": "Tu información para los anfitriones",
+    "signOut": "Cerrar sesión",
     "roomPreferences": {
       "title": "Por qué sugerimos estas habitaciones",
       "off": "No se están usando preferencias guardadas para esta sugerencia.",
