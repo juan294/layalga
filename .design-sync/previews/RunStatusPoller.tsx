@@ -23,13 +23,26 @@ export function CompletedRun() {
   return (
     <RunShell>
       <RunStatusPoller
-        deadlineAt={null}
+        deadlineMs={null}
         initial={{
           id: "run-capture-vega",
           status: "completed",
           summary:
             "Held Cuartu del Teixu and Cuartu del Horreu for Familia Vega, 18-24 September.",
           finishedAt: "2026-09-18T17:04:11.000Z",
+          events: [
+            {
+              at: "2026-09-18T17:03:40.000Z",
+              kind: "tool_call",
+              name: "hold_rooms",
+            },
+            {
+              at: "2026-09-18T17:04:05.000Z",
+              kind: "policy_verdict",
+              decision: "allow",
+            },
+            { at: "2026-09-18T17:04:11.000Z", kind: "decision_applied" },
+          ],
         }}
         locale="en"
         returnTo="/en/g/demo-guest-token"
@@ -44,12 +57,24 @@ export function InterruptedForApproval() {
   return (
     <RunShell>
       <RunStatusPoller
-        deadlineAt="2026-09-21T09:00:00.000Z"
+        deadlineMs={6 * 60_000}
         initial={{
           id: "run-capture-oteros",
           status: "interrupted",
           summary: "Pets need host approval before the rooms can be held.",
           finishedAt: null,
+          events: [
+            {
+              at: "2026-09-21T08:58:12.000Z",
+              kind: "tool_call",
+              name: "hold_rooms",
+            },
+            {
+              at: "2026-09-21T08:58:30.000Z",
+              kind: "policy_verdict",
+              decision: "interrupt",
+            },
+          ],
         }}
         locale="en"
         returnTo="/en/g/demo-guest-token"
@@ -63,12 +88,19 @@ export function FailedRun() {
   return (
     <RunShell>
       <RunStatusPoller
-        deadlineAt={null}
+        deadlineMs={null}
         initial={{
           id: "run-capture-prieto",
           status: "failed",
           summary: null,
           finishedAt: "2026-09-20T08:07:52.000Z",
+          events: [
+            {
+              at: "2026-09-20T08:07:20.000Z",
+              kind: "tool_call",
+              name: "hold_rooms",
+            },
+          ],
         }}
         locale="en"
         returnTo="/en/g/demo-guest-token"
