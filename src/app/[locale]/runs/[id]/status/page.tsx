@@ -31,7 +31,7 @@ export default async function RunStatusPage({
         {run ? (
           <RunStatusPoller
             initial={run}
-            deadlineAt={runContext?.deadlineAt ?? null}
+            deadlineMs={runContext?.deadlineMs ?? null}
             locale={locale}
             returnTo={returnTo}
             token={query.token}
@@ -56,22 +56,33 @@ export default async function RunStatusPage({
 
 async function loadRunContext(
   id: string,
-): Promise<{ timeZone: string; deadlineAt: string | null } | null> {
+): Promise<{ timeZone: string; deadlineMs: number | null } | null> {
   const sql = sqlClient(getDatabaseConnection().db);
   const [row] = await sql<
-    { timezone: string; deadline_at: Date | string | null }[]
+    {
+      timezone: string;
+      started_at: Date | string;
+      deadline_at: Date | string | null;
+    }[]
   >`
-    select h.timezone, r.deadline_at
+    select h.timezone, r.started_at, r.deadline_at
     from public.runs r
     join public.homes h on h.id = r.home_id
     where r.id = ${id}
     limit 1
   `;
+  // deadline_at and started_at are both read from whatever clock produced
+  // them (a demo home's simulated clock, or real time otherwise); their
+  // difference is a clock-agnostic duration the client applies against its
+  // own real polling start time -- see the `deadlineMs` doc on
+  // RunStatusPollerProps for why an absolute server timestamp isn't safe
+  // to compare against the client's Date.now() here.
   return row
     ? {
         timeZone: row.timezone,
-        deadlineAt: row.deadline_at
-          ? new Date(row.deadline_at).toISOString()
+        deadlineMs: row.deadline_at
+          ? new Date(row.deadline_at).getTime() -
+            new Date(row.started_at).getTime()
           : null,
       }
     : null;

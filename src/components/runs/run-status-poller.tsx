@@ -40,7 +40,18 @@ interface RunStatusPollerProps {
   returnTo: string;
   token?: string;
   timeZone: string;
-  deadlineAt: string | null;
+  /**
+   * How long, in milliseconds, the run is allowed to take -- NOT an
+   * absolute timestamp. A demo home's `deadline_at` is computed from its
+   * simulated clock (routinely days behind the real wall clock), so an
+   * absolute server deadline compared against the client's own Date.now()
+   * reads as already-past and stops polling before the first request. The
+   * duration is clock-agnostic: the caller derives it from
+   * `deadline_at - started_at`, both read from the same (possibly
+   * simulated) clock, and this component applies it relative to its own
+   * real polling start time.
+   */
+  deadlineMs: number | null;
   onSnapshot?: (snapshot: RunSnapshot) => void;
   showReturnLink?: boolean;
 }
@@ -51,7 +62,7 @@ export function RunStatusPoller({
   returnTo,
   token,
   timeZone,
-  deadlineAt,
+  deadlineMs,
   onSnapshot,
   showReturnLink = true,
 }: RunStatusPollerProps) {
@@ -73,10 +84,7 @@ export function RunStatusPoller({
     let failures = 0;
     let successes = 0;
     const startedAt = Date.now();
-    const parsedDeadline = deadlineAt ? new Date(deadlineAt).getTime() : NaN;
-    const stopAt = Number.isFinite(parsedDeadline)
-      ? parsedDeadline
-      : startedAt + FALLBACK_POLL_DEADLINE_MS;
+    const stopAt = pollStopAt(startedAt, deadlineMs);
     const controller = new AbortController();
 
     function schedule(delay: number, allowPastDeadline = false) {
@@ -133,7 +141,7 @@ export function RunStatusPoller({
       controller.abort();
       document.removeEventListener("visibilitychange", resumeWhenVisible);
     };
-  }, [deadlineAt, pollCycle, run.id, run.status, token]);
+  }, [deadlineMs, pollCycle, run.id, run.status, token]);
 
   return (
     <section
@@ -202,6 +210,23 @@ export function RunStatusPoller({
       ) : null}
     </section>
   );
+}
+
+/**
+ * Real-time deadline the poll loop should stop at, applying the server's
+ * deadline duration (clock-agnostic) relative to the client's own polling
+ * start time -- never the server's absolute timestamp, which for a demo
+ * home is computed from a simulated clock that can read as already past
+ * relative to the client's real Date.now(). See `deadlineMs` on
+ * `RunStatusPollerProps`.
+ */
+export function pollStopAt(
+  clientStartedAtMs: number,
+  deadlineMs: number | null,
+): number {
+  return Number.isFinite(deadlineMs)
+    ? clientStartedAtMs + (deadlineMs as number)
+    : clientStartedAtMs + FALLBACK_POLL_DEADLINE_MS;
 }
 
 export function localizedSummary(
