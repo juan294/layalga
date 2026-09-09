@@ -16,7 +16,8 @@
     "label": "Theme",
     "auto": "Auto",
     "light": "Light",
-    "dark": "Dark"
+    "dark": "Dark",
+    "cycleLabel": "Theme: {state} — click to change"
   },
   "SignIn": {
     "tagline": "ayalga — Asturian for a treasure found",
