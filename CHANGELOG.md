@@ -4,6 +4,13 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-09
+
+### Fixed
+
+- The host dashboard header's sign-out button was nearly unreadable: a transparent, ink-outlined button sitting directly over the hero photo where the veil overlay fades to fully transparent. It now uses the same solid button style as other primary actions (#137).
+- The cookie-backed guest session page (`/guest`) had no way to sign out, even though the sign-out endpoint already cleared its session cookies -- only the claimed-account page linked to it. Added the same sign-out control there (#137).
+
 ## [1.2.0] - 2026-09-09
 
 ### Added
