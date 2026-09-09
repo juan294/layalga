@@ -4,6 +4,20 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-09
+
+### Added
+
+- The site header and sign-in postcard's language switcher becomes a compact `EN ▼` dropdown (opens on click, closes on outside click or Escape) in place of always-visible locale links, and the three-button theme group becomes a single icon button that cycles auto → light → dark (#131).
+
+### Changed
+
+- Batched dependency updates: AWS SDK clients (Bedrock AgentCore, Bedrock runtime, S3, Scheduler, SES) to 3.1127.0, `@supabase/ssr` to 0.12.6, `@supabase/supabase-js` to 2.115.0, `fastify` to 5.12.3, `next` to 16.3.4, `next-intl` to 4.14.2, `zod` to 4.5.4, and dev tooling (`@playwright/test`, `@types/node`, `@types/react-dom`, `eslint-config-next`, `tsx`); `supabase/setup-cli` GitHub Action to v3 (#119, #124, #125, #132).
+
+### Fixed
+
+- The design-sync export for `RunStatusPoller` had drifted from the shipped component (a missing required `events` field and a stale `deadlineAt` prop), crashing its preview cards in the Claude Design project; the sync tooling itself is unaffected by production behavior (#133).
+
 ## [1.1.0] - 2026-09-08
 
 ### Added
