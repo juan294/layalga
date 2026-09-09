@@ -201,8 +201,8 @@ a {
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
-  min-block-size: var(--interactive-target-compact);
-  min-inline-size: var(--interactive-target-compact);
+  min-block-size: var(--interactive-target);
+  min-inline-size: var(--interactive-target);
 }
 
 /* Sign-in postcard: an artistic house illustration (left) beside a paper

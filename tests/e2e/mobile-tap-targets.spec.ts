@@ -42,9 +42,9 @@ async function auditViewport(page: Page): Promise<Audit> {
       const input = element as HTMLInputElement;
       if (input.type === "hidden") return;
 
-      // The locale switcher and theme switcher are deliberate compact
-      // controls on --interactive-target-compact, not an oversight.
-      if (element.closest(".locale-switcher, .theme-switcher")) return;
+      // The locale switcher is a deliberate compact control on
+      // --interactive-target-compact, not an oversight.
+      if (element.closest(".locale-switcher")) return;
 
       // A native checkbox or radio cannot be resized without losing its
       // control rendering; it is tappable through its wrapping label, so the

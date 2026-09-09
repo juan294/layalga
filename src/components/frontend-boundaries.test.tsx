@@ -128,7 +128,7 @@ describe("frontend boundary remediation", () => {
       /\.locale-switcher__trigger \{[^}]*min-(?:block-)?size: var\(--interactive-target-compact\)/s,
     );
     expect(globals).toMatch(
-      /\.theme-switcher button \{[^}]*min-(?:block-)?size: var\(--interactive-target-compact\)/s,
+      /\.theme-switcher button \{[^}]*min-(?:block-)?size: var\(--interactive-target\)/s,
     );
     expect(buttonStyle.minHeight).toBe("var(--interactive-target)");
     expect(buttonStyle.whiteSpace).toBe("normal");
