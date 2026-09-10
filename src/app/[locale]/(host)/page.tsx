@@ -227,9 +227,7 @@ export default async function HostTodayPage({
       <TodayHero
         dateSeasonLabel={dateSeasonLabel}
         eyebrow={t("eyebrow")}
-        locale={safeLocale}
         season={season}
-        signOutLabel={t("account.signOut")}
         title={t("title")}
         welcomeLabel={t("welcome", { name: host.displayName })}
       />

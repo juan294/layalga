@@ -42,7 +42,6 @@
 }
 
 .eyebrow,
-.stamp,
 .sequence,
 .field span,
 .optionList legend,
@@ -70,14 +69,6 @@
 .title {
   font-size: clamp(2.2rem, 8vw, 4.6rem);
   line-height: 0.95;
-}
-
-.stamp {
-  align-self: start;
-  border: 2px solid var(--guest-teal);
-  color: var(--guest-teal);
-  padding: 0.45rem 0.6rem;
-  transform: rotate(1.5deg);
 }
 
 .body {
@@ -355,9 +346,29 @@
 }
 
 .cancellationToggle {
+  align-items: center;
   cursor: pointer;
-  min-height: var(--interactive-target, 44px);
+  display: flex;
+  font-weight: 600;
+  gap: 0.65rem;
+  list-style: none;
+  min-height: 52px;
   padding: 0.75rem 0;
+}
+
+.cancellationToggle::-webkit-details-marker {
+  display: none;
+}
+
+.cancellationToggle::before {
+  color: var(--guest-teal);
+  content: "\25b6";
+  font-size: 0.65rem;
+  transition: transform 0.15s ease;
+}
+
+.changeForm[open] > .cancellationToggle::before {
+  transform: rotate(90deg);
 }
 
 .emailConsent {

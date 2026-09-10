@@ -15,10 +15,13 @@ export async function loadGuestInvitationDefaults(
   `;
   if (!home) throw new Error("Invitation home unavailable");
   const clock = await DbDemoClock.load(homeId, connection.db);
+  const now = clock.now();
   return {
     demo: home.demo,
+    now: now.toISOString(),
+    timeZone: home.timezone,
     defaults: guestInvitationDefaults(structured, {
-      now: clock.now(),
+      now,
       timeZone: home.timezone,
     }),
   };

@@ -1,25 +1,25 @@
 import { SEASONS, type Season } from "@/lib/season";
-import { buttonStyle, labelStyle, teal } from "./host-styles";
+import { labelStyle, teal } from "./host-styles";
 import styles from "./today-hero.module.css";
 
 /* Presentational: the page resolves the season, formats the date, and
-   translates every label, the same contract as RoomLedger and HubCards. */
+   translates every label, the same contract as RoomLedger and HubCards.
+   Guest pages reuse this hero with a status stamp in place of the date --
+   see stampLabel, added for the signed-in shell unification. */
 export function TodayHero({
-  locale,
   season,
   eyebrow,
   title,
   welcomeLabel,
   dateSeasonLabel,
-  signOutLabel,
+  stampLabel,
 }: {
-  locale: string;
   season: Season;
   eyebrow: string;
   title: string;
   welcomeLabel: string;
-  dateSeasonLabel: string;
-  signOutLabel: string;
+  dateSeasonLabel?: string;
+  stampLabel?: string;
 }) {
   return (
     <div className={styles.hero} data-testid="today-hero">
@@ -41,16 +41,12 @@ export function TodayHero({
         <h1 className={styles.title}>{title}</h1>
         <div className={styles.who}>
           <span>{welcomeLabel}</span>
-          <span className={styles.date}>{dateSeasonLabel}</span>
-          {/* Full --interactive-target height, not the mock's compact 36px:
-              this repo's touch-safety sweep (tests/e2e/mobile-tap-targets)
-              only grandfathers the locale switcher as a sub-44px control. */}
-          <form action="/auth/sign-out" className={styles.signOut} method="post">
-            <input name="locale" type="hidden" value={locale} />
-            <button style={buttonStyle} type="submit">
-              {signOutLabel}
-            </button>
-          </form>
+          {dateSeasonLabel ? (
+            <span className={styles.date}>{dateSeasonLabel}</span>
+          ) : null}
+          {stampLabel ? (
+            <span className={styles.stamp}>{stampLabel}</span>
+          ) : null}
         </div>
       </div>
     </div>

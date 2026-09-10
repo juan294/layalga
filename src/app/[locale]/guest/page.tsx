@@ -4,9 +4,11 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "next/navigation";
 
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
+import { GuestShell } from "@/components/guest/guest-shell";
 import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
 import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
-import styles from "@/components/guest/guest-ledger.module.css";
+import { graphite } from "@/components/host/host-styles";
+import { householdSeason } from "@/lib/season";
 import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
 import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
 import { loadGuestInvitation } from "@/core/booking/guest-invitation";
@@ -50,58 +52,27 @@ export default async function GuestSessionPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const { defaults, demo } = await loadGuestInvitationDefaults(
+  const { defaults, demo, now, timeZone } = await loadGuestInvitationDefaults(
     invitation.homeId,
     invitation.structured,
   );
+  const showDemo = process.env.DEMO_MODE === "true" && demo;
 
   return (
-    <main className={styles.shell}>
-      <article
-        className={styles.ledger}
-        data-testid="guest-status"
-        data-status={status}
-      >
-        <header className={styles.header}>
-          <div>
-            <p className={styles.eyebrow}>{t("eyebrow")}</p>
-            <h1 className={styles.title}>{title}</h1>
-          </div>
-          <span className={styles.stamp}>{t(`status.${statusKey}`)}</span>
-        </header>
-        <div className={styles.body}>
-          <p className={styles.lede}>
-            {t(status === "invited" ? "invitedBody" : "visitBody", {
-              party: invitation.partyName,
-            })}
-          </p>
-
-          {demo ? (
-            <DemoGuestGuide invitationId={invitation.id} locale={locale} />
-          ) : null}
-
-          {status === "invited" ? (
-            <GuestInviteForm
-              defaults={defaults}
-              findAction={findGuestOptionsSession}
-              locale={locale}
-              submitAction={submitGuestVisitSession}
-            />
-          ) : invitation.visit ? (
-            <GuestVisitRecord
-              locale={locale}
-              reconfirmAction={reconfirmGuestSession}
-              requestChangeAction={requestGuestChangeSession}
-              visit={invitation.visit}
-            />
-          ) : null}
-
+    <GuestShell
+      demoGuide={
+        showDemo ? (
+          <DemoGuestGuide invitationId={invitation.id} locale={locale} />
+        ) : null
+      }
+      locale={locale}
+      managePanel={
+        <>
           <GuestEmailPreferences
             locale={locale}
             context={{ kind: "session" }}
             feedback={(await searchParams).email}
           />
-
           <CancellationReview
             locale={locale}
             action={cancelGuestSession}
@@ -112,15 +83,34 @@ export default async function GuestSessionPage({
             changed={cancellationState === "changed"}
             open={cancellationReview}
           />
-
-          <form action="/auth/sign-out" method="post">
-            <input name="locale" type="hidden" value={locale} />
-            <button className={styles.secondaryButton} type="submit">
-              {t("signOut")}
-            </button>
-          </form>
-        </div>
-      </article>
-    </main>
+          <p style={{ color: graphite, lineHeight: 1.6, margin: "1rem 0 0" }}>
+            {t("manage.helper")}
+          </p>
+        </>
+      }
+      partyName={invitation.partyName}
+      primaryPanel={
+        status === "invited" ? (
+          <GuestInviteForm
+            defaults={defaults}
+            findAction={findGuestOptionsSession}
+            locale={locale}
+            submitAction={submitGuestVisitSession}
+          />
+        ) : invitation.visit ? (
+          <GuestVisitRecord
+            locale={locale}
+            reconfirmAction={reconfirmGuestSession}
+            requestChangeAction={requestGuestChangeSession}
+            visit={invitation.visit}
+          />
+        ) : null
+      }
+      season={householdSeason(now, timeZone)}
+      showDemo={showDemo}
+      status={status}
+      statusKey={statusKey}
+      title={title}
+    />
   );
 }
