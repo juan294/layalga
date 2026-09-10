@@ -4,6 +4,16 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-10
+
+### Fixed
+
+- The guest ledger CSS module declared its `--guest-*` design tokens only inside the `.shell` wrapper that v1.3.0's shell unification replaced, so every rule reading them resolved to an invalid `var()` and fell back to initial values: guest form inputs lost their border and 44px height, the teal "Find available stays" primary button rendered as plain text, body copy inherited ink instead of graphite, and the "Manage your visit" disclosure rows lost their separators. The aliases now live on `:root`, where they still follow the season and the theme, and `.shell` keeps its layout properties for the standalone ledger routes. The host components that import the same module (`cancellation-panel`, `host-visit-notes`) never had a `.shell` ancestor and are fixed by the same change (#146).
+
+### Changed
+
+- Closed the remaining gaps against the signed-in shell handoff: the panel eyebrow stacks above the Fraunces heading and is sized like the host panel headings, the lede is sized as panel body copy, a form that opens a panel no longer carries a top rule, the "Manage your visit" disclosure rows are ruled top and bottom at 52px, and the demo guide sits directly inside the dashed demo-tooling zone instead of in a second bordered note (#146).
+
 ## [1.3.0] - 2026-09-10
 
 ### Changed
