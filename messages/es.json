@@ -5,7 +5,8 @@
   },
   "Brand": {
     "name": "L’Ayalga",
-    "strapline": "El libro de huéspedes de la casa"
+    "strapline": "El libro de huéspedes de la casa",
+    "signOut": "Cerrar sesión"
   },
   "LocaleSwitcher": {
     "label": "Idioma",
@@ -49,9 +50,6 @@
     "localeEnglish": "English",
     "localeSpanish": "Español",
     "unknownParty": "Invitado desconocido",
-    "account": {
-      "signOut": "Cerrar sesión"
-    },
     "status": {
       "hold": "En espera",
       "confirmed": "Confirmada",
@@ -314,8 +312,6 @@
     "reconfirmedTitle": "Tu visita está reconfirmada",
     "escalatedTitle": "Los anfitriones están revisando esta visita",
     "cancelledTitle": "Esta visita fue cancelada",
-    "invitedBody": "{party}, elige las fechas e indica quién viene.",
-    "visitBody": "Este es el registro del hogar para {party}.",
     "findDatesTitle": "Buscar fechas",
     "stepDates": "Paso 1 · Fechas y grupo",
     "windowFrom": "Desde",
@@ -383,7 +379,6 @@
     "requestsHelp": "Para adaptaciones o excepciones. Los anfitriones lo revisarán antes de confirmar.",
     "capturedRequests": "Solicitudes ya compartidas por tu anfitrión",
     "visitNotes": "Tu información para los anfitriones",
-    "signOut": "Cerrar sesión",
     "roomPreferences": {
       "title": "Por qué sugerimos estas habitaciones",
       "off": "No se están usando preferencias guardadas para esta sugerencia.",
@@ -402,6 +397,13 @@
         "separate_beds": "camas separadas",
         "double_bed": "cama doble"
       }
+    },
+    "welcome": "Te damos la bienvenida, {party}",
+    "findDatesLede": "Elige las fechas e indica quién viene.",
+    "manage": {
+      "eyebrow": "Esta invitación",
+      "title": "Gestiona tu visita",
+      "helper": "El hogar revisa cada solicitud antes de confirmarla."
     }
   },
   "GuestAccount": {

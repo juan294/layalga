@@ -68,8 +68,16 @@
   font-size: 0.8125rem;
 }
 
-.signOut {
-  margin-left: auto;
+.stamp {
+  border: 2px solid var(--teal);
+  color: var(--teal);
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  padding: 0.45rem 0.6rem;
+  text-transform: uppercase;
+  transform: rotate(1.5deg);
 }
 
 @media (max-width: 45rem) {
