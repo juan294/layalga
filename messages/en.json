@@ -5,7 +5,8 @@
   },
   "Brand": {
     "name": "L’Ayalga",
-    "strapline": "The house guest ledger"
+    "strapline": "The house guest ledger",
+    "signOut": "Sign out"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -49,9 +50,6 @@
     "localeEnglish": "English",
     "localeSpanish": "Español",
     "unknownParty": "Unknown guest",
-    "account": {
-      "signOut": "Sign out"
-    },
     "status": {
       "hold": "On hold",
       "confirmed": "Confirmed",
@@ -314,8 +312,6 @@
     "reconfirmedTitle": "Your visit is reconfirmed",
     "escalatedTitle": "Your hosts are reviewing this visit",
     "cancelledTitle": "This visit was cancelled",
-    "invitedBody": "{party}, choose dates and tell the household who is coming.",
-    "visitBody": "This is the household record for {party}.",
     "findDatesTitle": "Find dates",
     "stepDates": "Step 1 · Dates and party",
     "windowFrom": "From",
@@ -383,7 +379,6 @@
     "requestsHelp": "For accommodations or exceptions. The hosts will review this before confirmation.",
     "capturedRequests": "Requests already shared by your host",
     "visitNotes": "Your information for the hosts",
-    "signOut": "Sign out",
     "roomPreferences": {
       "title": "Why we suggested these rooms",
       "off": "Saved room preferences are not being used for this suggestion.",
@@ -402,6 +397,13 @@
         "separate_beds": "separate beds",
         "double_bed": "double bed"
       }
+    },
+    "welcome": "Welcome, {party}",
+    "findDatesLede": "Choose dates and tell the household who is coming.",
+    "manage": {
+      "eyebrow": "This invitation",
+      "title": "Manage your visit",
+      "helper": "The household reviews every request before it is confirmed."
     }
   },
   "GuestAccount": {

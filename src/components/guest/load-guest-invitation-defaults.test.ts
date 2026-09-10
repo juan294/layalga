@@ -18,6 +18,8 @@ describe("trusted household guest defaults", () => {
     expect(mocks.clock).toHaveBeenCalledWith("trusted-home", "db");
     expect(result).toMatchObject({
       demo: true,
+      timeZone: "Europe/Madrid",
+      now: "2027-01-31T23:30:00.000Z",
       defaults: { from: "2027-02-08", to: "2027-02-18", nights: 2 },
     });
   });

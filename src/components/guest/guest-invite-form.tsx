@@ -120,6 +120,7 @@ export function GuestInviteForm({
           <span className={styles.sequence}>{t("stepDates")}</span>
           <h2>{t("findDatesTitle")}</h2>
         </div>
+        <p className={styles.lede}>{t("findDatesLede")}</p>
         <div className={styles.fieldGrid}>
           <Field label={t("windowFrom")} name="from">
             <input

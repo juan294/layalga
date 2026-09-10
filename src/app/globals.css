@@ -132,7 +132,24 @@ a {
 .site-header__controls {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 1.125rem;
+  row-gap: 0.5rem;
+}
+
+.site-header__signout {
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  min-height: var(--interactive-target);
+  padding: 0 1.125rem;
+  text-transform: uppercase;
 }
 
 .locale-switcher {

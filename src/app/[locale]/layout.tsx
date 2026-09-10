@@ -12,6 +12,8 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
 import { currentSeason } from "@/lib/season";
+import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
+import { getCurrentHost } from "@/lib/auth/current-host";
 
 // Stamps data-theme on <html> before first paint, so a user whose stored
 // preference disagrees with their OS setting never sees a flash of the
@@ -68,6 +70,11 @@ export default async function LocaleLayout({
   const messages = await getMessages({ locale });
   const t = await getTranslations({ locale, namespace: "Brand" });
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const [host, guest] = await Promise.all([
+    getCurrentHost(),
+    getCurrentGuestInvitation(),
+  ]);
+  const signedIn = Boolean(host || guest);
 
   return (
     <html
@@ -100,6 +107,14 @@ export default async function LocaleLayout({
                   <LocaleSwitcher />
                 </Suspense>
                 <ThemeSwitcher />
+                {signedIn ? (
+                  <form action="/auth/sign-out" method="post">
+                    <input name="locale" type="hidden" value={locale} />
+                    <button className="site-header__signout" type="submit">
+                      {t("signOut")}
+                    </button>
+                  </form>
+                ) : null}
               </div>
             </header>
             {children}
