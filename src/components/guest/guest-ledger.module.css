@@ -1,11 +1,6 @@
+/* The --guest-* aliases this file reads are declared on :root in globals.css,
+   so every rule here also works inside GuestShell, which has no .shell. */
 .shell {
-  --guest-paper: var(--paper, #f4f0e7);
-  --guest-sheet: var(--sheet, #fffdf7);
-  --guest-ink: var(--ink, #171b1a);
-  --guest-muted: var(--graphite, #5d625f);
-  --guest-rule: color-mix(in srgb, var(--guest-ink) 24%, transparent);
-  --guest-teal: var(--teal, #0c615b);
-  --guest-accent-soft: var(--accent-soft, #3f9e94);
   background: var(--guest-paper);
   color: var(--guest-ink);
   min-height: 100vh;
@@ -66,6 +61,12 @@
   margin: 0;
 }
 
+/* Panel headings pair with the host panels (host-styles headingStyle). */
+.formHeading h2 {
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
 .title {
   font-size: clamp(2.2rem, 8vw, 4.6rem);
   line-height: 0.95;
@@ -77,9 +78,9 @@
 
 .lede {
   color: var(--guest-muted);
-  font-size: 1.05rem;
-  line-height: 1.65;
-  margin: 0 0 2rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
   max-width: 42rem;
 }
 
@@ -105,25 +106,44 @@
 }
 
 .ruledForm,
-.changeForm,
 .summary {
   border-top: 1px solid var(--guest-rule);
   padding-top: 1.25rem;
 }
 
+.formStack > .ruledForm:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.ruledForm > .primaryButton {
+  margin-top: 1.25rem;
+}
+
+/* Disclosure rows in the "Manage your visit" panel: ruled top and bottom so
+   the stack reads as a list, with the row height carried by the summary. */
+.changeForm {
+  border-top: 1px solid var(--guest-rule);
+}
+
+.changeForm:last-of-type {
+  border-bottom: 1px solid var(--guest-rule);
+}
+
 .formHeading {
-  align-items: baseline;
-  display: flex;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  display: grid;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
 }
 
 .formHeading h2 {
-  font-size: 1.65rem;
+  font-size: clamp(1.65rem, 4vw, 2.5rem);
+  line-height: 1.05;
 }
 
 .sequence {
-  color: var(--guest-teal);
+  color: var(--guest-muted);
+  letter-spacing: 0.12em;
 }
 
 .fieldGrid {
@@ -313,6 +333,32 @@
   padding: 0.9rem 1rem;
 }
 
+.demoGuide {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  max-width: 72ch;
+}
+
+.demoGuide h2 {
+  font-family: var(--font-inter, Arial, sans-serif);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.125rem;
+}
+
+.demoGuide p {
+  color: var(--guest-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.demoGuide a {
+  color: var(--guest-teal);
+  font-weight: 600;
+  justify-self: start;
+}
+
 .accountVisits {
   list-style: none;
   margin: 0 0 1.5rem;
@@ -353,7 +399,7 @@
   gap: 0.65rem;
   list-style: none;
   min-height: 52px;
-  padding: 0.75rem 0;
+  padding: 0.25rem 0;
 }
 
 .cancellationToggle::-webkit-details-marker {
@@ -361,7 +407,7 @@
 }
 
 .cancellationToggle::before {
-  color: var(--guest-teal);
+  color: var(--guest-muted);
   content: "\25b6";
   font-size: 0.65rem;
   transition: transform 0.15s ease;

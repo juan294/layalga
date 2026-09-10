@@ -20,7 +20,7 @@ export async function DemoGuestGuide({
         : "generic";
   return (
     <aside
-      className={styles.sharedNote}
+      className={styles.demoGuide}
       data-testid="demo-guest-guide"
       data-scenario={scenario}
       aria-labelledby="demo-guest-guide-title"
