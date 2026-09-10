@@ -57,6 +57,21 @@ html[data-season="invierno"] {
   --accent-soft: #7ea8c4;
 }
 
+/* The guest ledger module reads --guest-* aliases. They live on the document,
+   not on a wrapper class, because those rules are now used both inside the
+   shared signed-in shell (GuestShell, which has no .shell wrapper) and on the
+   standalone ledger routes. Every override of the base tokens is also on
+   <html>, so these aliases follow the season and the theme. */
+:root {
+  --guest-paper: var(--paper);
+  --guest-sheet: var(--sheet);
+  --guest-ink: var(--ink);
+  --guest-muted: var(--graphite);
+  --guest-rule: var(--rule);
+  --guest-teal: var(--teal);
+  --guest-accent-soft: var(--accent-soft);
+}
+
 * {
   box-sizing: border-box;
 }
