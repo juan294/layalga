@@ -4,6 +4,12 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-10
+
+### Changed
+
+- Unified the signed-in shell between host and guest views: sign-out moved into the shared site header (visible whenever a host or guest session is active) and out of the Today hero and the guest ledger card. Both guest routes (`/guest`, `/g/[token]`) are restructured onto the host page's seasonal-hero and panel-grid composition -- a "Find dates" panel and a "Manage your visit" panel (ruled disclosure rows for email reminders, cancellation, and the token page's optional account claim), with the demo guide moved into the same dashed demo-tooling zone the host page uses (#142).
+
 ## [1.2.1] - 2026-09-09
 
 ### Fixed
