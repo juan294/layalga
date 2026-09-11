@@ -57,3 +57,31 @@
   production candidate at both trust boundaries, removes mutable action tags
   from the production credential path, and records only production evidence that
   actually exists.
+
+### Release proof: AgentCore queued-run lifetime
+
+- **Plan said:** Prove the dispatched production workflow with the existing
+  production execution path.
+- **Found:** The first production runs exposed two defects outside the planned
+  workflow and design-token files. The AgentCore handler returned after accepting
+  a queued run while execution was still active, and operational leases used the
+  demo household clock. A demo clock jump could therefore reclaim a live worker.
+- **Chose:** Keep the AgentCore invocation open until queued execution settles,
+  and use database wall time for queue claims, heartbeats, deadlines, and
+  stale-run recovery. Keep the household clock for domain behavior. Add a
+  regression test that advances the demo clock while a gated run remains active.
+- **Why:** The protected workflow could not pass reliably while its own guided
+  clock advances could terminate or reclaim an active production run.
+
+### Release proof: web database pool mode
+
+- **Plan said:** Store the existing production web database URL in the protected
+  workflow environment so the runner can execute the demo and probes.
+- **Found:** Production reached the session pooler's login client cap during the
+  release run. The existing runbook also incorrectly stated that Vercel should
+  remain on session mode.
+- **Chose:** Rotate the `layalga_web` credential, move both Vercel and the
+  protected workflow secret to the transaction pooler, synchronize the ignored
+  local environment and 1Password document, and correct the runbook.
+- **Why:** Vercel function concurrency and the probe runner need short-lived
+  pooled connections without exhausting the session-mode login limit.
