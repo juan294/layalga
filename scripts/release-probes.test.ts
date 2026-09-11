@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RunResult } from "../src/agent/task";
 import {
+  assertConcurrentRunsCompleted,
   assertRoomCoordinationProof,
   drainAndCollectTerminalRunResults,
   queuedRunIds,
@@ -12,6 +13,21 @@ const firstRunId = "11111111-1111-4111-8111-111111111111";
 const secondRunId = "22222222-2222-4222-8222-222222222222";
 
 describe("durable release probe runs", () => {
+  it("accepts completed conflict runs without depending on generated prose", () => {
+    expect(() =>
+      assertConcurrentRunsCompleted([
+        { status: "completed" },
+        { status: "completed" },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertConcurrentRunsCompleted([
+        { status: "completed" },
+        { status: "failed" },
+      ]),
+    ).toThrow(/both concurrent runs must complete/i);
+  });
+
   it("requires queued acknowledgements with distinct run IDs", () => {
     expect(
       queuedRunIds([queuedResult(firstRunId), queuedResult(secondRunId)]),
