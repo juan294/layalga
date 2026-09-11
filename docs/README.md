@@ -50,6 +50,7 @@ tests, operating modes, and limits. The public-site discovery index is
 | [compliance/third-party-licenses.md](compliance/third-party-licenses.md)             | License inventory command                                                                     |
 
 - [Guest email production readiness](release/guest-email-readiness.md) — prepared guest SES policy, activation steps and delivery evidence limits.
+- [Email template design](design/email-templates/README.md) — the shared transactional email template, its design handoff, and where each automated email is rendered.
 
 ## Process history
 
