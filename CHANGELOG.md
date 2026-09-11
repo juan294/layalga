@@ -14,6 +14,7 @@ All notable changes to L’Ayalga are documented in this file.
 ### Fixed
 
 - Shared run-status design tokens now live on the document root, so timeline surfaces retain their paper, ink, border, and pulse styling wherever the components render.
+- AgentCore queued-run invocations now remain open until execution finishes, preventing the runtime from stopping while a database lease is still active.
 
 ### Changed
 

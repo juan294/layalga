@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { acceptAgentRunExecution } from "./async-execution";
 
 describe("AgentCore queued-run execution", () => {
-  it("acknowledges an existing run without waiting for model execution", async () => {
+  it("keeps the invocation open until model execution finishes", async () => {
     let finishExecution!: () => void;
     const modelExecution = new Promise<void>((resolve) => {
       finishExecution = resolve;
@@ -21,6 +21,7 @@ describe("AgentCore queued-run execution", () => {
       };
     });
 
+    let acknowledged = false;
     const accepted = acceptAgentRunExecution(
       {
         operation: "execute_run",
@@ -41,16 +42,20 @@ describe("AgentCore queued-run execution", () => {
         reportFailure: vi.fn(),
       },
     );
-
-    expect(accepted).toEqual({
-      status: "accepted",
-      runId: "33333333-3333-4333-8333-333333333333",
+    void accepted.then(() => {
+      acknowledged = true;
     });
+
     await Promise.resolve();
     expect(execute).toHaveBeenCalledOnce();
+    expect(acknowledged).toBe(false);
     expect(completeAsyncTask).not.toHaveBeenCalled();
 
     finishExecution();
+    await expect(accepted).resolves.toEqual({
+      status: "accepted",
+      runId: "33333333-3333-4333-8333-333333333333",
+    });
     await tracked;
     expect(completeAsyncTask).toHaveBeenCalledWith(1);
   });
