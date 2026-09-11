@@ -1,6 +1,6 @@
 # Agents for Humans: durable interrupts for household decisions
 
-Unpublished Builder post draft, updated 11 September 2026 against production v1.3.2 commit `90b68385`. Publication and URL remain pending. The protected production workflow verified the current AgentCore interrupt/resume path while keeping publication evidence separate.
+Unpublished Builder post draft, updated for the v1.3.3 documentation release against behavior proven in production v1.3.2 commit `90b68385`. Publication and URL remain pending. The protected production workflow verified the AgentCore interrupt/resume path while keeping publication evidence separate.
 
 ## A person may answer after the process ends
 

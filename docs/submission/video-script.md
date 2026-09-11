@@ -1,12 +1,12 @@
 # L’Ayalga demo video script
 
-Recording script for production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`. Target duration: 4 minutes. The [official maximum](https://agentsforhumans.devpost.com/rules) is five minutes. The public video URL remains pending recording and upload.
+Recording script from the v1.3.3 documentation release. It targets application behavior proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`; v1.3.3 changes documentation only. Target duration: 4 minutes. The [official maximum](https://agentsforhumans.devpost.com/rules) is five minutes. The public video URL remains pending recording and upload.
 
 The story is routine coordination, then a fresh exception, then follow-through and closure. Use the [judge guide](judge-guide.md) for the canonical journey and the [evidence report](coordination-evidence.md) for numerical claims.
 
 ## Recording setup
 
-- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports commit `90b68385a590144d6d44cd7dd41298180b2d182c`, `status: ok`, and no stale or retrying work.
+- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports `status: ok` and no stale or retrying work. The live commit can be newer than the v1.3.2 behavioral proof when it contains documentation-only releases.
 - Use a Spanish host view and an English guest view. Keep each in a named browser tab so the switch is clear.
 - Start with the host signed in through the synthetic demo entry. Keep personal tabs, notifications, passwords, bearer URLs, email addresses, private notes, AWS account identifiers, and raw memory records out of frame.
 - Set browser zoom before recording and keep it fixed. Use a desktop viewport large enough to show one complete card and its main action without scrolling during narration.

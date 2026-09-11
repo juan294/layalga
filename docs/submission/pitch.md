@@ -26,7 +26,7 @@ Privacy is enforced at specific boundaries. Guest contacts are web-only; notes, 
 
 ## The evidence and the honest limit
 
-Production v1.3.2 at commit `90b68385` has regression, browser, and exact-candidate production coverage. The [coordination evidence](coordination-evidence.md) measures actual scripted operations and persisted outcomes at its own dated revision. The [protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) separately verified the current Vercel and AgentCore candidate through the guided demo and all nine probes. It does not establish inbox delivery or general model quality.
+The v1.3.3 documentation release describes behavior proven in production v1.3.2 at commit `90b68385`, with regression, browser, and exact-candidate production coverage. The [coordination evidence](coordination-evidence.md) measures actual scripted operations and persisted outcomes at its own dated revision. The [protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) separately verified the Vercel and AgentCore behavioral candidate through the guided demo and all nine probes. It does not establish inbox delivery or general model quality.
 
 We have not measured human time savings, adoption or participant satisfaction. The [participant protocol](participant-protocol.md) is the next step toward testing that impact. The product's strongest award case is a complete, inspectable household workflow with useful agency and visible human control; winning remains a judging decision.
 

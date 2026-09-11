@@ -1,6 +1,6 @@
 # Agents for Humans: deterministic household policy under a Strands agent
 
-Unpublished Builder post draft, updated 11 September 2026 against production v1.3.2 commit `90b68385`. Publication and its URL remain pending. This draft does not earn a publication bonus. The protected production workflow passed the guided demo and all nine probes against the exact Vercel and AgentCore candidate.
+Unpublished Builder post draft, updated for the v1.3.3 documentation release against behavior proven in production v1.3.2 commit `90b68385`. Publication and its URL remain pending. This draft does not earn a publication bonus. The protected production workflow passed the guided demo and all nine probes against the exact Vercel and AgentCore behavioral candidate.
 
 ## A booking needs more than a plausible answer
 

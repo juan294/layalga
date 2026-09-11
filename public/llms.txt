@@ -7,10 +7,11 @@ The guides distinguish implementation, local scripted tests, dated deployment
 evidence, and remaining limitations. They support independent evaluation against
 the AWS Agents for Humans rubric. They do not prescribe a score.
 
-The current product is production v1.3.2 at commit
-90b68385a590144d6d44cd7dd41298180b2d182c. Its protected production workflow
-verified the exact Vercel and AgentCore candidate with the guided demo and all
-nine probes. Historical measurements retain their own revisions and limits.
+The v1.3.3 release publishes this final documentation set without changing
+application behavior. That behavior was proven in production v1.3.2 at commit
+90b68385a590144d6d44cd7dd41298180b2d182c: its protected workflow verified the
+exact Vercel and AgentCore candidate with the guided demo and all nine probes.
+Historical measurements retain their own revisions and limits.
 
 ## Evaluation
 

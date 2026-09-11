@@ -1,6 +1,6 @@
 # L’Ayalga — Devpost draft
 
-Status: production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
+Status: v1.3.3 publishes this final submission documentation without changing application behavior. That behavior was proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` on 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
 
 ## Tagline
 
@@ -53,7 +53,7 @@ Broader channels such as WhatsApp/SMS and changing rooms midway through a stay r
 ## Try it and review it
 
 - [Canonical judge guide](judge-guide.md): repository-only review and reproducible synthetic journey.
-- [Live site](https://layalga.thecreativetoken.com): production v1.3.2 at commit `90b68385`.
+- [Live site](https://layalga.thecreativetoken.com): v1.3.3 documentation release with application behavior unchanged from the proven v1.3.2 candidate at commit `90b68385`.
 - [Public repository](https://github.com/juan294/layalga): MIT licensed.
 - [Architecture](../architecture/README.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
 - Video: not yet recorded/uploaded; final URL pending owner action.

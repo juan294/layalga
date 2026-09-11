@@ -4,6 +4,13 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-09-11
+
+### Changed
+
+- Published the final hackathon judge guide, evidence index, NotebookLM source set, Devpost copy, and four-minute production recording script against the behavior proven in v1.3.2.
+- Corrected architecture diagrams and operational-time documentation to show that AgentCore invocations remain open until execution settles and worker leases use PostgreSQL wall time.
+
 ## [1.3.2] - 2026-09-11
 
 ### Added

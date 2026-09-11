@@ -1,6 +1,6 @@
 # Agents for Humans: testing proactive follow-through with an honest clock
 
-Unpublished Builder post draft, updated 11 September 2026 against production v1.3.2 commit `90b68385`. Publication and URL remain pending. Local benchmark measurements and current exact-candidate production evidence remain distinct.
+Unpublished Builder post draft, updated for the v1.3.3 documentation release against behavior proven in production v1.3.2 commit `90b68385`. Publication and URL remain pending. Local benchmark measurements and exact-candidate behavioral production evidence remain distinct.
 
 ## Booking is not the end of coordination
 
