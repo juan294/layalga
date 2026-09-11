@@ -166,7 +166,7 @@ export async function runDueJobs(
   homeId?: string,
   scheduler: JobScheduler = noopJobScheduler,
 ): Promise<JobRunResult[]> {
-  await reconcileStaleRuns(database, clock.now(), homeId);
+  await reconcileStaleRuns(database, homeId);
   const { expireTemporaryHolds } = await import("@/core/booking/holds");
   await expireTemporaryHolds(database, clock, scheduler, homeId);
   const results: JobRunResult[] = [];
@@ -204,7 +204,7 @@ export async function dispatchDueJobs(
   homeId?: string,
   scheduler: JobScheduler = noopJobScheduler,
 ): Promise<JobRunResult[]> {
-  await reconcileStaleRuns(database, clock.now(), homeId);
+  await reconcileStaleRuns(database, homeId);
   const { expireTemporaryHolds } = await import("@/core/booking/holds");
   await expireTemporaryHolds(database, clock, scheduler, homeId);
   const results: JobRunResult[] = [];
@@ -283,7 +283,7 @@ export async function runJob(
   jobId: string,
   scheduler: JobScheduler = noopJobScheduler,
 ): Promise<JobRunResult> {
-  await reconcileStaleRuns(database, clock.now());
+  await reconcileStaleRuns(database);
   const job = await claimJob(database, jobId, clock.now());
   if (!job) {
     const existing = await loadJob(database, jobId);
@@ -713,14 +713,15 @@ async function loadJob(
 
 export async function reconcileStaleRuns(
   database: DatabaseClient,
-  now: Date,
   homeId?: string,
 ): Promise<number> {
   const sql = sqlClient(database);
+  // Worker leases are operational time. Demo clock jumps model household
+  // events but must not make live executions appear abandoned.
   return sql.begin(async (transaction) => {
     const recovered = await transaction<{ id: string }[]>`
       update public.runs
-      set status = 'queued', queue_available_at = ${now.toISOString()},
+      set status = 'queued', queue_available_at = now(),
         queue_claimed_at = null, queue_claim_token = null,
         heartbeat_at = null, deadline_at = null,
         result = ${JSON.stringify({
@@ -733,13 +734,13 @@ export async function reconcileStaleRuns(
         and queue_claim_token is not null
         and execution_attempt_count < 3
         and deadline_at is not null
-        and deadline_at <= ${now.toISOString()}
+        and deadline_at <= now()
         and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
       returning id
     `;
     const rows = await transaction<{ id: string }[]>`
       update public.runs
-      set status = 'failed', finished_at = ${now.toISOString()},
+      set status = 'failed', finished_at = now(),
         result = ${JSON.stringify({
           code: "run_deadline_exceeded",
           summary: "The agent run exceeded its execution deadline.",
@@ -748,7 +749,7 @@ export async function reconcileStaleRuns(
         last_error = 'Agent execution deadline exceeded'
       where status = 'running'
         and deadline_at is not null
-        and deadline_at <= ${now.toISOString()}
+        and deadline_at <= now()
         and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
       returning id
     `;
