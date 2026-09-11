@@ -107,7 +107,7 @@ async function enqueueAgentTaskInternal(
   const sql = sqlClient(deps.db);
   const authority = await authorityForTask(task, deps);
   const sessionId = await resolveSessionId(task, { ...deps, authority });
-  await reconcileStaleRuns(deps.db, deps.clock.now(), task.homeId);
+  await reconcileStaleRuns(deps.db, task.homeId);
   const queuedAt = deps.clock.now();
   const runPayload =
     task.task === "guest_submit"
@@ -215,7 +215,7 @@ export async function executeQueuedAgentRun(
 ): Promise<RunResult> {
   const executedOn = runtimeOf(deps);
   const sql = sqlClient(deps.db);
-  const claimed = await claimQueuedRun(sql, runId, deps.clock.now());
+  const claimed = await claimQueuedRun(sql, runId);
   if (!claimed) {
     const [existing] = await sql<
       {
@@ -396,7 +396,7 @@ async function executeClaimedAgentTask(
           )
         : await buildPrompt(task, deps);
     await sql`
-      update public.runs set heartbeat_at = ${deps.clock.now().toISOString()}
+      update public.runs set heartbeat_at = now()
       where id = ${run.id} and status = 'running'
     `;
     const result = await agent.invoke(invokeArgs, {
@@ -575,11 +575,8 @@ interface ClaimedRunRow {
 async function claimQueuedRun(
   sql: ReturnType<typeof sqlClient>,
   runId: string,
-  now: Date,
 ): Promise<ClaimedRunRow | undefined> {
   const claimToken = randomUUID();
-  const staleBefore = new Date(now.getTime() - 6 * 60 * 1_000);
-  const deadlineAt = new Date(now.getTime() + 4 * 60 * 1_000);
   const rows = await sql.begin(
     (transaction) => transaction<ClaimedRunRow[]>`
       with claimable as (
@@ -587,20 +584,20 @@ async function claimQueuedRun(
         where id = ${runId}
           and execution_attempt_count < 3
           and (
-            (status = 'queued' and queue_available_at <= ${now.toISOString()})
+            (status = 'queued' and queue_available_at <= now())
             or (
               status = 'running'
-              and queue_claimed_at <= ${staleBefore.toISOString()}
+              and queue_claimed_at <= now() - interval '6 minutes'
             )
           )
         for update skip locked
       )
       update public.runs as run
-      set status = 'running', queue_claimed_at = ${now.toISOString()},
+      set status = 'running', queue_claimed_at = now(),
         queue_claim_token = ${claimToken},
         execution_attempt_count = run.execution_attempt_count + 1,
-        heartbeat_at = ${now.toISOString()},
-        deadline_at = ${deadlineAt.toISOString()}, last_error = null
+        heartbeat_at = now(),
+        deadline_at = now() + interval '4 minutes', last_error = null
       from claimable
       where run.id = claimable.id
       returning run.id, run.home_id, run.session_id, run.payload,
@@ -659,11 +656,6 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
   // no-op for every caller except `runAgentTask`.
   const claimToken = claimImmediately ? randomUUID() : null;
   const status = claimImmediately ? "running" : "queued";
-  const claimedAt = claimImmediately ? startedAt.toISOString() : null;
-  const heartbeatAt = claimImmediately ? startedAt.toISOString() : null;
-  const deadlineAt = claimImmediately
-    ? new Date(startedAt.getTime() + 4 * 60 * 1_000).toISOString()
-    : null;
   const executionAttemptCount = claimImmediately ? 1 : 0;
 
   return sql.begin(async (transaction) => {
@@ -700,13 +692,17 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
             await loadRequestUsage(transaction, task, actorKey, startedAt),
           );
         }
+        // Queue leases use database wall time. Household demo time can jump
+        // forward between requests and must not expire active worker leases.
         const [restarted] = await transaction<{ id: string }[]>`
           update public.runs
           set status = ${status}, result = null,
             started_at = ${startedAt.toISOString()}, finished_at = null,
-            heartbeat_at = ${heartbeatAt}, deadline_at = ${deadlineAt},
-            queue_available_at = ${startedAt.toISOString()},
-            queue_claimed_at = ${claimedAt}, queue_claim_token = ${claimToken},
+            heartbeat_at = case when ${claimImmediately} then now() else null end,
+            deadline_at = case when ${claimImmediately} then now() + interval '4 minutes' else null end,
+            queue_available_at = now(),
+            queue_claimed_at = case when ${claimImmediately} then now() else null end,
+            queue_claim_token = ${claimToken},
             execution_attempt_count = ${executionAttemptCount},
             last_error = null,
             payload = ${JSON.stringify(runPayload)}::text::jsonb,
@@ -742,10 +738,13 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
         execution_attempt_count
       ) values (
         ${task.homeId}, ${sessionId}, ${task.task}, ${status},
-        ${JSON.stringify(runPayload)}::text::jsonb, ${startedAt.toISOString()},
+        ${JSON.stringify(runPayload)}::text::jsonb, now(),
         ${actorKey}, ${intentKey},
         ${startedAt.toISOString()},
-        ${claimedAt}, ${claimToken}, ${heartbeatAt}, ${deadlineAt},
+        case when ${claimImmediately} then now() else null end,
+        ${claimToken},
+        case when ${claimImmediately} then now() else null end,
+        case when ${claimImmediately} then now() + interval '4 minutes' else null end,
         ${executionAttemptCount}
       )
       returning id
@@ -901,7 +900,7 @@ async function finish(
     update public.runs set status = 'completed', result = ${JSON.stringify(
       terminalResultJson(summary, executedOn),
     )}::text::jsonb,
-      finished_at = ${now.toISOString()}, heartbeat_at = ${now.toISOString()},
+      finished_at = ${now.toISOString()}, heartbeat_at = now(),
       queue_claimed_at = null, queue_claim_token = null, last_error = null
       where id = ${runId} and status = 'running'
         and queue_claim_token = ${claimToken}

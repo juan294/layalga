@@ -584,12 +584,11 @@ describe("reconfirmation jobs", () => {
         home_id, session_id, task, deadline_at, heartbeat_at
       ) values (
         ${homeId}, 'stale-run', 'tick',
-        '2026-09-15T06:59:00Z', '2026-09-15T06:50:00Z'
+        now() - interval '1 minute', now() - interval '10 minutes'
       ) returning id
     `;
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
-    expect(await reconcileStaleRuns(sql, clock.now(), homeId)).toBe(1);
-    expect(await reconcileStaleRuns(sql, clock.now(), homeId)).toBe(0);
+    expect(await reconcileStaleRuns(sql, homeId)).toBe(1);
+    expect(await reconcileStaleRuns(sql, homeId)).toBe(0);
     const [stored] = await sql<{ status: string; result: { code: string } }[]>`
       select status, result from public.runs where id = ${run!.id}
     `;

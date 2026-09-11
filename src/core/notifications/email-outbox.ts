@@ -5,7 +5,9 @@ import type { HostEmailPingKind, HostEmailPingStatus } from "@/core/db/schema";
 import { decisionReasonKey } from "@/lib/decision-reasons";
 import { objectValue } from "@/lib/json-object";
 import { parseServerEnvironment } from "@/lib/server/env";
+import { currentSeason, type Season } from "@/lib/season";
 
+import { escapeHtml, monoSpan, renderEmailDocument } from "./email-template";
 import { sesSend, type EmailSender } from "./ses-client";
 
 const RETRY_AFTER_MS = 5 * 60 * 1_000;
@@ -50,6 +52,8 @@ export interface PingContext {
   link: string;
   stay?: readonly [string, string];
   reasonCode?: string;
+  season?: Season;
+  fromAddress?: string;
 }
 
 export interface RenderedPing {
@@ -274,6 +278,8 @@ async function sendCandidatePing(
     link: pingLink(candidate.kind, candidate.locale),
     stay: candidate.stay,
     reasonCode: candidate.reasonCode,
+    season: currentSeason(now),
+    fromAddress,
   });
 
   const pingId = candidate.existingId
@@ -422,6 +428,13 @@ export function renderPing(
 ): RenderedPing {
   const partyName =
     context.partyName || (locale === "es" ? "Una familia" : "A family");
+  const partyStrong = `<strong>${escapeHtml(partyName)}</strong>`;
+  const documentDefaults = {
+    ctaUrl: context.link,
+    season: context.season,
+    fromAddress: context.fromAddress,
+  };
+
   if (kind === "reconfirm_escalation") {
     const subject =
       locale === "es"
@@ -431,7 +444,25 @@ export function renderPing(
       locale === "es"
         ? `${partyName} no ha reconfirmado su visita. Revísalo ahora: ${context.link}`
         : `${partyName} has not reconfirmed their visit. Review it now: ${context.link}`;
-    return { subject, text, html: htmlBody(text, context.link) };
+    const html = renderEmailDocument({
+      ...documentDefaults,
+      subject,
+      preheader:
+        locale === "es"
+          ? `${partyName} no ha reconfirmado su visita. Revísalo ahora.`
+          : `${partyName} has not reconfirmed their visit. Review it now.`,
+      eyebrow: locale === "es" ? "Reconfirmación pendiente" : "Reconfirmation needed",
+      headline:
+        locale === "es"
+          ? `${partyName} no ha reconfirmado su visita`
+          : `${partyName} has not reconfirmed their visit`,
+      bodyHtml:
+        locale === "es"
+          ? `La ventana de reconfirmación venció sin respuesta de ${partyStrong}. Revisa la visita y decide si mantener las fechas o liberarlas.`
+          : `The reconfirmation window has passed without a reply from ${partyStrong}. Review the visit and decide whether to keep the dates or release them.`,
+      ctaLabel: locale === "es" ? "Revisar la visita" : "Review the visit",
+    });
+    return { subject, text, html };
   }
 
   const reasonLabel =
@@ -449,15 +480,23 @@ export function renderPing(
     locale === "es"
       ? `${partyName} solicita ${reasonLabel} para ${stayText}. Revisa y decide: ${context.link}`
       : `${partyName} is requesting ${reasonLabel} for ${stayText}. Review and decide: ${context.link}`;
-  return { subject, text, html: htmlBody(text, context.link) };
-}
-
-function htmlBody(text: string, link: string): string {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<p>${escaped}</p><p><a href="${link}">${link}</a></p>`;
+  const html = renderEmailDocument({
+    ...documentDefaults,
+    subject,
+    preheader:
+      locale === "es"
+        ? `${partyName} solicita ${reasonLabel} para ${stayText}. Revisa y decide.`
+        : `${partyName} is requesting ${reasonLabel} for ${stayText}. Review and decide.`,
+    eyebrow: locale === "es" ? "Decisión pendiente" : "Decision pending",
+    headline:
+      locale === "es" ? "Una decisión te espera" : "A decision is waiting for you",
+    bodyHtml:
+      locale === "es"
+        ? `${partyStrong} solicita ${reasonLabel} para ${monoSpan(stayText)}. Revisa la solicitud y decide si la casa puede acogerla.`
+        : `${partyStrong} is requesting ${reasonLabel} for ${monoSpan(stayText)}. Review the request and decide whether the house can hold it.`,
+    ctaLabel: locale === "es" ? "Revisar y decidir" : "Review and decide",
+  });
+  return { subject, text, html };
 }
 
 function decisionReasonCode(value: unknown): string | undefined {

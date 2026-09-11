@@ -10,7 +10,7 @@ import {
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { FakeClock } from "@/core/clock";
+import { FakeClock, SystemClock } from "@/core/clock";
 
 import { NoopScheduler } from "./deps";
 import {
@@ -131,7 +131,7 @@ describe("durable agent queue", () => {
       // in this exact window would have claimed it.
       const runId = await waitForRunStatus(fixture.homeId, "running");
 
-      const drained = await drainAgentQueue(sql, clock, (candidateId) =>
+      const drained = await drainAgentQueue(sql, new SystemClock(), (candidateId) =>
         executeQueuedAgentRun(
           candidateId,
           deps(new ScriptedModel([{ text: "Must not run." }]), clock),
@@ -158,6 +158,60 @@ describe("durable agent queue", () => {
       `;
       expect(finished?.status).toBe("completed");
     } finally {
+      await cleanup(fixture.homeId);
+    }
+  });
+
+  it("keeps a queued run leased while the demo clock advances", async () => {
+    const fixture = await seedHost();
+    const clock = new FakeClock(new Date("2026-09-07T08:00:00Z"));
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const model = new GatedModel(
+      new ScriptedModel([{ text: "Invitation recorded." }]),
+      gate,
+    );
+
+    try {
+      const queued = await enqueueAgentTask(
+        hostTask(fixture, "Invite the lease family."),
+        deps(model, clock),
+      );
+      const execution = executeQueuedAgentRun(queued.runId, deps(model, clock));
+      await waitForRunStatus(fixture.homeId, "running");
+
+      clock.advance(10 * 60 * 1_000);
+      await enqueueAgentTask(
+        hostTask(fixture, "Invite another family."),
+        deps(new ScriptedModel([]), clock),
+      );
+      const drained = await drainAgentQueue(
+        sql,
+        new SystemClock(),
+        (runId) => Promise.resolve({ status: "accepted", runId }),
+      );
+
+      expect(drained.claimedRunIds).not.toContain(queued.runId);
+      const [leased] = await sql<
+        { status: string; lease_is_current: boolean }[]
+      >`
+        select status,
+          queue_claimed_at > now() - interval '10 seconds'
+            and deadline_at > now() + interval '3 minutes'
+            as lease_is_current
+        from public.runs where id = ${queued.runId}
+      `;
+      expect(leased).toEqual({ status: "running", lease_is_current: true });
+
+      release();
+      await expect(execution).resolves.toMatchObject({
+        runId: queued.runId,
+        status: "completed",
+      });
+    } finally {
+      release();
       await cleanup(fixture.homeId);
     }
   });
@@ -277,7 +331,7 @@ describe("durable agent queue", () => {
 
   it("claims queued and expired work once with bounded concurrency", async () => {
     const fixture = await seedHost();
-    const clock = new FakeClock(new Date("2026-09-01T10:00:00Z"));
+    const clock = new FakeClock(new Date());
     try {
       const first = await enqueueAgentTask(
         hostTask(fixture, "Invite family one."),
@@ -294,6 +348,7 @@ describe("durable agent queue", () => {
         ).toISOString()}, queue_claim_token = ${randomUUID()}
         where id = ${first.runId}
       `;
+      clock.advance(1_000);
 
       const drained = await drainAgentQueue(
         sql,
