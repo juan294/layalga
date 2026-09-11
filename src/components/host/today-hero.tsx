@@ -45,7 +45,9 @@ export function TodayHero({
             <span className={styles.date}>{dateSeasonLabel}</span>
           ) : null}
           {stampLabel ? (
-            <span className={styles.stamp}>{stampLabel}</span>
+            <span className={styles.stamp} data-testid="today-hero-stamp">
+              {stampLabel}
+            </span>
           ) : null}
         </div>
       </div>
