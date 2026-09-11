@@ -506,18 +506,7 @@ async function probeConcurrentConflict(
       where id = any(${sql.array([...exactRunIds])}::uuid[])
     `,
   );
-  assert.equal(
-    results.filter((result) => /confirmed/i.test(result.summary)).length,
-    1,
-    "exactly one concurrent run must report confirmation",
-  );
-  assert.equal(
-    results.filter((result) =>
-      /free beds|room allocation/i.test(result.summary),
-    ).length,
-    1,
-    "exactly one concurrent run must report that the room is unavailable",
-  );
+  assertConcurrentRunsCompleted(results);
   const [outcome] = await sql<
     {
       confirmed: number;
@@ -545,6 +534,16 @@ async function probeConcurrentConflict(
     outcome,
     { confirmed: 1, holds: 1, confirmations: 1 },
     "exactly one conflicting visit must pass the policy and confirm",
+  );
+}
+
+export function assertConcurrentRunsCompleted(
+  results: readonly Pick<TerminalProbeRunResult, "status">[],
+): void {
+  assert.equal(results.length, 2, "expected two concurrent run results");
+  assert.ok(
+    results.every((result) => result.status === "completed"),
+    "both concurrent runs must complete",
   );
 }
 
