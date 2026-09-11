@@ -46,8 +46,8 @@ test("the host capture poller keeps its visible card and status pulse", async ({
       borderTopWidth: style.borderTopWidth,
     };
   });
-  const pulseBackgroundColor = await card
-    .locator('span[aria-hidden="true"]')
+  const pulseBackgroundColor = await page
+    .getByTestId("run-status-pulse")
     .evaluate((element) => getComputedStyle(element).backgroundColor);
 
   expect(cardStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");

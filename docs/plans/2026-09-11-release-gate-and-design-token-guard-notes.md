@@ -11,11 +11,24 @@
   `reconfirm_pending`, and `TodayHero`'s stamp has no stable role or test ID.
 - **Chose:** Add a third `reconfirm_pending` fixture for the categorical
   primary-button computed-style assertions, and add
-  `data-testid="today-hero-stamp"` to `TodayHero` while retaining confirmed and
-  cancelled coverage.
+  `data-testid="today-hero-stamp"` to `TodayHero` and
+  `data-testid="guest-visit-record"` to `GuestVisitRecord` while retaining
+  confirmed and cancelled coverage.
 - **Why:** This exercises the exact v1.3.0 fill and contrast failure and keeps
-  state assertions translation-safe without exact colours, snapshots, or
-  brittle DOM and CSS selectors.
+  state and panel assertions translation-safe without exact colours, snapshots,
+  or brittle DOM and CSS selectors.
+
+### Phase 1: stable pulse locator
+
+- **Plan said:** Assert the run-status pulse's computed background colour from
+  the new browser spec without changing `RunStatusPoller`.
+- **Found:** The pulse had no stable hook, so the spec had to select any
+  `aria-hidden` span inside the card and would become ambiguous if another
+  decorative span were added.
+- **Chose:** Add `data-testid="run-status-pulse"` to the pulse and select that
+  element directly in the computed-style assertion.
+- **Why:** The regression test continues to assert colour versus transparency
+  in a real browser while remaining independent of unrelated decorative markup.
 
 ### Phase 3: executable workflow and two-stage production proof
 

@@ -27,7 +27,7 @@ export async function GuestVisitRecord({
   const presentation = guestVisitPresentation(visit);
 
   return (
-    <section className={styles.summary}>
+    <section className={styles.summary} data-testid="guest-visit-record">
       <dl className={styles.factList}>
         <dt>{t("stayLabel")}</dt>
         <dd>{formatDateStay(visit.stay, locale)}</dd>

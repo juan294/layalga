@@ -23,7 +23,7 @@ describe("CSS module design tokens", () => {
     expect(ALLOWED_SCOPED_TOKENS.size).toBe(4);
 
     const rootTokens = declarationsInDocumentRules(
-      await readFile("src/app/globals.css", "utf8"),
+      cssWithoutComments(await readFile("src/app/globals.css", "utf8")),
     );
     const moduleFiles: string[] = [];
     for await (const file of glob("src/**/*.module.css")) {
@@ -32,7 +32,7 @@ describe("CSS module design tokens", () => {
 
     const problems: string[] = [];
     for (const file of moduleFiles.sort()) {
-      const css = await readFile(file, "utf8");
+      const css = cssWithoutComments(await readFile(file, "utf8"));
       const rules = parseCssRules(css);
       const declared = new Set<string>();
       const scopedDeclarations = new Map<string, Set<string>>();
@@ -49,9 +49,7 @@ describe("CSS module design tokens", () => {
         }
       }
 
-      const read = new Set(
-        collectMatches(cssWithoutComments(css), /var\(\s*(--[\w-]+)/g),
-      );
+      const read = new Set(collectMatches(css, /var\(\s*(--[\w-]+)/g));
       for (const token of [...read].sort()) {
         if (ALLOWED_SCOPED_TOKENS.has(token)) continue;
 
@@ -73,6 +71,15 @@ describe("CSS module design tokens", () => {
 
     expect(problems, problems.join("\n")).toEqual([]);
   });
+
+  test("recognizes declarations on the document element only", () => {
+    expect(isDocumentSelector(":root")).toBe(true);
+    expect(isDocumentSelector(':root[data-theme="dark"]')).toBe(true);
+    expect(isDocumentSelector('html[data-season="winter"]')).toBe(true);
+    expect(isDocumentSelector(":root, html.contrast")).toBe(true);
+    expect(isDocumentSelector(":root .card")).toBe(false);
+    expect(isDocumentSelector("html > body")).toBe(false);
+  });
 });
 
 function declarationsInDocumentRules(css: string): Set<string> {
@@ -87,7 +94,10 @@ function declarationsInDocumentRules(css: string): Set<string> {
 }
 
 function isDocumentSelector(selector: string): boolean {
-  return selector.includes(":root") || selector.trimStart().startsWith("html");
+  return selector.split(",").some((part) => {
+    const compound = part.trim().replace(/\[[^\]]*\]/g, "");
+    return /^(?::root|html)(?:[.#:][\w-]+)*$/.test(compound);
+  });
 }
 
 function collectMatches(input: string, pattern: RegExp): string[] {
@@ -100,7 +110,7 @@ function cssWithoutComments(css: string): string {
 
 function parseCssRules(css: string): CssRule[] {
   const rules: CssRule[] = [];
-  walkCssBlocks(cssWithoutComments(css), rules);
+  walkCssBlocks(css, rules);
   return rules;
 }
 

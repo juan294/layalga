@@ -151,7 +151,11 @@ export function RunStatusPoller({
     >
       <div aria-atomic="true" aria-live="polite" role="status">
         <div className={styles.statusLine}>
-          <span className={styles.pulse} aria-hidden="true" />
+          <span
+            className={styles.pulse}
+            aria-hidden="true"
+            data-testid="run-status-pulse"
+          />
           <strong>{t(`status.${run.status}`)}</strong>
         </div>
         <p className={styles.explainer}>
