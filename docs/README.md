@@ -1,6 +1,6 @@
 # Documentation index
 
-Current guides describe the September 5 completion, with production rollout and human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding NotebookLM artifacts; dated research and plans remain history, not current product instructions.
+Current guides describe production v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding NotebookLM resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
 
 ## For judges and readers
 
@@ -12,17 +12,17 @@ tests, operating modes, and limits. The public-site discovery index is
 | Document                                                   | What it is                                                                                                      |
 | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [submission/judge-guide.md](submission/judge-guide.md)     | Repository evidence and guided demo routes organized by the five judging criteria                               |
-| [submission/pitch.md](submission/pitch.md)                 | The Everyday Agents product narrative, technical foundation, evidence limits and spoken close                      |
+| [submission/pitch.md](submission/pitch.md)                 | The Everyday Agents product narrative, technical foundation, evidence limits and spoken close                   |
 | [submission/strands-usage.md](submission/strands-usage.md) | Every Strands Agents SDK feature the project uses, with code pointers                                           |
 | [submission/system-guide.md](submission/system-guide.md)   | The long-form guide: product, hackathon, architecture, AWS services, agent, host and guest journeys, operations |
-| [submission/devpost.md](submission/devpost.md)             | Devpost entry draft; final publication remains an owner task                                                    |
-| [submission/video-script.md](submission/video-script.md)   | Video recording script with timings; no uploaded video is implied                                               |
+| [submission/devpost.md](submission/devpost.md)             | Current Devpost-ready copy; video URL and final submission remain pending                                       |
+| [submission/video-script.md](submission/video-script.md)   | Production recording script with timings, shot directions, narration, and recording checks                      |
 | [submission/posts/](submission/posts/)                     | Three builder.aws post drafts                                                                                   |
 | [submission/assets/](submission/assets/)                   | The CloudWatch GenAI Observability trace screenshot                                                             |
 
 - [Coordination evidence](submission/coordination-evidence.md) — reproducible synthetic measurements with source revision and explicit limitations.
 - [Participant protocol](submission/participant-protocol.md) — planned human baseline study; no human results yet.
-- [Current roadmap](roadmap.md) — implemented capabilities, pending rollout and owner actions, and accepted deferrals.
+- [Current roadmap](roadmap.md) — released capabilities, remaining submission and guest-email actions, and accepted deferrals.
 
 ## For hosts and guests
 

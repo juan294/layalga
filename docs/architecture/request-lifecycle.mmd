@@ -26,21 +26,21 @@ sequenceDiagram
   and Dispatch of the queued run
     alt AGENT_RUNTIME=agentcore
       W->>AC: InvokeAgentRuntime<br/>{operation execute_run, runId, task}
-      AC->>DB: claimQueuedRun: status running, claim token,<br/>attempt +1 (max 3), deadline now + 4 min
-      AC-->>W: {status accepted, runId}
+      AC->>DB: claimQueuedRun: status running, claim token,<br/>attempt +1 (max 3), DB now + 4 min
+      Note over W,AC: InvokeAgentRuntime remains open<br/>until claimed execution settles.
     else AGENT_RUNTIME=local
       W->>W: after(): executeQueuedAgentRun in process
       W->>DB: claimQueuedRun (same claim rules)
     else Vercel Cron tick (Bearer CRON_SECRET)
       CRON->>W: GET /api/ticks
-      W->>DB: reconcileStaleRuns: deadline passed and attempts < 3<br/>back to queued, else failed
+      W->>DB: reconcileStaleRuns: DB deadline passed and attempts < 3<br/>back to queued, else failed
       W->>DB: expireTemporaryHolds
       W->>DB: claimDueJob: scheduled_jobs due, 10 min lease
       W->>DB: enqueue tick run per due job, not opportunistic
-      W->>DB: drainAgentQueue: queued or stale running (6 min),<br/>attempts < 3, concurrency 2
+      W->>DB: drainAgentQueue: queued or stale running by DB time (6 min),<br/>attempts < 3, concurrency 2
       W->>AC: InvokeAgentRuntime execute_run per candidate
       AC->>DB: claimQueuedRun
-      AC-->>W: {status accepted}
+      Note over W,AC: Cron dispatch also waits for<br/>the runtime execution response.
       W->>W: dispatchHostEmailPingsSafely
       W->>EMAIL: dispatchGuestEmailPingsSafely<br/>real clock, synthetic homes excluded
       EMAIL->>DB: claim source + contact generation with lease
@@ -60,6 +60,9 @@ sequenceDiagram
     end
     S-->>AC: completed, interrupted, or failed
     AC->>DB: terminal result {summary, executedOn}<br/>claim token cleared, finished_at set
+    opt AgentCore dispatch
+      AC-->>W: {status accepted, runId}<br/>after execution settles
+    end
   end
 
   B->>B: poller renders timeline<br/>tool_call, policy_verdict, decision_applied
@@ -73,4 +76,5 @@ sequenceDiagram
     W->>DB: scoped contact generation and verification outbox
     Note over B,DB: Account-free GET only previews verification,<br/>explicit POST verifies. Return capability is checked<br/>against live access and consent on every guest request.
   end
-  Note over B: After deadline_at the poller stops<br/>and shows a Retry status button.
+  Note over DB: Run claims, heartbeats, deadlines and stale recovery use DB wall time.<br/>The demo clock drives household behavior, not worker ownership.
+  Note over B: After the server duration the poller stops<br/>and shows a Retry status button.

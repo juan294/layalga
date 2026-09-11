@@ -11,7 +11,7 @@ The roles cannot create roles or databases, bypass RLS, replicate, use the `auth
 
 Migration `20260831083526_agent_first_room_coordination.sql` narrows `layalga_agent_runtime`'s room access further: `select` on a restricted column subset of `rooms` (no `private_notes`), `select` and `delete` plus column-scoped `insert` on `visit_rooms`, and `select` and `insert` on `room_action_proposal_rooms`. It grants no access to `private_room_blocks` or write access to `room_availability_overrides` — those stay host-only through `layalga_web`. The agent can only ever create a pending room-action proposal; applying one still runs through a host-authenticated web action.
 
-The September 5 completion migrations `20260905000100` through `20260905000700` are verified locally and must accompany the matching code in a separately authorized production release. They extend invitation access for finite booked stays, support cancellation, add `visits.guest_notes`, version the existing household policy, and add guest contacts/outbox/attempt receipts and recovery indexes. Notes use the existing visits grants and trusted booking-state path; they are not model-prompt input. Only `layalga_web_runtime` can update the policy columns. The agent reads current policy and cannot mutate it. Guest contact/delivery tables explicitly deny agent, public, anon, authenticated and service-role privileges and enable RLS; the web runtime alone receives their required DML. The retention function remains maintenance-only.
+The September 5 completion migrations `20260905000100` through `20260905000700` shipped with v1.0.0 and remain applied in production. They extend invitation access for finite booked stays, support cancellation, add `visits.guest_notes`, version the existing household policy, and add guest contacts/outbox/attempt receipts and recovery indexes. Notes use the existing visits grants and trusted booking-state path; they are not model-prompt input. Only `layalga_web_runtime` can update the policy columns. The agent reads current policy and cannot mutate it. Guest contact/delivery tables explicitly deny agent, public, anon, authenticated and service-role privileges and enable RLS; the web runtime alone receives their required DML. The retention function remains maintenance-only.
 
 ## AgentCore runtime identity
 
@@ -33,9 +33,9 @@ The web IAM user can invoke the model/runtime and send host email; guest sender 
 
 **Configured model and fallback:** production selects `us.anthropic.claude-sonnet-4-6`. Since 2026-09-05 both `agentcore-runtime-execution.json` and `web-bedrock-policy.json` allow Sonnet 4.5 and 4.6 (the web policy was applied to `layalga-web` as the inline policy `layalga-web-bedrock` with `aws iam put-user-policy`), so the `AGENT_RUNTIME=local` fallback can invoke the configured model. Before a fallback, confirm the Vercel `BEDROCK_MODEL_ID` is one of those two models; a different model needs a reviewed policy change first.
 
-## Release-time credential step
+## Credential provisioning and rotation
 
-The migration deliberately sets no password. It does not change Vercel, AgentCore, or production `DATABASE_URL` values. Complete this step once, after the migration is applied and before starting the candidate runtime:
+The migration deliberately sets no password. Initial provisioning is complete in production. Repeat this procedure only for an authorized credential rotation or recovery, before starting the affected candidate runtime:
 
 1. Connect with the separate administrative migration credential. Do not expose it to the web or agent process.
 2. Use `\password layalga_web` and `\password layalga_agent` in `psql`. Enter unique generated passwords at the prompts. Do not put either password in shell history, command arguments, repository files, logs, or issue comments.

@@ -1,6 +1,6 @@
 # Agents for Humans: testing proactive follow-through with an honest clock
 
-Unpublished Builder post draft, updated 5 September 2026 against product commit `618701c`. Publication and URL are pending owner action. Local workflow evidence and earlier production runtime evidence are distinct.
+Unpublished Builder post draft, updated 11 September 2026 against production v1.3.2 commit `90b68385`. Publication and URL remain pending. Local benchmark measurements and current exact-candidate production evidence remain distinct.
 
 ## Booking is not the end of coordination
 
@@ -14,7 +14,7 @@ The agent helps phrase the message. The [job engine](../../../src/core/reconfirm
 
 A fixed “jump three days” button is fragile. The relevant visit may have changed, a job may be waiting for a retry, or a worker may still hold a live lease.
 
-Our [semantic clock service](../../../src/core/demo/advance-clock.ts) selects an eligible persisted chase or escalation and advances to its effective due/retry time. It preserves current-cycle, pre-arrival and lease constraints. A currently leased job is not made claimable by artificially aging the lease. An exhausted shortcut says no eligible work remains. Custom time moves forward only.
+Our [semantic clock service](../../../src/core/demo/advance-clock.ts) selects an eligible persisted chase or escalation and advances to its effective due/retry time. It preserves current-cycle and pre-arrival constraints. Queue claims, heartbeats, execution deadlines, and stale-run recovery use PostgreSQL wall time, so a synthetic household clock jump cannot reclaim a live worker. An exhausted shortcut says no eligible work remains. Custom household time moves forward only.
 
 `DbDemoClock` substitutes time only for an enabled synthetic household. Guest defaults, room search and policy use that same household clock, so an expired demo hold does not remain falsely occupied in search. Real invitation and email capability authentication continue to use real expiry; the demonstration clock cannot extend guest authority.
 

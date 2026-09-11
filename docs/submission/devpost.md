@@ -1,6 +1,6 @@
 # L’Ayalga — Devpost draft
 
-Status: current implementation at `618701c`, 5 September 2026. Completion features are locally verified; production rollout is pending. Video recording is planned as an owner task for 13 September. Video URL, final entry and publication remain pending.
+Status: production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
 
 ## Tagline
 
@@ -26,9 +26,9 @@ Guests and hosts can explicitly cancel a reviewed stay or withdraw an unbooked r
 
 ## How we built it
 
-The Strands Agents TypeScript SDK supplies the agent loop, typed tools, a policy hook, durable interruption/resumption, session storage and optional memory integration. Amazon Bedrock supplies Claude Sonnet 4.6 in the current configuration. The deployed-runtime architecture uses Amazon Bedrock AgentCore Runtime, AgentCore Memory and CloudWatch observability; [Strands usage](strands-usage.md) maps the implementation precisely.
+The Strands Agents TypeScript SDK supplies the agent loop, typed tools, a policy hook, durable interruption/resumption, session storage and memory integration. Amazon Bedrock supplies Claude Sonnet 4.6. Production uses Amazon Bedrock AgentCore Runtime version 30, AgentCore Memory and CloudWatch observability; [Strands usage](strands-usage.md) maps the implementation precisely.
 
-Next.js queues work and presents English/Spanish host and guest journeys. Supabase PostgreSQL remains authoritative for rooms, invitations, bookings, policy versions, decisions, jobs and capabilities. Non-owner database roles separate web delivery authority from agent execution. The agent cannot read guest contact addresses or send guest email. SES delivery is implemented through a web-owned outbox with authorized attempt receipts.
+Next.js queues work and presents English/Spanish host and guest journeys. Each AgentCore invocation stays open until its claimed work settles. Operational claims, heartbeats, deadlines and recovery use PostgreSQL wall time, while the synthetic household clock drives only the visible visit scenario. Supabase PostgreSQL remains authoritative for rooms, invitations, bookings, policy versions, decisions, jobs and capabilities. Non-owner database roles separate web delivery authority from agent execution. The agent cannot read guest contact addresses or send guest email. SES delivery is implemented through a web-owned outbox with authorized attempt receipts.
 
 Raw host text can contain names and is processed by the model. Capture conversations are excluded from memory extraction. Guest-submission notes, arrival details and request prose stay out of assembled model prompts; memory recommendations use a bounded, party-scoped read. See the [privacy lifecycle](../security/data-lifecycle.md) for the boundaries and retention rules.
 
@@ -42,22 +42,28 @@ We also separated language that conveys information from language asking someone
 
 The guided demo now begins with a complete routine stay, then shows a fresh exception and durable follow-through. Decisions and current outcomes are prominent for hosts. The same product includes clear recovery for stale reviews, expired holds, disabled memory and failed delivery.
 
-The [synthetic benchmark](coordination-evidence.md) records actual automated operations and database outcomes with its exact revision and configuration. It does not claim human savings, real-model quality or inbox delivery. A [historical AgentCore trace](assets/agentcore-trace.png) separately demonstrates the earlier production runtime; it does not establish deployment of the completion branch.
+The [synthetic benchmark](coordination-evidence.md) records actual automated operations and database outcomes with its exact revision and configuration. It does not claim human savings, general model quality or inbox delivery. The [v1.3.2 protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) separately ran the guided demo and all nine probes against the exact Vercel and AgentCore commit, including memory, host SES acceptance, concurrency, interruption, guest isolation and cleanup.
 
 ## What comes next
 
-The immediate remaining work is production rollout and guest-email readiness, owner recording/upload and submission, publication of the three Builder drafts, and a measured participant study. The [guest email readiness checklist](../release/guest-email-readiness.md) identifies the unapplied permissions and operational verification.
+The immediate remaining work is recording/upload and final submission, optional publication of the three Builder drafts, guest-email activation with a consenting real-recipient proof, and a measured participant study. The [guest email readiness checklist](../release/guest-email-readiness.md) identifies the unapplied permission and operational verification.
 
 Broader channels such as WhatsApp/SMS and changing rooms midway through a stay remain deferred ideas. Household policy configuration, consented guest reminders, cancellation and remembered room recommendations are already implemented and are not future roadmap promises.
 
 ## Try it and review it
 
 - [Canonical judge guide](judge-guide.md): repository-only review and reproducible synthetic journey.
-- [Live site](https://layalga.thecreativetoken.com): verify its deployed revision before expecting the new completion features.
+- [Live site](https://layalga.thecreativetoken.com): production v1.3.2 at commit `90b68385`.
 - [Public repository](https://github.com/juan294/layalga): MIT licensed.
 - [Architecture](../architecture/README.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
 - Video: not yet recorded/uploaded; final URL pending owner action.
-- AWS Builder ID and Devpost entry: owner must verify completion before submission.
+- AWS Builder ID, Everyday Agents track, repository, architecture, and live-demo fields are populated; final submission remains pending.
+
+## Testing instructions
+
+Open the live demo in English or Spanish. On the sign-in page, use either synthetic host button; no Google account is required. Start **Vega** in the guided panel, search for four guests with both open rooms, add an informational thank-you, and submit to see a routine AgentCore booking complete. Advance to the next guest reminder, return as Vega, and answer **Yes, we are coming**.
+
+Then start **Otero**. This visibly resets the shared synthetic home. Select the Garage Room, submit the preserved explicit request, and approve the resulting host decision. Advance to the next guest reminder without answering, then advance to the next host follow-up. The host sees the unresolved escalation. Each scenario reset affects other viewers using the shared demo; finish one route before starting another. Synthetic guest email is always suppressed.
 
 ## Built with
 

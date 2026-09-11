@@ -11,7 +11,7 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 Start with the [judge guide](docs/submission/judge-guide.md), [source evidence index](docs/submission/evidence.md), [Strands implementation inventory](docs/submission/strands-usage.md), [measured synthetic evidence](docs/submission/coordination-evidence.md), or [documentation index](docs/README.md). The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates implemented work from the remaining human and operational steps.
 
-The September 5 completion is implemented and locally verified. It has not been promoted to production by this work. Historical production evidence and current source verification are labeled separately. Human time savings have not been measured; the video and public Builder posts remain owner tasks.
+The complete product is live in production as v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`. The protected production workflow ran the guided demo and all nine probes against that exact Vercel and AgentCore candidate, including AgentCore Memory, host SES acceptance, concurrency, human interruption, guest isolation, and cleanup. Human time savings have not been measured; the video, final Devpost submission, optional public Builder posts, guest-email activation, and real-recipient delivery proof remain separate work.
 
 ![L’Ayalga architecture](docs/architecture/layalga-architecture.svg)
 

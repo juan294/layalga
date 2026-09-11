@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-These sources describe the September 5 implementation. The selected execution topology remains AgentCore Runtime with the local runtime fallback. The new guest delivery path is implemented and tested locally; its migrations, guest SES IAM policy, production rollout and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
+These sources describe production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
 
 `layalga-architecture.mmd` is the source. `mermaid-config.json` fixes the render settings. The committed SVG and PNG were generated with Mermaid CLI 11.12.0:
 
@@ -81,13 +81,13 @@ Regenerate it after editing the XML:
   docs/architecture/layalga-architecture.drawio
 ```
 
-**Source refreshed 2026-09-05.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking and the guided semantic demo. Its lower detail cards explain the new security boundaries and pending guest rollout. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; the export does not establish a production deployment.
+**Source refreshed 2026-09-11 for v1.3.2.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current production proof comes from the protected release workflow rather than the export.
 
 ## Supporting diagrams
 
 Four smaller Mermaid sources sit next to the topology diagram. Each has a committed SVG rendered with the same Mermaid CLI, config, theme, and background as above.
 
-- `request-lifecycle.mmd`: accepted work, exact-run polling and dispatch, automatic authorized post-capture handoff, and cron host/guest delivery with separate attempt receipts.
+- `request-lifecycle.mmd`: accepted work, exact-run polling, AgentCore dispatch held open through execution, database-wall-time operational leases, automatic authorized post-capture handoff, and cron host/guest delivery with separate attempt receipts.
 - `interrupt-resume.mmd`: the sequence for a gated tool such as `create_temporary_hold`: the policy hook's room and overlap verdicts, the `host_decision` interrupt and session snapshot, the pending decision and its SES ping, the host's approve or decline, the resume run that re-checks the verdicts and overflow fingerprint before the tool executes once, and the `application_error` failure path with the host Retry button.
 - `reconfirmation-state-machine.mmd`: the visit states from `hold` through `confirmed`, `reconfirm_pending`, `reconfirmed`, `escalated`, and `cancelled`, plus the `scheduled_jobs` lifecycle with its 10 minute lease, the 1 minute and 5 minute retry ladder, quarantine on the third failure, and the deterministic notification fallback.
 - `memory-namespaces.mmd`: the single memory resource, per-party extraction and tool recall, deterministic bounded preference reads, host list/Forget, and the distinction between omitted identity fields and potentially identifying raw free text.

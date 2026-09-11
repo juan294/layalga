@@ -4,15 +4,33 @@ This is the source-backed companion to the [judge guide](judge-guide.md). Each c
 
 ## Current completion evidence
 
-The completion source reference is **`54eab0860de93ae9d9289f228a4c6f38f24d8194`**, which includes the product phases completed at `618701c` and the reviewed benchmark implementation. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code, not a new test run performed by editing this index.
+The current production source reference is v1.3.2 commit **`90b68385a590144d6d44cd7dd41298180b2d182c`**. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code. The dated benchmark and historical baseline later in this document retain their own exact revisions.
 
 The [coordination evidence report](coordination-evidence.md) records the actual measured artifact, its own exact source revision, configuration and operation definitions. Its local scripted results are separate from the older baseline test totals preserved later in this document. Neither result measures human effort, live-model quality, production memory quality or inbox delivery. See the [participant protocol](participant-protocol.md) for the unmeasured human baseline.
+
+The [protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) checked out that exact commit, ran the guided demo, and passed all nine production probes. It observed AgentCore Runtime version 30, Sonnet 4.6 execution, AgentCore Memory search, host SES acceptance, concurrent conflict handling, durable interrupt/resume, guest isolation, and cleanup. The health route then reported zero stale or retrying work. These are current production observations; they do not establish guest inbox delivery, broad model quality, or human time saved.
+
+### Agent execution stays live while operational time stays real
+
+**Value and claim:** AgentCore keeps an `execute_run` invocation open until the claimed run settles. Queue claims, heartbeats, deadlines, and stale-run recovery use PostgreSQL wall time, so advancing a synthetic household clock cannot reclaim a live worker.
+
+**Source and tests:** [runtime handler](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/runtime/handler.ts), [claimed execution](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/run-task.ts), [queue regression](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/queue.test.ts), and [production workflow](https://github.com/juan294/layalga/actions/runs/34583050263).
+
+**Mode and limit:** The production run exercised real AgentCore dispatch while the guided demo advanced household time. Database wall time protects operational ownership; the injected clock still drives synthetic visit dates and scheduled household behavior.
+
+### Browser rendering guards categorical design contracts
+
+**Value and claim:** Shared custom properties are statically required on the document root, and real-browser computed styles assert visible categories such as colour rather than transparent and width rather than zero across themes. Exact seasonal values are deliberately not snapshotted.
+
+**Source and tests:** [static token guard](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/components/design-tokens.test.ts) and [computed-style browser assertions](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/tests/e2e/run-status-styling.spec.ts).
+
+**Mode and limit:** Playwright resolves rendered CSS in a real browser, unlike JSDOM custom-property structure checks. The assertions protect required categories while allowing seasonal and theme values to change.
 
 ### Cancellation closes outstanding authority
 
 **Value and claim:** A guest or host explicitly confirms the reviewed current stay, or withdraws an unbooked invitation. Cancellation releases occupancy and retires obsolete decisions, runs, jobs and delivery work; natural language can prepare review but cannot commit cancellation.
 
-**Source and tests:** [cancellation service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/cancellation.ts), [prepareCancellationTool](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/tools/prepare-cancellation.ts), and [cancellation integration regressions](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/cancellation.integration.test.ts).
+**Source and tests:** [cancellation service](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/booking/cancellation.ts), [prepareCancellationTool](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/tools/prepare-cancellation.ts), and [cancellation integration regressions](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/booking/cancellation.integration.test.ts).
 
 **Mode and limit:** Local database/agent coverage exercises current-state and race boundaries. Withdrawal prevents subsequent send authorization; it cannot recall an already authorized in-flight external email. This supports technical implementation and a complete guest journey.
 
@@ -20,7 +38,7 @@ The [coordination evidence report](coordination-evidence.md) records the actual 
 
 **Value and claim:** Informational notes remain visible without manufacturing a host decision. Captured explicit requests remain trusted and persist through resumption. Host changes to pets/children policy use version checks and serialize with booking; approval rechecks current rules.
 
-**Source and tests:** [trusted task and resume handling](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/run-task.ts), [policy settings service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/policy/settings.ts), [tenant and request-integrity tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/agent/tenant-scope.test.ts), and [settings integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/policy/settings.integration.test.ts).
+**Source and tests:** [trusted task and resume handling](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/run-task.ts), [policy settings service](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/policy/settings.ts), [tenant and request-integrity tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/agent/tenant-scope.test.ts), and [settings integration tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/policy/settings.integration.test.ts).
 
 **Mode and limit:** Scripted/database tests exercise application authority. Omitting notes, arrival details and request prose from the guest-submit prompt is field minimization; raw host/change text and captured free-text facts can still identify people.
 
@@ -28,7 +46,7 @@ The [coordination evidence report](coordination-evidence.md) records the actual 
 
 **Value and claim:** Real reminder enrollment requires explicit consent and verified contact. Verification GET only reviews; POST verifies deliberately. Return capability authority is revalidated on every guest request and invalidated by applicable consent/access changes. Contact and send receipts stay in web-only services.
 
-**Source and tests:** [guest contact service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-contact.ts), [guest outbox](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-outbox.ts), [guest return browser journey](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/tests/e2e/guest-email.spec.ts), and [delivery integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/notifications/guest-delivery.integration.test.ts).
+**Source and tests:** [guest contact service](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-contact.ts), [guest outbox](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-outbox.ts), [guest return browser journey](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/tests/e2e/guest-email.spec.ts), and [delivery integration tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-delivery.integration.test.ts).
 
 **Mode and limit:** Local tests inject a sender and use synthetic fixtures without real email. SES acceptance, definite failure and unknown send outcomes are distinct from inbox receipt or a guest reply. Production guest permissions and real-recipient proof remain pending in [guest email readiness](../release/guest-email-readiness.md).
 
@@ -36,7 +54,7 @@ The [coordination evidence report](coordination-evidence.md) records the actual 
 
 **Value and claim:** Trusted party-scoped recall can rank valid room combinations using supported floor/bed preferences. Guests see matches, unmatched preferences or an honest fallback and retain manual selection. Standard capacity and room count precede preference ranking.
 
-**Source and tests:** [loadPartyRoomPreferences](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/memory/room-preferences.ts), [recommendRooms](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/rooms/recommendation.ts), and [actual guest-search integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/guest-preferences.integration.test.ts).
+**Source and tests:** [loadPartyRoomPreferences](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/memory/room-preferences.ts), [recommendRooms](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/rooms/recommendation.ts), and [actual guest-search integration tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/booking/guest-preferences.integration.test.ts).
 
 **Mode and limit:** Mocked-memory/local database tests cover the actual search integration. This bounded direct read is separate from SDK `search_memory` recall. Unsupported or conflicting input cannot become an invented requirement; a ground-floor label is not an accessibility guarantee.
 
@@ -44,11 +62,11 @@ The [coordination evidence report](coordination-evidence.md) records the actual 
 
 **Value and claim:** Fresh routine and exception scenarios demonstrate booking, answered reconfirmation, approval and unanswered follow-up. Semantic controls choose eligible persisted jobs, preserve retry/lease/current-cycle guards and report when no work remains. Guest defaults and search use household time, while real access expiry remains real-time.
 
-**Source and tests:** [semantic clock service](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/demo/advance-clock.ts), [clock integration tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/demo/advance-clock.integration.test.ts), [guest search clock tests](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/src/core/booking/guest-clock.integration.test.ts), and [guided browser regression](https://github.com/juan294/layalga/blob/54eab0860de93ae9d9289f228a4c6f38f24d8194/tests/e2e/guided-demo.spec.ts).
+**Source and tests:** [semantic clock service](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/demo/advance-clock.ts), [clock integration tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/demo/advance-clock.integration.test.ts), [guest search clock tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/booking/guest-clock.integration.test.ts), and [guided browser regression](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/tests/e2e/guided-demo.spec.ts).
 
 **Mode and limit:** Synthetic local English and Spanish/mobile journeys use explicit shared resets. Simulated time jumps are not production uptime, and automated action durations are not human time saved.
 
-These current cards complement the five-criterion mapping in the judge guide. New completion features are locally implemented; production rollout and publication are separate pending actions. Historical AgentCore observations, the pending video and unpublished Builder drafts must not be represented as current deployment or publication proof.
+These current cards complement the five-criterion mapping in the judge guide. The completion features and v1.3.2 reliability guards are deployed. The pending public video and unpublished Builder drafts must not be represented as publication proof, and guest SES activation remains separate from host-email production evidence.
 
 ## Historical baseline: revision and evidence status
 

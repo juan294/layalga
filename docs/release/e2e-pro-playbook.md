@@ -18,30 +18,30 @@ The September 5 completion (cancellation, stay-aligned access, notes, versioned 
 | Production branch              | `main`; promoted from `develop` by pull request                                                                                                                   |
 | Merge strategy                 | Squash pull requests                                                                                                                                              |
 | Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                          |
-| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                   |
+| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.3.2 verified                                                                                   |
 | Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                        |
 | Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                        |
 | Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                     |
 | Staging target                 | None                                                                                                                                                              |
-| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                             |
+| Production target              | `https://layalga.thecreativetoken.com`; v1.3.2 verified through the protected workflow with nine probes on AgentCore                                              |
 | Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                          |
 | Primary datastore              | PostgreSQL through Supabase                                                                                                                                       |
 | Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                               |
 | Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                   |
 | Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery     |
-| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.0.0 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
+| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.3.2 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
 | Release approver               | Product owner                                                                                                                                                     |
 | Rollback authority             | Product owner                                                                                                                                                     |
 
 ## Environment truth
 
-| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                  |
-| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                           |
-| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                        |
-| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                              |
-| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                              |
-| Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.0.0 bound nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified for that candidate; Google host sign-in is not exercised by the probes |
+| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                                          |
+| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                                                   |
+| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                                                |
+| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                                                      |
+| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                                                      |
+| Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.3.2 bound the protected workflow and all nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified; Google host sign-in and guest inbox delivery are not exercised |
 
 ## Adopted scope
 
@@ -173,10 +173,10 @@ gh workflow run production-probes.yml \
   -f acknowledge='RESET DEMO DATA'
 ```
 
-The initial workflow implementation remains unproven until it has reached
-`main`, an authorized dispatcher has approved and run it against the live
-candidate, and all nine probes and cleanup have passed. Keep the standing
-v1.3.1 follow-up open until that run URL is recorded in the historical decision.
+The workflow first proved this contract for v1.3.2 in the authorized
+[production run](https://github.com/juan294/layalga/actions/runs/34583050263).
+It checked out the exact `main` candidate, ran the guided demo and all nine
+probes, and verified cleanup. The standing v1.3.1 follow-up is closed.
 
 ### Production workflow release-system impact
 
