@@ -15,13 +15,14 @@ interface AsyncRunRuntime {
 }
 
 /**
- * Register durable work with AgentCore and acknowledge it without waiting for
- * the model. The worker claims the existing database run before execution.
+ * Register durable work with AgentCore and keep the invocation open until the
+ * model finishes. AgentCore can stop the runtime after an invocation returns,
+ * even when its application registry still contains an async task.
  */
-export function acceptAgentRunExecution(
+export async function acceptAgentRunExecution(
   request: ExecuteAgentRunRequest,
   runtime: AsyncRunRuntime,
-): AgentRunAccepted {
+): Promise<AgentRunAccepted> {
   const taskId = runtime.addAsyncTask("agent-run");
   const execution = Promise.resolve()
     .then(() => runtime.execute(request))
@@ -31,5 +32,6 @@ export function acceptAgentRunExecution(
     })
     .finally(() => runtime.completeAsyncTask(taskId));
   runtime.track(execution);
+  await execution;
   return { status: "accepted", runId: request.runId };
 }
