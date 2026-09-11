@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { sqlClient, type DatabaseClient } from "../db/client";
 import { SystemClock, type Clock } from "../clock";
 import { parseServerEnvironment } from "@/lib/server/env";
+import { currentSeason, type Season } from "@/lib/season";
+import { renderEmailDocument } from "./email-template";
 import { sesSend, type EmailSender } from "./ses-client";
 import {
   loadLiveGuestContact,
@@ -103,6 +105,8 @@ export function renderGuestEmail(
   kind: OutboxRow["kind"],
   locale: "en" | "es",
   link: string,
+  season?: Season,
+  fromAddress?: string,
 ) {
   const verification = kind === "verification";
   const subject =
@@ -122,22 +126,52 @@ export function renderGuestEmail(
         ? "You requested email reminders. Open this link and confirm your address. If you did not request this, ignore this email."
         : "Please confirm whether you are still coming. Open your visit to reconfirm or request a change. You can turn reminders off from your visit.";
   const text = `${message}\n\n${link}`;
-  const escaped = (value: string) =>
-    value.replace(
-      /[&<>"']/g,
-      (char) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[char]!,
-    );
+  const eyebrow =
+    locale === "es"
+      ? verification
+        ? "Verifica tu correo"
+        : "Reconfirmación pendiente"
+      : verification
+        ? "Verify your email"
+        : "Reconfirmation needed";
+  const headline =
+    locale === "es"
+      ? verification
+        ? "Confirma tu correo para recibir recordatorios"
+        : "¿Seguís viniendo a L’Ayalga?"
+      : verification
+        ? "Confirm your email to get reminders"
+        : "Still coming to L’Ayalga?";
+  const bodyHtml =
+    locale === "es"
+      ? verification
+        ? "Solicitaste recordatorios por correo de <strong>L&#8217;Ayalga</strong>. Abre el botón para confirmar tu dirección. Si no lo solicitaste, podés ignorar este correo."
+        : "Confirmá si seguís viniendo. Abrí tu visita para reconfirmar o solicitar un cambio &mdash; podés desactivar los recordatorios desde ahí."
+      : verification
+        ? "You requested email reminders from <strong>L&#8217;Ayalga</strong>. Open the button below to confirm your address. If you didn&#8217;t request this, you can safely ignore this email."
+        : "Please confirm whether you&#8217;re still coming. Open your visit to reconfirm or request a change &mdash; you can turn reminders off from there.";
+  const ctaLabel =
+    locale === "es"
+      ? verification
+        ? "Confirmar correo"
+        : "Reconfirmar visita"
+      : verification
+        ? "Confirm email"
+        : "Reconfirm your visit";
   return {
     subject,
     text,
-    html: `<p>${escaped(message)}</p><p><a href="${escaped(link)}">${locale === "es" ? "Abrir" : "Open"}</a></p>`,
+    html: renderEmailDocument({
+      subject,
+      preheader: message,
+      eyebrow,
+      headline,
+      bodyHtml,
+      ctaLabel,
+      ctaUrl: link,
+      season,
+      fromAddress,
+    }),
   };
 }
 export async function dispatchGuestEmailPings(
@@ -229,7 +263,13 @@ export async function dispatchGuestEmailPings(
       );
       const route = ping.kind === "verification" ? "verify" : "return";
       const link = `${config.appUrl.replace(/\/$/, "")}/${contact.locale}/guest/${route}?capability=${encodeURIComponent(capability)}`;
-      const rendered = renderGuestEmail(ping.kind, contact.locale, link);
+      const rendered = renderGuestEmail(
+        ping.kind,
+        contact.locale,
+        link,
+        currentSeason(clock.now()),
+        config.sesFromAddress,
+      );
       const sent = await send({
         fromAddress: config.sesFromAddress,
         toAddress: contact.email,
