@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated September 5, 2026. This is the current roadmap for the Everyday Agents completion. Dated research and earlier plans record the decisions that led here; they are not a current backlog. Implementation is distinct from production activation.
+Updated September 11, 2026. This is the current roadmap for the v1.3.3 documentation release. Application behavior is unchanged from the proven v1.3.2 production candidate. Dated research and earlier plans record the decisions that led here; they are not a current backlog. The released product, submission work, guest-email activation, and human evidence remain distinct.
 
 ## Implemented in the completion
 
@@ -18,9 +18,9 @@ Updated September 5, 2026. This is the current roadmap for the Everyday Agents c
 
 ## Remaining owner and operational actions
 
-- Authorize and perform a production release of the same reviewed web/agent revision, including the applicable migrations, role checks, prepared guest SES policy and deployed verification. A `develop` merge alone does not do this. Use the [release playbook](release/e2e-pro-playbook.md) and [guest email readiness checklist](release/guest-email-readiness.md).
+- Keep v1.3.3 available through judging and use the [release playbook](release/e2e-pro-playbook.md) if a new behavioral candidate is required. v1.3.3 changes documentation only; the web and AgentCore behavior proven in v1.3.2 is bound to commit `90b68385`, where all nine protected production probes passed.
 - Complete a real consenting recipient verification/reminder/return/opt-out proof after authorization. Provider acceptance, inbox delivery and a guest reply are different observations.
-- Record and upload the public demo video, then complete the Devpost entry and required Builder ID. The owner plans recording the day before the submission deadline. The [video script](submission/video-script.md) is a draft, not an uploaded video.
+- Record and upload the public demo video, then complete the Devpost entry. The AWS Builder ID, track, repository, architecture, and live-demo fields are already populated; the video URL and final submission remain pending. The [video script](submission/video-script.md) is part of the v1.3.3 documentation set and targets the unchanged production behavior proven in v1.3.2; it does not imply an uploaded video.
 - Publish the three reviewed Builder article drafts and add their public links to the entry if pursuing the optional bonus. The [official rules](https://agentsforhumans.devpost.com/rules) award 0.2 per eligible public article, up to 0.6; drafts earn no bonus.
 - Run the participant protocol with willing hosts and guests. Record baseline effort, task completion and confusion before making human time-saving or adoption claims.
 - Keep the submitted project accessible through the end of judging and verify the final advertised demonstration against its deployed revision. The [official schedule](https://agentsforhumans.devpost.com/rules) closes submissions September 14 at 5 p.m. Pacific and judging October 8 at 5 p.m. Pacific.

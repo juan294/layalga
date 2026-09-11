@@ -41,15 +41,11 @@ interface RunStatusPollerProps {
   token?: string;
   timeZone: string;
   /**
-   * How long, in milliseconds, the run is allowed to take -- NOT an
-   * absolute timestamp. A demo home's `deadline_at` is computed from its
-   * simulated clock (routinely days behind the real wall clock), so an
-   * absolute server deadline compared against the client's own Date.now()
-   * reads as already-past and stops polling before the first request. The
-   * duration is clock-agnostic: the caller derives it from
-   * `deadline_at - started_at`, both read from the same (possibly
-   * simulated) clock, and this component applies it relative to its own
-   * real polling start time.
+   * How long, in milliseconds, the run is allowed to take, not an absolute
+   * timestamp. The caller derives the duration from the operational
+   * PostgreSQL timestamps `deadline_at - started_at`; this component applies
+   * it relative to the client's polling start so server/client clock skew
+   * cannot stop polling before the first request.
    */
   deadlineMs: number | null;
   onSnapshot?: (snapshot: RunSnapshot) => void;
@@ -217,11 +213,9 @@ export function RunStatusPoller({
 }
 
 /**
- * Real-time deadline the poll loop should stop at, applying the server's
- * deadline duration (clock-agnostic) relative to the client's own polling
- * start time -- never the server's absolute timestamp, which for a demo
- * home is computed from a simulated clock that can read as already past
- * relative to the client's real Date.now(). See `deadlineMs` on
+ * Real-time deadline for the poll loop. It applies the server-derived
+ * duration relative to the client's polling start instead of comparing an
+ * absolute server timestamp against the client's clock. See `deadlineMs` on
  * `RunStatusPollerProps`.
  */
 export function pollStopAt(

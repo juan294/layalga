@@ -1,6 +1,6 @@
 # L’Ayalga system guide
 
-Current product reference: commit `618701c`, 5 September 2026. Completion phases 1–5 are implemented and locally verified. Production rollout, new guest-email permissions and real-email verification remain separate pending operations. Package metadata is not evidence of a release tag or deployment.
+Current documentation release: v1.3.3, with no application behavior change. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
 
 For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
 
@@ -12,9 +12,9 @@ The intended benefit is less repeated coordination and clearer responsibility. H
 
 ## 2. Hackathon and submission status
 
-The [official rules](https://agentsforhumans.devpost.com/rules), checked 5 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
+The [official rules](https://agentsforhumans.devpost.com/rules), checked 11 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
 
-The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is five minutes. Our video draft targets about three minutes. Recording is planned as an owner task for 13 September; upload URL and final submission are pending.
+The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is five minutes. The production recording script targets about three minutes and forty-five seconds. The public video URL and final submission remain pending.
 
 An AWS Builder ID is a required entry item to verify before submission. Eligible public Builder posts can earn 0.2 bonus points each, up to 0.6. The three local drafts are unpublished and use “Agents for Humans” in their titles. No bonus, publication or entry completion is claimed until it actually occurs.
 
@@ -22,13 +22,13 @@ An AWS Builder ID is a required entry item to verify before submission. Eligible
 
 The [architecture sources and diagrams](../architecture/README.md) are the visual reference.
 
-| Layer | Responsibility | Boundary |
-| --- | --- | --- |
-| Next.js web application | Identity, forms, queued work, decisions, guest capabilities, calendar reads and email delivery | Derives authority server-side; posted identifiers alone grant nothing. |
-| Strands agent | Language interpretation, typed tool choice, bounded preparation and bilingual explanations | Cannot invent approval, overwrite trusted guest consent or directly confirm cancellation. |
-| Deterministic services | Availability, selection, policy, memory ranking, booking transactions, retries and scheduling | Recheck current state before committing consequential work. |
-| PostgreSQL | Authoritative rooms, occupancy, visits, invitations, decisions, jobs, runs and delivery receipts | Constraints and household serialization preserve consistency under races. |
-| People | Requests, room choice, explicit consent, exception decisions, cancellation confirmation | Remain responsible for judgments the workflow asks them to make. |
+| Layer                   | Responsibility                                                                                   | Boundary                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Next.js web application | Identity, forms, queued work, decisions, guest capabilities, calendar reads and email delivery   | Derives authority server-side; posted identifiers alone grant nothing.                    |
+| Strands agent           | Language interpretation, typed tool choice, bounded preparation and bilingual explanations       | Cannot invent approval, overwrite trusted guest consent or directly confirm cancellation. |
+| Deterministic services  | Availability, selection, policy, memory ranking, booking transactions, retries and scheduling    | Recheck current state before committing consequential work.                               |
+| PostgreSQL              | Authoritative rooms, occupancy, visits, invitations, decisions, jobs, runs and delivery receipts | Constraints and household serialization preserve consistency under races.                 |
+| People                  | Requests, room choice, explicit consent, exception decisions, cancellation confirmation          | Remain responsible for judgments the workflow asks them to make.                          |
 
 Web and agent execution use non-owner database identities with distinct granted roles. The agent cannot read private room notes or web-only guest contacts, outbox and attempt receipts. Administrative connections are reserved for migrations/operations. See the [database/runtime runbook](../release/runtime-database-and-identity.md) for exact provisioned role names and deployment details.
 
@@ -36,7 +36,7 @@ Web and agent execution use non-owner database identities with distinct granted 
 
 **Amazon Bedrock** supplies the model in the live-model configuration. The current example configuration uses Claude Sonnet 4.6. Local verification can use a scripted model; this proves workflow behavior and deterministic boundaries, not language-model quality.
 
-**AgentCore Runtime** executes the deployed agent architecture. The web app invokes queued work, and execution results report the runtime used. A [historical trace screenshot](assets/agentcore-trace.png) demonstrates the earlier September 2026 production path. It is not a fresh trace of these completion changes.
+**AgentCore Runtime** executes the deployed agent architecture. The web app invokes queued work, keeps each AgentCore request open until execution settles, and records the runtime used. Runtime version 30 and the Vercel web deployment were built from v1.3.2 commit `90b68385`. The [protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) passed all nine probes against that exact candidate. A [historical trace screenshot](assets/agentcore-trace.png) remains a dated visual example of the CloudWatch path.
 
 **AgentCore Memory** supports optional party-scoped recall and bounded room preference reads. It is not authoritative for booking facts. **CloudWatch and OpenTelemetry** expose runtime, model and tool execution. Identifier-only custom attributes do not guarantee raw text elsewhere in a trace contains no personal information.
 
@@ -54,7 +54,7 @@ A resume reconstructs trusted input and rechecks current policy and availability
 
 ## 6. Queue, jobs and clocks
 
-User requests enqueue work and return a run identifier for progress. Idempotency keys, bounded attempts, expiring claims and heartbeats support recovery. Terminal writes require the current claim. A technical failure is visible and does not imply a completed booking.
+User requests enqueue work and return a run identifier for progress. Idempotency keys, bounded attempts, expiring claims and heartbeats support recovery. AgentCore invocations remain open until claimed execution settles. Operational claims, heartbeats, deadlines, and stale-run recovery use PostgreSQL wall time; the synthetic household clock cannot age a live worker. Terminal writes require the current claim. A technical failure is visible and does not imply a completed booking.
 
 Confirmation schedules a reconfirmation chase for 09:00 household time three days before arrival, or immediately inside that window. A chase opens a current request and schedules escalation after 24 hours. A guest answer cancels the escalation. Rescheduling and cancellation retire work belonging to the old state or cycle. The job engine supplies required-recipient notification fallback when the model omits it; durable delivery does not depend solely on prompt compliance.
 
@@ -116,7 +116,7 @@ The canonical flow is routine Vega for four guests in both open rooms, an answer
 
 The [guided browser regression](../../tests/e2e/guided-demo.spec.ts) tests real local transitions in English and Spanish/mobile. The [benchmark report](coordination-evidence.md) records its own exact committed revision, configuration, automated operations and persisted outcomes. Neither is a human study or evidence of live-model/email behavior. Historical production traces remain separately labeled.
 
-The [video script](video-script.md) presents this story. Recording/upload, Builder publication, final entry, production activation and participant research remain distinct owner actions.
+The v1.3.3 [video script](video-script.md) presents this story against the behavior verified on the v1.3.2 production target. Recording/upload, optional Builder publication, final entry, guest-email activation, and participant research remain distinct actions.
 
 ## 13. Operational boundaries
 

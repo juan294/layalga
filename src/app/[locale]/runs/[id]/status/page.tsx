@@ -71,12 +71,10 @@ async function loadRunContext(
     where r.id = ${id}
     limit 1
   `;
-  // deadline_at and started_at are both read from whatever clock produced
-  // them (a demo home's simulated clock, or real time otherwise); their
-  // difference is a clock-agnostic duration the client applies against its
-  // own real polling start time -- see the `deadlineMs` doc on
-  // RunStatusPollerProps for why an absolute server timestamp isn't safe
-  // to compare against the client's Date.now() here.
+  // Operational run timestamps use PostgreSQL wall time. Their difference is
+  // a server-derived duration that the client applies against its own polling
+  // start, avoiding an unsafe absolute comparison across server/client clock
+  // skew. See the `deadlineMs` doc on RunStatusPollerProps.
   return row
     ? {
         timeZone: row.timezone,

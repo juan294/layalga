@@ -1,6 +1,6 @@
 # Strands Agents usage in L’Ayalga
 
-This document maps the completion implementation at `618701c` (5 September 2026) to actual SDK integration. Start with the [judge guide](judge-guide.md) for the product/evidence route. The current configuration selects Claude Sonnet 4.6 on Bedrock; local scripted tests do not measure that model's quality. New completion capabilities have not yet been rolled out to production.
+This v1.3.3 document maps the application behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026) to actual SDK integration. v1.3.3 changes documentation only. Start with the [judge guide](judge-guide.md) for the product/evidence route. Production selects Claude Sonnet 4.6 through AgentCore Runtime; local scripted tests still provide deterministic coverage without measuring that model's general quality.
 
 ## 1. Agent construction and execution
 
@@ -10,25 +10,25 @@ The Bedrock path wraps `BedrockModel` in [`PromptMinimizingModel`](../../src/age
 
 Trace attributes contain household/task/session identifiers rather than display names. This does not establish that arbitrary user text or provider spans are free of personal information. Raw host and guest-change messages can contain such information.
 
-[`runTask`](../../src/agent/run-task.ts) resolves trusted authority, assembles the task prompt, invokes or resumes the SDK agent and writes the run outcome. The surrounding queue handles idempotency, claims, leases and recovery. The web app can dispatch to [`AgentCore`](../../src/agent/runtime/handler.ts); run results identify where execution occurred. A deterministic guest search or a contact preference action is not itself an AgentCore agent run.
+[`runTask`](../../src/agent/run-task.ts) resolves trusted authority, assembles the task prompt, invokes or resumes the SDK agent and writes the run outcome. The surrounding queue handles idempotency, claims, leases and recovery. The web app dispatches production runs to [`AgentCore`](../../src/agent/runtime/handler.ts); each invocation remains open until the claimed execution settles, then returns its accepted response. Run results identify where execution occurred. A deterministic guest search or a contact preference action is not itself an AgentCore agent run.
 
 ## 2. Project tool inventory
 
 [`buildTools`](../../src/agent/deps.ts) is the authoritative inventory and task exposure map. There are eleven project tools; the SDK can additionally provide `search_memory` when configured.
 
-| Tool | Bounded application role |
-| --- | --- |
-| `capture_invitation` | Structures an authorized host invitation and returns invitation/party identifiers. The private link is delivered by the application outside the model transcript. |
-| `find_visit_options` | Searches candidate stays using capacity and anonymous overlap information. |
-| `evaluate_overlap` | Evaluates deterministic booking rules without committing a booking. |
-| `create_temporary_hold` | Writes a temporary hold after trusted policy and room checks. |
-| `confirm_visit` | Confirms an authorized current hold and schedules follow-up. |
-| `reschedule_visit` | Changes a visit under current room, policy and authority checks. |
-| `prepare_cancellation` | Returns a review instruction for the authorized visit; never cancels it. |
-| `notify` | Writes permitted in-app notifications for the authorized task and recipients. |
-| `list_guest_rooms` | Reads guest-safe room inventory without private room notes. |
-| `find_room_options` | Searches exact-stay room combinations and preference explanations within trusted scope. |
-| `prepare_room_action` | Prepares a bounded private-block/open/close proposal for explicit host application. |
+| Tool                    | Bounded application role                                                                                                                                          |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `capture_invitation`    | Structures an authorized host invitation and returns invitation/party identifiers. The private link is delivered by the application outside the model transcript. |
+| `find_visit_options`    | Searches candidate stays using capacity and anonymous overlap information.                                                                                        |
+| `evaluate_overlap`      | Evaluates deterministic booking rules without committing a booking.                                                                                               |
+| `create_temporary_hold` | Writes a temporary hold after trusted policy and room checks.                                                                                                     |
+| `confirm_visit`         | Confirms an authorized current hold and schedules follow-up.                                                                                                      |
+| `reschedule_visit`      | Changes a visit under current room, policy and authority checks.                                                                                                  |
+| `prepare_cancellation`  | Returns a review instruction for the authorized visit; never cancels it.                                                                                          |
+| `notify`                | Writes permitted in-app notifications for the authorized task and recipients.                                                                                     |
+| `list_guest_rooms`      | Reads guest-safe room inventory without private room notes.                                                                                                       |
+| `find_room_options`     | Searches exact-stay room combinations and preference explanations within trusted scope.                                                                           |
+| `prepare_room_action`   | Prepares a bounded private-block/open/close proposal for explicit host application.                                                                               |
 
 A `host_room_request` receives the three room tools. Other tasks receive the booking/capture/notification tools; cancellation preparation is additionally exposed only to `guest_change`, `guest_reconfirm` and `resume`. Tool availability does not confer authority: callbacks validate trusted host, invitation, party, visit or job context and reject cross-household access.
 
@@ -66,7 +66,7 @@ Room recommendation has a separate deterministic read path. [`loadPartyRoomPrefe
 
 ## 7. Scheduled work and delivery
 
-The agent helps phrase bilingual follow-up, while [`jobs.ts`](../../src/core/reconfirmation/jobs.ts) owns due work, leases, current-cycle checks, retries and required-recipient fallback. Guest answers, rescheduling and cancellation invalidate obsolete follow-up. Demo shortcuts select real eligible jobs through [`advance-clock.ts`](../../src/core/demo/advance-clock.ts), preserving lease and pre-arrival rules.
+The agent helps phrase bilingual follow-up, while [`jobs.ts`](../../src/core/reconfirmation/jobs.ts) owns due work, leases, current-cycle checks, retries and required-recipient fallback. Queue claims, heartbeats, execution deadlines, and stale-run recovery use PostgreSQL wall time. Guest answers, rescheduling and cancellation invalidate obsolete follow-up. Demo shortcuts select real eligible jobs through [`advance-clock.ts`](../../src/core/demo/advance-clock.ts), preserving lease and pre-arrival rules without allowing a household clock jump to reclaim a live worker.
 
 Email is outside the agent's tool authority. The web-owned [guest contact service](../../src/core/notifications/guest-contact.ts) implements explicit consent, verification, return capability resolution and opt-out. The [guest outbox](../../src/core/notifications/guest-outbox.ts) checks current authority and records an authorized attempt before provider submission. Guest contacts/outbox/attempts are unavailable to the agent database role. SES acceptance is not inbox receipt; uncertain outcomes are not blindly retried.
 
@@ -74,4 +74,4 @@ Email is outside the agent's tool authority. The web-owned [guest contact servic
 
 The [judge guide](judge-guide.md) maps source and tests to all judging criteria. [Coordination evidence](coordination-evidence.md) reports the exact local scripted benchmark configuration and results. It does not establish live-model quality, real memory recall, human time saved or email receipt.
 
-The [AgentCore trace screenshot](assets/agentcore-trace.png) was captured from the earlier September 2026 production runtime. It remains useful historical runtime evidence, with its original model/version context. Current implementation and historical deployment must not be conflated. The [runtime runbook](../release/runtime-database-and-identity.md) and [guest email readiness](../release/guest-email-readiness.md) describe the separate production activation work.
+The [AgentCore trace screenshot](assets/agentcore-trace.png) was captured from an earlier September 2026 production runtime. It remains useful dated visual evidence with its original model/version context. The [v1.3.2 protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) is the current exact-candidate runtime proof. The [runtime runbook](../release/runtime-database-and-identity.md) describes the deployed identities; [guest email readiness](../release/guest-email-readiness.md) covers the separate, still-pending guest sender activation.
