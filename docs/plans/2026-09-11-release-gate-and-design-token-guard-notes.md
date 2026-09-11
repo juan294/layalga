@@ -12,7 +12,7 @@
 - **Chose:** Add a third `reconfirm_pending` fixture for the categorical
   primary-button computed-style assertions, and add
   `data-testid="today-hero-stamp"` to `TodayHero` and
-  `data-testid="guest-visit-record"` to `GuestVisitRecord` while retaining
+  `data-testid="guest-primary-panel"` to `GuestShell` while retaining
   confirmed and cancelled coverage.
 - **Why:** This exercises the exact v1.3.0 fill and contrast failure and keeps
   state and panel assertions translation-safe without exact colours, snapshots,

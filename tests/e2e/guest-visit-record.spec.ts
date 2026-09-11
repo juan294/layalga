@@ -79,7 +79,7 @@ async function expectRenderedVisit(page: Page, status: VisitStatus) {
   expect(borderWidths.length).toBeGreaterThan(0);
   for (const width of borderWidths) expect(width).not.toBe("0px");
 
-  const panel = page.getByTestId("guest-visit-record");
+  const panel = page.getByTestId("guest-primary-panel");
   await expectNonTransparentPanel(panel);
 }
 
