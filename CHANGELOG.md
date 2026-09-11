@@ -4,6 +4,21 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-11
+
+### Added
+
+- A manually dispatched, approval-gated production workflow validates the exact deployed `main` commit before running the guided demo and all nine release probes with the production runtime, email, and memory assertions.
+- Real-browser regression coverage checks the guest visit states and run-status surfaces through categorical computed styles, including colour versus transparency and width versus zero, across light and dark themes.
+
+### Fixed
+
+- Shared run-status design tokens now live on the document root, so timeline surfaces retain their paper, ink, border, and pulse styling wherever the components render.
+
+### Changed
+
+- The release playbook now defines the protected `production-probes` environment, exact-SHA dispatch procedure, secret rotation rules, and release-system impact for the guarded production probe workflow.
+
 ## [1.3.1] - 2026-09-10
 
 ### Fixed

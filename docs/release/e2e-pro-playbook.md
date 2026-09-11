@@ -2,45 +2,45 @@
 
 ## Status
 
-Release automation is implemented and has run for v0.4.0, v0.5.0, v1.0.0, v1.1.0, v1.2.0, v1.2.1, and v1.3.0. v1.0.0 (main `0f1fcf2`, tagged 2026-09-05) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 21 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore --expect-email --expect-memory`. v0.5.1 was merged to `main` (`f7e9236`) but never tagged or probed; its changes shipped in v1.0.0. v1.1.0 (main `4e2d733`, tagged 2026-09-09) deployed the same way to AgentCore runtime version 23, but did not complete a full clean nine-probe run -- see the historical decision below for what was verified instead and why. v1.2.0 (main `0545ac0`, tagged 2026-09-09) deployed to AgentCore runtime version 24 and passed all nine release probes cleanly on a second attempt, after an initial attempt hit a self-inflicted testing-cadence collision -- see the historical decision below. v1.2.1 (main `e1ddc1b`, tagged 2026-09-09) deployed to AgentCore runtime version 25; the product owner explicitly authorized proceeding without the automated nine-probe run because the operating environment could not export the production `DATABASE_URL` -- see the historical decision below for what was verified instead. v1.3.0 (main `02dbb35`, tagged 2026-09-10) deployed to AgentCore runtime version 26; a full nine-probe run again did not happen because the operating environment's permission classifier blocked reading the production `DATABASE_URL` pulled via `vercel env pull` (the same class of block as v1.2.1), but a real production `AgentCore` smoke run and direct browser verification substituted -- see the historical decision below. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
+Release automation is implemented and has run for v0.4.0, v0.5.0, v1.0.0, v1.1.0, v1.2.0, v1.2.1, v1.3.0, and v1.3.1. v1.0.0 (main `0f1fcf2`, tagged 2026-09-05) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 21 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore --expect-email --expect-memory`. v0.5.1 was merged to `main` (`f7e9236`) but never tagged or probed; its changes shipped in v1.0.0. v1.1.0 (main `4e2d733`, tagged 2026-09-09) deployed the same way to AgentCore runtime version 23, but did not complete a full clean nine-probe run -- see the historical decision below for what was verified instead and why. v1.2.0 (main `0545ac0`, tagged 2026-09-09) deployed to AgentCore runtime version 24 and passed all nine release probes cleanly on a second attempt, after an initial attempt hit a self-inflicted testing-cadence collision -- see the historical decision below. v1.2.1 (main `e1ddc1b`, tagged 2026-09-09) deployed to AgentCore runtime version 25; the product owner explicitly authorized proceeding without the automated nine-probe run because the operating environment could not export the production `DATABASE_URL` -- see the historical decision below for what was verified instead. v1.3.0 (main `02dbb35`, tagged 2026-09-10) deployed to AgentCore runtime version 26; a full nine-probe run again did not happen because the operating environment's permission classifier blocked reading the production `DATABASE_URL` pulled via `vercel env pull` (the same class of block as v1.2.1), but a real production `AgentCore` smoke run and direct browser verification substituted -- see the historical decision below. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
 
 The September 5 completion (cancellation, stay-aligned access, notes, versioned policy, consented guest delivery, preference ranking and guided scenarios) is in production since v1.0.0; guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
 ## Project adaptation profile
 
-| Area                           | Project value                                                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Project                        | L’Ayalga                                                                                                                                                           |
-| Intended repository visibility | Public                                                                                                                                                             |
-| Product type                   | Web application with an agent runtime                                                                                                                              |
-| Package and build system       | pnpm 11 and Next.js 16                                                                                                                                             |
-| Integration branch             | `develop`                                                                                                                                                          |
-| Production branch              | `main`; promoted from `develop` by pull request                                                                                                                    |
-| Merge strategy                 | Squash pull requests                                                                                                                                               |
-| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                           |
-| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                    |
-| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                         |
-| Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                         |
-| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                      |
-| Staging target                 | None                                                                                                                                                               |
-| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                              |
-| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                           |
-| Primary datastore              | PostgreSQL through Supabase                                                                                                                                        |
-| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                                |
-| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                    |
-| Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery      |
+| Area                           | Project value                                                                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project                        | L’Ayalga                                                                                                                                                          |
+| Intended repository visibility | Public                                                                                                                                                            |
+| Product type                   | Web application with an agent runtime                                                                                                                             |
+| Package and build system       | pnpm 11 and Next.js 16                                                                                                                                            |
+| Integration branch             | `develop`                                                                                                                                                         |
+| Production branch              | `main`; promoted from `develop` by pull request                                                                                                                   |
+| Merge strategy                 | Squash pull requests                                                                                                                                              |
+| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                          |
+| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                   |
+| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                        |
+| Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                        |
+| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                     |
+| Staging target                 | None                                                                                                                                                              |
+| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                             |
+| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                          |
+| Primary datastore              | PostgreSQL through Supabase                                                                                                                                       |
+| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                               |
+| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                   |
+| Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery     |
 | Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.0.0 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
-| Release approver               | Product owner                                                                                                                                                      |
-| Rollback authority             | Product owner                                                                                                                                                      |
+| Release approver               | Product owner                                                                                                                                                     |
+| Rollback authority             | Product owner                                                                                                                                                     |
 
 ## Environment truth
 
-| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                |
-| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                         |
-| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                      |
-| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                            |
-| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                            |
+| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                  |
+| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                           |
+| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                        |
+| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                              |
+| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                              |
 | Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.0.0 bound nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified for that candidate; Google host sign-in is not exercised by the probes |
 
 ## Adopted scope
@@ -132,19 +132,106 @@ pnpm run demo:e2e -- --base http://localhost:3008
 pnpm run release:probes -- --base http://localhost:3008
 ```
 
-For a non-local target, bind the probes to one exact candidate commit:
+For production, use the manually dispatched `Production probes` workflow after
+the workflow exists on `main`. The `production-probes` environment must have the
+product owner as a required reviewer and an exact `main` deployment-branch
+policy. It holds these environment-scoped secrets:
+
+| Secret                    | Exact source                                                          |
+| ------------------------- | --------------------------------------------------------------------- |
+| `PROD_DATABASE_URL`       | Vercel production `DATABASE_URL` for the non-owner `layalga_web` role |
+| `PROD_LINK_TOKEN_SECRET`  | Vercel production `LINK_TOKEN_SECRET`                                 |
+| `PROD_AGENT_ROUTE_SECRET` | Vercel production `AGENT_ROUTE_SECRET`                                |
+| `PROD_TICK_SECRET`        | Vercel production `TICK_SECRET`                                       |
+
+Rotate the matching environment secret whenever one of those Vercel production
+values rotates. In particular, an outdated `PROD_LINK_TOKEN_SECRET` would make
+the cleanup step replace the demo guests' link hashes with values the deployed
+application cannot open.
+
+Dispatch the workflow from `main` with two inputs:
+
+- `commit`: the full 40-character SHA reported by the production health route.
+- `acknowledge`: the exact value `RESET DEMO DATA`.
+
+The run name and acknowledgement description state the blast radius before the
+required-reviewer decision. The workflow then validates the acknowledgement,
+the full SHA, the selected `main` ref, and the live production identity before
+it checks out or executes candidate code. It rechecks the healthy live identity
+immediately before the secret-bearing demo starts, closing the deployment-change
+window created by dependency and browser installation. It installs Chromium,
+runs the demo and all nine probes sequentially, and binds the assertions to
+AgentCore, SES, and AgentCore Memory. Only the final probe step receives the four
+production secrets.
+
+Once the workflow is present on `main`, dispatch it with:
 
 ```bash
-pnpm run demo:e2e -- --base https://layalga.thecreativetoken.com
-pnpm run release:probes -- \
-  --base https://layalga.thecreativetoken.com \
-  --commit <candidate-sha> \
-  --expect-runtime agentcore \
-  --expect-email \
-  --expect-memory
+gh workflow run production-probes.yml \
+  --ref main \
+  -f commit=<candidate-sha> \
+  -f acknowledge='RESET DEMO DATA'
 ```
 
-The release probe refuses a non-local target without `--commit`. Both scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent probe calls must receive distinct queued acknowledgements. The probe performs one authorized queue drain, re-draining every 15 seconds for up to 90 seconds to absorb an AgentCore cold start, polls those exact run IDs to terminal states, and then verifies the database result. The demo script does not print private guest-link tokens.
+The initial workflow implementation remains unproven until it has reached
+`main`, an authorized dispatcher has approved and run it against the live
+candidate, and all nine probes and cleanup have passed. Keep the standing
+v1.3.1 follow-up open until that run URL is recorded in the historical decision.
+
+### Production workflow release-system impact
+
+- **Risk class (A/B/C/D/E):** A and B. This makes the existing Wave A candidate
+  defect, exact-identity, and cleanup controls executable from a protected
+  environment. It adds no new probe or semantic release requirement.
+- **Unique production risk prevented:** A candidate cannot be published after
+  only local scripted-runtime coverage when its real AgentCore, SES, memory,
+  concurrency, policy, or cleanup behavior is defective, and the evidence cannot
+  silently describe a commit different from the live web and selected `main`
+  candidate.
+- **Existing controls that already cover part of this risk:** Pull-request CI
+  runs the same demo and probes against an exact checkout, ephemeral Supabase,
+  local agent runtime, and scripted model. Production health identity, AgentCore
+  smoke runs, direct browser checks, and datastore inspection supplied partial
+  evidence for the three releases where the workstation could not run the full
+  gate.
+- **Why this must be synchronous (if Class A/B):** The playbook already requires
+  Wave A after both production targets deploy and before tag publication. Earlier
+  production probe runs rejected real candidates for model and timeout defects
+  that local CI could not observe. Identity and cleanup are release-completion
+  facts rather than asynchronous monitoring signals.
+- **Added local critical-path time:** None during a release. Workflow lint and
+  bootstrap verification apply when its source changes, while local demo and
+  probe commands remain unchanged.
+- **Added remote critical-path time / workflows / deployments:** One manually
+  dispatched job per production candidate, with no added deployment. The existing
+  nine-probe portion has a measured 3-to-4-minute budget; dependency setup,
+  Chromium installation, and the standalone demo add unmeasured first-run time.
+  The complete job has a 30-minute hard timeout, and its first successful duration
+  must be recorded before claiming a percentile budget.
+- **Added external dependencies:** GitHub Actions, its protected environment and
+  hosted runner, Vercel production health, the production Supabase database,
+  AgentCore, SES, and AgentCore Memory.
+- **Added evidence objects:** One Actions run URL with immutable workflow inputs,
+  logs, job summary, nine probe results, and the probe script's cleanup assertion.
+- **Same-candidate recovery behavior if this gate fails:** A runner, CLI, network,
+  cold-start, or provider-observer failure is `PAUSED`; repair it, allow the
+  documented cooldown where needed, and resume the same candidate. A reproduced
+  candidate defect after promotion requires `ROLLED_BACK` and a new candidate. A
+  successful production proof whose tag or documentation update remains is
+  `PUBLICATION_PENDING` and must not redeploy.
+- **Control this replaces or consolidates, if any:** It replaces the workstation
+  production-secret invocation and the partial health, smoke, browser, and direct
+  datastore substitutes used for v1.2.1 through v1.3.1. It does not duplicate or
+  replace local CI because that lane proves a different datastore, runtime, model,
+  email, and memory configuration.
+
+The release probe refuses a non-local target without a commit identity. Both
+scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent
+probe calls must receive distinct queued acknowledgements. The probe performs
+one authorized queue drain, re-draining every 15 seconds for up to 90 seconds
+to absorb an AgentCore cold start, polls those exact run IDs to terminal states,
+and then verifies the database result. The demo script does not print private
+guest-link tokens.
 
 Three flags assert facts the process cannot otherwise observe on a remote target, because the probe process does not share the deployed environment:
 
@@ -152,7 +239,12 @@ Three flags assert facts the process cannot otherwise observe on a remote target
 - `--expect-email` asserts one `sent` `host_email_pings` row per host after the pending-decision beat and after the escalation beat (two hosts, so two rows each); omit it when `EMAIL=none` on the target.
 - `--expect-memory` asserts a `search_memory` `tool_call` audit row on the probe 2 capture run; omit it when `MEMORY=none` on the target.
 
-Omitting a flag does not assert the corresponding behavior did not happen; it only skips the assertion. Pass all three only when the target's environment is known to have `AGENT_RUNTIME=agentcore`, `EMAIL=ses`, and `MEMORY=agentcore` set.
+Omitting an assertion does not prove the corresponding behavior did not happen;
+it only skips that assertion. The production workflow sets `EMAIL=ses` and
+`MEMORY=agentcore` for their environment-driven assertions and passes
+`--expect-runtime agentcore` explicitly. Enable all three only when the target's
+environment is known to have `AGENT_RUNTIME=agentcore`, `EMAIL=ses`, and
+`MEMORY=agentcore` set.
 
 ## Database runtime readiness
 
@@ -170,7 +262,9 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 6. Apply the candidate migrations (`supabase db push --linked`) and verify the separate runtime database roles. Do this before merging the release pull request into `main`: the merge itself deploys the web app, and a web candidate that starts before its migrations runs new code against the old schema (this happened for about four minutes during the v1.0.0 candidate 1 deploy).
 7. Deploy the exact candidate to both authorized production targets: merge to `main` for the Vercel web deployment, and build the AgentCore runtime bundle from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate. If branch protection reports the pull request head as not up to date, run `gh pr update-branch <number>` so GitHub merges `main` into `develop`, then wait for the checks again.
 8. Verify the deployed identity against the candidate.
-9. Run all required probes with synthetic, run-scoped data.
+9. Dispatch the `Production probes` workflow from `main` for the exact deployed
+   candidate, approve its `production-probes` environment gate, and require all
+   nine probes plus synthetic cleanup to pass.
 10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
@@ -193,6 +287,14 @@ The automated `demo:e2e` plus nine-probe `release:probes` run against production
 RELEASED, product-owner-approved with partial automated verification. v1.3.0 shipped 2026-09-10 on its first candidate, main `02dbb3560889a0921292ec5f905d7e98013dfbf1`: CI green (the acceptance job failed once on the release-prep PR with `HEALTH_OPERATIONS_DEGRADED`/`staleRuns: 1` for the full readiness-wait window before the demo/probes step ever ran; a re-run of just that job passed cleanly with the identical, unchanged candidate diff -- a shared-database artifact between that job's own "Run browser tests" and "Run demo and release probes" steps, not a candidate defect), no pending migrations, no schema changes this cycle -- a UI-only design change (signed-in shell unification: sign-out moved into the shared site header, both guest routes restructured onto the host page's seasonal-hero and panel-grid composition). Both deployment identities matched the candidate (web verified via `/api/health`; AgentCore runtime `layalga_agent-mONXXjFms4` version 26, S3 object `nLD4T019OppY98bHzNQcmcRg0ksVt4ZF`). Before this candidate reached `main`, `develop` and `main` again needed the recurring two-parent reconciliation merge (same squash-merge-workflow artifact as v1.0.0, v1.0.0-candidate-2, v1.1.0, and v1.2.1). This time the agent verified `develop`'s content was a strict superset of `main`'s, built the merge commit locally with every conflict resolved in `develop`'s favor (`-X ours`), caught and removed one non-conflicting hunk that silently reintroduced a translation key already deleted on `develop` (`git diff` against the pre-merge tree came back empty only after that fix), and asked the product owner how to proceed given the local guard hook has no bypass flag for a direct push to `develop`; the owner chose to have the agent prepare the commit and ran the final `git push origin develop` themselves.
 
 The automated `demo:e2e` plus nine-probe `release:probes` run against production did not happen this cycle either: `vercel env pull --environment=production` succeeded (unlike v1.2.1, where the pull itself was blocked), but the operating environment's permission classifier blocked reading the pulled `DATABASE_URL` value, judging that too sensitive to inspect autonomously -- the same class of block as v1.2.1, at a different point in the same operation. In its place: `/api/health` was polled until it reported the candidate commit with `status: ok` and zero stale runs/jobs; `pnpm run agent:smoke` was run against the newly deployed runtime using the AgentCore execution role's own `DATABASE_URL` from the local `.env.agentcore` file (distinct from the blocked web-role production URL) -- the opportunistic local dispatch failed with `AccessDeniedException` (expected: the smoke script ran with no AWS credentials exported for the Bedrock invoke call), but the queued run was correctly picked up by production's own Vercel Cron tick job and completed end-to-end on the real AgentCore v26 runtime, with its tagged synthetic data cleaned up by the script's own assertion; and both changed surfaces were exercised directly against production through a real browser session -- the host dashboard's sign-out button renders in the shared header and the Today hero no longer carries one, and the guest ledger page renders the new hero/panel-grid composition with working disclosure rows. None of this touches the booking-decision, concurrency, memory, or notification paths the nine probes cover, none of which this release's diff touches either. Follow-up: re-run the full probe suite from an environment that can hold the production web-role `DATABASE_URL`, to confirm this release still passes the complete automated gate.
+
+RELEASED, product-owner-approved with partial automated verification. v1.3.1 shipped 2026-09-10 on its first candidate, main `de8da438d569e97da68c1826a2013fd60ef4e80f`: CI green on all three pull requests (#146 the fix, #147 release prep, #148 the promotion), no pending migrations, no schema changes this cycle -- a UI-only fix. Both deployment identities matched the candidate (web verified via `/api/health` with zero stale runs and jobs; AgentCore runtime `layalga_agent-mONXXjFms4` version 27, S3 object `6Ecf6avIS9zO1s.hbhjYhUeSdsd_G3KK`, built from a verified-clean checkout of the candidate).
+
+This release fixed a defect that v1.3.0 shipped to production with every automated check green. `guest-ledger.module.css` declared its `--guest-*` design tokens only inside `.shell`, and v1.3.0's shell unification replaced that wrapper with `GuestShell`, which uses inline styles. Every rule reading those tokens then resolved to an invalid `var()` -- guaranteed-invalid in CSS, so each property silently fell back to its initial value: guest inputs lost their border and 44px height, the teal primary button rendered as bare text, body copy inherited ink instead of graphite, and the disclosure rows lost their separators. No stage of the pipeline renders a page, so nothing failed; the product owner found it by looking at the screen and comparing against the design handoff. The tokens now live on `:root`, where they still follow the season and the theme because every base-token override is on `<html>`. Process consequence: a design or UI change is not verified by a green pipeline, and the release evidence for one must include a real render of the changed surface.
+
+Before this candidate reached `main`, `develop` and `main` needed the recurring two-parent reconciliation merge for the sixth time (v1.0.0, v1.0.0-candidate-2, v1.1.0, v1.2.1, v1.3.0, v1.3.1). The `-X ours` merge again applied a non-conflicting hunk from `main`, this time a duplicate `.cancellationToggle::before` block carrying the pre-fix teal marker colour that would have overridden the fix being released -- caught by diffing the merge result against the pre-merge `develop` tree, removed by restoring that tree and amending the merge, and re-verified empty. The agent prepared the commit and the product owner ran `git push origin develop`, the guard hook having no bypass flag.
+
+The automated `demo:e2e` plus nine-probe `release:probes` run against production did not happen this cycle either -- the third consecutive release with this condition. `vercel env pull --environment=production` succeeded, but the operating environment's permission classifier blocked sourcing the pulled `DATABASE_URL` into the shell that would run the scripts (the same class of block as v1.2.1 and v1.3.0, at the same point as v1.3.0). Two attempts were made, one adjustment, then the attempt was abandoned rather than contorted around the control, and the pulled environment file was deleted. In its place: `/api/health` polled until it reported the candidate commit with `status: ok` and zero stale runs and jobs, re-checked clean after the smoke run; `pnpm run agent:smoke` run against the newly deployed runtime using the AgentCore execution role's own `DATABASE_URL` from the local `.env.agentcore` file, which completed end-to-end with `status: completed` and `executedOn: "agentcore"` -- a real run on v27, stronger than v1.3.0's smoke, which only completed via the production cron tick -- with its tagged synthetic data removed by the script's own cleanup assertion; and both the fixed guest ledger and the host overview exercised directly against production through a real browser session, confirming bordered 44px inputs, the teal primary button, matched panel headings, and ruled 52px disclosure rows. None of this touches the booking-decision, concurrency, memory, or notification paths the nine probes cover, none of which this release's diff touches either. Follow-up, now three releases old: re-run the full probe suite from an environment that can hold the production web-role `DATABASE_URL`.
 
 v0.5.0 passed every gate on 2026-09-04 on the third candidate: CI green, both deployment identities on `c4e3ac3` (web on Vercel, AgentCore runtime version 16), migration `20260904000100_host_email_pings.sql` applied ahead of the deploy, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. The two earlier candidates were rejected by the probes for production-only findings (remembered facts overwriting captured invitation facts; a 30 s API timeout on the escalation tick), each fixed on develop before the next candidate. v0.4.0 passed the same gate earlier the same day on `0935fed`.
 

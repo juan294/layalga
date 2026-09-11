@@ -1,9 +1,4 @@
 .shell {
-  --run-paper: var(--paper, #f4f0e7);
-  --run-sheet: var(--sheet, #fffdf7);
-  --run-ink: var(--ink, #171b1a);
-  --run-muted: var(--graphite, #5d625f);
-  --run-teal: var(--teal, #0c615b);
   background: var(--run-paper);
   color: var(--run-ink);
   display: grid;

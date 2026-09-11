@@ -91,7 +91,9 @@ export async function GuestShell({
           />
 
           <div style={sectionGridStyle}>
-            <section style={panelStyle}>{primaryPanel}</section>
+            <section data-testid="guest-primary-panel" style={panelStyle}>
+              {primaryPanel}
+            </section>
             <section style={panelStyle}>
               <p style={labelStyle}>{t("manage.eyebrow")}</p>
               <h2 style={headingStyle}>{t("manage.title")}</h2>
