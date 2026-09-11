@@ -72,6 +72,17 @@ html[data-season="invierno"] {
   --guest-accent-soft: var(--accent-soft);
 }
 
+/* RunStatusPoller and RunTimeline render both inside the run-status page's
+   .shell and inside the host dashboard's capture form, which has no .shell
+   ancestor. Keep their aliases on the document so both contexts resolve them. */
+:root {
+  --run-paper: var(--paper);
+  --run-sheet: var(--sheet);
+  --run-ink: var(--ink);
+  --run-muted: var(--graphite);
+  --run-teal: var(--teal);
+}
+
 * {
   box-sizing: border-box;
 }

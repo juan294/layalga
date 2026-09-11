@@ -1,6 +1,5 @@
 .wrapper {
-  border-top: 1px solid
-    color-mix(in srgb, var(--run-ink, #171b1a) 25%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--run-ink) 25%, transparent);
   margin-top: 1rem;
   padding-top: 1rem;
 }
@@ -15,13 +14,13 @@
 }
 
 .meta {
-  color: var(--run-muted, #5d625f);
+  color: var(--run-muted);
   font-size: 0.85rem;
   margin: 0.2rem 0;
 }
 
 .empty {
-  color: var(--run-muted, #5d625f);
+  color: var(--run-muted);
   margin: 0;
 }
 
@@ -35,8 +34,7 @@
 
 .row {
   align-items: baseline;
-  border-top: 1px solid
-    color-mix(in srgb, var(--run-ink, #171b1a) 15%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--run-ink) 15%, transparent);
   display: grid;
   gap: 0.5rem;
   grid-template-columns: minmax(9rem, 0.3fr) 1fr;
@@ -44,7 +42,7 @@
 }
 
 .time {
-  color: var(--run-muted, #5d625f);
+  color: var(--run-muted);
   font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
   font-size: 0.7rem;
   letter-spacing: 0.05em;
