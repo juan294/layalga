@@ -8,39 +8,39 @@ The September 5 completion (cancellation, stay-aligned access, notes, versioned 
 
 ## Project adaptation profile
 
-| Area                           | Project value                                                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Project                        | L’Ayalga                                                                                                                                                           |
-| Intended repository visibility | Public                                                                                                                                                             |
-| Product type                   | Web application with an agent runtime                                                                                                                              |
-| Package and build system       | pnpm 11 and Next.js 16                                                                                                                                             |
-| Integration branch             | `develop`                                                                                                                                                          |
-| Production branch              | `main`; promoted from `develop` by pull request                                                                                                                    |
-| Merge strategy                 | Squash pull requests                                                                                                                                               |
-| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                           |
-| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                    |
-| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                         |
-| Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                         |
-| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                      |
-| Staging target                 | None                                                                                                                                                               |
-| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                              |
-| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                           |
-| Primary datastore              | PostgreSQL through Supabase                                                                                                                                        |
-| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                                |
-| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                    |
-| Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery      |
+| Area                           | Project value                                                                                                                                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project                        | L’Ayalga                                                                                                                                                          |
+| Intended repository visibility | Public                                                                                                                                                            |
+| Product type                   | Web application with an agent runtime                                                                                                                             |
+| Package and build system       | pnpm 11 and Next.js 16                                                                                                                                            |
+| Integration branch             | `develop`                                                                                                                                                         |
+| Production branch              | `main`; promoted from `develop` by pull request                                                                                                                   |
+| Merge strategy                 | Squash pull requests                                                                                                                                              |
+| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                          |
+| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.0.0 verified                                                                                   |
+| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                        |
+| Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                        |
+| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                     |
+| Staging target                 | None                                                                                                                                                              |
+| Production target              | `https://layalga.thecreativetoken.com`; v1.0.0 verified with nine probes on AgentCore                                                                             |
+| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                          |
+| Primary datastore              | PostgreSQL through Supabase                                                                                                                                       |
+| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                               |
+| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                   |
+| Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery     |
 | Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.0.0 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
-| Release approver               | Product owner                                                                                                                                                      |
-| Rollback authority             | Product owner                                                                                                                                                      |
+| Release approver               | Product owner                                                                                                                                                     |
+| Rollback authority             | Product owner                                                                                                                                                     |
 
 ## Environment truth
 
-| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                |
-| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                         |
-| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                      |
-| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                            |
-| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                            |
+| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                  |
+| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                           |
+| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                        |
+| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                              |
+| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                              |
 | Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.0.0 bound nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified for that candidate; Google host sign-in is not exercised by the probes |
 
 ## Adopted scope
@@ -132,19 +132,106 @@ pnpm run demo:e2e -- --base http://localhost:3008
 pnpm run release:probes -- --base http://localhost:3008
 ```
 
-For a non-local target, bind the probes to one exact candidate commit:
+For production, use the manually dispatched `Production probes` workflow after
+the workflow exists on `main`. The `production-probes` environment must have the
+product owner as a required reviewer and an exact `main` deployment-branch
+policy. It holds these environment-scoped secrets:
+
+| Secret                    | Exact source                                                          |
+| ------------------------- | --------------------------------------------------------------------- |
+| `PROD_DATABASE_URL`       | Vercel production `DATABASE_URL` for the non-owner `layalga_web` role |
+| `PROD_LINK_TOKEN_SECRET`  | Vercel production `LINK_TOKEN_SECRET`                                 |
+| `PROD_AGENT_ROUTE_SECRET` | Vercel production `AGENT_ROUTE_SECRET`                                |
+| `PROD_TICK_SECRET`        | Vercel production `TICK_SECRET`                                       |
+
+Rotate the matching environment secret whenever one of those Vercel production
+values rotates. In particular, an outdated `PROD_LINK_TOKEN_SECRET` would make
+the cleanup step replace the demo guests' link hashes with values the deployed
+application cannot open.
+
+Dispatch the workflow from `main` with two inputs:
+
+- `commit`: the full 40-character SHA reported by the production health route.
+- `acknowledge`: the exact value `RESET DEMO DATA`.
+
+The run name and acknowledgement description state the blast radius before the
+required-reviewer decision. The workflow then validates the acknowledgement,
+the full SHA, the selected `main` ref, and the live production identity before
+it checks out or executes candidate code. It rechecks the healthy live identity
+immediately before the secret-bearing demo starts, closing the deployment-change
+window created by dependency and browser installation. It installs Chromium,
+runs the demo and all nine probes sequentially, and binds the assertions to
+AgentCore, SES, and AgentCore Memory. Only the final probe step receives the four
+production secrets.
+
+Once the workflow is present on `main`, dispatch it with:
 
 ```bash
-pnpm run demo:e2e -- --base https://layalga.thecreativetoken.com
-pnpm run release:probes -- \
-  --base https://layalga.thecreativetoken.com \
-  --commit <candidate-sha> \
-  --expect-runtime agentcore \
-  --expect-email \
-  --expect-memory
+gh workflow run production-probes.yml \
+  --ref main \
+  -f commit=<candidate-sha> \
+  -f acknowledge='RESET DEMO DATA'
 ```
 
-The release probe refuses a non-local target without `--commit`. Both scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent probe calls must receive distinct queued acknowledgements. The probe performs one authorized queue drain, re-draining every 15 seconds for up to 90 seconds to absorb an AgentCore cold start, polls those exact run IDs to terminal states, and then verifies the database result. The demo script does not print private guest-link tokens.
+The initial workflow implementation remains unproven until it has reached
+`main`, an authorized dispatcher has approved and run it against the live
+candidate, and all nine probes and cleanup have passed. Keep the standing
+v1.3.1 follow-up open until that run URL is recorded in the historical decision.
+
+### Production workflow release-system impact
+
+- **Risk class (A/B/C/D/E):** A and B. This makes the existing Wave A candidate
+  defect, exact-identity, and cleanup controls executable from a protected
+  environment. It adds no new probe or semantic release requirement.
+- **Unique production risk prevented:** A candidate cannot be published after
+  only local scripted-runtime coverage when its real AgentCore, SES, memory,
+  concurrency, policy, or cleanup behavior is defective, and the evidence cannot
+  silently describe a commit different from the live web and selected `main`
+  candidate.
+- **Existing controls that already cover part of this risk:** Pull-request CI
+  runs the same demo and probes against an exact checkout, ephemeral Supabase,
+  local agent runtime, and scripted model. Production health identity, AgentCore
+  smoke runs, direct browser checks, and datastore inspection supplied partial
+  evidence for the three releases where the workstation could not run the full
+  gate.
+- **Why this must be synchronous (if Class A/B):** The playbook already requires
+  Wave A after both production targets deploy and before tag publication. Earlier
+  production probe runs rejected real candidates for model and timeout defects
+  that local CI could not observe. Identity and cleanup are release-completion
+  facts rather than asynchronous monitoring signals.
+- **Added local critical-path time:** None during a release. Workflow lint and
+  bootstrap verification apply when its source changes, while local demo and
+  probe commands remain unchanged.
+- **Added remote critical-path time / workflows / deployments:** One manually
+  dispatched job per production candidate, with no added deployment. The existing
+  nine-probe portion has a measured 3-to-4-minute budget; dependency setup,
+  Chromium installation, and the standalone demo add unmeasured first-run time.
+  The complete job has a 30-minute hard timeout, and its first successful duration
+  must be recorded before claiming a percentile budget.
+- **Added external dependencies:** GitHub Actions, its protected environment and
+  hosted runner, Vercel production health, the production Supabase database,
+  AgentCore, SES, and AgentCore Memory.
+- **Added evidence objects:** One Actions run URL with immutable workflow inputs,
+  logs, job summary, nine probe results, and the probe script's cleanup assertion.
+- **Same-candidate recovery behavior if this gate fails:** A runner, CLI, network,
+  cold-start, or provider-observer failure is `PAUSED`; repair it, allow the
+  documented cooldown where needed, and resume the same candidate. A reproduced
+  candidate defect after promotion requires `ROLLED_BACK` and a new candidate. A
+  successful production proof whose tag or documentation update remains is
+  `PUBLICATION_PENDING` and must not redeploy.
+- **Control this replaces or consolidates, if any:** It replaces the workstation
+  production-secret invocation and the partial health, smoke, browser, and direct
+  datastore substitutes used for v1.2.1 through v1.3.1. It does not duplicate or
+  replace local CI because that lane proves a different datastore, runtime, model,
+  email, and memory configuration.
+
+The release probe refuses a non-local target without a commit identity. Both
+scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent
+probe calls must receive distinct queued acknowledgements. The probe performs
+one authorized queue drain, re-draining every 15 seconds for up to 90 seconds
+to absorb an AgentCore cold start, polls those exact run IDs to terminal states,
+and then verifies the database result. The demo script does not print private
+guest-link tokens.
 
 Three flags assert facts the process cannot otherwise observe on a remote target, because the probe process does not share the deployed environment:
 
@@ -152,7 +239,12 @@ Three flags assert facts the process cannot otherwise observe on a remote target
 - `--expect-email` asserts one `sent` `host_email_pings` row per host after the pending-decision beat and after the escalation beat (two hosts, so two rows each); omit it when `EMAIL=none` on the target.
 - `--expect-memory` asserts a `search_memory` `tool_call` audit row on the probe 2 capture run; omit it when `MEMORY=none` on the target.
 
-Omitting a flag does not assert the corresponding behavior did not happen; it only skips the assertion. Pass all three only when the target's environment is known to have `AGENT_RUNTIME=agentcore`, `EMAIL=ses`, and `MEMORY=agentcore` set.
+Omitting an assertion does not prove the corresponding behavior did not happen;
+it only skips that assertion. The production workflow sets `EMAIL=ses` and
+`MEMORY=agentcore` for their environment-driven assertions and passes
+`--expect-runtime agentcore` explicitly. Enable all three only when the target's
+environment is known to have `AGENT_RUNTIME=agentcore`, `EMAIL=ses`, and
+`MEMORY=agentcore` set.
 
 ## Database runtime readiness
 
@@ -170,7 +262,9 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 6. Apply the candidate migrations (`supabase db push --linked`) and verify the separate runtime database roles. Do this before merging the release pull request into `main`: the merge itself deploys the web app, and a web candidate that starts before its migrations runs new code against the old schema (this happened for about four minutes during the v1.0.0 candidate 1 deploy).
 7. Deploy the exact candidate to both authorized production targets: merge to `main` for the Vercel web deployment, and build the AgentCore runtime bundle from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate. If branch protection reports the pull request head as not up to date, run `gh pr update-branch <number>` so GitHub merges `main` into `develop`, then wait for the checks again.
 8. Verify the deployed identity against the candidate.
-9. Run all required probes with synthetic, run-scoped data.
+9. Dispatch the `Production probes` workflow from `main` for the exact deployed
+   candidate, approve its `production-probes` environment gate, and require all
+   nine probes plus synthetic cleanup to pass.
 10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
