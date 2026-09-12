@@ -21,7 +21,7 @@ Prepare before starting:
 3. In the conversation, write: “Ready to record our demo, Juan.”
 4. Wait for me to say “start.”
 
-When I say “start,” count down from 10 in one message, one number per line. My “start” message gives you advance authorization to perform every synthetic demo action listed below, including resetting scenarios, submitting both stays, approving the Parker decision, advancing the demo clock, answering the Vega reminder, and cancelling the Parker visit. These actions affect only the resettable shared synthetic demo home.
+When I say “start,” count down from 10 in one message. My “start” message gives you advance authorization to perform every synthetic demo action listed below, including resetting scenarios, submitting both stays, approving the Parker decision, advancing the demo clock, answering the Vega reminder, and cancelling the Parker visit. These actions affect only the resettable shared synthetic demo home.
 
 After “start,” run the complete sequence autonomously. Do not ask for confirmation, permission, approval, or any other user response. Do not pause before a listed button or describe a click as a proposed future action. Explain the action, perform it immediately, verify the visible result, and continue. My only required interaction is the single “start” message.
 
