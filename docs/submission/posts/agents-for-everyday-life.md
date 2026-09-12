@@ -4,7 +4,7 @@ This weekend, I’m submitting my newest project, [L’Ayalga](https://layalga.t
 
 L’Ayalga coordinates visits to shared homes. Hosts invite, guests choose suitable rooms, and everyone can track changes, requests and follow-up.
 
-![L’Ayalga AWS architecture: a Next.js web app invokes a Strands coordinator on AgentCore Runtime, which uses Amazon Bedrock, AgentCore Memory, Amazon SES, CloudWatch and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
 
 But the bigger idea is not about guest rooms. It is about how agents can become useful in everyday life.
 

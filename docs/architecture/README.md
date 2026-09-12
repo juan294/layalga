@@ -82,15 +82,17 @@ Regenerate it after editing the XML:
 ```
 
 `layalga-aws-blog-architecture.drawio` is the compact AWS-style view used by
-the article sources. It keeps only the main input/output path, the authoritative
-database boundary and the selected AWS services. Its official AWS service
-icons come from the AWS Architecture Icons package released 31 July 2026.
+the article sources. It keeps the main input/output path, the authoritative
+database boundary, and every AWS service used by the project: Amazon Bedrock,
+AgentCore Runtime, AgentCore Memory, Amazon S3, IAM, ADOT, CloudWatch, AWS X-Ray,
+and Amazon SES. Its official AWS service icons come from the AWS Architecture
+Icons package released 31 July 2026.
 `layalga-aws-blog-architecture.drawio.png` is the editable, XML-embedded blog
 export. Regenerate it with:
 
 ```bash
 /Applications/draw.io.app/Contents/MacOS/draw.io \
-  -x -f png -e -b 16 -s 1.5 \
+  -x -f png -e -b 16 -s 1.35 \
   -o docs/architecture/layalga-aws-blog-architecture.drawio.png \
   docs/architecture/layalga-aws-blog-architecture.drawio
 ```
