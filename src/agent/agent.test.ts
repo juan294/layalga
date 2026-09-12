@@ -6,7 +6,7 @@ import { FakeClock } from "@/core/clock";
 import { buildAgent } from "./agent";
 import { NoopScheduler } from "./deps";
 import { ScriptedModel } from "./scripted-model";
-import { RESUME_SYSTEM_PROMPT_SUFFIX } from "./system-prompt";
+import { RESUME_SYSTEM_PROMPT_SUFFIX, systemPrompts } from "./system-prompt";
 
 const url =
   process.env.DATABASE_URL ??
@@ -72,5 +72,12 @@ describe("buildAgent: resume names the deciding host's locale", () => {
     });
 
     expect(agent.systemPrompt).not.toContain(RESUME_SYSTEM_PROMPT_SUFFIX.en);
+  });
+});
+
+describe("agent output style", () => {
+  it("prohibits emoji in both supported languages", () => {
+    expect(systemPrompts.en).toContain("Do not use emoji");
+    expect(systemPrompts.es).toContain("No uses emojis");
   });
 });

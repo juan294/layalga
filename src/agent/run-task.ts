@@ -38,6 +38,12 @@ const AGENT_EXECUTION_FAILURE = {
   summary: "The agent could not complete this request.",
 } as const;
 
+export function interruptedRunSummary(locale: "en" | "es"): string {
+  return locale === "es"
+    ? "La revisión del anfitrión es necesaria antes de continuar con esta reserva."
+    : "Host review is required before this booking can continue.";
+}
+
 /** Resolves the execution runtime for a deps object exactly once per entry point. */
 function runtimeOf(deps: RunAgentDeps): ExecutionRuntime {
   return deps.executionRuntime ?? "local";
@@ -415,6 +421,7 @@ async function executeClaimedAgentTask(
     await safeMemoryWrite(run.id, "flush", () => agent.memoryManager?.flush());
 
     if (result.stopReason === "interrupt") {
+      const publicSummary = interruptedRunSummary(deps.locale);
       return await sql.begin(async (sql) => {
         await sql`select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))`;
         const [active] =
@@ -438,7 +445,7 @@ async function executeClaimedAgentTask(
         }
         await sql`
         update public.runs set status = 'interrupted', result = ${JSON.stringify(
-          terminalResultJson(result.toString(), executedOn),
+          terminalResultJson(publicSummary, executedOn),
         )}::text::jsonb, finished_at = ${deps.clock.now().toISOString()},
           queue_claim_token = null, queue_claimed_at = null, last_error = null
         where id = ${run.id} and status = 'running'
@@ -449,7 +456,7 @@ async function executeClaimedAgentTask(
           status: "interrupted",
           sessionId,
           pendingDecisionIds: ids,
-          summary: result.toString(),
+          summary: publicSummary,
           executedOn,
         };
       });

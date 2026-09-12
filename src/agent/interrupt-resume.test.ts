@@ -56,6 +56,14 @@ describe("interrupt and resume", () => {
       ),
     );
     expect(first.status).toBe("interrupted");
+    expect(first.summary).toBe(
+      "Host review is required before this booking can continue.",
+    );
+    expect(first.summary).not.toContain("stayApprovalHash");
+    const [interruptedRun] = await sql<{ result: { summary: string } }[]>`
+      select result from public.runs where id = ${first.runId}
+    `;
+    expect(interruptedRun?.result.summary).toBe(first.summary);
     const [decision] = await sql<
       {
         id: string;

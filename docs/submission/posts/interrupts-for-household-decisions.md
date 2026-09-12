@@ -1,6 +1,6 @@
 # Agents for Humans: durable interrupts for household decisions
 
-Unpublished Builder post draft, updated for the v1.3.3 documentation release against behavior proven in production v1.3.2 commit `90b68385`. Publication and URL remain pending. The protected production workflow verified the AgentCore interrupt/resume path while keeping publication evidence separate.
+Published on AWS Builder Center: [Durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.4 run-result presentation fix does not change the architecture discussed here.
 
 ## A person may answer after the process ends
 
