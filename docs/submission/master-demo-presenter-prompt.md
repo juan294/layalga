@@ -56,7 +56,7 @@ Show this service banner:
 
 Explain that L’Ayalga coordinates visits to a shared family home. AgentCore runs the production agent, Amazon Bedrock provides its model, and S3 stores the versioned runtime bundle.
 
-Show the welcoming sign-in page. Enter as Host. Click “Reset demo and start Vega” immediately, without asking for confirmation or explaining the reset. Wait until the Vega guest experience is visible.
+Show the welcoming sign-in page. Enter as Host. Click “Start Vega demo” immediately. Wait until the Vega guest experience is visible.
 
 Scene 2: Show a routine guest request
 
@@ -112,7 +112,7 @@ Show this service banner:
 
 Explain that AgentCore and the Bedrock model coordinate routine work, while deterministic policy brings a sensitive request to a host with its context intact.
 
-Click “Reset demo and start Parker” immediately, without asking for confirmation or explaining the reset. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
+Click “Start Parker demo” immediately. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
 
 Scene 7: Show the durable human decision boundary
 
