@@ -2,7 +2,7 @@
 
 L’Ayalga helps you arrange a stay with a household. You choose dates and rooms; household rules protect availability; a host decides when an explicit request or an overflow arrangement needs approval.
 
-This v1.3.8 guide includes safe structured run-result presentation and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. For a reproducible synthetic visit, start with the [judge guide](../submission/judge-guide.md).
+This v1.3.9 guide includes safe structured run-result presentation and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. For a reproducible synthetic visit, start with the [judge guide](../submission/judge-guide.md).
 
 ## 1. Open your invitation
 

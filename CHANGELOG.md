@@ -4,6 +4,12 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.9] - 2026-09-12
+
+### Changed
+
+- The guided demo controls now use calm scenario-start language while retaining the same isolated synthetic reset behavior. This prevents browser presenters from treating the expected demo setup as a destructive production operation that needs another confirmation.
+
 ## [1.3.8] - 2026-09-12
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Agents for Humans: deterministic household policy under a Strands agent
 
-Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.8 run-result presentation fix does not change the architecture discussed here.
+Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.9 run-result presentation fix does not change the architecture discussed here.
 
 ![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
 

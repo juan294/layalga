@@ -1,6 +1,6 @@
 # L’Ayalga — Devpost draft
 
-Status: v1.3.8 derives resumed-run results from recorded decisions and verified request context, safely formats public agent results, and prevents interrupted-run internals from appearing in the interface. The broader coordination behavior was proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` on 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
+Status: v1.3.9 derives resumed-run results from recorded decisions and verified request context, safely formats public agent results, and prevents interrupted-run internals from appearing in the interface. The broader coordination behavior was proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` on 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
 
 ## Tagline
 
@@ -53,7 +53,7 @@ Broader channels such as WhatsApp/SMS and changing rooms midway through a stay r
 ## Try it and review it
 
 - [Canonical judge guide](judge-guide.md): repository-only review and reproducible synthetic journey.
-- [Live site](https://layalga.thecreativetoken.com): v1.3.8 release; broader coordination behavior was proven with the v1.3.2 candidate at commit `90b68385`.
+- [Live site](https://layalga.thecreativetoken.com): v1.3.9 release; broader coordination behavior was proven with the v1.3.2 candidate at commit `90b68385`.
 - [Public repository](https://github.com/juan294/layalga): MIT licensed.
 - [Architecture](../architecture/README.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
 - AWS Builder Center: [deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent), [durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions), and [proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock).
