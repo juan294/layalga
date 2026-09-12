@@ -4,7 +4,7 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
-## [1.3.4] - 2026-09-12
+## [1.3.5] - 2026-09-12
 
 ### Fixed
 
@@ -14,6 +14,7 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Changed
 
+- The sign-in page now welcomes hosts and guests with warmer, cooperative language.
 - The three published AWS Builder Center articles and their URLs are recorded in the submission documentation.
 - The three-minute demo script uses one visible English tab, removes the unreadable architecture cutaway, and closes on the signed-in product instead of the post-cancellation sign-in state.
 
