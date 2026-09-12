@@ -4,6 +4,18 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-09-12
+
+### Fixed
+
+- Agent summaries now render a safe structured subset of Markdown, so headings, tables, lists, emphasis, and code remain readable instead of appearing as raw syntax. Emoji are removed at the prompt and presentation boundaries.
+- Interrupted runs no longer store or display the Strands interrupt payload as a public result, preventing internal IDs, approval hashes, and policy context from leaking into the run page.
+
+### Changed
+
+- The three published AWS Builder Center articles and their URLs are recorded in the submission documentation.
+- The three-minute demo script uses one visible English tab, removes the unreadable architecture cutaway, and closes on the signed-in product instead of the post-cancellation sign-in state.
+
 ## [1.3.3] - 2026-09-11
 
 ### Changed
