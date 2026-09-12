@@ -33,7 +33,7 @@ describe("interrupt and resume", () => {
     await sql`insert into public.hosts (id, home_id, display_name, locale) values (${hostId}, ${homeId}, 'Nel', 'es')`;
     const partyId = "10000000-0000-4000-8000-000000000302";
     const declinedPartyId = "10000000-0000-4000-8000-000000000303";
-    await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${partyId}, ${homeId}, 'Oteros', 'en', 'interrupt-token')`;
+    await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${partyId}, ${homeId}, 'Parkers', 'en', 'interrupt-token')`;
     await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${declinedPartyId}, ${homeId}, 'Declined', 'en', 'decline-token')`;
     await sql`insert into public.invitations (id, home_id, host_id, party_id, raw_message, structured) values (${invitationId}, ${homeId}, ${hostId}, ${partyId}, 'Wheelchair', ${sql.json({ specialRequests: ["wheelchair access"] })})`;
     await sql`insert into public.invitations (id, home_id, host_id, party_id, raw_message, structured) values (${declinedInvitationId}, ${homeId}, ${hostId}, ${declinedPartyId}, 'Special request', ${sql.json({ specialRequests: ["quiet room"] })})`;

@@ -34,8 +34,8 @@ describe("agent reschedule policy", () => {
     await sql`insert into public.hosts (id, home_id, display_name, locale) values (${hostId}, ${homeId}, 'Nel', 'es')`;
     const vegaPartyId = "20000000-0000-4000-8000-000000000301";
     const oterosPartyId = "20000000-0000-4000-8000-000000000302";
-    await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${vegaPartyId}, ${homeId}, 'Vega', 'es', 'reschedule-vega'), (${oterosPartyId}, ${homeId}, 'Oteros', 'en', 'reschedule-oteros')`;
-    await sql`insert into public.invitations (id, home_id, host_id, party_id, raw_message) values (${vegaInvitationId}, ${homeId}, ${hostId}, ${vegaPartyId}, 'Vega'), (${oterosInvitationId}, ${homeId}, ${hostId}, ${oterosPartyId}, 'Oteros')`;
+    await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${vegaPartyId}, ${homeId}, 'Vega', 'es', 'reschedule-vega'), (${oterosPartyId}, ${homeId}, 'Parkers', 'en', 'reschedule-oteros')`;
+    await sql`insert into public.invitations (id, home_id, host_id, party_id, raw_message) values (${vegaInvitationId}, ${homeId}, ${hostId}, ${vegaPartyId}, 'Vega'), (${oterosInvitationId}, ${homeId}, ${hostId}, ${oterosPartyId}, 'Parkers')`;
   });
   afterAll(() => sql.end());
 

@@ -11,7 +11,7 @@ describe("TaskScriptedModel", () => {
         task: "host_capture",
         homeId: "00000000-0000-4000-8000-000000000001",
         hostId: "00000000-0000-4000-8000-000000000002",
-        rawMessage: "Invite The Oteros for a September weekend.",
+        rawMessage: "Invite The Parkers for a September weekend.",
         locale: "en",
       },
       {} as AgentDeps,

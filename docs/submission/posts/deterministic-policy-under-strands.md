@@ -1,6 +1,6 @@
 # Agents for Humans: deterministic household policy under a Strands agent
 
-Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.6 run-result presentation fix does not change the architecture discussed here.
+Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.7 run-result presentation fix does not change the architecture discussed here.
 
 ## A booking needs more than a plausible answer
 

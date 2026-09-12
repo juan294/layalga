@@ -24,7 +24,7 @@ async function fixture({
     jobId = randomUUID();
   await db`insert into public.homes(id,name,timezone,demo) values(${homeId},${homeId},'Europe/Madrid',${demo})`;
   await db`insert into public.hosts(id,home_id,display_name,locale) values(${hostId},${homeId},'Host','en')`;
-  await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Synthetic Oteros','en')`;
+  await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Synthetic Parkers','en')`;
   await db`insert into public.invitations(id,home_id,host_id,party_id,raw_message) values(${invitationId},${homeId},${hostId},${partyId},'Synthetic')`;
   await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,status,confirmed_at) values(${visitId},${homeId},${partyId},${invitationId},daterange(${stay}::date,${stay}::date+2,'[)'),2,'confirmed','2026-09-01T10:00:00Z')`;
   await db`insert into public.demo_clock(home_id,now,enabled) values(${homeId},'2026-09-01T10:00:00Z',true)`;

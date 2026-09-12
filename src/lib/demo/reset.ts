@@ -91,19 +91,19 @@ export const DEMO_SEED = {
     },
     {
       id: "00000000-0000-4000-8000-000000000302",
-      familyName: "The Oteros",
+      familyName: "The Parkers",
       locale: "en",
       guestLink: "/en/g/ooooooooooooooooooooooooooooooooooooooooooo",
       invitation: {
         id: "00000000-0000-4000-8000-000000000402",
         hostId: "00000000-0000-4000-8000-000000000202",
         rawMessage:
-          "Hi! Inviting Ana and Pelayo Otero for the weekend of the 19th, they'd bring their dog Nube and possibly Ana's mother who uses a wheelchair.",
+          "Hi! Inviting Emma and Daniel Parker for the weekend of the 19th, they'd bring their dog Nube and possibly Emma's mother who uses a wheelchair.",
         adults: 2,
         children: 0,
         pets: 1,
         specialRequests: [
-          "Ana's mother uses a wheelchair and needs ground-floor access",
+          "Emma's mother uses a wheelchair and needs ground-floor access",
         ],
         preferredStay: ["2026-09-19", "2026-09-21"],
         roomAllocation: ["Garage conversion"],

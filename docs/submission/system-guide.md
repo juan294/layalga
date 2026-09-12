@@ -1,6 +1,6 @@
 # L’Ayalga system guide
 
-Current release: v1.3.6, with safe structured public run summaries and no interrupted-run payload exposure. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
+Current release: v1.3.7, with safe structured public run summaries and no interrupted-run payload exposure. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
 
 For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
 
@@ -112,11 +112,11 @@ The host panel distinguishes delivery facts from an unanswered reconfirmation. D
 
 ## 12. Demonstration and evidence
 
-The canonical flow is routine Vega for four guests in both open rooms, an answered reconfirmation, then a fresh reset into Otero's two-person Garage Room explicit request. Approve that exception, chase its reconfirmation, leave it unanswered, and escalate. Cancellation closes the loop. The shared resets are visible; the scenarios are not represented as concurrent visits.
+The canonical flow is routine Vega for four guests in both open rooms, an answered reconfirmation, then a fresh reset into Parker's two-person Garage Room explicit request. Approve that exception, chase its reconfirmation, leave it unanswered, and escalate. Cancellation closes the loop. The shared resets are visible; the scenarios are not represented as concurrent visits.
 
 The [guided browser regression](../../tests/e2e/guided-demo.spec.ts) tests real local transitions in English and Spanish/mobile. The [benchmark report](coordination-evidence.md) records its own exact committed revision, configuration, automated operations and persisted outcomes. Neither is a human study or evidence of live-model/email behavior. Historical production traces remain separately labeled.
 
-The v1.3.6 [video script](video-script.md) presents this story in one visible English tab and omits the architecture cutaway. Recording/upload, final entry, guest-email activation, and participant research remain distinct actions.
+The v1.3.7 [video script](video-script.md) presents this story in one visible English tab and omits the architecture cutaway. Recording/upload, final entry, guest-email activation, and participant research remain distinct actions.
 
 ## 13. Operational boundaries
 

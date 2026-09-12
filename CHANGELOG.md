@@ -4,6 +4,13 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.7] - 2026-09-12
+
+### Changed
+
+- The English guided demo now uses the Parker family name throughout the visible
+  scenario, seed data, tests, and submission narration.
+
 ## [1.3.6] - 2026-09-12
 
 ### Changed

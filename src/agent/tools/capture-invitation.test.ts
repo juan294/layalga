@@ -67,7 +67,7 @@ describe("captureInvitationTool", () => {
     try {
       const deps = agentDeps(fixture.homeId, fixture.hostId);
       const result = await captureInvitationTool(deps).invoke({
-        partyName: "Oteros",
+        partyName: "Parkers",
         partyLocale: "en",
         adults: 2,
         children: 0,
@@ -75,7 +75,7 @@ describe("captureInvitationTool", () => {
         flexibleDates: { text: "the 19th" },
         specialRequests: ["ground-floor access for a wheelchair"],
         rememberedContext: ["arrives with a small dog"],
-        rawMessage: "Inviting Ana and Pelayo Otero for the weekend.",
+        rawMessage: "Inviting Emma and Daniel Parker for the weekend.",
       });
 
       const [row] = await sql<{ structured: Record<string, unknown> }[]>`

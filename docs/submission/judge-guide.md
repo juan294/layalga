@@ -5,7 +5,7 @@ L’Ayalga is a household hospitality coordinator: routine visits proceed, expli
 ## Start here
 
 1. Read the [pitch](pitch.md) and inspect the [architecture](../architecture/README.md). The [source evidence index](evidence.md) adds detailed architectural cards and separately dated baseline verification.
-2. Follow the source-and-test map below. The v1.3.6 release adds safe structured public run summaries and suppresses interrupted-run internals. Broader production evidence remains pinned to v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c` until the new production gate completes.
+2. Follow the source-and-test map below. The v1.3.7 release adds safe structured public run summaries and suppresses interrupted-run internals. Broader production evidence remains pinned to v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c` until the new production gate completes.
 3. Read [coordination evidence](coordination-evidence.md) for the measured local synthetic workflow and its exact revision/configuration. The [participant protocol](participant-protocol.md) defines a separate human baseline; human time saved has not been measured.
 4. For runtime implementation, read [Strands usage](strands-usage.md). The [v1.3.2 protected production run](https://github.com/juan294/layalga/actions/runs/34583050263) proves the exact Vercel and AgentCore candidate through the guided demo and all nine probes. The [trace screenshot](assets/agentcore-trace.png) remains a dated visual example of CloudWatch GenAI Observability.
 
@@ -25,7 +25,7 @@ The five criteria are equally weighted under the [official rules](https://agents
 
 ## Walk through the synthetic product
 
-Use the [live site](https://layalga.thecreativetoken.com) for the judged demonstration. The v1.3.2 protected run reported commit `90b68385a590144d6d44cd7dd41298180b2d182c`, healthy configuration, and no stale or retrying work; v1.3.6 adds the run-result presentation fix found during rehearsal. A local target remains available for source reproduction, with its scripted-model limits stated separately.
+Use the [live site](https://layalga.thecreativetoken.com) for the judged demonstration. The v1.3.2 protected run reported commit `90b68385a590144d6d44cd7dd41298180b2d182c`, healthy configuration, and no stale or retrying work; v1.3.7 adds the run-result presentation fix found during rehearsal. A local target remains available for source reproduction, with its scripted-model limits stated separately.
 
 ### 1. Enter and complete a routine stay
 
@@ -41,13 +41,13 @@ Use **Advance to next guest reminder**. The shortcut advances the synthetic hous
 
 ### 3. Start a fresh human exception
 
-Start **Otero** from the guided host panel. This resets the previous scenario; the paths are independent. Search for the two guests and select the Garage Room. Its captured explicit request is visible separately from informational notes.
+Start **Parker** from the guided host panel. This resets the previous scenario; the paths are independent. Search for the two guests and select the Garage Room. Its captured explicit request is visible separately from informational notes.
 
 Submit. The run waits for a host and a decision appears at the top of the host view. Approve it, observe the resumed run completing, and inspect the confirmed outcome. Approval rechecks current availability and policy; it cannot force a stale or invalid booking through.
 
 ### 4. Show unanswered follow-through
 
-For the newly confirmed Otero visit, run **Advance to next guest reminder** and leave the guest request unanswered. Then run **Advance to next host follow-up**. The host receives an unresolved follow-up outcome. Repeating either exhausted shortcut reports that no eligible work remains; it does not manufacture another notification.
+For the newly confirmed Parker visit, run **Advance to next guest reminder** and leave the guest request unanswered. Then run **Advance to next host follow-up**. The host receives an unresolved follow-up outcome. Repeating either exhausted shortcut reports that no eligible work remains; it does not manufacture another notification.
 
 Delivery configuration is visible. Local evidence uses `EMAIL=none`; synthetic guest invitations never send guest email. Do not describe this sequence as inbox delivery or a measured real-world response time.
 
