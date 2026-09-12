@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated September 12, 2026. This is the current roadmap for v1.3.7. The release fixes public run-result presentation while the broader coordination evidence remains tied to the proven v1.3.2 production candidate until the new production gate completes. Dated research and earlier plans record the decisions that led here; they are not a current backlog. The released product, submission work, guest-email activation, and human evidence remain distinct.
+Updated September 12, 2026. This is the current roadmap for v1.3.8. The release fixes public run-result presentation while the broader coordination evidence remains tied to the proven v1.3.2 production candidate until the new production gate completes. Dated research and earlier plans record the decisions that led here; they are not a current backlog. The released product, submission work, guest-email activation, and human evidence remain distinct.
 
 ## Implemented in the completion
 
@@ -18,9 +18,9 @@ Updated September 12, 2026. This is the current roadmap for v1.3.7. The release 
 
 ## Remaining owner and operational actions
 
-- Keep v1.3.7 available through judging. It fixes public run-summary presentation; broader web and AgentCore behavior was proven in v1.3.2 at commit `90b68385`, where all nine protected production probes passed.
+- Keep v1.3.8 available through judging. It fixes public run-summary presentation; broader web and AgentCore behavior was proven in v1.3.2 at commit `90b68385`, where all nine protected production probes passed.
 - Complete a real consenting recipient verification/reminder/return/opt-out proof after authorization. Provider acceptance, inbox delivery and a guest reply are different observations.
-- Record and upload the public demo video, then complete the Devpost entry. The AWS Builder ID, track, repository, architecture, live-demo, and three AWS Builder article fields are already populated; the video URL and final submission remain pending. The [video script](submission/video-script.md) is part of v1.3.7 and does not imply an uploaded video.
+- Record and upload the public demo video, then complete the Devpost entry. The AWS Builder ID, track, repository, architecture, live-demo, and three AWS Builder article fields are already populated; the video URL and final submission remain pending. The [video script](submission/video-script.md) is part of v1.3.8 and does not imply an uploaded video.
 - Publish the three reviewed Builder article drafts and add their public links to the entry if pursuing the optional bonus. The [official rules](https://agentsforhumans.devpost.com/rules) award 0.2 per eligible public article, up to 0.6; drafts earn no bonus.
 - Run the participant protocol with willing hosts and guests. Record baseline effort, task completion and confusion before making human time-saving or adoption claims.
 - Keep the submitted project accessible through the end of judging and verify the final advertised demonstration against its deployed revision. The [official schedule](https://agentsforhumans.devpost.com/rules) closes submissions September 14 at 5 p.m. Pacific and judging October 8 at 5 p.m. Pacific.

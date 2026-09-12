@@ -4,6 +4,16 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.8] - 2026-09-12
+
+### Fixed
+
+- Resumed AgentCore runs now build their public result from the recorded host decision, verified request context, and actual visit state. A model-generated summary can no longer claim that approval was unnecessary or that a reviewed special request did not exist.
+
+### Added
+
+- Added a ChatGPT Work presenter prompt for the recorded English demo, with visible narration, state checks, and controlled pauses beside the built-in browser.
+
 ## [1.3.7] - 2026-09-12
 
 ### Changed

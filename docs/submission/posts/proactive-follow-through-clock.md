@@ -1,6 +1,6 @@
 # Agents for Humans: testing proactive follow-through with an honest clock
 
-Published on AWS Builder Center: [Proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.7 run-result presentation fix does not change the architecture discussed here.
+Published on AWS Builder Center: [Proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.8 run-result presentation fix does not change the architecture discussed here.
 
 ## Booking is not the end of coordination
 
