@@ -1,12 +1,12 @@
-# The best everyday agents know when not to decide
+# Building Everyday Agents That Truly Simplify Life
 
-This weekend, I’m submitting my newest project, [L’Ayalga](https://layalga.thecreativetoken.com) (Asturian for "a treasure found"), to the [AWS Agents for Humans hackathon](https://agentsforhumans.devpost.com/) in the Everyday Agents category. This idea is inspired on my own experience trying to coordinate with my wife year round friends and family visits to our home.
+This weekend, I’m submitting my newest project, [L’Ayalga](https://layalga.thecreativetoken.com) (Asturian for "a treasure found"), to the [AWS Agents for Humans hackathon](https://agentsforhumans.devpost.com/) in the Everyday Agents category. Inspiration for this idea came from my own experience trying to coordinate with my wife year-round friends and family visits to our home.
 
-L’Ayalga coordinates visits to a shared home. Hosts invite, guests choose suitable rooms, and everyone can track changes, requests and follow-up.
+L’Ayalga coordinates visits to shared homes. Hosts invite, guests choose suitable rooms, and everyone can track changes, requests and follow-up.
 
 But the bigger idea is not about guest rooms. It is about how agents can become useful in everyday life.
 
-Daily coordination is difficult because information is scattered, plans change and people share responsibility. Some decisions also depend on context that software should not guess. An everyday agent should understand informal requests, check facts, complete routine work and know when to ask a person.
+Daily coordination is difficult because information is scattered, plans change constantly and people share responsibility. Some decisions also depend on context that software should not guess. An everyday agent should understand informal requests, check facts, complete routine work and know when to ask a person.
 
 ## A simple division of responsibility
 
@@ -34,7 +34,7 @@ Everyday work continues after the first action. Plans need confirmation. Unanswe
 
 #### **1. [Amazon Bedrock](https://docs.aws.amazon.com/bedrock/): model runtime**
 
-- **Components used:** [Claude Sonnet](https://www.anthropic.com/claude/sonnet) 4.6 in production, with Claude Sonnet 4.5 retained as an earlier verified model, accessed through the [Amazon Bedrock Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-call.html).
+- **Components used:** [Claude Sonnet](https://www.anthropic.com/claude/sonnet) 4.6 in production, with Claude Sonnet 4.5 retained as an earlier verified model, accessed through the [Amazon Bedrock Converse API](https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-call.html). **For some reason my account can’t get access to Sonnet 5 via Bedrock. AWS folks, what’s up with that?**
 - **Value added:** Bedrock provides the language intelligence. It helps interpret informal invitations, rescheduling requests and bilingual follow-up, then supplies structured arguments to typed tools. It cannot bypass the deterministic rules for bookings, rooms or household policy.
 
 ---
