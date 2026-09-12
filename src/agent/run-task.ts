@@ -22,6 +22,11 @@ import type { AgentAuthority, AgentDeps, ExecutionRuntime } from "./deps";
 import { matchFamilyNameInMessage } from "./party-match";
 import { recordCaptureMemory } from "./record-capture-memory";
 import {
+  resumedRunSummary,
+  type ResumeDecisionSummaryInput,
+  type ResumeVisitStatus,
+} from "./resume-summary";
+import {
   agentTaskSchema,
   parseStoredRunResult,
   type AgentTask,
@@ -342,7 +347,10 @@ async function executeClaimedAgentTask(
       );
     }
 
-    const resumeDecisions: { id: string; interruptId: string }[] = [];
+    const resumeDecisions: (ResumeDecisionSummaryInput & {
+      id: string;
+      interruptId: string;
+    })[] = [];
     if (task.task === "resume") {
       for (const { interruptId, response } of task.responses) {
         const [decision] = await sql<
@@ -351,9 +359,10 @@ async function executeClaimedAgentTask(
             status: "pending" | "approved" | "declined";
             decided_by_host_id: string | null;
             note: string | null;
+            reason: unknown;
           }[]
         >`
-          select id, status, decided_by_host_id, note
+          select id, status, decided_by_host_id, note, reason
           from public.pending_decisions
           where agent_session_id = ${sessionId} and interrupt_id = ${interruptId}
         `;
@@ -369,7 +378,13 @@ async function executeClaimedAgentTask(
             `Pending decision has not been recorded by this host: ${interruptId}`,
           );
         }
-        resumeDecisions.push({ id: decision.id, interruptId });
+        resumeDecisions.push({
+          id: decision.id,
+          interruptId,
+          approved: response.approved,
+          note: decision.note,
+          reason: decision.reason,
+        });
       }
       for (const decision of resumeDecisions) {
         const [claimed] = await sql<{ id: string }[]>`
@@ -499,11 +514,19 @@ async function executeClaimedAgentTask(
         recordCaptureMemory(deps, run.id, sessionId, task.homeId),
       );
     }
+    const summary =
+      task.task === "resume"
+        ? resumedRunSummary({
+            locale: deps.locale,
+            decisions: resumeDecisions,
+            visitStatus: await resumedVisitStatus(sql, task),
+          })
+        : result.toString();
     return await finish(
       sql,
       run.id,
       sessionId,
-      result.toString(),
+      summary,
       deps.clock.now(),
       run.claimToken,
       executedOn,
@@ -545,6 +568,22 @@ async function executeClaimedAgentTask(
     }
     throw error;
   }
+}
+
+async function resumedVisitStatus(
+  sql: ReturnType<typeof sqlClient>,
+  task: Extract<AgentTask, { task: "resume" }>,
+): Promise<ResumeVisitStatus> {
+  if (!task.sessionId.startsWith("inv_")) return null;
+  const invitationId = task.sessionId.slice(4);
+  const [visit] = await sql<{ status: Exclude<ResumeVisitStatus, null> }[]>`
+    select status
+    from public.visits
+    where home_id = ${task.homeId} and invitation_id = ${invitationId}
+    order by created_at desc
+    limit 1
+  `;
+  return visit?.status ?? null;
 }
 
 interface StartRunInput {

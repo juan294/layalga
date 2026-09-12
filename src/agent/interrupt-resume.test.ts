@@ -133,8 +133,21 @@ describe("interrupt and resume", () => {
         encoding: "utf8",
       },
     );
-    const resumed = JSON.parse(stdout) as { runId: string; status: string };
+    const resumed = JSON.parse(stdout) as {
+      runId: string;
+      status: string;
+      summary: string;
+    };
     expect(resumed.status).toBe("completed");
+    expect(resumed.summary).toContain("| Host review | Approved |");
+    expect(resumed.summary).toContain(
+      "| Special request | wheelchair access |",
+    );
+    expect(resumed.summary).toContain(
+      "| Visit | Held pending confirmation |",
+    );
+    expect(resumed.summary).not.toContain("without host escalation");
+    expect(resumed.summary).not.toContain("No special requests");
     const visits = await sql<
       { status: string; approval_stay_hash: string | null }[]
     >`
@@ -210,7 +223,10 @@ describe("interrupt and resume", () => {
       deps(declinedModel),
     );
     expect(declined.status).toBe("completed");
-    expect(declined.summary).toContain("Declined by host");
+    expect(declined.summary).toContain("| Host review | Declined |");
+    expect(declined.summary).toContain(
+      "| Host note | not this weekend |",
+    );
     expect(
       await sql`select id from public.visits where invitation_id = ${declinedInvitationId}`,
     ).toHaveLength(0);

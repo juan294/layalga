@@ -28,7 +28,11 @@ try {
       scheduler: new NoopScheduler(),
       appUrl: "http://localhost:3008",
       locale: "en",
-      model: new ScriptedModel([{ text: "Hold placed and awaiting confirmation." }]),
+      model: new ScriptedModel([
+        {
+          text: "Policy evaluation: stay allowed without host escalation. No special requests on file.",
+        },
+      ]),
     },
   );
   process.stdout.write(JSON.stringify(result));
