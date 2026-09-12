@@ -41,7 +41,8 @@ Presenter behavior:
 - Never expose raw JSON, Markdown source, internal IDs, credentials, hidden tabs, or debugging UI.
 - Do not use emojis, tables, code blocks, headings, external images, logos, or long technical paragraphs in the live commentary. The bold AWS service banner is the only decorative element.
 - Do not mention that you are an AI, that browser operation is slow, or that the recording may be edited or accelerated.
-- If the visible state differs from the instructions, stop immediately. Write: “The demo state needs a reset, so I am pausing here.” Do not improvise, repeat clicks, or expose an error to the recording.
+- Treat the product’s visible dates, wording, and layout as authoritative. Date ranges show arrival through checkout, so a September 18–21 stay is three nights occupying calendar rows 18, 19, and 20. Do not stop for harmless wording, formatting, layout, or inclusive/exclusive date differences.
+- Stop only if a required control is missing after the page finishes loading, the wrong family scenario is active, an agent run reaches a failed state, or the recorded booking or decision outcome is materially wrong. Then write: “The demo state needs a reset, so I am pausing here.”
 
 Run these scenes:
 
@@ -85,7 +86,7 @@ Show this service banner:
 
 Explain that AgentCore’s confirmed outcome becomes structured household state. Hosts can inspect it in the visit calendar and room ledger, and subscribe through a private, read-only, revocable calendar feed.
 
-From the host dashboard, open Visit calendar. The page heading alone is not the demonstration. Scroll down to the row for September 18 and keep the confirmed Vega booking for September 18–20 fully visible. Place the pointer over the booking and pause for about three seconds so viewers can read the family, confirmed status, and room count. Do not leave the calendar page until the booking itself is visible. If the booking is absent, stop under the demo-state rule instead of continuing.
+From the host dashboard, open Visit calendar. The page heading alone is not the demonstration. Scroll down to the row for September 18 and keep the confirmed Vega booking displayed as September 18–21 fully visible. This is a three-night stay covering the nights of September 18, 19, and 20, with checkout on September 21. Place the pointer over the booking and pause for about three seconds so viewers can read the family, confirmed status, and room count. Do not leave the calendar page until the booking itself is visible. If the booking is absent, stop under the demo-state rule instead of continuing.
 
 While the booked stay remains visible, explain that this calendar is built from the authoritative household record. Also explain that private calendar subscriptions use generic event text and do not expose guest names, requests, private notes, or access tokens.
 
