@@ -4,9 +4,11 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-09-12
+
 ### Changed
 
-- The sign-in welcome now speaks about the home instead of repeating the product name, and its invitation copy uses the available panel width.
+- The sign-in page now welcomes visitors to the home without repeating the product name, uses warmer invitation copy, and lets that copy wrap naturally across the available panel width.
 
 ## [1.3.5] - 2026-09-12
 

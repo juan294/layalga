@@ -1,6 +1,6 @@
 # Documentation index
 
-The v1.3.5 release adds safe structured run summaries to the application and retains the broader production evidence from v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
+The v1.3.6 release adds safe structured run summaries to the application and retains the broader production evidence from v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
 
 ## For judges and readers
 

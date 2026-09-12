@@ -7,7 +7,7 @@ The guides distinguish implementation, local scripted tests, dated deployment
 evidence, and remaining limitations. They support independent evaluation against
 the AWS Agents for Humans rubric. They do not prescribe a score.
 
-The v1.3.5 release adds safe structured public run summaries and keeps
+The v1.3.6 release adds safe structured public run summaries and keeps
 internal interrupt payloads out of the run page. That behavior was proven in production v1.3.2 at commit
 90b68385a590144d6d44cd7dd41298180b2d182c: its protected workflow verified the
 exact Vercel and AgentCore candidate with the guided demo and all nine probes.
