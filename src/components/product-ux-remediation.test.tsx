@@ -100,7 +100,7 @@ describe("product and UX remediation contracts", () => {
           {
             id: "decision-1",
             status: "pending",
-            partyName: "The Oteros",
+            partyName: "The Parkers",
             partySummary: "2 adults · 0 children · 1 pet",
             reason: "The guest included a special request",
             requestDetail: "Ground-floor access",
@@ -140,7 +140,7 @@ describe("product and UX remediation contracts", () => {
     expect(html).toContain("Requested at");
     expect(html).toContain("Sep 7, 2026, 10:00 AM");
     expect(html).toContain("Ground-floor access");
-    expect(html).not.toContain("The Oteros overlaps");
+    expect(html).not.toContain("The Parkers overlaps");
   });
 
   test("backs successful run polling off without delaying the first check", () => {

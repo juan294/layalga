@@ -116,7 +116,7 @@ insert into public.parties (
   (
     '00000000-0000-4000-8000-000000000302',
     '00000000-0000-4000-8000-000000000001',
-    'The Oteros',
+    'The Parkers',
     'en',
     'c4d65b4dc4a6da10c484c54ad1f550b803916ce5a9a7669e0ebce9c12a49c25e',
     '2026-10-01T00:00:00+02:00'
@@ -156,13 +156,13 @@ insert into public.invitations (
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000202',
     '00000000-0000-4000-8000-000000000302',
-    'Hi! Inviting Ana and Pelayo Otero for the weekend of the 19th, they''d bring their dog Nube and possibly Ana''s mother who uses a wheelchair.',
+    'Hi! Inviting Emma and Daniel Parker for the weekend of the 19th, they''d bring their dog Nube and possibly Emma''s mother who uses a wheelchair.',
     jsonb_build_object(
       'adults', 2,
       'children', 0,
       'pets', 1,
       'specialRequests', jsonb_build_array(
-        'Ana''s mother uses a wheelchair and needs ground-floor access'
+        'Emma''s mother uses a wheelchair and needs ground-floor access'
       ),
       'preferredStay', jsonb_build_array('2026-09-19', '2026-09-21'),
       'roomAllocation', jsonb_build_array('Garage conversion')

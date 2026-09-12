@@ -1,6 +1,6 @@
 # Agents for Humans: testing proactive follow-through with an honest clock
 
-Published on AWS Builder Center: [Proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.6 run-result presentation fix does not change the architecture discussed here.
+Published on AWS Builder Center: [Proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.7 run-result presentation fix does not change the architecture discussed here.
 
 ## Booking is not the end of coordination
 
@@ -22,7 +22,7 @@ Our [semantic clock service](../../../src/core/demo/advance-clock.ts) selects an
 
 The guided demo starts with Vega: four guests book both open rooms without a host decision. Run a chase, answer reconfirmation, and inspect the reconfirmed host outcome.
 
-Then start Otero. This visibly resets shared synthetic state and begins a fresh two-person Garage Room request containing an explicit request. Approve it, run its chase, leave it unanswered, and escalate. The host sees unresolved follow-up. Repeating an exhausted shortcut produces feedback rather than a duplicate alert.
+Then start Parker. This visibly resets shared synthetic state and begins a fresh two-person Garage Room request containing an explicit request. Approve it, run its chase, leave it unanswered, and escalate. The host sees unresolved follow-up. Repeating an exhausted shortcut produces feedback rather than a duplicate alert.
 
 The scenarios are independent; we do not imply the reset visits coexist. Reset preserves stable synthetic identities and renews finite invitation expiry. That is reproducible setup, not byte-identical database state at every real-world date.
 
