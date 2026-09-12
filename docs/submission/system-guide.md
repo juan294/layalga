@@ -1,6 +1,6 @@
 # L’Ayalga system guide
 
-Current documentation release: v1.3.3, with no application behavior change. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
+Current release: v1.3.4, with safe structured public run summaries and no interrupted-run payload exposure. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
 
 For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
 
@@ -14,9 +14,9 @@ The intended benefit is less repeated coordination and clearer responsibility. H
 
 The [official rules](https://agentsforhumans.devpost.com/rules), checked 11 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
 
-The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is five minutes. The production recording script targets about three minutes and forty-five seconds. The public video URL and final submission remain pending.
+The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is three minutes. The production recording script targets 2 minutes 55 seconds. The public video URL and final submission remain pending.
 
-An AWS Builder ID is a required entry item to verify before submission. Eligible public Builder posts can earn 0.2 bonus points each, up to 0.6. The three local drafts are unpublished and use “Agents for Humans” in their titles. No bonus, publication or entry completion is claimed until it actually occurs.
+The AWS Builder ID is recorded in the Devpost entry. Three “Agents for Humans” articles are published on AWS Builder Center and linked from the [judge guide](judge-guide.md), qualifying them for review under the optional article bonus. Final scoring and entry completion are not claimed before judging and submission.
 
 ## 3. Architecture and authority
 
@@ -116,7 +116,7 @@ The canonical flow is routine Vega for four guests in both open rooms, an answer
 
 The [guided browser regression](../../tests/e2e/guided-demo.spec.ts) tests real local transitions in English and Spanish/mobile. The [benchmark report](coordination-evidence.md) records its own exact committed revision, configuration, automated operations and persisted outcomes. Neither is a human study or evidence of live-model/email behavior. Historical production traces remain separately labeled.
 
-The v1.3.3 [video script](video-script.md) presents this story against the behavior verified on the v1.3.2 production target. Recording/upload, optional Builder publication, final entry, guest-email activation, and participant research remain distinct actions.
+The v1.3.4 [video script](video-script.md) presents this story in one visible English tab and omits the architecture cutaway. Recording/upload, final entry, guest-email activation, and participant research remain distinct actions.
 
 ## 13. Operational boundaries
 

@@ -2,20 +2,24 @@ import { describe, expect, test } from "vitest";
 
 import { scriptedOutcome } from "@/agent/scripted-outcomes";
 
-import { localizedSummary, pollStopAt } from "./run-status-poller";
+import {
+  localizedSummary,
+  pollStopAt,
+  summaryForDisplay,
+} from "./run-status-poller";
 
 function echoTranslate(key: string): string {
   return key;
 }
 
 describe("localizedSummary", () => {
-  test("strips markdown emphasis markers from a live model summary (regression: the live Bedrock summary printed **Invitation structured:** verbatim on 2026-09-03)", () => {
+  test("removes emoji while preserving markdown for structured rendering", () => {
     expect(
       localizedSummary(
-        "**Invitation structured:** ready for review",
+        "### ✅ **Invitation structured:** ready for review",
         echoTranslate as never,
       ),
-    ).toBe("Invitation structured: ready for review");
+    ).toBe("### **Invitation structured:** ready for review");
   });
 
   test("still resolves a scripted outcome key instead of stripping it", () => {
@@ -25,6 +29,16 @@ describe("localizedSummary", () => {
         echoTranslate as never,
       ),
     ).toBe("outcomes.invitationReady");
+  });
+
+  test("does not expose an interrupted run payload as a public summary", () => {
+    expect(
+      summaryForDisplay(
+        "interrupted",
+        '[{"id":"internal","stayApprovalHash":"secret"}]',
+        echoTranslate as never,
+      ),
+    ).toBeNull();
   });
 });
 

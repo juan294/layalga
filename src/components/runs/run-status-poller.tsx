@@ -12,6 +12,7 @@ import {
   steadyPollDelay,
 } from "@/components/frontend-utils";
 import { RunTimeline } from "@/components/runs/run-timeline";
+import { removeEmoji, RunSummary } from "@/components/runs/run-summary";
 
 import styles from "./run-status.module.css";
 
@@ -139,6 +140,8 @@ export function RunStatusPoller({
     };
   }, [deadlineMs, pollCycle, run.id, run.status, token]);
 
+  const displaySummary = summaryForDisplay(run.status, run.summary, t);
+
   return (
     <section
       className={styles.card}
@@ -173,10 +176,10 @@ export function RunStatusPoller({
         timeZone={timeZone}
         usage={run.usage}
       />
-      {run.summary ? (
+      {displaySummary ? (
         <div className={styles.summary}>
           <span>{t("summaryLabel")}</span>
-          <p>{localizedSummary(run.summary, t)}</p>
+          <RunSummary summary={displaySummary} />
         </div>
       ) : null}
       {run.finishedAt ? (
@@ -232,10 +235,14 @@ export function localizedSummary(
   t: ReturnType<typeof useTranslations>,
 ): string {
   const key = scriptedOutcomeKey(summary);
-  return key ? t(`outcomes.${key}`) : stripMarkdownEmphasis(summary);
+  return removeEmoji(key ? t(`outcomes.${key}`) : summary);
 }
 
-/** Strips `**` markdown emphasis markers a live model may include verbatim. */
-function stripMarkdownEmphasis(text: string): string {
-  return text.replace(/\*\*/g, "");
+export function summaryForDisplay(
+  status: RunSnapshot["status"],
+  summary: string | null,
+  t: ReturnType<typeof useTranslations>,
+): string | null {
+  if (!summary || status === "interrupted") return null;
+  return localizedSummary(summary, t);
 }

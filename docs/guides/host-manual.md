@@ -2,7 +2,7 @@
 
 L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
 
-This v1.3.3 guide describes behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release; v1.3.3 changes documentation only. Start with the [judge guide](../submission/judge-guide.md) for the synthetic walkthrough.
+This v1.3.4 guide includes safe structured run-result presentation and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. Start with the [judge guide](../submission/judge-guide.md) for the synthetic walkthrough.
 
 ## 1. Sign in and understand the home
 

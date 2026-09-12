@@ -1,6 +1,6 @@
 # Agents for Humans: deterministic household policy under a Strands agent
 
-Unpublished Builder post draft, updated for the v1.3.3 documentation release against behavior proven in production v1.3.2 commit `90b68385`. Publication and its URL remain pending. This draft does not earn a publication bonus. The protected production workflow passed the guided demo and all nine probes against the exact Vercel and AgentCore behavioral candidate.
+Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.4 run-result presentation fix does not change the architecture discussed here.
 
 ## A booking needs more than a plausible answer
 

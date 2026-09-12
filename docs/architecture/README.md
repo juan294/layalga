@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-These v1.3.3 documentation sources describe application behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
+These v1.3.4 documentation sources include the safe run-summary presentation fix and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
 
 `layalga-architecture.mmd` is the source. `mermaid-config.json` fixes the render settings. The committed SVG and PNG were generated with Mermaid CLI 11.12.0:
 
@@ -81,7 +81,7 @@ Regenerate it after editing the XML:
   docs/architecture/layalga-architecture.drawio
 ```
 
-**Source refreshed 2026-09-11 for the v1.3.3 documentation release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
+**Source refreshed 2026-09-12 for the v1.3.4 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
 
 ## Supporting diagrams
 

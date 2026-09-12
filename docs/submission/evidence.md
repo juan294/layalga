@@ -4,7 +4,7 @@ This is the source-backed companion to the [judge guide](judge-guide.md). Each c
 
 ## Current completion evidence
 
-The current behavioral source reference is production v1.3.2 commit **`90b68385a590144d6d44cd7dd41298180b2d182c`**. The v1.3.3 release publishes this documentation and comment-only clarifications without changing that behavior. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code. The dated benchmark and historical baseline later in this document retain their own exact revisions.
+The current behavioral source reference is production v1.3.2 commit **`90b68385a590144d6d44cd7dd41298180b2d182c`**. The v1.3.4 release adds safe structured public run summaries and suppresses interrupted-run internals; the broader evidence remains tied to v1.3.2 until the new production gate completes. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code. The dated benchmark and historical baseline later in this document retain their own exact revisions.
 
 The [coordination evidence report](coordination-evidence.md) records the actual measured artifact, its own exact source revision, configuration and operation definitions. Its local scripted results are separate from the older baseline test totals preserved later in this document. Neither result measures human effort, live-model quality, production memory quality or inbox delivery. See the [participant protocol](participant-protocol.md) for the unmeasured human baseline.
 
@@ -66,7 +66,7 @@ The [protected production workflow](https://github.com/juan294/layalga/actions/r
 
 **Mode and limit:** Synthetic local English and Spanish/mobile journeys use explicit shared resets. Simulated time jumps are not production uptime, and automated action durations are not human time saved.
 
-These current cards complement the five-criterion mapping in the judge guide. The completion features and v1.3.2 reliability guards are deployed. The pending public video and unpublished Builder drafts must not be represented as publication proof, and guest SES activation remains separate from host-email production evidence.
+These current cards complement the five-criterion mapping in the judge guide. The completion features and v1.3.2 reliability guards are deployed. The three AWS Builder Center articles are public; the demo video remains pending. Guest SES activation remains separate from host-email production evidence.
 
 ## Historical baseline: revision and evidence status
 
