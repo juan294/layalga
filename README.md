@@ -1,9 +1,19 @@
 # L’Ayalga — From invitation to arrival
 
-[![CI](https://github.com/juan294/layalga/actions/workflows/ci.yml/badge.svg)](https://github.com/juan294/layalga/actions/workflows/ci.yml)
+[![CI](https://github.com/juan294/layalga/actions/workflows/ci.yml/badge.svg?branch=develop&event=push)](https://github.com/juan294/layalga/actions/workflows/ci.yml?query=branch%3Adevelop+event%3Apush)
+[![CodeQL](https://github.com/juan294/layalga/actions/workflows/codeql.yml/badge.svg?branch=develop&event=push)](https://github.com/juan294/layalga/actions/workflows/codeql.yml?query=branch%3Adevelop+event%3Apush)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-24-43853D?logo=node.js&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16.3.4-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.8-61DAFB?logo=react&logoColor=black)
+[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E)](https://strandsagents.com/)
+![Amazon Bedrock](https://img.shields.io/badge/Amazon_Bedrock-AgentCore-FF9900?logo=amazonaws&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6.svg)](https://www.typescriptlang.org/)
-[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E.svg)](https://strandsagents.com/)
+
+<a href="https://chapa.thecreativetoken.com/u/juan294">
+  <img src="https://chapa.thecreativetoken.com/u/juan294/badge.svg" alt="juan294's Chapa Impact Badge" width="100%" />
+</a>
 
 Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
 
@@ -13,7 +23,7 @@ Start with the [judge guide](docs/submission/judge-guide.md), [source evidence i
 
 The v1.3.9 release derives resumed-run results from the recorded host decision, verified request context, and actual visit state. It also safely formats agent summaries, removes emoji, and keeps internal interrupt payloads out of the run page. The broader coordination behavior was proven in production as v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c`: the protected workflow ran the guided demo and all nine probes against the exact Vercel and AgentCore candidate, including AgentCore Memory, host SES acceptance, concurrency, human interruption, guest isolation, and cleanup. Human time savings have not been measured; the video, final Devpost submission, guest-email activation, and real-recipient delivery proof remain separate work. Three supporting AWS Builder Center articles are published and linked from the [judge guide](docs/submission/judge-guide.md).
 
-![L’Ayalga architecture](docs/architecture/layalga-architecture.svg)
+[![Simplified L’Ayalga AWS architecture](docs/architecture/layalga-aws-blog-architecture.drawio.png)](docs/architecture/layalga-aws-blog-architecture.drawio)
 
 ## Four-beat demo
 
