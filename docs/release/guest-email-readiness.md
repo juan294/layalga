@@ -1,6 +1,6 @@
 # Guest email production readiness
 
-Status: the guest-email schema and application shipped with v1.0.0 and remain deployed through the v1.3.8 release. The guest-email IAM policy is prepared, not applied. Local verification uses an injected sender and makes no real guest sends. Production activation still requires separate authorization and a consenting real-recipient proof.
+Status: the guest-email schema and application shipped with v1.0.0 and remain deployed through the v1.3.9 release. The guest-email IAM policy is prepared, not applied. Local verification uses an injected sender and makes no real guest sends. Production activation still requires separate authorization and a consenting real-recipient proof.
 
 Guest reminders reuse the existing Amazon SES identity `thecreativetoken.com`, sender `noreply@layalga.thecreativetoken.com`, and `us-east-1` region. The agent runtime receives no email permission or contact-table access. The existing `infra/iam/web-ses-policy.json` restricts recipients to the two hosts. The separate `infra/iam/web-ses-guest-policy.json` permits only `ses:SendEmail` for the same identity and sender; application verification, consent, source checks and synthetic-home guards control guest eligibility.
 

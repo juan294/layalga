@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-These v1.3.8 documentation sources include the safe run-summary presentation fix and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
+These v1.3.9 documentation sources include the safe run-summary presentation fix and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
 
 `layalga-architecture.mmd` is the source. `mermaid-config.json` fixes the render settings. The committed SVG and PNG were generated with Mermaid CLI 11.12.0:
 
@@ -81,7 +81,23 @@ Regenerate it after editing the XML:
   docs/architecture/layalga-architecture.drawio
 ```
 
-**Source refreshed 2026-09-12 for the v1.3.8 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
+`layalga-aws-blog-architecture.drawio` is the compact AWS-style view used by
+the article sources. It keeps the main input/output path, the authoritative
+database boundary, and every AWS service used by the project: Amazon Bedrock,
+AgentCore Runtime, AgentCore Memory, Amazon S3, IAM, ADOT, CloudWatch, AWS X-Ray,
+and Amazon SES. Its official AWS service icons come from the AWS Architecture
+Icons package released 31 July 2026.
+`layalga-aws-blog-architecture.drawio.png` is the editable, XML-embedded blog
+export. Regenerate it with:
+
+```bash
+/Applications/draw.io.app/Contents/MacOS/draw.io \
+  -x -f png -e -b 16 -s 1.35 \
+  -o docs/architecture/layalga-aws-blog-architecture.drawio.png \
+  docs/architecture/layalga-aws-blog-architecture.drawio
+```
+
+**Source refreshed 2026-09-12 for the v1.3.9 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
 
 ## Supporting diagrams
 

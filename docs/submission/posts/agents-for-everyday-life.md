@@ -4,6 +4,8 @@ This weekend, I’m submitting my newest project, [L’Ayalga](https://layalga.t
 
 L’Ayalga coordinates visits to shared homes. Hosts invite, guests choose suitable rooms, and everyone can track changes, requests and follow-up.
 
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+
 But the bigger idea is not about guest rooms. It is about how agents can become useful in everyday life.
 
 Daily coordination is difficult because information is scattered, plans change constantly and people share responsibility. Some decisions also depend on context that software should not guess. An everyday agent should understand informal requests, check facts, complete routine work and know when to ask a person.

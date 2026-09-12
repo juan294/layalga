@@ -9,84 +9,146 @@ Before submitting the prompt, make sure the production sign-in page shows both *
 ```text
 Act as the presenter and browser operator for a recorded product demo of L’Ayalga, a family guest-stay coordinator. Use the ChatGPT desktop app’s built-in browser on the right and this Work conversation on the left. The audience must be able to understand the demonstration without a separate live explanation.
 
+This message is my explicit advance authorization for every action in the sequence. All controls operate on resettable synthetic demo data. Perform each listed action without requesting confirmation, including controls whose visible labels contain Reset, Start, Submit, Approve, Advance, Confirm, Cancel, or similar words. Do not announce or discuss permission, risk, data clearing, or authorization during the recording.
+
 The page is already open at https://layalga.thecreativetoken.com/en/sign-in in the built-in browser. Use English only. Keep the browser visible beside the conversation for the entire demo. Use one browser tab. Do not open Chrome, a terminal, AWS Console, GitHub, documentation, source code, or the architecture diagram.
 
 Prepare before starting:
 
+0. Beofre you start increase the chat font size for improved readability in this chat. For the whole chat, not just the first paragraph.
 1. Confirm that the sign-in page is loaded and that both “Enter as Host” and “Enter as Guest” are visible.
 2. Do not change the demo data during preparation.
 3. In the conversation, write: “Ready to record our demo, Juan.”
 4. Wait for me to say “start.”
 
-When I say “start,” count down from 10 in one message, one number per line. Then run the complete sequence below without asking me questions.
+When I say “start,” count down from 10 in one message. My “start” message gives you advance authorization to perform every synthetic demo action listed below, including resetting scenarios, submitting both stays, approving the Parker decision, advancing the demo clock, answering the Vega reminder, and cancelling the Parker visit. These actions affect only the resettable shared synthetic demo home.
+
+After “start,” run the complete sequence autonomously. Do not ask for confirmation, permission, approval, or any other user response. Do not pause before a listed button or describe a click as a proposed future action. Explain the action, perform it immediately, verify the visible result, and continue. My only required interaction is the single “start” message.
 
 Presenter behavior:
 
-- Before every scene, write one short explanation in the conversation on the left. State what you are about to show and why it matters.
-- Keep each explanation to one or two short sentences and no more than 30 words. Use plain English and a large, readable paragraph style.
+- Before every scene, write a short service banner and explanation in the conversation on the left. Use this exact visual pattern, replacing the service names and explanation for each scene:
+
+  **AWS services: Amazon Bedrock AgentCore and Amazon Bedrock**
+
+  The agent coordinates the request while deterministic household policy controls whether it can proceed.
+
+- Keep the bold service banner on its own line. Keep the explanation below it to one or two short sentences and no more than 35 words. Use plain English and a large, readable paragraph style.
 - After posting the explanation, perform the matching action in the visible browser on the right.
+- Treat every listed click and form submission as already authorized after “start,” including controls labeled Submit, Approve, Advance, Confirm, Cancel, or Reset.
 - Keep the pointer over the control you are discussing before clicking it.
 - Pause for about two seconds on each important result so viewers can read it.
 - Wait for loading, agent execution, and state transitions to finish. Confirm the visible result before continuing.
 - Describe only behavior that is visible in the product or directly demonstrated by the current action.
 - Never expose raw JSON, Markdown source, internal IDs, credentials, hidden tabs, or debugging UI.
-- Do not use emojis, tables, code blocks, headings, or long technical paragraphs in the live commentary.
+- Do not use emojis, tables, code blocks, headings, external images, logos, or long technical paragraphs in the live commentary. The bold AWS service banner is the only decorative element.
 - Do not mention that you are an AI, that browser operation is slow, or that the recording may be edited or accelerated.
-- If the visible state differs from the instructions, stop immediately. Write: “The demo state needs a reset, so I am pausing here.” Do not improvise, repeat clicks, or expose an error to the recording.
+- Treat the product’s visible dates, wording, and layout as authoritative. Date ranges show arrival through checkout, so a September 18–21 stay is three nights occupying calendar rows 18, 19, and 20. Do not stop for harmless wording, formatting, layout, or inclusive/exclusive date differences.
+- Stop only if a required control is missing after the page finishes loading, the wrong family scenario is active, an agent run reaches a failed state, or the recorded booking or decision outcome is materially wrong. Then write: “The demo state needs a reset, so I am pausing here.”
 
 Run these scenes:
 
 Scene 1: Introduce the product
 
-Explain that L’Ayalga coordinates visits to a shared family home, keeping invitations, rooms, household rules, decisions, and follow-up in one clear ledger.
+Show this service banner:
 
-Show the welcoming sign-in page. Enter as Host. On the host dashboard, use the demo control to reset the synthetic data and start the Vega family visit. Wait until the Vega guest experience is visible.
+**AWS services: Amazon Bedrock AgentCore, Amazon Bedrock, and Amazon S3**
+
+Explain that L’Ayalga coordinates visits to a shared family home. AgentCore runs the production agent, Amazon Bedrock provides its model, and S3 stores the versioned runtime bundle.
+
+Show the welcoming sign-in page. Enter as Host. Click “Start Vega demo” immediately. Wait until the Vega guest experience is visible.
 
 Scene 2: Show a routine guest request
 
-Explain that the Vega family is planning a routine stay and that the system will check the household before confirming it.
+Show this service banner:
+
+**AWS service: Amazon Bedrock AgentCore Memory**
+
+Explain that the Vega family is planning a routine stay. AgentCore Memory can supply verified household preferences, while current availability and room rules remain authoritative.
 
 As the Vega guest, search the proposed dates for two adults and two children. Keep both offered rooms selected. Open the memory explanation long enough to show that the product reports there is no verified room preference. Enter “Thank you for having us” in the informational note, then submit the request.
 
 Scene 3: Show AgentCore completing routine work
 
-Explain that the request runs through Amazon Bedrock AgentCore, combining memory, availability, household policy, a temporary hold, and confirmation.
+Show this service banner:
+
+**AWS services: Amazon Bedrock AgentCore, Amazon Bedrock, AgentCore Memory, and Amazon CloudWatch**
+
+Explain that AgentCore runs the durable workflow, Amazon Bedrock provides the reasoning model, AgentCore Memory supplies scoped recall, and CloudWatch receives operational traces.
 
 Keep the Agent run page visible while it progresses. Wait until it is fully complete. Pause on the formatted timeline and the readable “What was done” result. Do not leave while it is still running.
 
 Return to the visit, then return to the host view. Pause on the confirmed Vega stay.
 
-Scene 4: Show proactive reconfirmation
+Scene 4: Show the calendar and room ledger
 
-Explain that L’Ayalga continues after booking by following up at the right time instead of relying on someone to remember.
+Show this service banner:
+
+**AWS service context: Amazon Bedrock AgentCore**
+
+Explain that AgentCore’s confirmed outcome becomes structured household state. Hosts can inspect it in the visit calendar and room ledger, and subscribe through a private, read-only, revocable calendar feed.
+
+From the host dashboard, open Visit calendar. The page heading alone is not the demonstration. Scroll down to the row for September 18 and keep the confirmed Vega booking displayed as September 18–21 fully visible. This is a three-night stay covering the nights of September 18, 19, and 20, with checkout on September 21. Place the pointer over the booking and pause for about three seconds so viewers can read the family, confirmed status, and room count. Do not leave the calendar page until the booking itself is visible. If the booking is absent, stop under the demo-state rule instead of continuing.
+
+While the booked stay remains visible, explain that this calendar is built from the authoritative household record. Also explain that private calendar subscriptions use generic event text and do not expose guest names, requests, private notes, or access tokens.
+
+Return to Guest stays, then open Room ledger. Pause on the room capacities and visible door states. Point out the calendar subscription area without creating, copying, or exposing a feed URL. Return to Guest stays.
+
+Scene 5: Show proactive reconfirmation
+
+Show this service banner:
+
+**AWS services: Amazon Bedrock AgentCore and Amazon SES**
+
+Explain that AgentCore continues the workflow after booking. Amazon SES is the production notification channel, while this synthetic guest reminder remains inside the demo.
 
 Use the labeled demo clock to advance to the guest reminder. Return to the Vega guest view, click “Yes, we are coming,” and wait for the reconfirmation to finish. Pause on the reconfirmed result, then return to the host view.
 
-Scene 5: Show a request that requires human judgment
+Scene 6: Show a request that requires human judgment
 
-Explain that routine work can proceed automatically, while a sensitive request is brought to a host with its context intact.
+Show this service banner:
 
-Use the demo control to reset the synthetic data and start the Parker family visit. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
+**AWS services: Amazon Bedrock AgentCore and Amazon Bedrock**
 
-Scene 6: Show the durable human decision boundary
+Explain that AgentCore and the Bedrock model coordinate routine work, while deterministic policy brings a sensitive request to a host with its context intact.
 
-Explain that ground-floor access does not prove accessibility, so policy interrupts the run instead of letting the system make that judgment.
+Click “Start Parker demo” immediately. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
+
+Scene 7: Show the durable human decision boundary
+
+Show this service banner:
+
+**AWS service: Amazon Bedrock AgentCore with the Strands Agents SDK**
+
+Explain that a Strands policy hook interrupts the durable AgentCore run because ground-floor access does not prove accessibility. The system waits for a host instead of making that judgment.
 
 Wait until the Agent run page visibly says that it is waiting for a host. Pause on the readable timeline and host-review result. Return to the visit, then return to the host dashboard. Open the pending Parker decision and pause so the dates, party, room, and request can be read. Approve it once.
 
-Explain that approval resumes the same persisted execution and checks current state again before it confirms the stay.
+Show this service banner:
+
+**AWS service: Amazon Bedrock AgentCore**
+
+Explain that host approval resumes the same persisted AgentCore execution. The application checks current state again before confirming the stay.
 
 Wait until the resumed run is fully complete. Do not navigate during loading. Return to the host view and pause on the confirmed Parker visit.
 
-Scene 7: Show unresolved follow-up
+Scene 8: Show unresolved follow-up
 
-Explain that the system distinguishes a delivered reminder from an actual guest response and returns silence to the hosts for attention.
+Show this service banner:
+
+**AWS services: Amazon Bedrock AgentCore and Amazon SES**
+
+Explain that AgentCore distinguishes a delivered reminder from an actual response. Amazon SES carries eligible production host notifications, and silence returns to the hosts for attention.
 
 Advance to the Parker guest reminder. Visit the guest view but do not answer the reminder. Return to the host dashboard and advance to the next host follow-up. Wait until the date has advanced and the host view visibly says that the guest has not replied. Pause on that message.
 
-Scene 8: Show an explicit cancellation and clean ledger
+Scene 9: Show an explicit cancellation and clean ledger
 
-Explain that cancellation is deliberate: the guest reviews the exact stay and confirms before rooms and pending work are released.
+Show this service banner:
+
+**AWS boundary: deterministic application control**
+
+Explain that cancellation is deliberate and does not depend on model judgment. The guest reviews the exact stay and confirms before rooms and prior AgentCore work lose authority.
 
 Open the current Parker guest visit. Expand “Cancel this visit,” select the explicit confirmation checkbox, and click “Confirm cancellation” once. Wait for the cancellation result and pause on it.
 
@@ -106,3 +168,4 @@ Do not navigate away after the closing message. Write “Recording complete” o
 - Increase the conversation text size before recording. Do not zoom the product page enough to change its desktop layout.
 - Capture system audio only if needed. The live text is the primary explanation; narration and annotations can be added during editing.
 - Expect the unedited browser operation to exceed three minutes. Accelerate loading and pointer travel in the edit, while leaving result screens and explanatory text at normal speed.
+- The Vega and Parker guided-start controls each reset only the shared synthetic demo home. They do not erase or alter real household data.

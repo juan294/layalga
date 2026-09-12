@@ -1,12 +1,12 @@
 # L’Ayalga demo video script
 
-Recording script for v1.3.8. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2 until the v1.3.8 release gate completes. Target duration: 2 minutes 55 seconds. Hard maximum: 3 minutes. The public video URL remains pending recording and upload.
+Recording script for v1.3.9. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2 until the v1.3.9 release gate completes. Target duration: 2 minutes 55 seconds. Hard maximum: 3 minutes. The public video URL remains pending recording and upload.
 
 The story is routine coordination, then a fresh exception, then follow-through and closure. Use the [judge guide](judge-guide.md) for the canonical journey and the [evidence report](coordination-evidence.md) for numerical claims.
 
 ## Recording setup
 
-- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports `status: ok`, identifies the v1.3.8 release commit, and reports no stale or retrying work.
+- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports `status: ok`, identifies the v1.3.9 release commit, and reports no stale or retrying work.
 - Use one visible English browser tab for both host and guest views. Navigate with the product's **Return to the host view** and **Return to the current demo guest** links so every transition remains visible in the recording. Do not operate a background tab.
 - Start with the host signed in through the synthetic demo entry. Keep personal tabs, notifications, passwords, bearer URLs, email addresses, private notes, AWS account identifiers, and raw memory records out of frame.
 - Set browser zoom before recording and keep it fixed. Use a desktop viewport large enough to show one complete card and its main action without scrolling during narration.
