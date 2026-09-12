@@ -49,7 +49,7 @@ Show this service banner:
 
 Explain that L’Ayalga coordinates visits to a shared family home. AgentCore runs the production agent, Amazon Bedrock provides its model, and S3 stores the versioned runtime bundle.
 
-Show the welcoming sign-in page. Enter as Host. On the host dashboard, use the demo control to reset the synthetic data and start the Vega family visit. Wait until the Vega guest experience is visible.
+Show the welcoming sign-in page. Enter as Host. Explain that the guided scenario resets the shared synthetic demo home to a clean baseline before it starts. Use the demo control to reset the synthetic data and start the Vega family visit. Wait until the Vega guest experience is visible.
 
 Scene 2: Show a routine guest request
 
@@ -73,7 +73,19 @@ Keep the Agent run page visible while it progresses. Wait until it is fully comp
 
 Return to the visit, then return to the host view. Pause on the confirmed Vega stay.
 
-Scene 4: Show proactive reconfirmation
+Scene 4: Show the calendar and room ledger
+
+Show this service banner:
+
+**AWS service context: Amazon Bedrock AgentCore**
+
+Explain that AgentCore’s confirmed outcome becomes structured household state. Hosts can inspect it in the visit calendar and room ledger, and subscribe through a private, read-only, revocable calendar feed.
+
+From the host dashboard, open Visit calendar. Pause on the September month view and point to the confirmed Vega stay. Explain that calendar feeds use generic event text and do not expose guest names, requests, private notes, or access tokens.
+
+Return to Guest stays, then open Room ledger. Pause on the room capacities and visible door states. Point out the calendar subscription area without creating, copying, or exposing a feed URL. Return to Guest stays.
+
+Scene 5: Show proactive reconfirmation
 
 Show this service banner:
 
@@ -83,7 +95,7 @@ Explain that AgentCore continues the workflow after booking. Amazon SES is the p
 
 Use the labeled demo clock to advance to the guest reminder. Return to the Vega guest view, click “Yes, we are coming,” and wait for the reconfirmation to finish. Pause on the reconfirmed result, then return to the host view.
 
-Scene 5: Show a request that requires human judgment
+Scene 6: Show a request that requires human judgment
 
 Show this service banner:
 
@@ -91,9 +103,9 @@ Show this service banner:
 
 Explain that AgentCore and the Bedrock model coordinate routine work, while deterministic policy brings a sensitive request to a host with its context intact.
 
-Use the demo control to reset the synthetic data and start the Parker family visit. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
+Explain that starting the Parker scenario resets the same synthetic demo home again, so this second story begins from a clean baseline. Use the demo control to reset the synthetic data and start the Parker family visit. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
 
-Scene 6: Show the durable human decision boundary
+Scene 7: Show the durable human decision boundary
 
 Show this service banner:
 
@@ -111,7 +123,7 @@ Explain that host approval resumes the same persisted AgentCore execution. The a
 
 Wait until the resumed run is fully complete. Do not navigate during loading. Return to the host view and pause on the confirmed Parker visit.
 
-Scene 7: Show unresolved follow-up
+Scene 8: Show unresolved follow-up
 
 Show this service banner:
 
@@ -121,7 +133,7 @@ Explain that AgentCore distinguishes a delivered reminder from an actual respons
 
 Advance to the Parker guest reminder. Visit the guest view but do not answer the reminder. Return to the host dashboard and advance to the next host follow-up. Wait until the date has advanced and the host view visibly says that the guest has not replied. Pause on that message.
 
-Scene 8: Show an explicit cancellation and clean ledger
+Scene 9: Show an explicit cancellation and clean ledger
 
 Show this service banner:
 
@@ -147,3 +159,4 @@ Do not navigate away after the closing message. Write “Recording complete” o
 - Increase the conversation text size before recording. Do not zoom the product page enough to change its desktop layout.
 - Capture system audio only if needed. The live text is the primary explanation; narration and annotations can be added during editing.
 - Expect the unedited browser operation to exceed three minutes. Accelerate loading and pointer travel in the edit, while leaving result screens and explanatory text at normal speed.
+- The Vega and Parker guided-start controls each reset only the shared synthetic demo home. They do not erase or alter real household data.
