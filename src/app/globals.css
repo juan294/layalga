@@ -327,7 +327,6 @@ body:has(.postcard) .site-header {
   color: var(--graphite);
   line-height: 1.6;
   margin: 1rem 0 0;
-  max-width: 40ch;
 }
 
 .postcard__actions {
