@@ -81,7 +81,9 @@ Show this service banner:
 
 Explain that AgentCore’s confirmed outcome becomes structured household state. Hosts can inspect it in the visit calendar and room ledger, and subscribe through a private, read-only, revocable calendar feed.
 
-From the host dashboard, open Visit calendar. Pause on the September month view and point to the confirmed Vega stay. Explain that calendar feeds use generic event text and do not expose guest names, requests, private notes, or access tokens.
+From the host dashboard, open Visit calendar. The page heading alone is not the demonstration. Scroll down to the row for September 18 and keep the confirmed Vega booking for September 18–20 fully visible. Place the pointer over the booking and pause for about three seconds so viewers can read the family, confirmed status, and room count. Do not leave the calendar page until the booking itself is visible. If the booking is absent, stop under the demo-state rule instead of continuing.
+
+While the booked stay remains visible, explain that this calendar is built from the authoritative household record. Also explain that private calendar subscriptions use generic event text and do not expose guest names, requests, private notes, or access tokens.
 
 Return to Guest stays, then open Room ledger. Pause on the room capacities and visible door states. Point out the calendar subscription area without creating, copying, or exposing a feed URL. Return to Guest stays.
 
