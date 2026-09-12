@@ -13,12 +13,15 @@ The page is already open at https://layalga.thecreativetoken.com/en/sign-in in t
 
 Prepare before starting:
 
+0. Use larger fonts for improved readability in this chat.
 1. Confirm that the sign-in page is loaded and that both “Enter as Host” and “Enter as Guest” are visible.
 2. Do not change the demo data during preparation.
 3. In the conversation, write: “Ready to record our demo, Juan.”
 4. Wait for me to say “start.”
 
-When I say “start,” count down from 10 in one message, one number per line. Then run the complete sequence below without asking me questions.
+When I say “start,” count down from 10 in one message, one number per line. My “start” message gives you advance authorization to perform every synthetic demo action listed below, including resetting scenarios, submitting both stays, approving the Parker decision, advancing the demo clock, answering the Vega reminder, and cancelling the Parker visit. These actions affect only the resettable shared synthetic demo home.
+
+After “start,” run the complete sequence autonomously. Do not ask for confirmation, permission, approval, or any other user response. Do not pause before a listed button or describe a click as a proposed future action. Explain the action, perform it immediately, verify the visible result, and continue. My only required interaction is the single “start” message.
 
 Presenter behavior:
 
@@ -30,6 +33,7 @@ Presenter behavior:
 
 - Keep the bold service banner on its own line. Keep the explanation below it to one or two short sentences and no more than 35 words. Use plain English and a large, readable paragraph style.
 - After posting the explanation, perform the matching action in the visible browser on the right.
+- Treat every listed click and form submission as already authorized after “start,” including controls labeled Submit, Approve, Advance, Confirm, Cancel, or Reset.
 - Keep the pointer over the control you are discussing before clicking it.
 - Pause for about two seconds on each important result so viewers can read it.
 - Wait for loading, agent execution, and state transitions to finish. Confirm the visible result before continuing.
