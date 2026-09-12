@@ -5,7 +5,7 @@ L’Ayalga is a household hospitality coordinator: routine visits proceed, expli
 ## Start here
 
 1. Read the [pitch](pitch.md) and inspect the [architecture](../architecture/README.md). The [source evidence index](evidence.md) adds detailed architectural cards and separately dated baseline verification.
-2. Follow the source-and-test map below. The v1.3.7 release adds safe structured public run summaries and suppresses interrupted-run internals. Broader production evidence remains pinned to v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c` until the new production gate completes.
+2. Follow the source-and-test map below. The v1.3.8 release derives resumed-run results from recorded decisions and verified request context, keeps their presentation safe, and suppresses interrupted-run internals. Broader production evidence remains pinned to v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c` until the new production gate completes.
 3. Read [coordination evidence](coordination-evidence.md) for the measured local synthetic workflow and its exact revision/configuration. The [participant protocol](participant-protocol.md) defines a separate human baseline; human time saved has not been measured.
 4. For runtime implementation, read [Strands usage](strands-usage.md). The [v1.3.2 protected production run](https://github.com/juan294/layalga/actions/runs/34583050263) proves the exact Vercel and AgentCore candidate through the guided demo and all nine probes. The [trace screenshot](assets/agentcore-trace.png) remains a dated visual example of CloudWatch GenAI Observability.
 
@@ -25,7 +25,7 @@ The five criteria are equally weighted under the [official rules](https://agents
 
 ## Walk through the synthetic product
 
-Use the [live site](https://layalga.thecreativetoken.com) for the judged demonstration. The v1.3.2 protected run reported commit `90b68385a590144d6d44cd7dd41298180b2d182c`, healthy configuration, and no stale or retrying work; v1.3.7 adds the run-result presentation fix found during rehearsal. A local target remains available for source reproduction, with its scripted-model limits stated separately.
+Use the [live site](https://layalga.thecreativetoken.com) for the judged demonstration. The v1.3.2 protected run reported commit `90b68385a590144d6d44cd7dd41298180b2d182c`, healthy configuration, and no stale or retrying work; v1.3.8 adds the run-result presentation fix found during rehearsal. A local target remains available for source reproduction, with its scripted-model limits stated separately.
 
 ### 1. Enter and complete a routine stay
 
