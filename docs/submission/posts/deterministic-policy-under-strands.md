@@ -2,6 +2,8 @@
 
 Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.8 run-result presentation fix does not change the architecture discussed here.
 
+![L’Ayalga AWS architecture: a Next.js web app invokes a Strands coordinator on AgentCore Runtime, which uses Amazon Bedrock, AgentCore Memory, Amazon SES, CloudWatch and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+
 ## A booking needs more than a plausible answer
 
 L’Ayalga coordinates visits to a household with multiple hosts. The agent can interpret “Could we come next weekend with the children?” It should not be able to invent a free room, consent to a sofa-bed arrangement, or decide that the household's pet rule does not matter.

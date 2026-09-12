@@ -2,6 +2,8 @@
 
 Published on AWS Builder Center: [Durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.8 run-result presentation fix does not change the architecture discussed here.
 
+![L’Ayalga AWS architecture: a Next.js web app invokes a Strands coordinator on AgentCore Runtime, which uses Amazon Bedrock, AgentCore Memory, Amazon SES, CloudWatch and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+
 ## A person may answer after the process ends
 
 A household coordinator cannot keep a web request open while two hosts consider a guest's request. It also cannot treat any later “yes” as permission to book whatever rooms happen to be mentioned in a model transcript.

@@ -81,6 +81,20 @@ Regenerate it after editing the XML:
   docs/architecture/layalga-architecture.drawio
 ```
 
+`layalga-aws-blog-architecture.drawio` is the compact AWS-style view used by
+the article sources. It keeps only the main input/output path, the authoritative
+database boundary and the selected AWS services. Its official AWS service
+icons come from the AWS Architecture Icons package released 31 July 2026.
+`layalga-aws-blog-architecture.drawio.png` is the editable, XML-embedded blog
+export. Regenerate it with:
+
+```bash
+/Applications/draw.io.app/Contents/MacOS/draw.io \
+  -x -f png -e -b 16 -s 1.5 \
+  -o docs/architecture/layalga-aws-blog-architecture.drawio.png \
+  docs/architecture/layalga-aws-blog-architecture.drawio
+```
+
 **Source refreshed 2026-09-12 for the v1.3.8 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
 
 ## Supporting diagrams
