@@ -2,7 +2,7 @@
 
 L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
 
-This v1.3.6 guide includes safe structured run-result presentation and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. Start with the [judge guide](../submission/judge-guide.md) for the synthetic walkthrough.
+This v1.3.7 guide includes safe structured run-result presentation and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. Start with the [judge guide](../submission/judge-guide.md) for the synthetic walkthrough.
 
 ## 1. Sign in and understand the home
 
@@ -74,7 +74,7 @@ Feeds are read-only. Refresh timing belongs to the subscribing application. Cale
 
 ## 10. Guided demo and recovery
 
-Start the routine Vega scenario first: four guests, both open rooms, ordinary booking, then a reconfirmation answer. Start Otero next; its action resets shared synthetic state. The two-person Garage Room request contains an explicit request and pauses for approval. After approval, use **Advance to next guest reminder**, leave that request unanswered, then **Advance to next host follow-up**.
+Start the routine Vega scenario first: four guests, both open rooms, ordinary booking, then a reconfirmation answer. Start Parker next; its action resets shared synthetic state. The two-person Garage Room request contains an explicit request and pauses for approval. After approval, use **Advance to next guest reminder**, leave that request unanswered, then **Advance to next host follow-up**.
 
 Clock shortcuts select eligible persisted jobs and their retry times instead of fixed calendar dates. They preserve current-cycle, pre-arrival and lease rules. Repeating an exhausted action reports no eligible work. Custom time must move forward. The clock affects synthetic household behavior; real invitation authentication still uses real expiry.
 

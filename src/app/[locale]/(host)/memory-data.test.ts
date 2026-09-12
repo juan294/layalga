@@ -29,7 +29,7 @@ describe("loadHostMemoryPanel", () => {
     `;
     const [otero] = await sql<{ id: string }[]>`
       insert into public.parties (home_id, family_name, locale, link_token)
-      values (${homeId}, 'The Oteros', 'en', ${crypto.randomUUID()}) returning id
+      values (${homeId}, 'The Parkers', 'en', ${crypto.randomUUID()}) returning id
     `;
     const [noInvitation] = await sql<{ id: string }[]>`
       insert into public.parties (home_id, family_name, locale, link_token)
@@ -39,7 +39,7 @@ describe("loadHostMemoryPanel", () => {
       insert into public.invitations (home_id, host_id, party_id, raw_message)
       values
         (${homeId}, ${host!.id}, ${vega!.id}, 'Vega raw message'),
-        (${homeId}, ${host!.id}, ${otero!.id}, 'Otero raw message')
+        (${homeId}, ${host!.id}, ${otero!.id}, 'Parker raw message')
     `;
 
     const requestedNamespaces: string[] = [];
@@ -85,7 +85,7 @@ describe("loadHostMemoryPanel", () => {
 
       expect(result.map((party) => party.partyName)).toEqual([
         "Familia Vega",
-        "The Oteros",
+        "The Parkers",
       ]);
       expect(result.some((party) => party.partyId === noInvitation!.id)).toBe(
         false,

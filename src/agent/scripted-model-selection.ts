@@ -90,7 +90,7 @@ export class TaskScriptedModel extends ScriptedModel {
         toolUse: {
           name: "capture_invitation",
           input: {
-            partyName: isVega ? "Familia Vega" : "The Oteros",
+            partyName: isVega ? "Familia Vega" : "The Parkers",
             partyLocale: this.task.locale,
             adults: 2,
             children: isVega ? 2 : 0,

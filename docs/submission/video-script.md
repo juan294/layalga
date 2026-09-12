@@ -1,16 +1,16 @@
 # L’Ayalga demo video script
 
-Recording script for v1.3.6. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2 until the v1.3.6 release gate completes. Target duration: 2 minutes 55 seconds. Hard maximum: 3 minutes. The public video URL remains pending recording and upload.
+Recording script for v1.3.7. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2 until the v1.3.7 release gate completes. Target duration: 2 minutes 55 seconds. Hard maximum: 3 minutes. The public video URL remains pending recording and upload.
 
 The story is routine coordination, then a fresh exception, then follow-through and closure. Use the [judge guide](judge-guide.md) for the canonical journey and the [evidence report](coordination-evidence.md) for numerical claims.
 
 ## Recording setup
 
-- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports `status: ok`, identifies the v1.3.6 release commit, and reports no stale or retrying work.
+- Record `https://layalga.thecreativetoken.com` only after `/api/health` reports `status: ok`, identifies the v1.3.7 release commit, and reports no stale or retrying work.
 - Use one visible English browser tab for both host and guest views. Navigate with the product's **Return to the host view** and **Return to the current demo guest** links so every transition remains visible in the recording. Do not operate a background tab.
 - Start with the host signed in through the synthetic demo entry. Keep personal tabs, notifications, passwords, bearer URLs, email addresses, private notes, AWS account identifiers, and raw memory records out of frame.
 - Set browser zoom before recording and keep it fixed. Use a desktop viewport large enough to show one complete card and its main action without scrolling during narration.
-- Each guided scenario resets shared synthetic state. Show the reset message when moving from Vega to Otero so the video does not imply that the two visits coexist.
+- Each guided scenario resets shared synthetic state. Show the reset message when moving from Vega to Parker so the video does not imply that the two visits coexist.
 - Production uses AgentCore Runtime, Sonnet 4.6, AgentCore Memory, and host SES. Synthetic guests never send guest email. Do not describe SES provider acceptance as inbox delivery or a guest reply.
 - Record the complete flows first. Keep the controlled tab in the foreground for every action. Pause on each meaningful form, queued/running state, interruption, decision, resumed run, and completed outcome long enough for a viewer to understand it. Trim only idle loading time in the edit.
 - Prepare the [protected production workflow](https://github.com/juan294/layalga/actions/runs/34583050263) as a brief final cutaway.
@@ -43,17 +43,17 @@ If the preference panel reports no usable memory, say: “Memory is unavailable 
 
 ## 1:05–1:43 — A fresh exception needs a person
 
-**Screen:** Start Otero in the visible host view and show that the reset begins a separate scenario. In the English guest view, search for two guests, select the Garage Room, and point to the captured explicit request. Submit and hold on the interrupted run. Select **Return to the host view**, show the pending decision, and approve it. Select **Return to the current demo guest**, show the resumed run and confirmed outcome, then return visibly to the host.
+**Screen:** Start Parker in the visible host view and show that the reset begins a separate scenario. In the English guest view, search for two guests, select the Garage Room, and point to the captured explicit request. Submit and hold on the interrupted run. Select **Return to the host view**, show the pending decision, and approve it. Select **Return to the current demo guest**, show the resumed run and confirmed outcome, then return visibly to the host.
 
 **Narration:**
 
-“Otero starts a separate scenario with an explicit request. Before booking, a Strands policy hook checks capacity, occupancy, and household rules, then interrupts for a host decision. Approval resumes the persisted execution and checks current state again. Old approval cannot force an occupied room or invalid policy through.”
+“Parker starts a separate scenario with an explicit request. Before booking, a Strands policy hook checks capacity, occupancy, and household rules, then interrupts for a host decision. Approval resumes the persisted execution and checks current state again. Old approval cannot force an occupied room or invalid policy through.”
 
 Do not call this an overflow booking unless the selected option visibly requires overflow.
 
 ## 1:43–2:05 — Unanswered follow-through
 
-**Screen:** In the host view, advance to Otero’s next guest reminder. Open the current demo guest long enough to show the unanswered request, then return to the host and advance to the next host follow-up. Show the unresolved host outcome and the separate delivery state.
+**Screen:** In the host view, advance to Parker’s next guest reminder. Open the current demo guest long enough to show the unanswered request, then return to the host and advance to the next host follow-up. Show the unresolved host outcome and the separate delivery state.
 
 **Narration:**
 
@@ -61,7 +61,7 @@ Do not call this an overflow booking unless the selected option visibly requires
 
 ## 2:05–2:23 — Clear closure
 
-**Screen:** Open Otero’s guest cancellation review, show the exact stay, confirm it, then show the cancellation result and the host view without an active visit outcome.
+**Screen:** Open Parker’s guest cancellation review, show the exact stay, confirm it, then show the cancellation result and the host view without an active visit outcome.
 
 **Narration:**
 

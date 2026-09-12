@@ -4,7 +4,7 @@ This is the source-backed companion to the [judge guide](judge-guide.md). Each c
 
 ## Current completion evidence
 
-The current behavioral source reference is production v1.3.2 commit **`90b68385a590144d6d44cd7dd41298180b2d182c`**. The v1.3.6 release adds safe structured public run summaries and suppresses interrupted-run internals; the broader evidence remains tied to v1.3.2 until the new production gate completes. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code. The dated benchmark and historical baseline later in this document retain their own exact revisions.
+The current behavioral source reference is production v1.3.2 commit **`90b68385a590144d6d44cd7dd41298180b2d182c`**. The v1.3.7 release adds safe structured public run summaries and suppresses interrupted-run internals; the broader evidence remains tied to v1.3.2 until the new production gate completes. The [judge guide](judge-guide.md) is the current product route; the cards below expose additional implementation details. Source and test links identify inspectable code. The dated benchmark and historical baseline later in this document retain their own exact revisions.
 
 The [coordination evidence report](coordination-evidence.md) records the actual measured artifact, its own exact source revision, configuration and operation definitions. Its local scripted results are separate from the older baseline test totals preserved later in this document. Neither result measures human effort, live-model quality, production memory quality or inbox delivery. See the [participant protocol](participant-protocol.md) for the unmeasured human baseline.
 

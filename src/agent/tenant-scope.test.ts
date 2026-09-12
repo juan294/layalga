@@ -636,7 +636,7 @@ describe("agent task authority", () => {
         )
       `;
       await sql`
-        update public.parties set family_name = 'The Oteros' where id in (
+        update public.parties set family_name = 'The Parkers' where id in (
           select party_id from public.invitations where id = ${homeB.invitationId}
         )
       `;
@@ -649,7 +649,7 @@ describe("agent task authority", () => {
         matchedPartyIdForCapture(
           sql,
           homeA.homeId,
-          "Inviting the Oteros for a visit",
+          "Inviting the Parkers for a visit",
         ),
       ).resolves.toBeUndefined();
 

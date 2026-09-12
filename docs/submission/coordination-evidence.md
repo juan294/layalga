@@ -6,7 +6,7 @@ The coordination benchmark measures a local browser automation run through L’A
 
 Two routine rounds each start from an explicitly reset synthetic household. Vega’s two adults and two children choose the two open rooms and submit. In the first round, they cancel a confirmed booking while a real reminder job is still outstanding. Database checkpoints verify released occupancy, retired work and revoked invitation access. A fresh Vega round then exercises the reminder and guest reconfirmation, independently of cancellation.
 
-A fresh reset starts the independent Otero scenario. Two adults and a dog request the ground-floor Garage Room with a captured access need. A host reviews the actual pending decision before confirmation. The semantic clock triggers the next reminder and then an unanswered escalation; repeated controls must report no eligible work. A ground-floor label establishes no accessibility guarantee.
+A fresh reset starts the independent Parker scenario. Two adults and a dog request the ground-floor Garage Room with a captured access need. A host reviews the actual pending decision before confirmation. The semantic clock triggers the next reminder and then an unanswered escalation; repeated controls must report no eligible work. A ground-floor label establishes no accessibility guarantee.
 
 All three rounds use the existing public demo entry, guest forms, host decision controls and clock API. The benchmark does not manufacture a successful visit, decision or notification. It reads persisted outcomes after the corresponding browser action.
 

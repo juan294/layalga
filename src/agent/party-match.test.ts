@@ -20,14 +20,14 @@ describe("matchFamilyNameInMessage", () => {
 
   it("ignores a generic household-name prefix before matching", () => {
     expect(
-      matchFamilyNameInMessage("The Oteros", "Inviting the Oteros for a visit"),
+      matchFamilyNameInMessage("The Parkers", "Inviting the Parkers for a visit"),
     ).toBe(true);
     expect(matchFamilyNameInMessage("La Familia Vega", "los vega")).toBe(true);
   });
 
   it("does not match an unrelated raw message", () => {
     expect(
-      matchFamilyNameInMessage("Familia Vega", "Inviting the Otero family"),
+      matchFamilyNameInMessage("Familia Vega", "Inviting the Parker family"),
     ).toBe(false);
   });
 
