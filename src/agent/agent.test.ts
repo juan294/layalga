@@ -33,6 +33,8 @@ describe("buildAgent: resume names the deciding host's locale", () => {
 
     expect(agent.systemPrompt).toContain(RESUME_SYSTEM_PROMPT_SUFFIX.en);
     expect(agent.systemPrompt).toContain("English");
+    expect(agent.systemPrompt).toContain("Never say host approval was not required");
+    expect(agent.systemPrompt).toContain("Do not include internal identifiers");
     expect(agent.systemPrompt).not.toContain(RESUME_SYSTEM_PROMPT_SUFFIX.es);
   });
 
@@ -53,6 +55,8 @@ describe("buildAgent: resume names the deciding host's locale", () => {
 
     expect(agent.systemPrompt).toContain(RESUME_SYSTEM_PROMPT_SUFFIX.es);
     expect(agent.systemPrompt).toContain("español");
+    expect(agent.systemPrompt).toContain("Nunca digas que no se necesitó");
+    expect(agent.systemPrompt).toContain("No incluyas identificadores internos");
     expect(agent.systemPrompt).not.toContain(RESUME_SYSTEM_PROMPT_SUFFIX.en);
   });
 

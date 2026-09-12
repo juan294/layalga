@@ -8,16 +8,22 @@ interface RunSummaryProps {
 
 const EMOJI_PATTERN =
   /\p{Extended_Pictographic}|\p{Regional_Indicator}|\p{Emoji_Modifier}|[\uFE0E\uFE0F\u200D\u20E3]/gu;
+const UUID_PATTERN =
+  /[`'"]?\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b[`'"]?/giu;
 
-export function removeEmoji(text: string): string {
+export function sanitizeRunSummary(text: string): string {
   return text
     .replace(EMOJI_PATTERN, "")
+    .replace(UUID_PATTERN, "")
+    .replace(/[ \t]+([,.;:])/g, "$1")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/^[ \t]+|[ \t]+$/gm, "");
 }
 
 export function RunSummary({ summary }: RunSummaryProps) {
-  const lines = removeEmoji(summary).replace(/\r\n?/g, "\n").split("\n");
+  const lines = sanitizeRunSummary(summary)
+    .replace(/\r\n?/g, "\n")
+    .split("\n");
   const blocks: ReactNode[] = [];
 
   for (let index = 0; index < lines.length; ) {

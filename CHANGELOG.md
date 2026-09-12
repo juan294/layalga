@@ -8,8 +8,9 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Fixed
 
-- Agent summaries now render a safe structured subset of Markdown, so headings, tables, lists, emphasis, and code remain readable instead of appearing as raw syntax. Emoji are removed at the prompt and presentation boundaries.
+- Agent summaries now render a safe structured subset of Markdown, so headings, tables, lists, emphasis, and code remain readable instead of appearing as raw syntax. Emoji and internal UUIDs are removed at the prompt and presentation boundaries.
 - Interrupted runs no longer store or display the Strands interrupt payload as a public result, preventing internal IDs, approval hashes, and policy context from leaking into the run page.
+- Resumed-run prompts require the summary to describe the recorded host decision accurately instead of claiming that approval was unnecessary after a host approved the request.
 
 ### Changed
 

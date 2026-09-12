@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { RunSummary, removeEmoji } from "./run-summary";
+import { RunSummary, sanitizeRunSummary } from "./run-summary";
 
 describe("RunSummary", () => {
   test("renders the model summary as safe structured content", () => {
@@ -33,8 +33,16 @@ describe("RunSummary", () => {
   });
 
   test("removes emoji without removing ordinary numbers or punctuation", () => {
-    expect(removeEmoji("✅ Step 1: 2 guests #confirmed")).toBe(
+    expect(sanitizeRunSummary("✅ Step 1: 2 guests #confirmed")).toBe(
       "Step 1: 2 guests #confirmed",
     );
+  });
+
+  test("removes internal UUIDs from a public summary", () => {
+    expect(
+      sanitizeRunSummary(
+        "A temporary hold was placed for visit `a4faa407-39c3-424e-8dd0-edc6a09d38d8`, securing the room.",
+      ),
+    ).toBe("A temporary hold was placed for visit, securing the room.");
   });
 });
