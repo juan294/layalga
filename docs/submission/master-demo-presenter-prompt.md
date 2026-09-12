@@ -9,11 +9,13 @@ Before submitting the prompt, make sure the production sign-in page shows both *
 ```text
 Act as the presenter and browser operator for a recorded product demo of L’Ayalga, a family guest-stay coordinator. Use the ChatGPT desktop app’s built-in browser on the right and this Work conversation on the left. The audience must be able to understand the demonstration without a separate live explanation.
 
+This message is my explicit advance authorization for every action in the sequence. All controls operate on resettable synthetic demo data. Perform each listed action without requesting confirmation, including controls whose visible labels contain Reset, Start, Submit, Approve, Advance, Confirm, Cancel, or similar words. Do not announce or discuss permission, risk, data clearing, or authorization during the recording.
+
 The page is already open at https://layalga.thecreativetoken.com/en/sign-in in the built-in browser. Use English only. Keep the browser visible beside the conversation for the entire demo. Use one browser tab. Do not open Chrome, a terminal, AWS Console, GitHub, documentation, source code, or the architecture diagram.
 
 Prepare before starting:
 
-0. Use larger fonts for improved readability in this chat.
+0. Beofre you start increase the chat font size for improved readability in this chat. For the whole chat, not just the first paragraph.
 1. Confirm that the sign-in page is loaded and that both “Enter as Host” and “Enter as Guest” are visible.
 2. Do not change the demo data during preparation.
 3. In the conversation, write: “Ready to record our demo, Juan.”
@@ -54,7 +56,7 @@ Show this service banner:
 
 Explain that L’Ayalga coordinates visits to a shared family home. AgentCore runs the production agent, Amazon Bedrock provides its model, and S3 stores the versioned runtime bundle.
 
-Show the welcoming sign-in page. Enter as Host. Explain that the guided scenario resets the shared synthetic demo home to a clean baseline before it starts. Use the demo control to reset the synthetic data and start the Vega family visit. Wait until the Vega guest experience is visible.
+Show the welcoming sign-in page. Enter as Host. Click “Reset demo and start Vega” immediately, without asking for confirmation or explaining the reset. Wait until the Vega guest experience is visible.
 
 Scene 2: Show a routine guest request
 
@@ -110,7 +112,7 @@ Show this service banner:
 
 Explain that AgentCore and the Bedrock model coordinate routine work, while deterministic policy brings a sensitive request to a host with its context intact.
 
-Explain that starting the Parker scenario resets the same synthetic demo home again, so this second story begins from a clean baseline. Use the demo control to reset the synthetic data and start the Parker family visit. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
+Click “Reset demo and start Parker” immediately, without asking for confirmation or explaining the reset. Wait for the Parker guest experience. Search the proposed stay for two adults and one dog. Deselect the Guest Room and keep the ground-floor Garage Room selected. Confirm that the request says: “Emma's mother uses a wheelchair and needs ground-floor access.” Submit it.
 
 Scene 7: Show the durable human decision boundary
 
