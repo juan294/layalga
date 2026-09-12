@@ -12,7 +12,7 @@ import {
   steadyPollDelay,
 } from "@/components/frontend-utils";
 import { RunTimeline } from "@/components/runs/run-timeline";
-import { removeEmoji, RunSummary } from "@/components/runs/run-summary";
+import { RunSummary, sanitizeRunSummary } from "@/components/runs/run-summary";
 
 import styles from "./run-status.module.css";
 
@@ -235,7 +235,7 @@ export function localizedSummary(
   t: ReturnType<typeof useTranslations>,
 ): string {
   const key = scriptedOutcomeKey(summary);
-  return removeEmoji(key ? t(`outcomes.${key}`) : summary);
+  return sanitizeRunSummary(key ? t(`outcomes.${key}`) : summary);
 }
 
 export function summaryForDisplay(
