@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">L’Ayalga house mark</title>
+  <rect width="512" height="512" fill="#14596b"/>
+  <path fill="#fdfcf6" d="M82 216 202 118l228 62v252H82z"/>
+  <path fill="#182225" d="m82 216 120-98 228 62v41l-218-59-130 106z"/>
+  <path fill="#d07a58" d="M226 252h112v180H226z"/>
+  <path fill="#fdfcf6" d="M226 252h18v180h-18z"/>
+  <circle cx="314" cy="342" r="9" fill="#182225"/>
+</svg>
