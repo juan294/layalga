@@ -7,9 +7,18 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16.3.4-000000?logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19.2.8-61DAFB?logo=react&logoColor=black)
 [![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E)](https://strandsagents.com/)
-![Amazon Bedrock](https://img.shields.io/badge/Amazon_Bedrock-AgentCore-FF9900?logo=amazonaws&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[![AgentCore Runtime](https://img.shields.io/badge/AgentCore-Runtime-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
+[![AgentCore Memory](https://img.shields.io/badge/AgentCore-Memory-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
+[![Amazon Bedrock](https://img.shields.io/badge/Amazon-Bedrock-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/)
+[![Amazon S3](https://img.shields.io/badge/Amazon-S3-3F8624?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/s3/)
+[![AWS IAM](https://img.shields.io/badge/AWS-IAM-DD344C?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/iam/)
+[![Amazon SES](https://img.shields.io/badge/Amazon-SES-5A30B5?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/ses/)
+[![Amazon CloudWatch](https://img.shields.io/badge/Amazon-CloudWatch-E7157B?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/cloudwatch/)
+[![AWS X-Ray](https://img.shields.io/badge/AWS-X--Ray-E7157B?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/xray/)
+[![AWS Distro for OpenTelemetry](https://img.shields.io/badge/AWS_Distro_for-OpenTelemetry-8C4FFF?logo=opentelemetry&logoColor=white)](https://aws.amazon.com/otel/)
 
 <a href="https://chapa.thecreativetoken.com/u/juan294">
   <img src="https://chapa.thecreativetoken.com/u/juan294/badge.svg" alt="juan294's Chapa Impact Badge" width="100%" />
