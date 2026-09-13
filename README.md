@@ -9,7 +9,6 @@
 [![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E)](https://strandsagents.com/)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
 [![AgentCore Runtime](https://img.shields.io/badge/AgentCore-Runtime-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
 [![AgentCore Memory](https://img.shields.io/badge/AgentCore-Memory-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
 [![Amazon Bedrock](https://img.shields.io/badge/Amazon-Bedrock-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/)
