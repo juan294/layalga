@@ -14,6 +14,7 @@ import { routing } from "@/i18n/routing";
 import { currentSeason } from "@/lib/season";
 import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
 import { getCurrentHost } from "@/lib/auth/current-host";
+import { buildSiteMetadata } from "@/lib/site-metadata";
 
 // Stamps data-theme on <html> before first paint, so a user whose stored
 // preference disagrees with their OS setting never sees a flash of the
@@ -54,7 +55,12 @@ export async function generateMetadata({
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) notFound();
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return { title: t("title"), description: t("description") };
+  return buildSiteMetadata({
+    title: t("title"),
+    description: t("description"),
+    imageAlt: t("socialImageAlt"),
+    locale,
+  });
 }
 
 export default async function LocaleLayout({

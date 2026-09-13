@@ -15,7 +15,7 @@ The page is already open at https://layalga.thecreativetoken.com/en/sign-in in t
 
 Prepare before starting:
 
-0. Beofre you start increase the chat font size for improved readability in this chat. For the whole chat, not just the first paragraph.
+0. Before you start increase the chat font size for improved readability in this chat. For the whole chat, not just the first paragraph.
 1. Confirm that the sign-in page is loaded and that both “Enter as Host” and “Enter as Guest” are visible.
 2. Do not change the demo data during preparation.
 3. In the conversation, write: “Ready to record our demo, Juan.”

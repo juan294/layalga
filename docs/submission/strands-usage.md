@@ -1,6 +1,6 @@
 # Strands Agents usage in L’Ayalga
 
-This v1.3.9 document includes the authoritative resumed-run summary and safe presentation boundaries and maps the broader application behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026) to actual SDK integration. Start with the [judge guide](judge-guide.md) for the product/evidence route. Production selects Claude Sonnet 4.6 through AgentCore Runtime; local scripted tests still provide deterministic coverage without measuring that model's general quality.
+This v1.3.10 document includes the authoritative resumed-run summary and safe presentation boundaries and maps the broader application behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026) to actual SDK integration. Start with the [judge guide](judge-guide.md) for the product/evidence route. Production selects Claude Sonnet 4.6 through AgentCore Runtime; local scripted tests still provide deterministic coverage without measuring that model's general quality.
 
 ## 1. Agent construction and execution
 
