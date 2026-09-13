@@ -11,10 +11,10 @@ export default defineConfig({
   test: {
     coverage: {
       thresholds: {
-        branches: 25,
-        functions: 30,
-        lines: 30,
-        statements: 30,
+        branches: 50,
+        functions: 55,
+        lines: 53,
+        statements: 52,
       },
     },
     environment: "node",

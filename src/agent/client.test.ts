@@ -99,4 +99,71 @@ describe("AgentCoreClient durable queue", () => {
     expect(persist).toHaveBeenCalledOnce();
     expect(invoke).toHaveBeenCalledOnce();
   });
+
+  it("rejects an invocation that acknowledges a different run", async () => {
+    const client = new AgentCoreClient("runtime", "eu-west-1", {
+      invoke: async () => ({ status: "accepted", runId: "other-run" }),
+    });
+
+    await expect(client.executeQueued(runId, task)).rejects.toThrow(
+      "did not accept the queued run",
+    );
+  });
+
+  it("keeps the persisted result when opportunistic dispatch fails", async () => {
+    const error = new Error("runtime unavailable");
+    const persist = vi.fn(async () => ({
+      runId,
+      status: "queued" as const,
+      sessionId: "session",
+      pendingDecisionIds: [],
+      summary: "Your request is queued.",
+    }));
+    const invoke = vi.fn().mockRejectedValue(error);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const client = new AgentCoreClient("runtime", "eu-west-1", {
+        invoke,
+        depsForTask: async () => ({}) as RunAgentDeps,
+        persist,
+      });
+
+      await expect(client.enqueue(task)).resolves.toMatchObject({
+        status: "queued",
+        runId,
+      });
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[AGENTCORE_QUEUE_DISPATCH_FAILED]",
+        { runId, errorName: "Error" },
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
+
+describe("parseAgentCoreResponse", () => {
+  it("parses ordinary JSON responses", async () => {
+    const { parseAgentCoreResponse } = await import("./client");
+    expect(parseAgentCoreResponse('{"status":"completed"}')).toEqual({
+      status: "completed",
+    });
+  });
+
+  it("uses the last non-empty data event from an SSE response", async () => {
+    const { parseAgentCoreResponse } = await import("./client");
+    expect(
+      parseAgentCoreResponse(
+        'event: message\ndata: {"status":"queued"}\n\ndata: {"status":"completed"}\n',
+        "text/event-stream; charset=utf-8",
+      ),
+    ).toEqual({ status: "completed" });
+  });
+
+  it("rejects an empty SSE response", async () => {
+    const { parseAgentCoreResponse } = await import("./client");
+    expect(() => parseAgentCoreResponse("event: done\n", "text/event-stream")).toThrow(
+      "empty SSE data",
+    );
+  });
 });

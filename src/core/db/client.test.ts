@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { validateRuntimeDatabaseUrl } from "./client";
+import {
+  closeDatabase,
+  getDatabaseConnection,
+  validateRuntimeDatabaseUrl,
+} from "./client";
 
 describe("runtime database credentials", () => {
   it("rejects a remote Supabase owner credential without printing its secret", () => {
@@ -40,5 +44,29 @@ describe("runtime database credentials", () => {
     expect(() =>
       validateRuntimeDatabaseUrl("https://layalga_web:secret@example.test"),
     ).toThrow("PostgreSQL URL");
+  });
+
+  it("rejects malformed URLs and malformed encoded usernames", () => {
+    expect(() => validateRuntimeDatabaseUrl("not a URL")).toThrow(
+      "valid PostgreSQL URL",
+    );
+    expect(() =>
+      validateRuntimeDatabaseUrl("postgresql://%zz:secret@127.0.0.1/postgres"),
+    ).toThrow("valid PostgreSQL username");
+  });
+
+  it("lazily creates and closes the shared database connection", async () => {
+    const previous = process.env.DATABASE_URL;
+    process.env.DATABASE_URL =
+      "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
+    try {
+      const first = getDatabaseConnection();
+      expect(getDatabaseConnection()).toBe(first);
+      await closeDatabase();
+      await closeDatabase();
+    } finally {
+      if (previous === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = previous;
+    }
   });
 });
