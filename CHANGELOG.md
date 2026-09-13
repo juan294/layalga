@@ -4,6 +4,16 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.10] - 2026-09-13
+
+### Added
+
+- Added a 1200 × 630 social sharing image, multi-size favicon, browser icon, Apple touch icon, and localized Open Graph and Twitter card metadata for English and Spanish links.
+
+### Changed
+
+- Corrected the presenter preparation text so the demo instructions match the current guided flow.
+
 ## [1.3.9] - 2026-09-12
 
 ### Changed
