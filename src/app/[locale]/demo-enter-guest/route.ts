@@ -9,6 +9,7 @@ import {
   DEMO_GUEST_COOKIE,
   DEMO_GUEST_MAX_AGE,
 } from "@/lib/auth/demo-session";
+import { startReviewSession } from "@/lib/review-access";
 
 interface DemoEnterGuestContext {
   params: Promise<{ locale: string }>;
@@ -40,6 +41,11 @@ export async function POST(
   `;
   if (!invitation) return new NextResponse(null, { status: 404 });
 
+  const sessionId = await startReviewSession(sql, request, {
+    accessMode: "guest",
+    locale,
+  });
+
   const response = new NextResponse(null, {
     status: 303,
     headers: { location: `/${locale}/guest` },
@@ -47,7 +53,7 @@ export async function POST(
   response.cookies.delete(GUEST_EMAIL_COOKIE);
   response.cookies.set(
     DEMO_GUEST_COOKIE,
-    createDemoGuestCookie(invitation.id),
+    createDemoGuestCookie(invitation.id, { sessionId }),
     {
       httpOnly: true,
       sameSite: "lax",

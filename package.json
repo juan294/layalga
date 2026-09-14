@@ -1,6 +1,6 @@
 {
   "name": "layalga",
-  "version": "1.3.10",
+  "version": "1.3.11",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.22.0",
@@ -29,6 +29,7 @@
     "agent:smoke": "tsx scripts/agentcore-smoke.ts",
     "demo:e2e": "tsx scripts/demo-e2e.ts",
     "benchmark:coordination": "tsx scripts/benchmark-coordination.ts",
+    "review:access": "node --env-file-if-exists=.env.production.local --import tsx scripts/review-access.ts",
     "release:probes": "tsx scripts/release-probes.ts"
   },
   "dependencies": {
