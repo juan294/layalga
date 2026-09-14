@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated September 14, 2026. This is the current roadmap for v1.3.10. The release fixes public run-result presentation while the broader coordination evidence remains tied to the proven v1.3.2 production candidate. Dated research and earlier plans record the decisions that led here; they are not a current backlog. The released product, completed submission, guest-email activation, and human evidence remain distinct.
+Updated September 14, 2026. This is the current roadmap for v1.3.11. The release adds durable review-access visibility while the broader coordination evidence remains tied to the proven v1.3.2 production candidate. Dated research and earlier plans record the decisions that led here; they are not a current backlog. The released product, completed submission, guest-email activation, and human evidence remain distinct.
 
 ## Implemented in the completion
 
@@ -18,7 +18,7 @@ Updated September 14, 2026. This is the current roadmap for v1.3.10. The release
 
 ## Remaining owner and operational actions
 
-- Keep v1.3.10 available through judging. It fixes public run-summary presentation; broader web and AgentCore behavior was proven in v1.3.2 at commit `90b68385`, where all nine protected production probes passed.
+- Keep v1.3.11 available through judging. It records privacy-minimized host and guest demo entry; broader web and AgentCore behavior was proven in v1.3.2 at commit `90b68385`, where all nine protected production probes passed.
 - Complete a real consenting recipient verification/reminder/return/opt-out proof after authorization. Provider acceptance, inbox delivery and a guest reply are different observations.
 - Preserve the completed Devpost entry, [public 3:11 demo video](https://youtu.be/-D3GvJ88-40), and repository after the submission deadline. The submission includes the AWS Builder ID, Everyday Agents track, public repository, two architecture diagrams, live demo, and all three public AWS Builder articles.
 - Expand the existing bounded WebMCP progressive enhancement after the hackathon. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`; the larger agent-facing product direction remains future work.

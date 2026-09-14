@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-These v1.3.10 documentation sources include the safe run-summary presentation fix and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
+These v1.3.11 documentation sources include durable review-access visibility, retain the safe run-summary presentation fix from v1.3.10, and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
 
 `layalga-architecture.mmd` is the source. `mermaid-config.json` fixes the render settings. The committed SVG and PNG were generated with Mermaid CLI 11.12.0:
 
