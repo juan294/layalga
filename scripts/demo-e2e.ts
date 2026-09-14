@@ -4,6 +4,7 @@ import { chromium, type APIResponse, type Page } from "@playwright/test";
 import postgres from "postgres";
 
 import { DEMO_SEED } from "./seed-demo";
+import { AUTOMATED_REVIEW_ACCESS_HEADER } from "../src/lib/review-access";
 import {
   assertDemoSnapshot,
   isDirectExecution,
@@ -399,6 +400,7 @@ async function enterHost(
 ): Promise<void> {
   const response = await page.request.post(`${baseUrl}/${locale}/demo-enter`, {
     form: { hostId },
+    headers: { [AUTOMATED_REVIEW_ACCESS_HEADER]: "1" },
   });
   assert.ok(
     response.ok(),

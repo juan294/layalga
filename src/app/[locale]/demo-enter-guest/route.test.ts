@@ -72,8 +72,7 @@ describe("POST /[locale]/demo-enter-guest", () => {
 
     expect(response.status).toBe(404);
     const query = mocks.sql.mock.calls[0]?.[0] as
-      | TemplateStringsArray
-      | undefined;
+      TemplateStringsArray | undefined;
     expect(query?.join(" ")).toContain("home.demo = true");
   });
 
@@ -82,19 +81,27 @@ describe("POST /[locale]/demo-enter-guest", () => {
 
     expect(response.status).toBe(404);
     const query = mocks.sql.mock.calls[0]?.[0] as
-      | TemplateStringsArray
-      | undefined;
+      TemplateStringsArray | undefined;
     expect(query?.join(" ")).toContain("invitation.status <> 'cancelled'");
   });
 
   it("sets the signed guest cookie and redirects to the guest route", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    mocks.sql.mockResolvedValue([{ id: invitationId }]);
+    mocks.sql
+      .mockResolvedValueOnce([{ id: invitationId }])
+      .mockResolvedValueOnce([]);
 
     const response = await post("es", { invitationId });
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/es/guest");
+    expect(mocks.sql).toHaveBeenCalledTimes(2);
+    expect(queryText(1)).toContain("insert into private.review_access_events");
+    expect(mocks.sql.mock.calls[1]?.slice(1)).toEqual([
+      expect.stringMatching(/^[0-9a-f-]{36}$/),
+      "guest",
+      "es",
+    ]);
     const cookie = response.cookies.get(DEMO_GUEST_COOKIE);
     expect(readDemoGuestCookie(cookie?.value, { secret })).toBe(invitationId);
     expect(response.headers.get("set-cookie")).toContain("HttpOnly");
@@ -105,20 +112,44 @@ describe("POST /[locale]/demo-enter-guest", () => {
       `Max-Age=${DEMO_GUEST_MAX_AGE}`,
     );
   });
+
+  it("does not record automated release-probe entry", async () => {
+    mocks.sql.mockResolvedValueOnce([{ id: invitationId }]);
+
+    const response = await post(
+      "en",
+      { invitationId },
+      { "x-layalga-automated-review": "1" },
+    );
+
+    expect(response.status).toBe(303);
+    expect(mocks.sql).toHaveBeenCalledTimes(1);
+  });
 });
 
 async function post(
   locale: string,
   values: Record<string, string>,
+  headers?: Record<string, string>,
 ): Promise<NextResponse> {
-  return POST(request(new URLSearchParams(values)), {
+  return POST(request(new URLSearchParams(values), headers), {
     params: Promise.resolve({ locale }),
   });
 }
 
-function request(body: FormData | URLSearchParams): NextRequest {
+function request(
+  body: FormData | URLSearchParams,
+  headers?: Record<string, string>,
+): NextRequest {
   return new NextRequest("http://localhost:3008/en/demo-enter-guest", {
     body,
+    headers,
     method: "POST",
   });
+}
+
+function queryText(callIndex: number): string {
+  const query = mocks.sql.mock.calls[callIndex]?.[0] as
+    TemplateStringsArray | undefined;
+  return query?.join(" ") ?? "";
 }
