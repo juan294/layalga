@@ -1,6 +1,6 @@
 # L’Ayalga system guide
 
-Current release: v1.3.10, with resumed-run summaries derived from recorded decisions and verified request context, safe structured presentation, and no interrupted-run payload exposure. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
+Current release: v1.3.11, with durable, privacy-minimized review-access visibility and automated release probes excluded from the ledger. It retains the safe run-result presentation from v1.3.10. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
 
 For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
 
@@ -12,11 +12,11 @@ The intended benefit is less repeated coordination and clearer responsibility. H
 
 ## 2. Hackathon and submission status
 
-The [official rules](https://agentsforhumans.devpost.com/rules), checked 11 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
+The [official rules](https://agentsforhumans.devpost.com/rules), checked 14 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
 
-The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is three minutes. The production recording script targets 2 minutes 55 seconds. The public video URL and final submission remain pending.
+The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the official video maximum is five minutes. The [public demo video](https://youtu.be/-D3GvJ88-40) is 3 minutes 11 seconds. The Devpost entry is submitted with all five steps complete.
 
-The AWS Builder ID is recorded in the Devpost entry. Three “Agents for Humans” articles are published on AWS Builder Center and linked from the [judge guide](judge-guide.md), qualifying them for review under the optional article bonus. Final scoring and entry completion are not claimed before judging and submission.
+The AWS Builder ID is recorded in the Devpost entry. Three “Agents for Humans” articles are published on AWS Builder Center and linked from the [judge guide](judge-guide.md), qualifying them for review under the optional article bonus. Final scoring remains a judging decision.
 
 ## 3. Architecture and authority
 

@@ -1,6 +1,6 @@
 # Documentation index
 
-The v1.3.10 release adds localized social sharing metadata and publishing icons, makes resumed-run summaries authoritative, keeps their structured presentation safe, and retains the broader production evidence from v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
+The v1.3.11 release adds a durable, privacy-minimized review-access ledger for host and guest demo entry, while automated release probes exclude themselves. It retains the localized sharing metadata and safe run-result presentation from v1.3.10 and the broader production evidence from v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
 
 ## For judges and readers
 
@@ -15,14 +15,14 @@ tests, operating modes, and limits. The public-site discovery index is
 | [submission/pitch.md](submission/pitch.md)                 | The Everyday Agents product narrative, technical foundation, evidence limits and spoken close                   |
 | [submission/strands-usage.md](submission/strands-usage.md) | Every Strands Agents SDK feature the project uses, with code pointers                                           |
 | [submission/system-guide.md](submission/system-guide.md)   | The long-form guide: product, hackathon, architecture, AWS services, agent, host and guest journeys, operations |
-| [submission/devpost.md](submission/devpost.md)             | Current Devpost-ready copy; video URL and final submission remain pending                                       |
+| [submission/devpost.md](submission/devpost.md)             | Devpost source copy, public video, submission status, testing instructions, and evidence links                  |
 | [submission/video-script.md](submission/video-script.md)   | Production recording script with timings, shot directions, narration, and recording checks                      |
 | [submission/posts/](submission/posts/)                     | Source copies of three published AWS Builder Center articles and a general social post about everyday agents    |
 | [submission/assets/](submission/assets/)                   | The CloudWatch GenAI Observability trace screenshot                                                             |
 
 - [Coordination evidence](submission/coordination-evidence.md) — reproducible synthetic measurements with source revision and explicit limitations.
 - [Participant protocol](submission/participant-protocol.md) — planned human baseline study; no human results yet.
-- [Current roadmap](roadmap.md) — released capabilities, remaining submission and guest-email actions, and accepted deferrals.
+- [Current roadmap](roadmap.md) — released capabilities, post-submission operating actions, guest-email work, and accepted deferrals.
 
 ## For hosts and guests
 

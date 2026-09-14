@@ -4,6 +4,13 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [1.3.11] - 2026-09-14
+
+### Added
+
+- Record privacy-minimized host and guest demo-entry events in a durable review-access ledger so hackathon judging activity can be checked without relying on short-lived platform logs.
+- Add `pnpm review:access` for a summarized review-access report; automated production probes identify themselves and do not enter the ledger.
+
 ## [1.3.10] - 2026-09-13
 
 ### Added

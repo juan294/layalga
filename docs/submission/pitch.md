@@ -34,4 +34,4 @@ We have not measured human time savings, adoption or participant satisfaction. T
 
 “L’Ayalga handles routine coordination, brings the right exceptions to people, and follows through until the household knows what happens next.”
 
-For the demonstration sequence, use the [judge guide](judge-guide.md) and [video script](video-script.md). Recording, upload and submission remain owner actions; no finished video is implied by this draft.
+For the demonstration sequence, use the [judge guide](judge-guide.md), [video script](video-script.md), and [public demo video](https://youtu.be/-D3GvJ88-40). The Devpost entry is submitted with all five steps complete.
