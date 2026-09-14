@@ -1,6 +1,6 @@
-# L’Ayalga — Devpost draft
+# L’Ayalga — Devpost submission source
 
-Status: v1.3.10 derives resumed-run results from recorded decisions and verified request context, safely formats public agent results, and prevents interrupted-run internals from appearing in the interface. The broader coordination behavior was proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` on 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes. The public video URL and final Devpost submission remain pending.
+Status: the [public Devpost entry](https://devpost.com/software/l-ayalga) is submitted with all five steps complete. This repository source was adapted into the final first-person entry. The [public 3:11 demo video](https://youtu.be/-D3GvJ88-40) is within the official five-minute limit. Production v1.3.10 derives resumed-run results from recorded decisions and verified request context, safely formats public agent results, and prevents interrupted-run internals from appearing in the interface. The broader coordination behavior was proven in production v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` on 11 September 2026. The exact Vercel and AgentCore candidate passed the protected guided demo and all nine production probes.
 
 ## Tagline
 
@@ -46,7 +46,7 @@ The [synthetic benchmark](coordination-evidence.md) records actual automated ope
 
 ## What comes next
 
-The immediate remaining work is recording/upload and final submission, optional publication of the three Builder drafts, guest-email activation with a consenting real-recipient proof, and a measured participant study. The [guest email readiness checklist](../release/guest-email-readiness.md) identifies the unapplied permission and operational verification.
+After the hackathon, the next major product direction is expanding the existing bounded WebMCP progressive enhancement so guests can coordinate through broader agent-facing experiences. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`, and all normal controls work without it. Other remaining work is guest-email activation with a consenting real-recipient proof and a measured participant study. The [guest email readiness checklist](../release/guest-email-readiness.md) identifies the unapplied permission and operational verification.
 
 Broader channels such as WhatsApp/SMS and changing rooms midway through a stay remain deferred ideas. Household policy configuration, consented guest reminders, cancellation and remembered room recommendations are already implemented and are not future roadmap promises.
 
@@ -58,8 +58,8 @@ Broader channels such as WhatsApp/SMS and changing rooms midway through a stay r
 - [Architecture](../architecture/README.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
 - AWS Builder Center: [deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent), [durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions), and [proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock).
 - Audio overviews: [SoundCloud playlist](https://soundcloud.com/juan-gonzalez-72390307/sets/layalga).
-- Video: not yet recorded/uploaded; final URL pending owner action.
-- AWS Builder ID, Everyday Agents track, repository, architecture, and live-demo fields are populated; final submission remains pending.
+- [Public demo video](https://youtu.be/-D3GvJ88-40): 3 minutes 11 seconds, within the official five-minute limit.
+- The Devpost entry is submitted with all five steps complete. Its AWS Builder ID, Everyday Agents track, repository, architecture, live-demo, video, and three public Builder article fields are populated.
 
 ## Testing instructions
 

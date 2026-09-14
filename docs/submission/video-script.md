@@ -1,6 +1,6 @@
 # L’Ayalga demo video script
 
-Recording script for v1.3.10. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2 until the v1.3.10 release gate completes. Target duration: 2 minutes 55 seconds. Hard maximum: 3 minutes. The public video URL remains pending recording and upload.
+Recording script used for the v1.3.10 demo. It includes the run-result presentation fixes found during rehearsal and retains the broader production evidence from v1.3.2. The script targeted 2 minutes 55 seconds; the [published edit](https://youtu.be/-D3GvJ88-40) is 3 minutes 11 seconds, within the official five-minute maximum.
 
 The story is routine coordination, then a fresh exception, then follow-through and closure. Use the [judge guide](judge-guide.md) for the canonical journey and the [evidence report](coordination-evidence.md) for numerical claims.
 
@@ -85,13 +85,13 @@ Do not call this an overflow booking unless the selected option visibly requires
 
 ## Final recording check
 
-- Duration is at or below 2 minutes 55 seconds, leaving at least five seconds below the 3-minute maximum.
+- The published duration is 3 minutes 11 seconds, below the official five-minute maximum.
 - Narration is clear at normal speed and captions have been reviewed manually.
 - The video remains understandable when muted.
 - The working application occupies most of the runtime; workflow evidence is one short supporting cutaway.
 - Every claimed transition appears on screen. Edited waits do not hide a failure or imply that a different run completed.
 - The current production commit is visible or stated once. No secret, private URL, contact address, personal notification, or cloud account identifier appears.
 - Synthetic reset and clock controls are visibly labeled. No human time-saving, inbox-delivery, accessibility, or universal model-quality claim is made.
-- Upload to YouTube or Vimeo as public, confirm playback in a signed-out window, and then place the final URL in the Devpost entry.
+- The YouTube video is public, plays without account access, and its URL is in the submitted Devpost entry.
 
-Do not mark the video or Devpost entry as published until each outward action has completed.
+The video and Devpost publication steps are complete. Preserve both artifacts after the submission deadline.
