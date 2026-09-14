@@ -12,11 +12,11 @@ The intended benefit is less repeated coordination and clearer responsibility. H
 
 ## 2. Hackathon and submission status
 
-The [official rules](https://agentsforhumans.devpost.com/rules), checked 11 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
+The [official rules](https://agentsforhumans.devpost.com/rules), checked 14 September 2026, give five equally weighted criteria: technical implementation, design, potential impact, creativity/originality and presentation. The judge guide maps each to source, tests and evidence limits.
 
-The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the video maximum is three minutes. The production recording script targets 2 minutes 55 seconds. The public video URL and final submission remain pending.
+The deadline is 14 September 2026 at 17:00 PDT, judging continues through 8 October, and the official video maximum is five minutes. The [public demo video](https://youtu.be/-D3GvJ88-40) is 3 minutes 11 seconds. The Devpost entry is submitted with all five steps complete.
 
-The AWS Builder ID is recorded in the Devpost entry. Three “Agents for Humans” articles are published on AWS Builder Center and linked from the [judge guide](judge-guide.md), qualifying them for review under the optional article bonus. Final scoring and entry completion are not claimed before judging and submission.
+The AWS Builder ID is recorded in the Devpost entry. Three “Agents for Humans” articles are published on AWS Builder Center and linked from the [judge guide](judge-guide.md), qualifying them for review under the optional article bonus. Final scoring remains a judging decision.
 
 ## 3. Architecture and authority
 
