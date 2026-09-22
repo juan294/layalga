@@ -54,10 +54,11 @@ tests, operating modes, and limits. The public-site discovery index is
 
 ## Process history
 
-| Document                                                                                  | What it is                                                                                          |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| [research/](research/)                                                                    | Dated research briefs, starting with the hackathon assessment of 2026-08-29                         |
-| [Everyday Agents product checkup](research/2026-09-05-everyday-agents-product-checkup.md) | September 5 assessment of award positioning, product gaps, judge experience, and roadmap priorities |
-| [plans/README.md](plans/README.md)                                                        | Index of the dated implementation plans and their phase files                                       |
+| Document                                                                                  | What it is                                                                                                                                            |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [research/](research/)                                                                    | Dated research briefs, starting with the hackathon assessment of 2026-08-29                                                                           |
+| [Everyday Agents product checkup](research/2026-09-05-everyday-agents-product-checkup.md) | September 5 assessment of award positioning, product gaps, judge experience, and roadmap priorities                                                   |
+| [Gallery assessment](research/2026-09-22-agents-for-humans-gallery-assessment.md)         | September 22 read of the 1,049-entry Devpost gallery, rival entries, the Builder bonus, and Spoken Letter lessons; data in the adjacent JSON snapshot |
+| [plans/README.md](plans/README.md)                                                        | Index of the dated implementation plans and their phase files                                                                                         |
 
 - [Agent-readable evaluation research](research/2026-09-05-agent-readable-evaluation-evidence.md) — dated rationale for the canonical evidence route; current claims live in the judge guide.
