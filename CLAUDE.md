@@ -113,3 +113,6 @@ Exhaust CLI and browser automation before asking the user to perform operations.
 | Submission           | `docs/submission/`                                                   | Devpost, pitch, video script, judge guide, posts     |
 | Docs index           | `docs/README.md`                                                     | One line per document                                |
 | Agent reports        | `docs/agents/*-report.md`                                            | Gitignored because the intended repository is public |
+<!-- rpi:claude-import:start -->
+@AGENTS.md
+<!-- rpi:claude-import:end -->
