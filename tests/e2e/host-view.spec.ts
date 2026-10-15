@@ -5,30 +5,23 @@ import {
 } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
+import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
 
-const oterosToken = "o".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
 test.setTimeout(90_000);
 
+let current: OpenHousehold | undefined;
+
 test.beforeEach(async ({ context, page }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
+  current = await openHousehold();
+  await current.signIn(context);
   await page.goto("/en");
   await expect(page.getByTestId("host-capture-form")).toBeVisible();
+});
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
 });
 
 test("captures an invitation and exposes its private guest link", async ({
@@ -37,7 +30,7 @@ test("captures an invitation and exposes its private guest link", async ({
   await page
     .getByTestId("host-capture-message")
     .fill(
-      "Oye, los Vega quieren venir a la casa un finde de septiembre, son Marta y Xuan con los dos crios.",
+      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. [${current!.household.homeName}]`,
     );
   await clickAndWaitForPost(page, "host-capture-submit");
 
@@ -55,7 +48,7 @@ test("captures an invitation and exposes its private guest link", async ({
 test("a special request waits for a host and resumes after approval", async ({
   page,
 }) => {
-  await page.goto(`/en/g/${oterosToken}`);
+  await page.goto(`/en/g/${partyToken(current!.household, "The Parkers")}`);
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
@@ -183,4 +176,43 @@ test("puts decisions and current outcomes on the Today overview", async ({
   await expect(page.getByTestId("host-outcomes")).toContainText(
     "No upcoming visits yet",
   );
+});
+
+test("an empty household renders the dashboard and adds its first room", async ({
+  context,
+  page,
+}) => {
+  const empty = await openHousehold({ rooms: [], parties: [] });
+  try {
+    await context.clearCookies();
+    await empty.signIn(context);
+    await page.goto("/en");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Guest stays",
+    );
+    await page.goto("/en/rooms");
+    const ledger = page.getByTestId("room-ledger");
+    await expect(ledger).toBeVisible();
+    await expect(ledger.locator("[data-door-state]")).toHaveCount(0);
+
+    const addRoom = ledger.locator("details", {
+      has: page.getByText("Add a room", { exact: true }),
+    });
+    await addRoom.locator("summary").click();
+    const form = addRoom.locator("form");
+    await form.locator('[name="name"]').fill("Attic room");
+    await form.locator('[name="guestLabel"]').fill("Attic");
+    await form.locator('[name="floorLabel"]').fill("Top floor");
+    await form.locator('[name="sleepingArrangement"]').fill("One double bed");
+    await form.locator('[name="inventoryState"]').selectOption("available");
+    await form.locator('button[type="submit"]').click();
+    await expect(ledger.locator("[data-door-state]")).toHaveCount(1);
+    const [rooms] = await empty.db<{ count: number }[]>`
+      select count(*)::int as count from public.rooms
+      where home_id = ${empty.household.homeId}
+    `;
+    expect(rooms?.count).toBe(1);
+  } finally {
+    await empty.close();
+  }
 });

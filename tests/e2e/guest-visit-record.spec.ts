@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import postgres from "postgres";
 
-import { hashLinkToken } from "../../src/core/booking/invitations";
+import {
+  createFixtureHousehold,
+  type FixtureHousehold,
+} from "../../src/test-support/fixture-household";
 
 type VisitStatus = "cancelled" | "confirmed" | "reconfirm_pending";
 
@@ -11,35 +14,44 @@ let cleanupFixture: (() => Promise<void>) | undefined;
 
 async function fixture(status: VisitStatus) {
   const db = postgres(process.env.DATABASE_URL!, { prepare: false, max: 2 });
-  const homeId = randomUUID(),
-    hostId = randomUUID(),
-    partyId = randomUUID(),
-    invitationId = randomUUID(),
-    visitId = randomUUID();
-  const token = randomUUID();
+  let household: FixtureHousehold;
+  try {
+    household = await createFixtureHousehold(db, {
+      label: `Guest visit record test ${randomUUID()}`,
+      tokenSecret: process.env.LINK_TOKEN_SECRET!,
+      rooms: [],
+      parties: [
+        {
+          familyName: "Guest Visit Record Family",
+          locale: "en",
+          rawMessage: "A visit",
+          adults: 2,
+          children: 0,
+          pets: 1,
+          specialRequests: [],
+        },
+      ],
+    });
+  } catch (error) {
+    await db.end({ timeout: 5 });
+    throw error;
+  }
+  const guest = household.parties[0]!;
   let cleaned = false;
 
   async function cleanup() {
     if (cleaned) return;
     cleaned = true;
     try {
-      await db`delete from public.homes where id=${homeId}`;
-      const [residue] = await db<
-        { count: number }[]
-      >`select count(*)::int as count from public.homes where name='Guest visit record test'`;
-      expect(residue?.count).toBe(0);
+      await household.cleanup();
     } finally {
       await db.end({ timeout: 5 });
     }
   }
 
   try {
-    await db`insert into public.homes(id,name,timezone,demo) values(${homeId},'Guest visit record test','Europe/Madrid',false)`;
-    await db`insert into public.hosts(id,home_id,display_name,locale) values(${hostId},${homeId},'Host','en')`;
-    await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Guest Visit Record Family','en')`;
-    await db`insert into public.invitations(id,home_id,host_id,party_id,raw_message,link_token,link_token_expires_at) values(${invitationId},${homeId},${hostId},${partyId},'A visit',${hashLinkToken(token, process.env.LINK_TOKEN_SECRET!)},now()+interval '60 days')`;
-    await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${visitId},${homeId},${partyId},${invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
-    return { cleanup, token };
+    await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${randomUUID()},${household.homeId},${guest.partyId},${guest.invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
+    return { cleanup, token: guest.token };
   } catch (error) {
     await cleanup();
     throw error;

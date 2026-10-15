@@ -21,7 +21,7 @@ export default defineConfig({
     exclude: [
       ...configDefaults.exclude,
       "dist/**",
-      "tests/e2e/**",
+      "tests/e2e/**/*.spec.ts",
       ".claude/worktrees/**",
     ],
   },

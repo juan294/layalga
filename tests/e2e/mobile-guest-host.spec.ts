@@ -5,33 +5,25 @@ import {
 } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
+import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
 
-const oterosToken = "o".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
 test.setTimeout(90_000);
+
+let current: OpenHousehold | undefined;
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
+});
 
 test("@mobile guest link reaches a touch-safe host decision", async ({
   context,
   page,
 }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
-
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
-  await page.goto(`/en/g/${oterosToken}`);
+  current = await openHousehold();
+  await current.signIn(context);
+  await page.goto(`/en/g/${partyToken(current.household, "The Parkers")}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
@@ -57,7 +49,9 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
 
   await page
     .getByTestId("host-capture-message")
-    .fill("Invite Ana and Luis for the first weekend in October.");
+    .fill(
+      `Invite Ana and Luis for a weekend next month. [${current.household.homeName}]`,
+    );
   await clickAndWaitForPost(page, "host-capture-submit");
   await expect(page.getByTestId("capture-queued")).toBeVisible();
   await expect(page.getByTestId("structured-invitation")).toBeVisible({

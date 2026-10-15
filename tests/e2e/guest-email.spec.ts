@@ -3,28 +3,46 @@ import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import postgres from "postgres";
 import { SystemClock } from "../../src/core/clock";
-import { hashLinkToken } from "../../src/core/booking/invitations";
 import {
   loadLiveGuestContact,
   mintGuestCapability,
   registerGuestContact,
   verifyGuestContact,
 } from "../../src/core/notifications/guest-contact";
+import {
+  createFixtureHousehold,
+  type FixtureParty,
+} from "../../src/test-support/fixture-household";
 
 test.setTimeout(90_000);
 
+const emailGuestParty: FixtureParty = {
+  familyName: "Email Guest Family",
+  locale: "en",
+  rawMessage: "A visit",
+  adults: 2,
+  children: 0,
+  pets: 0,
+  specialRequests: [],
+};
+
 async function fixture() {
   const db = postgres(process.env.DATABASE_URL!, { prepare: false, max: 2 });
-  const homeId = randomUUID(),
-    hostId = randomUUID(),
-    partyId = randomUUID(),
-    invitationId = randomUUID(),
+  const household = await createFixtureHousehold(db, {
+    label: `Email journey test ${randomUUID()}`,
+    tokenSecret: process.env.LINK_TOKEN_SECRET!,
+    rooms: [],
+    parties: [emailGuestParty],
+  }).catch(async (error: unknown) => {
+    await db.end({ timeout: 5 });
+    throw error;
+  });
+  const homeId = household.homeId;
+  const guest = household.parties[0]!;
+  const partyId = guest.partyId,
+    invitationId = guest.invitationId,
+    originalToken = guest.token,
     visitId = randomUUID();
-  const originalToken = randomUUID();
-  await db`insert into public.homes(id,name,timezone,demo) values(${homeId},'Email journey test','Europe/Madrid',false)`;
-  await db`insert into public.hosts(id,home_id,display_name,locale) values(${hostId},${homeId},'Host','en')`;
-  await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Email Guest Family','en')`;
-  await db`insert into public.invitations(id,home_id,host_id,party_id,raw_message,link_token,link_token_expires_at) values(${invitationId},${homeId},${hostId},${partyId},'A visit',${hashLinkToken(originalToken, process.env.LINK_TOKEN_SECRET!)},now()+interval '60 days')`;
   await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,status,reconfirm_requested_at) values(${visitId},${homeId},${partyId},${invitationId},daterange(current_date+3,current_date+6,'[)'),2,'reconfirm_pending',now())`;
   // Local-only enrollment and token construction. No email dispatcher or sender is called.
   await registerGuestContact(
@@ -52,8 +70,11 @@ async function fixture() {
     originalToken,
     verification,
     async cleanup() {
-      await db`delete from public.homes where id=${homeId}`;
-      await db.end({ timeout: 5 });
+      try {
+        await household.cleanup();
+      } finally {
+        await db.end({ timeout: 5 });
+      }
     },
   };
 }

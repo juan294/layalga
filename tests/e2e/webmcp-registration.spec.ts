@@ -1,37 +1,28 @@
 import { clickAndWaitForPost } from "./helpers/async-actions";
 import { expect, test, type Page } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
-
-const vegaToken = "v".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
+import { openHousehold, type OpenHousehold } from "./helpers/household";
 
 test.setTimeout(90_000);
 
+let current: OpenHousehold | undefined;
+
 test.beforeEach(async ({ page }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret) {
-    throw new Error("E2E database settings are missing");
-  }
-  await seedDemo(databaseUrl, tokenSecret);
+  current = await openHousehold();
   await installWebMcpTestDouble(page);
+});
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
 });
 
 test("registers host WebMCP tools and prepares visible forms without a browser implementation", async ({
   context,
   page,
 }) => {
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
+  await current!.signIn(context);
   // The room-control WebMCP tools register on the Room ledger form, which
   // now lives at its own route -- see the hub-and-spoke host restructure.
   await page.goto("/en/rooms");
@@ -93,6 +84,11 @@ test("registers host WebMCP tools and prepares visible forms without a browser i
 test("registers guest WebMCP tools and prepares an exact visible room choice", async ({
   page,
 }) => {
+  const vega = current!.household.parties.find(
+    (party) => party.familyName === "Familia Vega",
+  )!;
+  const vegaToken = vega.token;
+  const [from, to] = vega.preferredStay;
   await page.goto(`/en/g/${vegaToken}`);
 
   await expectRegisteredTools(page, [
@@ -101,16 +97,16 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
     "layalga.guest.read_room_options",
   ]);
   await executeWebMcpTool(page, "layalga.guest.prepare_search", {
-    from: "2026-09-18",
-    to: "2026-09-21",
+    from,
+    to,
     nights: 3,
     adults: 2,
     children: 2,
     pets: 0,
   });
   const search = page.locator("form[data-webmcp-guest-search]");
-  await expect(search.locator('input[name="from"]')).toHaveValue("2026-09-18");
-  await expect(search.locator('input[name="to"]')).toHaveValue("2026-09-21");
+  await expect(search.locator('input[name="from"]')).toHaveValue(from);
+  await expect(search.locator('input[name="to"]')).toHaveValue(to);
   await expect(search.locator('input[name="children"]')).toHaveValue("2");
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
     "data-status",

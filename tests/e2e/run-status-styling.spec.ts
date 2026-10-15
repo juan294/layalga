@@ -1,39 +1,29 @@
 import { expect, test } from "@playwright/test";
 
-import { DEMO_SEED, seedDemo } from "../../scripts/seed-demo";
-import {
-  createDemoHostCookie,
-  DEMO_HOST_COOKIE,
-} from "../../src/lib/auth/demo-session";
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
+import { openHousehold, type OpenHousehold } from "./helpers/household";
 
 test.setTimeout(90_000);
+
+let current: OpenHousehold | undefined;
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
+});
 
 test("the host capture poller keeps its visible card and status pulse", async ({
   context,
   page,
 }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret) {
-    throw new Error("E2E database settings are missing");
-  }
-
-  await seedDemo(databaseUrl, tokenSecret);
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: DEMO_HOST_COOKIE,
-      sameSite: "Lax",
-      url: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3008",
-      value: createDemoHostCookie(DEMO_SEED.hosts[0].id),
-    },
-  ]);
+  current = await openHousehold();
+  await current.signIn(context);
   await page.goto("/en");
   await page
     .getByTestId("host-capture-message")
     .fill(
-      "Oye, los Vega quieren venir a la casa un finde de septiembre, son Marta y Xuan con los dos crios.",
+      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. [${current.household.homeName}]`,
     );
   await clickAndWaitForPost(page, "host-capture-submit");
   await expectRunStatus(page, "completed");

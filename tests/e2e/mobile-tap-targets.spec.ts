@@ -2,11 +2,7 @@ import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
-
-const oterosToken = "o".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
+import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
 
 /* The mobile-webkit project runs this at the iPhone 13 profile (390px), so the
    measurements below are real WebKit layout rather than a harness estimate.
@@ -92,27 +88,22 @@ async function expectTouchSafe(page: Page, route: string) {
 
 test.setTimeout(120_000);
 
+let current: OpenHousehold | undefined;
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
+});
+
 test("@mobile every surface stays touch-safe at 390px", async ({
   context,
   page,
 }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
+  current = await openHousehold();
+  await current.signIn(context);
 
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
-
-  await page.goto(`/en/g/${oterosToken}`);
+  await page.goto(`/en/g/${partyToken(current.household, "The Parkers")}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expectTouchSafe(page, "guest ledger");
 

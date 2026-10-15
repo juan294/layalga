@@ -1,17 +1,22 @@
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect, test } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
+import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
 
-const vegaToken = "v".repeat(43);
 test.setTimeout(90_000);
 
+let current: OpenHousehold | undefined;
+let vegaToken = "";
+
 test.beforeEach(async () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
+  current = await openHousehold();
+  vegaToken = partyToken(current.household, "Familia Vega");
+});
+
+test.afterEach(async () => {
+  const household = current;
+  current = undefined;
+  await household?.close();
 });
 
 test("a guest chooses an offered stay and places a hold", async ({ page }) => {
