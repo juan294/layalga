@@ -4,7 +4,9 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
-Real-use launch, phases 1 to 4 of the [plan](docs/plans/2026-10-15-real-use-launch.md). The hackathon judging period closed on 2026-10-14. None of this is released; the production steps need owner authorization.
+## [2.0.0] - 2026-10-15
+
+Real-use launch, release 1 (expand): phases 1 to 4 of the [plan](docs/plans/2026-10-15-real-use-launch.md). The hackathon judging period closed on 2026-10-14. The demo schema stays in the database until release 2 drops it.
 
 ### Added
 
