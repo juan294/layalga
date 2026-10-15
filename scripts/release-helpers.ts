@@ -1,82 +1,24 @@
-import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
 import type { Sql } from "postgres";
 
-export interface DemoSnapshot {
-  visits: { id: string; status: string }[];
-  notifications: {
-    recipient_kind: "host" | "party";
-    recipient_id: string;
-    kind: string;
-  }[];
-  decisions: { id: string; status: string }[];
-}
+export type ProbeTarget = "local" | "production";
 
 export interface ReleaseCliOptions {
   baseUrl: string;
   expectedCommit?: string;
-  headed: boolean;
   expectedRuntime?: "local" | "agentcore";
   /**
-   * Whether email pings are expected to send during the demo. Defaults from
-   * `EMAIL=ses` in the local script environment, since `demo:e2e` normally
-   * runs against a server sharing that environment; `--expect-email` forces
-   * it on for a release probe run against a remote deployment whose
-   * environment this process cannot read.
-   */
-  expectEmail: boolean;
-  /**
-   * Whether returning-guest memory is expected to be active during the
-   * demo. Defaults from `MEMORY=agentcore` in the local script environment,
-   * mirroring `expectEmail`; `--expect-memory` forces it on for a release
-   * probe run against a remote deployment. When set, release probe 2
-   * additionally asserts a `search_memory` tool_call audit row on the
-   * capture run.
+   * Whether returning-guest memory is expected to be active. Defaults from
+   * `MEMORY=agentcore` in the script environment; `--expect-memory` forces it
+   * on for a probe run against a remote deployment. When set, the
+   * host-capture probe also asserts a `search_memory` tool_call audit row.
    */
   expectMemory: boolean;
-}
-
-export function assertDemoSnapshot(snapshot: DemoSnapshot): void {
-  assert.equal(snapshot.visits.length, 2, "expected exactly two visits");
-  assert.equal(
-    snapshot.visits.filter((visit) => visit.status === "escalated").length,
-    1,
-    "expected exactly one escalated visit",
-  );
-  assert.equal(
-    snapshot.notifications.length,
-    4,
-    "expected four total notifications",
-  );
-  const hostEscalations = snapshot.notifications.filter(
-    (notification) =>
-      notification.recipient_kind === "host" &&
-      notification.kind === "reconfirm_escalation",
-  );
-  assert.equal(
-    hostEscalations.length,
-    2,
-    "expected exactly two host escalation notifications",
-  );
-  assert.equal(
-    new Set(hostEscalations.map((notification) => notification.recipient_id))
-      .size,
-    2,
-    "expected host escalations for two distinct hosts",
-  );
-  assert.equal(
-    snapshot.decisions.filter((decision) => decision.status === "approved")
-      .length,
-    1,
-    "expected one approved pending decision",
-  );
-  assert.equal(
-    snapshot.decisions.filter((decision) => decision.status === "pending")
-      .length,
-    0,
-    "expected no unanswered pending decision",
-  );
+  /** Which probe set runs: the full local CI set or the production gate. */
+  target: ProbeTarget;
+  /** Removes the fixture households of an earlier run and exits. */
+  cleanupOnly?: string;
 }
 
 export function normalizeBaseUrl(value: string): string {
@@ -94,60 +36,69 @@ export function normalizeBaseUrl(value: string): string {
   return url.origin;
 }
 
+const RUN_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 export function parseReleaseCliOptions(
   argv: string[],
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ReleaseCliOptions {
   let baseUrl = env.APP_URL ?? "http://127.0.0.1:3008";
   let expectedCommit = env.EXPECTED_COMMIT_SHA;
-  let headed = false;
   let expectedRuntime: "local" | "agentcore" | undefined;
-  let expectEmail = env.EMAIL === "ses";
   let expectMemory = env.MEMORY === "agentcore";
+  let target: ProbeTarget = "local";
+  let cleanupOnly: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--") continue;
-    if (argument === "--headed") {
-      headed = true;
-      continue;
-    }
-    if (argument === "--expect-email") {
-      expectEmail = true;
-      continue;
-    }
     if (argument === "--expect-memory") {
       expectMemory = true;
       continue;
     }
-    if (argument === "--base" || argument === "--commit") {
-      const value = argv[index + 1];
+    const value = argv[index + 1];
+    if (
+      argument === "--base" ||
+      argument === "--commit" ||
+      argument === "--expect-runtime" ||
+      argument === "--target" ||
+      argument === "--cleanup-only"
+    ) {
       if (!value) throw new Error(`${argument} requires a value`);
-      if (argument === "--base") baseUrl = value;
-      else expectedCommit = value;
       index += 1;
-      continue;
     }
-    if (argument === "--expect-runtime") {
-      const value = argv[index + 1];
-      if (!value) throw new Error(`${argument} requires a value`);
+    if (argument === "--base") {
+      baseUrl = value!;
+    } else if (argument === "--commit") {
+      expectedCommit = value;
+    } else if (argument === "--expect-runtime") {
       if (value !== "local" && value !== "agentcore") {
         throw new Error(`${argument} must be "local" or "agentcore"`);
       }
       expectedRuntime = value;
-      index += 1;
-      continue;
+    } else if (argument === "--target") {
+      if (value !== "local" && value !== "production") {
+        throw new Error(`${argument} must be "local" or "production"`);
+      }
+      target = value;
+    } else if (argument === "--cleanup-only") {
+      if (!RUN_ID_PATTERN.test(value!)) {
+        throw new Error(`${argument} requires a probe run id (UUID)`);
+      }
+      cleanupOnly = value;
+    } else {
+      throw new Error(`Unknown argument: ${argument}`);
     }
-    throw new Error(`Unknown argument: ${argument}`);
   }
 
   return {
     baseUrl: normalizeBaseUrl(baseUrl),
     expectedCommit,
-    headed,
     expectedRuntime,
-    expectEmail,
     expectMemory,
+    target,
+    cleanupOnly,
   };
 }
 
@@ -202,10 +153,7 @@ export interface CleanupTaggedRunArtifactsOptions {
   extraSessionIds?: readonly string[];
 }
 
-/** Builds the raw-message suffix used to tag and later find synthetic data. */
-export function markerSuffix(marker: string): string {
-  return ` [${marker}]`;
-}
+export { markerSuffix } from "../src/test-support/fixture-household";
 
 /**
  * Invitation ids created by the tagged `host_capture` runs of `homeId`,

@@ -5,34 +5,118 @@ import postgres, { type Sql } from "postgres";
 import { z } from "zod";
 
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
-import { hashLinkToken } from "../src/core/booking/invitations";
-import { parseStoredRunResult } from "../src/agent/task";
-import { DEMO_SEED, seedDemo } from "./seed-demo";
-import { demoLinkExpiresAt } from "../src/lib/demo/reset";
-import { runDemoE2E } from "./demo-e2e";
+import { parseStoredRunResult, type AgentTask } from "../src/agent/task";
+import { recordHostDecision } from "../src/core/decisions/host-decision";
 import {
-  cleanupTaggedRunArtifacts,
+  createFixtureHousehold,
+  fixtureParties,
+  fixtureStay,
+  removeFixtureHousehold,
+  type FixtureHousehold,
+} from "../src/test-support/fixture-household";
+import {
   isDirectExecution,
-  markerSuffix,
   parseReleaseCliOptions,
   requiredEnvironment,
   responseJson,
   safeErrorMessage,
   taggedInvitationIds,
+  type ProbeTarget,
   type ReleaseCliOptions,
 } from "./release-helpers";
 
-interface ProbeEvidence {
-  probe: number;
-  name: string;
+export type ProbeName =
+  | "health"
+  | "host-capture"
+  | "guest-confirmation"
+  | "concurrent-conflict"
+  | "interrupt-resume"
+  | "reconfirmation"
+  | "room-coordination"
+  | "guest-isolation"
+  | "cleanup";
+
+/**
+ * The probes each target runs, in order. Production keeps the journeys that
+ * only that environment can prove (AgentCore, Bedrock and the production
+ * database roles); the rest stay in local CI.
+ */
+export const PROBES: Record<ProbeTarget, readonly ProbeName[]> = {
+  local: [
+    "health",
+    "host-capture",
+    "guest-confirmation",
+    "concurrent-conflict",
+    "interrupt-resume",
+    "reconfirmation",
+    "room-coordination",
+    "guest-isolation",
+    "cleanup",
+  ],
+  production: [
+    "health",
+    "host-capture",
+    "guest-confirmation",
+    "concurrent-conflict",
+    "guest-isolation",
+    "cleanup",
+  ],
+};
+
+export interface ProbeEvidence {
+  probe: ProbeName;
   status: "passed";
   detail: string;
 }
 
-interface ProbeFixture {
-  homeId: string;
-  homeName: string;
-  invitationIds: readonly [string, string];
+/**
+ * `PAUSED`: the environment failed (unreachable base, run timeout); re-run
+ * the same candidate. `BLOCKED`: an assertion failed on a completed run; the
+ * candidate needs a fix.
+ */
+export interface ProbeReport {
+  status: "passed" | "PAUSED" | "BLOCKED";
+  target: ProbeTarget;
+  runId: string;
+  evidence: ProbeEvidence[];
+  failure?: { probe: ProbeName; message: string };
+  cleanupCommand?: string;
+}
+
+/** An environment failure that does not indict the candidate. */
+export class ProbePausedError extends Error {
+  override name = "ProbePausedError";
+}
+
+export interface ProbeContext {
+  sql: Sql;
+  options: ReleaseCliOptions;
+  runId: string;
+  household: FixtureHousehold;
+  conflict: FixtureHousehold;
+  agentRouteSecret: string;
+  tickSecret: string;
+  now: Date;
+  capturedInvitationId?: string;
+}
+
+export type ProbeFn = (context: ProbeContext) => Promise<string>;
+
+export function probeHomeLabels(runId: string): [string, string] {
+  return [`Release probe ${runId}`, `Release probe conflict ${runId}`];
+}
+
+export function cleanupCommand(runId: string): string {
+  return `pnpm run release:probes -- --cleanup-only ${runId}`;
+}
+
+export function classifyProbeFailure(error: unknown): "PAUSED" | "BLOCKED" {
+  if (error instanceof ProbePausedError) return "PAUSED";
+  // fetch() rejects with a TypeError when the base cannot be reached.
+  if (error instanceof TypeError && /fetch failed/i.test(error.message)) {
+    return "PAUSED";
+  }
+  return "BLOCKED";
 }
 
 const runResultSchema = z.object({
@@ -47,19 +131,6 @@ const storedRunSchema = z.object({
   status: z.enum(["queued", "running", "completed", "interrupted", "failed"]),
   result: z.unknown().nullable(),
 });
-const roomCoordinationProofSchema = z.object({
-  proposalCreated: z.literal(true),
-  privateBlockApplied: z.literal(true),
-  blockedRoomHidden: z.literal(true),
-  withheldRoomOpened: z.literal(true),
-  selectedRoomIds: z.tuple([z.uuid(), z.uuid()]),
-  overflowInterrupted: z.literal(true),
-  overflowApproved: z.literal(true),
-  overflowAppliedOnce: z.literal(true),
-  calendarFeedRead: z.literal(true),
-  calendarPrivateDataAbsent: z.literal(true),
-  calendarEventCount: z.int(),
-});
 
 type StoredRun = z.infer<typeof storedRunSchema>;
 type TerminalStoredRun = StoredRun & {
@@ -73,308 +144,239 @@ interface TerminalProbeRunResult {
   executedOn?: "local" | "agentcore";
 }
 
+const PROBE_FNS: Record<Exclude<ProbeName, "cleanup">, ProbeFn> = {
+  health: probeHealth,
+  "host-capture": probeHostCapture,
+  "guest-confirmation": probeGuestConfirmation,
+  "concurrent-conflict": probeConcurrentConflict,
+  "interrupt-resume": probeInterruptResume,
+  reconfirmation: probeReconfirmation,
+  "room-coordination": probeRoomCoordination,
+  "guest-isolation": probeGuestIsolation,
+};
+
 export async function runReleaseProbes(
   options: ReleaseCliOptions,
-): Promise<ProbeEvidence[]> {
+  overrides: Partial<Record<ProbeName, ProbeFn>> = {},
+): Promise<ProbeReport> {
   const databaseUrl = requiredEnvironment("DATABASE_URL");
-  const linkTokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
-  const agentRouteSecret = requiredAgentRouteSecret();
+  const tokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
+  const agentRouteSecret = requiredInternalSecret("AGENT_ROUTE_SECRET");
   const tickSecret = requiredInternalSecret("TICK_SECRET");
   const sql = postgres(databaseUrl, { prepare: false, max: 8 });
   const runId = randomUUID();
-  const runMarker = `release-probe:${runId}`;
-  const evidence: ProbeEvidence[] = [];
-  let fixture: ProbeFixture | undefined;
+  const now = new Date();
+  const [label, conflictLabel] = probeHomeLabels(runId);
+  const report: ProbeReport = {
+    status: "passed",
+    target: options.target,
+    runId,
+    evidence: [],
+  };
+  let current: ProbeName = "health";
 
   try {
-    await probeHealth(options);
-    evidence.push(pass(1, "health and identity", "health status is ok"));
-
-    const demo = await runDemoE2E({ ...options, runMarker });
-
-    const captureIds = await taggedInvitationIds(
+    const household = await createFixtureHousehold(sql, {
+      label,
+      tokenSecret,
+      hosts: 2,
+      now,
+      parties: [
+        ...fixtureParties(now),
+        { familyName: "Reconfirmation family", locale: "en" },
+      ],
+    });
+    const conflict = await createFixtureHousehold(sql, {
+      label: conflictLabel,
+      tokenSecret,
+      now,
+      rooms: [
+        {
+          name: "Only room",
+          beds: 2,
+          guestLabel: "Probe room",
+          floorLabel: "Probe floor",
+          sleepingArrangement: "One double bed",
+          overflowArrangement: null,
+          maximumCapacity: 2,
+          inventoryState: "available",
+          overflowPolicy: "none",
+        },
+      ],
+      parties: [
+        { familyName: "Probe party 1" },
+        { familyName: "Probe party 2" },
+      ],
+    });
+    const context: ProbeContext = {
       sql,
-      DEMO_SEED.home.id,
-      markerSuffix(runMarker),
-    );
-    const [captured] = await sql<{ count: number }[]>`
-      select count(*)::integer as count
-      from public.invitations
-      where id = any(${sql.array(captureIds)}::uuid[])
-        and status = 'tentative'
-    `;
-    assert.equal(
-      captured?.count,
-      2,
-      "host capture must create one tagged tentative invitation per host",
-    );
-    await assertCaptureRunsExecutedOn(
-      sql,
-      options.expectedRuntime,
-      demo.rawMessages,
-    );
-    if (options.expectMemory) {
-      await assertCaptureRunSearchedMemory(sql, demo.rawMessages[0]);
-    }
-    evidence.push(
-      pass(
-        2,
-        "host capture",
-        [
-          "two tagged tentative invitations created",
-          options.expectedRuntime
-            ? `host capture executed on ${options.expectedRuntime}`
-            : null,
-          options.expectMemory ? "the capture run searched memory" : null,
-        ]
-          .filter(Boolean)
-          .join("; "),
-      ),
-    );
-
-    await probeGuestConfirmation(sql, demo.rawMessages[0]);
-    evidence.push(
-      pass(3, "guest confirmation", "hold and confirmation each executed once"),
-    );
-
-    fixture = await createProbeFixture(sql, runId);
-    await probeConcurrentConflict(
-      sql,
-      options.baseUrl,
+      options,
+      runId,
+      household,
+      conflict,
       agentRouteSecret,
       tickSecret,
-      fixture,
-    );
-    evidence.push(
-      pass(4, "concurrent conflict", "one hold won and one was rejected"),
-    );
-
-    await probeInterruptResume(sql, demo.rawMessages[1]);
-    await assertResumeRunExecutedOn(
-      sql,
-      options.expectedRuntime,
-      DEMO_SEED.home.id,
-    );
-    evidence.push(
-      pass(
-        5,
-        "interrupt and resume",
-        options.expectedRuntime
-          ? `one decision approved and applied once; resume run executed on ${options.expectedRuntime}`
-          : "one decision approved and applied once",
-      ),
-    );
-
-    assert.equal(demo.visits, 2);
-    assert.equal(demo.escalatedVisits, 1);
-    assert.equal(demo.notifications, 4);
-    assert.equal(demo.hostEscalations, 2);
-    if (options.expectEmail) {
-      assert.equal(demo.emailPings.pendingDecisionSent, 2);
-      assert.equal(demo.emailPings.escalationSent, 2);
+      now,
+    };
+    for (const probe of PROBES[options.target]) {
+      if (probe === "cleanup") continue;
+      current = probe;
+      const detail = await (overrides[probe] ?? PROBE_FNS[probe])(context);
+      report.evidence.push({ probe, status: "passed", detail });
     }
-    evidence.push(
-      pass(
-        6,
-        "clock reconfirmation",
-        options.expectEmail
-          ? "four total notifications include exactly two host escalations; two hosts each received a decision and an escalation email"
-          : "four total notifications include exactly two host escalations",
-      ),
-    );
-
-    assertRoomCoordinationProof(demo.roomCoordination);
-    evidence.push(
-      pass(
-        7,
-        "room coordination",
-        "proposal, exact rooms, overflow approval, and private calendar proved",
-      ),
-    );
-
-    await probeUnauthorizedGuest(options.baseUrl);
-    evidence.push(
-      pass(8, "guest isolation", "invalid token revealed no family identity"),
-    );
+  } catch (error) {
+    report.status = classifyProbeFailure(error);
+    report.failure = { probe: current, message: safeErrorMessage(error) };
   } finally {
-    const cleanupErrors: unknown[] = [];
     try {
-      await cleanupDemoArtifacts(sql, runMarker, linkTokenSecret);
-      await seedDemo(databaseUrl, linkTokenSecret);
-    } catch (error) {
-      cleanupErrors.push(error);
-    }
-    if (fixture) {
-      try {
-        await cleanupProbeFixture(sql, fixture);
-      } catch (error) {
-        cleanupErrors.push(error);
+      await removeProbeHouseholds(sql, runId);
+      if (report.status === "passed") {
+        report.evidence.push({
+          probe: "cleanup",
+          status: "passed",
+          detail: `removed the fixture households tagged ${runId}`,
+        });
       }
-    }
-    await sql.end({ timeout: 5 });
-    if (cleanupErrors.length > 0) {
-      throw new AggregateError(cleanupErrors, "Synthetic cleanup failed");
-    }
-    if (fixture) {
-      evidence.push(
-        pass(
-          9,
-          "synthetic cleanup",
-          `deleted probe rows tagged ${runId} and restored the demo fixture`,
-        ),
-      );
+    } catch (error) {
+      if (report.status === "passed") report.status = "BLOCKED";
+      report.failure ??= { probe: "cleanup", message: safeErrorMessage(error) };
+    } finally {
+      await sql.end({ timeout: 5 });
     }
   }
 
-  assert.equal(evidence.length, 9, "all nine release probes must pass");
-  return evidence;
+  if (report.status !== "passed") {
+    report.cleanupCommand = cleanupCommand(runId);
+  } else {
+    assert.deepEqual(
+      report.evidence.map(({ probe }) => probe),
+      PROBES[options.target],
+      `every ${options.target} probe must pass`,
+    );
+  }
+  return report;
 }
 
-export function assertRoomCoordinationProof(value: unknown): void {
-  const proof = roomCoordinationProofSchema.parse(value);
-  assert.deepEqual(
-    proof.selectedRoomIds,
-    [DEMO_SEED.rooms[0].id, DEMO_SEED.rooms[1].id],
-    "selected room IDs must match the exact synthetic multi-room choice",
-  );
-  assert.ok(
-    proof.calendarEventCount > 0,
-    "room coordination must produce at least one calendar event",
-  );
+/** Deletes both fixture households of a probe run and proves none remain. */
+export async function removeProbeHouseholds(
+  sql: Sql,
+  runId: string,
+): Promise<number> {
+  const [label, conflictLabel] = probeHomeLabels(runId);
+  const homes = await sql<{ id: string; name: string }[]>`
+    select id, name from public.homes where name in (${label}, ${conflictLabel})
+  `;
+  for (const home of homes) {
+    await removeFixtureHousehold(sql, home.id, home.name);
+  }
+  const [remaining] = await sql<{ count: number }[]>`
+    select count(*)::int as count from public.homes
+    where name in (${label}, ${conflictLabel})
+  `;
+  assert.equal(remaining?.count, 0, "probe household cleanup was incomplete");
+  return homes.length;
 }
 
-async function probeHealth(options: ReleaseCliOptions): Promise<void> {
-  const health = await responseJson<{ status: string; commit?: string }>(
-    await fetch(`${options.baseUrl}/api/health`),
-    "health probe",
-  );
-  assert.equal(health.status, "ok");
-
+async function probeHealth({ options }: ProbeContext): Promise<string> {
+  let health: { status: string; commit?: string };
+  try {
+    health = await responseJson(
+      await fetch(`${options.baseUrl}/api/health`),
+      "health probe",
+    );
+  } catch (error) {
+    throw new ProbePausedError(
+      `health is unreachable: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (health.status !== "ok") {
+    throw new ProbePausedError(`health status is ${health.status}`);
+  }
   const hostname = new URL(options.baseUrl).hostname;
   const local = hostname === "localhost" || hostname === "127.0.0.1";
   if (!local && !options.expectedCommit) {
     throw new Error("--commit is required for a non-local release probe");
   }
-  if (options.expectedCommit) {
-    assert.equal(
-      health.commit,
-      options.expectedCommit,
-      "deployed commit does not match the release candidate",
+  if (options.expectedCommit && health.commit !== options.expectedCommit) {
+    throw new ProbePausedError(
+      `deployed commit ${health.commit ?? "unknown"} does not match the release candidate`,
     );
   }
+  return "health status is ok";
 }
 
-/**
- * Asserts every row's stored run result executed on `expectedRuntime`, doing
- * nothing when no runtime is asserted. `describe` renders the failure
- * message for a given row label.
- */
-function assertExecutedOn(
-  rows: readonly { label: string; result: unknown }[],
-  expectedRuntime: "local" | "agentcore" | undefined,
-  describe: (label: string, expectedRuntime: "local" | "agentcore") => string,
-): void {
-  if (!expectedRuntime) return;
-  for (const row of rows) {
-    const result = parseStoredRunResult(row.result);
-    assert.equal(
-      result.executedOn,
-      expectedRuntime,
-      describe(row.label, expectedRuntime),
-    );
-  }
-}
-
-async function assertCaptureRunsExecutedOn(
-  sql: Sql,
-  expectedRuntime: "local" | "agentcore" | undefined,
-  rawMessages: readonly [string, string],
-): Promise<void> {
-  if (!expectedRuntime) return;
-  const rows = await sql<{ raw_message: string; result: unknown }[]>`
-    select payload->>'rawMessage' as raw_message, result
-    from public.runs
-    where home_id = ${DEMO_SEED.home.id}
-      and task = 'host_capture'
-      and payload->>'rawMessage' = any(${sql.array([...rawMessages])})
-  `;
-  assert.equal(
-    rows.length,
-    2,
-    "expected one host_capture run per tagged invitation",
-  );
-  assertExecutedOn(
-    rows.map((row) => ({ label: row.raw_message, result: row.result })),
-    expectedRuntime,
-    (label, runtime) =>
-      `host capture run for "${label}" must execute on ${runtime}`,
-  );
-}
-
-async function assertResumeRunExecutedOn(
-  sql: Sql,
-  expectedRuntime: "local" | "agentcore" | undefined,
-  homeId: string,
-): Promise<void> {
-  if (!expectedRuntime) return;
-  const [row] = await sql<{ result: unknown }[]>`
-    select run.result
-    from public.runs run
-    join public.pending_decisions decision on decision.applied_run_id = run.id
-    where decision.home_id = ${homeId} and decision.status = 'approved'
-  `;
-  assert.ok(row, "resume run not found for the approved pending decision");
-  assertExecutedOn(
-    [{ label: "resume", result: row.result }],
-    expectedRuntime,
-    (_label, runtime) => `resume run must execute on ${runtime}`,
-  );
-}
-
-/**
- * Asserts the tagged Vega `host_capture` run called `search_memory` at
- * least once. Only meaningful with `--expect-memory`, and only for the
- * Vega raw message: `scripts/seed-memory.ts` seeds that party's memory
- * before the demo runs, and `authorityForTask`'s deterministic pre-match
- * (`src/agent/party-match.ts`) finds the existing "Familia Vega" party from
- * the raw message's "Vega" mention, so this is the one capture run a
- * matched party's memory tools are actually attached to.
- */
-async function assertCaptureRunSearchedMemory(
-  sql: Sql,
-  vegaRawMessage: string,
-): Promise<void> {
-  const [row] = await sql<{ count: number }[]>`
-    select count(*)::integer as count
-    from public.audit_events audit
-    join public.runs run on run.id = audit.run_id
-    where run.home_id = ${DEMO_SEED.home.id}
-      and run.task = 'host_capture'
-      and run.payload->>'rawMessage' = ${vegaRawMessage}
-      and audit.kind = 'tool_call'
-      and audit.payload->>'name' = 'search_memory'
-  `;
-  assert.ok(
-    (row?.count ?? 0) > 0,
-    "expected the matched Vega host_capture run to call search_memory",
-  );
-}
-
-async function probeGuestConfirmation(
-  sql: Sql,
-  rawMessage: string,
-): Promise<void> {
+async function probeHostCapture(context: ProbeContext): Promise<string> {
+  const { sql, household, options } = context;
+  const rawMessage = `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios.${household.tag}`;
+  const [result] = await runToTerminal(context, [
+    {
+      task: "host_capture",
+      homeId: household.homeId,
+      hostId: household.hostIds[0]!,
+      rawMessage,
+      locale: "es",
+    },
+  ]);
+  assert.equal(result?.status, "completed", "host capture must complete");
+  assertExecutedOn(result, options.expectedRuntime, "host capture");
   const invitationIds = await taggedInvitationIds(
     sql,
-    DEMO_SEED.home.id,
-    rawMessage,
+    household.homeId,
+    household.tag,
   );
-  const [visit] = await sql<{ id: string }[]>`
-    select visit.id
-    from public.visits as visit
-    where visit.invitation_id = any(${sql.array(invitationIds)}::uuid[])
+  assert.equal(
+    invitationIds.length,
+    1,
+    "host capture must create one invitation",
+  );
+  const [captured] = await sql<{ id: string }[]>`
+    select id from public.invitations
+    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative'
   `;
-  assert.ok(visit, "tagged guest visit was not created");
+  assert.ok(captured, "the captured invitation must be tentative");
+  context.capturedInvitationId = captured.id;
+  if (options.expectMemory) {
+    const [row] = await sql<{ count: number }[]>`
+      select count(*)::int as count from public.audit_events
+      where run_id = ${result.runId}
+        and kind = 'tool_call' and payload->>'name' = 'search_memory'
+    `;
+    assert.ok(
+      (row?.count ?? 0) > 0,
+      "the matched Vega capture run must call search_memory",
+    );
+  }
+  return [
+    "one tagged tentative invitation created",
+    options.expectedRuntime ? `executed on ${options.expectedRuntime}` : null,
+    options.expectMemory ? "the capture run searched memory" : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
+async function probeGuestConfirmation(context: ProbeContext): Promise<string> {
+  const { sql, household } = context;
+  const invitationId = context.capturedInvitationId;
+  assert.ok(invitationId, "guest confirmation needs the captured invitation");
+  const [result] = await runToTerminal(context, [
+    {
+      task: "guest_submit",
+      homeId: household.homeId,
+      invitationId,
+      stay: fixtureStay(context.now, 14, 2),
+      adults: 2,
+      children: 0,
+      pets: 0,
+      locale: "en",
+    },
+  ]);
+  assert.equal(result?.status, "completed", "guest submission must complete");
+  const [visit] = await sql<{ id: string; status: string }[]>`
+    select id, status from public.visits where invitation_id = ${invitationId}
+  `;
+  assert.ok(visit, "the guest submission must create a visit");
+  assert.equal(visit.status, "confirmed", "the guest visit must be confirmed");
   const [audit] = await sql<{ holds: number; confirmations: number }[]>`
     select
       count(*) filter (
@@ -384,156 +386,327 @@ async function probeGuestConfirmation(
         where payload->>'name' = 'confirm_visit'
       )::integer as confirmations
     from public.audit_events
-    where home_id = ${DEMO_SEED.home.id}
+    where home_id = ${household.homeId} and kind = 'tool_call'
       and payload->>'visitId' = ${visit.id}
   `;
   assert.deepEqual(audit, { holds: 1, confirmations: 1 });
+  return "hold and confirmation each executed once";
 }
 
-async function createProbeFixture(
-  sql: Sql,
-  runId: string,
-): Promise<ProbeFixture> {
-  const homeName = `Release probe ${runId}`;
-  return sql.begin(async (transaction) => {
-    const [home] = await transaction<{ id: string }[]>`
-      insert into public.homes (name, timezone)
-      values (${homeName}, 'Europe/Madrid')
-      returning id
-    `;
-    assert.ok(home);
-    await transaction`
-      insert into public.rooms (
-        home_id, name, beds, guest_label, floor_label,
-        sleeping_arrangement, maximum_capacity, inventory_state
-      ) values (
-        ${home.id}, ${`Only room ${runId}`}, 2,
-        'Probe room', 'Probe floor', 'One double bed', 2, 'available'
-      )
-    `;
-    const [host] = await transaction<{ id: string }[]>`
-      insert into public.hosts (home_id, display_name, locale)
-      values (${home.id}, ${`Probe host ${runId}`}, 'en')
-      returning id
-    `;
-    assert.ok(host);
-
-    const invitationIds: string[] = [];
-    for (const number of [1, 2]) {
-      const [party] = await transaction<{ id: string }[]>`
-        insert into public.parties (home_id, family_name, locale, link_token)
-        values (
-          ${home.id},
-          ${`Probe party ${number} ${runId}`},
-          'en',
-          ${`release-probe-${runId}-${number}`}
-        )
-        returning id
-      `;
-      assert.ok(party);
-      const [invitation] = await transaction<{ id: string }[]>`
-        insert into public.invitations (
-          home_id, host_id, party_id, raw_message
-        ) values (
-          ${home.id}, ${host.id}, ${party.id}, ${`release-probe:${runId}`}
-        )
-        returning id
-      `;
-      assert.ok(invitation);
-      invitationIds.push(invitation.id);
-    }
-
-    return {
-      homeId: home.id,
-      homeName,
-      invitationIds: invitationIds as [string, string],
-    };
-  });
-}
-
-async function probeConcurrentConflict(
-  sql: Sql,
-  baseUrl: string,
-  agentRouteSecret: string,
-  tickSecret: string,
-  fixture: ProbeFixture,
-): Promise<void> {
-  const responses = await Promise.all(
-    fixture.invitationIds.map((invitationId) =>
-      fetch(`${baseUrl}/api/agent/run`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-layalga-internal": agentRouteSecret,
-        },
-        body: JSON.stringify({
-          task: "guest_submit",
-          homeId: fixture.homeId,
-          invitationId,
-          stay: ["2026-10-02", "2026-10-04"],
-          adults: 2,
-          children: 0,
-          pets: 0,
-          locale: "en",
-        }),
-      }),
-    ),
-  );
-  assert.equal(
-    responses.filter((response) => response.ok).length,
-    2,
-    "the internal agent route must acknowledge both runs",
-  );
-  const acknowledgements = await Promise.all(
-    responses.map((response, index) =>
-      responseJson<unknown>(response, `concurrent agent run ${index + 1}`),
-    ),
-  );
-  const runIds = queuedRunIds(acknowledgements);
-  const results = await drainAndCollectTerminalRunResults(
-    runIds,
-    async () => {
-      await responseJson(
-        await fetch(`${baseUrl}/api/ticks`, {
-          headers: { "x-layalga-internal": tickSecret },
-        }),
-        "queued probe drain",
-      );
-    },
-    (exactRunIds) => sql`
-      select id, status, result
-      from public.runs
-      where id = any(${sql.array([...exactRunIds])}::uuid[])
-    `,
+async function probeConcurrentConflict(context: ProbeContext): Promise<string> {
+  const { sql, conflict } = context;
+  const stay = fixtureStay(context.now, 0, 2);
+  const results = await runToTerminal(
+    context,
+    conflict.parties.map(({ invitationId }) => ({
+      task: "guest_submit" as const,
+      homeId: conflict.homeId,
+      invitationId,
+      stay,
+      adults: 2,
+      children: 0,
+      pets: 0,
+      locale: "en" as const,
+    })),
   );
   assertConcurrentRunsCompleted(results);
   const [outcome] = await sql<
-    {
-      confirmed: number;
-      holds: number;
-      confirmations: number;
-    }[]
+    { confirmed: number; holds: number; confirmations: number }[]
   >`
     select
       (
-        select count(*)::integer
-        from public.visits
-        where home_id = ${fixture.homeId} and status = 'confirmed'
+        select count(*)::integer from public.visits
+        where home_id = ${conflict.homeId} and status = 'confirmed'
       ) as confirmed,
       count(*) filter (
-        where kind = 'tool_call'
-          and payload->>'name' = 'create_temporary_hold'
+        where kind = 'tool_call' and payload->>'name' = 'create_temporary_hold'
       )::integer as holds,
       count(*) filter (
         where kind = 'tool_call' and payload->>'name' = 'confirm_visit'
       )::integer as confirmations
     from public.audit_events
-    where home_id = ${fixture.homeId}
+    where home_id = ${conflict.homeId}
   `;
   assert.deepEqual(
     outcome,
     { confirmed: 1, holds: 1, confirmations: 1 },
     "exactly one conflicting visit must pass the policy and confirm",
+  );
+  return "one hold won and one was rejected";
+}
+
+async function probeInterruptResume(context: ProbeContext): Promise<string> {
+  const { sql, household, options } = context;
+  const parkers = fixtureGuest(household, "The Parkers");
+  const [interrupted] = await runToTerminal(context, [
+    {
+      task: "guest_submit",
+      homeId: household.homeId,
+      invitationId: parkers.invitationId,
+      stay: parkers.preferredStay,
+      adults: 2,
+      children: 0,
+      pets: 1,
+      requests: "Ground-floor access for a wheelchair user",
+      locale: "en",
+    },
+  ]);
+  assert.equal(
+    interrupted?.status,
+    "interrupted",
+    "a special request must wait for a host",
+  );
+  const [decision] = await sql<{ id: string }[]>`
+    select id from public.pending_decisions
+    where home_id = ${household.homeId} and status = 'pending'
+  `;
+  assert.ok(decision, "the interrupted run must leave one pending decision");
+  const hostId = household.hostIds[0]!;
+  const recorded = await recordHostDecision(sql, {
+    decisionId: decision.id,
+    homeId: household.homeId,
+    hostId,
+    approved: true,
+  });
+  assert.ok(recorded, "the pending decision must accept the approval");
+  const [resumed] = await runToTerminal(context, [
+    {
+      task: "resume",
+      homeId: household.homeId,
+      sessionId: recorded.agentSessionId,
+      locale: "en",
+      responses: [
+        {
+          interruptId: recorded.interruptId,
+          response: { approved: true, hostId },
+        },
+      ],
+    },
+  ]);
+  assert.equal(resumed?.status, "completed", "the resumed run must complete");
+  assertExecutedOn(resumed, options.expectedRuntime, "resume");
+  const [state] = await sql<
+    { approved: number; pending: number; applied: number; holds: number }[]
+  >`
+    select
+      (
+        select count(*)::int from public.pending_decisions
+        where home_id = ${household.homeId} and status = 'approved'
+      ) as approved,
+      (
+        select count(*)::int from public.pending_decisions
+        where home_id = ${household.homeId} and status = 'pending'
+      ) as pending,
+      (
+        select count(*)::int from public.audit_events
+        where home_id = ${household.homeId} and kind = 'decision_applied'
+      ) as applied,
+      (
+        select count(*)::int
+        from public.audit_events event
+        join public.visits visit on event.payload->>'visitId' = visit.id::text
+        where visit.invitation_id = ${parkers.invitationId}
+          and event.kind = 'tool_call'
+          and event.payload->>'name' = 'create_temporary_hold'
+      ) as holds
+  `;
+  assert.deepEqual(
+    state,
+    { approved: 1, pending: 0, applied: 1, holds: 1 },
+    "one decision must be approved and its booking tool applied once",
+  );
+  return "one decision approved and applied once";
+}
+
+async function probeReconfirmation(context: ProbeContext): Promise<string> {
+  const { sql, household } = context;
+  const guest = fixtureGuest(household, "Reconfirmation family");
+  const [visit] = await sql<{ id: string }[]>`
+    insert into public.visits (
+      home_id, party_id, invitation_id, stay, adults, children, pets,
+      status, confirmed_at
+    ) values (
+      ${household.homeId}, ${guest.partyId}, ${guest.invitationId},
+      daterange(current_date + 2, current_date + 4, '[)'), 2, 0, 0,
+      'confirmed', now()
+    )
+    returning id
+  `;
+  assert.ok(visit, "the reconfirmation visit was not created");
+  const [job] = await sql<{ id: string }[]>`
+    insert into public.scheduled_jobs (home_id, visit_id, kind, due_at)
+    values (
+      ${household.homeId}, ${visit.id}, 'reconfirm_chase',
+      now() - interval '1 minute'
+    )
+    returning id
+  `;
+  assert.ok(job, "the reconfirmation job was not created");
+  const deadline = Date.now() + 90_000;
+  for (;;) {
+    await drainTicks(context);
+    const [row] = await sql<{ status: string }[]>`
+      select status from public.scheduled_jobs where id = ${job.id}
+    `;
+    if (row?.status === "done") break;
+    assert.notEqual(
+      row?.status,
+      "quarantined",
+      "the reconfirmation job was quarantined",
+    );
+    if (Date.now() >= deadline) {
+      throw new ProbePausedError("the reconfirmation job did not finish");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  const [state] = await sql<
+    { status: string; chases: number; escalations: number }[]
+  >`
+    select
+      visit.status,
+      (
+        select count(*)::int from public.notifications
+        where visit_id = visit.id and recipient_kind = 'party'
+          and recipient_id = visit.party_id and kind = 'reconfirm_chase'
+      ) as chases,
+      (
+        select count(*)::int from public.scheduled_jobs
+        where visit_id = visit.id and kind = 'reconfirm_escalate'
+          and status = 'scheduled'
+      ) as escalations
+    from public.visits visit where visit.id = ${visit.id}
+  `;
+  assert.deepEqual(
+    state,
+    { status: "reconfirm_pending", chases: 1, escalations: 1 },
+    "the chase must notify the guest once and schedule the escalation",
+  );
+  return "a past-due chase notified the guest and scheduled the escalation";
+}
+
+async function probeRoomCoordination(context: ProbeContext): Promise<string> {
+  const { sql, household } = context;
+  const vega = fixtureGuest(household, "Familia Vega");
+  const roomIds = household.roomIds.slice(0, 2);
+  const [result] = await runToTerminal(context, [
+    {
+      task: "guest_submit",
+      homeId: household.homeId,
+      invitationId: vega.invitationId,
+      stay: fixtureStay(context.now, 28, 3),
+      adults: 2,
+      children: 2,
+      pets: 0,
+      roomIds,
+      locale: "es",
+    },
+  ]);
+  assert.equal(result?.status, "completed", "the room choice must complete");
+  const rooms = await sql<{ room_id: string }[]>`
+    select visit_room.room_id
+    from public.visit_rooms visit_room
+    join public.visits visit on visit.id = visit_room.visit_id
+    where visit.invitation_id = ${vega.invitationId}
+      and visit.status = 'confirmed'
+  `;
+  assert.deepEqual(
+    rooms.map(({ room_id }) => room_id).sort(),
+    [...roomIds].sort(),
+    "selected room IDs must match the fixture's exact multi-room choice",
+  );
+  return "the confirmed visit holds exactly the two chosen rooms";
+}
+
+async function probeGuestIsolation({
+  options,
+  household,
+  conflict,
+}: ProbeContext): Promise<string> {
+  const response = await fetch(`${options.baseUrl}/en/g/${"x".repeat(43)}`);
+  assert.ok(response.ok, `invalid guest page returned HTTP ${response.status}`);
+  const html = await response.text();
+  assert.match(html, /data-status="invalid"/);
+  for (const { familyName } of [...household.parties, ...conflict.parties]) {
+    assert.ok(
+      !html.includes(familyName),
+      `the invalid guest page revealed "${familyName}"`,
+    );
+  }
+  return "invalid token revealed no family identity";
+}
+
+function fixtureGuest(household: FixtureHousehold, familyName: string) {
+  const guest = household.parties.find(
+    (party) => party.familyName === familyName,
+  );
+  assert.ok(guest, `the probe household must invite ${familyName}`);
+  return guest;
+}
+
+async function runToTerminal(
+  context: ProbeContext,
+  tasks: readonly AgentTask[],
+): Promise<TerminalProbeRunResult[]> {
+  const responses = await Promise.all(
+    tasks.map((task) =>
+      fetch(`${context.options.baseUrl}/api/agent/run`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-layalga-internal": context.agentRouteSecret,
+        },
+        body: JSON.stringify(task),
+      }),
+    ),
+  );
+  const acknowledgements = await Promise.all(
+    responses.map((response, index) =>
+      responseJson<unknown>(response, `agent run ${index + 1}`),
+    ),
+  );
+  const runIds = queuedRunIds(acknowledgements);
+  try {
+    return await drainAndCollectTerminalRunResults(
+      runIds,
+      () => drainTicks(context),
+      (exactRunIds) => context.sql`
+        select id, status, result from public.runs
+        where id = any(${context.sql.array([...exactRunIds])}::uuid[])
+      `,
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      /did not reach terminal status/.test(error.message)
+    ) {
+      throw new ProbePausedError(error.message);
+    }
+    throw error;
+  }
+}
+
+async function drainTicks({
+  options,
+  tickSecret,
+}: ProbeContext): Promise<void> {
+  await responseJson(
+    await fetch(`${options.baseUrl}/api/ticks`, {
+      headers: { "x-layalga-internal": tickSecret },
+    }),
+    "queued probe drain",
+  );
+}
+
+function assertExecutedOn(
+  result: TerminalProbeRunResult,
+  expectedRuntime: "local" | "agentcore" | undefined,
+  label: string,
+): void {
+  if (!expectedRuntime) return;
+  assert.equal(
+    result.executedOn,
+    expectedRuntime,
+    `${label} run must execute on ${expectedRuntime}`,
   );
 }
 
@@ -553,7 +726,7 @@ export function queuedRunIds(results: readonly unknown[]): string[] {
   );
   assert.ok(
     acknowledgements.every((result) => result.status === "queued"),
-    "concurrent agent runs must return a queued acknowledgement",
+    "agent runs must return a queued acknowledgement",
   );
   const runIds = acknowledgements.map((result) => result.runId);
   assert.equal(
@@ -627,122 +800,6 @@ function isTerminalStoredRun(
   );
 }
 
-async function probeInterruptResume(
-  sql: Sql,
-  rawMessage: string,
-): Promise<void> {
-  const [decision] = await sql<{ approved: number; pending: number }[]>`
-    select
-      count(*) filter (where status = 'approved')::integer as approved,
-      count(*) filter (where status = 'pending')::integer as pending
-    from public.pending_decisions
-    where home_id = ${DEMO_SEED.home.id}
-  `;
-  assert.deepEqual(decision, { approved: 1, pending: 0 });
-  const [applied] = await sql<{ count: number }[]>`
-    select count(*)::integer as count
-    from public.audit_events
-    where home_id = ${DEMO_SEED.home.id}
-      and kind = 'decision_applied'
-  `;
-  assert.equal(applied?.count, 1);
-  const invitationIds = await taggedInvitationIds(
-    sql,
-    DEMO_SEED.home.id,
-    rawMessage,
-  );
-  const [toolExecution] = await sql<{ count: number }[]>`
-    select count(*)::integer as count
-    from public.audit_events event
-    join public.visits visit
-      on event.payload->>'visitId' = visit.id::text
-    where visit.invitation_id = any(${sql.array(invitationIds)}::uuid[])
-      and event.kind = 'tool_call'
-      and event.payload->>'name' = 'create_temporary_hold'
-  `;
-  assert.equal(
-    toolExecution?.count,
-    1,
-    "the interrupted booking tool must execute exactly once",
-  );
-}
-
-async function probeUnauthorizedGuest(baseUrl: string): Promise<void> {
-  const response = await fetch(`${baseUrl}/en/g/${"x".repeat(43)}`);
-  assert.ok(response.ok, `invalid guest page returned HTTP ${response.status}`);
-  const html = await response.text();
-  assert.match(html, /data-status="invalid"/);
-  assert.doesNotMatch(html, /Familia Vega|The Oteros/);
-}
-
-async function cleanupProbeFixture(
-  sql: Sql,
-  fixture: ProbeFixture,
-): Promise<void> {
-  const sessionIds = fixture.invitationIds.map((id) => `inv_${id}`);
-  await sql`
-    delete from public.agent_sessions
-    where session_id = any(${sql.array(sessionIds)}::text[])
-  `;
-  await sql`
-    delete from public.homes
-    where id = ${fixture.homeId} and name = ${fixture.homeName}
-  `;
-  const [remaining] = await sql<{ homes: number; sessions: number }[]>`
-    select
-      (
-        select count(*)::integer from public.homes
-        where id = ${fixture.homeId} or name = ${fixture.homeName}
-      ) as homes,
-      (
-        select count(*)::integer from public.agent_sessions
-        where session_id = any(${sql.array(sessionIds)}::text[])
-      ) as sessions
-  `;
-  assert.deepEqual(
-    remaining,
-    { homes: 0, sessions: 0 },
-    "probe home cleanup was incomplete",
-  );
-}
-
-async function cleanupDemoArtifacts(
-  sql: Sql,
-  runMarker: string,
-  linkTokenSecret: string,
-): Promise<void> {
-  await cleanupTaggedRunArtifacts(
-    sql,
-    DEMO_SEED.home.id,
-    markerSuffix(runMarker),
-    {
-      extraSessionIds: DEMO_SEED.hosts.map((host) => `capture_${host.id}`),
-    },
-  );
-
-  for (const party of DEMO_SEED.parties) {
-    const token = party.guestLink.split("/").at(-1);
-    assert.ok(token, `seed token missing for ${party.familyName}`);
-    await sql`
-      update public.parties
-      set locale = ${party.locale},
-        link_token = ${hashLinkToken(token, linkTokenSecret)},
-        link_token_expires_at = ${demoLinkExpiresAt()}
-      where id = ${party.id} and home_id = ${DEMO_SEED.home.id}
-    `;
-  }
-}
-
-function pass(probe: number, name: string, detail: string): ProbeEvidence {
-  return { probe, name, status: "passed", detail };
-}
-
-function requiredAgentRouteSecret(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-): string {
-  return requiredInternalSecret("AGENT_ROUTE_SECRET", env);
-}
-
 function requiredInternalSecret(
   name: "AGENT_ROUTE_SECRET" | "TICK_SECRET",
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -758,10 +815,34 @@ function requiredInternalSecret(
 }
 
 async function main(): Promise<void> {
-  const evidence = await runReleaseProbes(
-    parseReleaseCliOptions(process.argv.slice(2)),
-  );
-  console.log(JSON.stringify({ status: "passed", evidence }, null, 2));
+  const options = parseReleaseCliOptions(process.argv.slice(2));
+  if (options.cleanupOnly) {
+    const sql = postgres(requiredEnvironment("DATABASE_URL"), {
+      prepare: false,
+      max: 2,
+    });
+    try {
+      const removed = await removeProbeHouseholds(sql, options.cleanupOnly);
+      console.log(
+        JSON.stringify({
+          status: "cleaned",
+          runId: options.cleanupOnly,
+          removed,
+        }),
+      );
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+    return;
+  }
+  const report = await runReleaseProbes(options);
+  console.log(JSON.stringify(report, null, 2));
+  if (report.status !== "passed") {
+    console.error(
+      `Release probes ${report.status}. Remove any leftover fixture with: ${report.cleanupCommand}`,
+    );
+    process.exitCode = 1;
+  }
 }
 
 if (isDirectExecution(import.meta.url, process.argv[1])) {

@@ -1,29 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
-import { openHousehold, type OpenHousehold } from "./helpers/household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
-let current: OpenHousehold | undefined;
-
-test.afterEach(async () => {
-  const household = current;
-  current = undefined;
-  await household?.close();
-});
-
 test("the host capture poller keeps its visible card and status pulse", async ({
   context,
+  household,
   page,
 }) => {
-  current = await openHousehold();
-  await current.signIn(context);
+  await household.signIn(context);
   await page.goto("/en");
   await page
     .getByTestId("host-capture-message")
     .fill(
-      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. [${current.household.homeName}]`,
+      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. ${household.household.tag}`,
     );
   await clickAndWaitForPost(page, "host-capture-submit");
   await expectRunStatus(page, "completed");

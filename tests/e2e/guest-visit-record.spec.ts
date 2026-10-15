@@ -1,74 +1,27 @@
 import { randomUUID } from "node:crypto";
 
-import { expect, test, type Locator, type Page } from "@playwright/test";
-import postgres from "postgres";
+import { expect, type Locator, type Page } from "@playwright/test";
 
-import {
-  createFixtureHousehold,
-  type FixtureHousehold,
-} from "../../src/test-support/fixture-household";
+import { test, type OpenHousehold } from "./helpers/household";
 
 type VisitStatus = "cancelled" | "confirmed" | "reconfirm_pending";
 
-let cleanupFixture: (() => Promise<void>) | undefined;
-
-async function fixture(status: VisitStatus) {
-  const db = postgres(process.env.DATABASE_URL!, { prepare: false, max: 2 });
-  let household: FixtureHousehold;
-  try {
-    household = await createFixtureHousehold(db, {
-      label: `Guest visit record test ${randomUUID()}`,
-      tokenSecret: process.env.LINK_TOKEN_SECRET!,
-      rooms: [],
-      parties: [
-        {
-          familyName: "Guest Visit Record Family",
-          locale: "en",
-          rawMessage: "A visit",
-          adults: 2,
-          children: 0,
-          pets: 1,
-          specialRequests: [],
-        },
-      ],
-    });
-  } catch (error) {
-    await db.end({ timeout: 5 });
-    throw error;
-  }
-  const guest = household.parties[0]!;
-  let cleaned = false;
-
-  async function cleanup() {
-    if (cleaned) return;
-    cleaned = true;
-    try {
-      await household.cleanup();
-    } finally {
-      await db.end({ timeout: 5 });
-    }
-  }
-
-  try {
-    await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${randomUUID()},${household.homeId},${guest.partyId},${guest.invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
-    return { cleanup, token: guest.token };
-  } catch (error) {
-    await cleanup();
-    throw error;
-  }
-}
-
-async function useFixture(status: VisitStatus) {
-  const current = await fixture(status);
-  cleanupFixture = current.cleanup;
-  return current;
-}
-
-test.afterEach(async () => {
-  const cleanup = cleanupFixture;
-  cleanupFixture = undefined;
-  await cleanup?.();
+test.use({
+  householdOptions: {
+    rooms: [],
+    parties: [{ familyName: "Guest Visit Record Family", pets: 1 }],
+  },
 });
+
+/** Records one visit in the given status and returns the guest's link token. */
+async function visitToken(
+  { db, household }: OpenHousehold,
+  status: VisitStatus,
+): Promise<string> {
+  const guest = household.parties[0]!;
+  await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${randomUUID()},${household.homeId},${guest.partyId},${guest.invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
+  return guest.token;
+}
 
 async function expectRenderedVisit(page: Page, status: VisitStatus) {
   const guestStatus = page.getByTestId("guest-status");
@@ -108,9 +61,10 @@ async function expectNonTransparentPanel(panel: Locator) {
 }
 
 test("renders a confirmed visit with facts and guest actions", async ({
+  household,
   page,
 }) => {
-  const { token } = await useFixture("confirmed");
+  const token = await visitToken(household, "confirmed");
   await page.goto(`/en/g/${token}`);
 
   await expectRenderedVisit(page, "confirmed");
@@ -119,9 +73,10 @@ test("renders a confirmed visit with facts and guest actions", async ({
 });
 
 test("renders a cancelled visit with facts and no guest actions", async ({
+  household,
   page,
 }) => {
-  const { token } = await useFixture("cancelled");
+  const token = await visitToken(household, "cancelled");
   await page.goto(`/en/g/${token}`);
 
   await expectRenderedVisit(page, "cancelled");
@@ -130,9 +85,10 @@ test("renders a cancelled visit with facts and no guest actions", async ({
 });
 
 test("renders the reconfirmation primary button with fill and contrasting text", async ({
+  household,
   page,
 }) => {
-  const { token } = await useFixture("reconfirm_pending");
+  const token = await visitToken(household, "reconfirm_pending");
   await page.goto(`/en/g/${token}`);
 
   const primaryButton = page.getByTestId("reconfirm-yes");

@@ -1,8 +1,8 @@
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
+import { fixtureParty, test } from "./helpers/household";
 
 /* The mobile-webkit project runs this at the iPhone 13 profile (390px), so the
    measurements below are real WebKit layout rather than a harness estimate.
@@ -88,22 +88,16 @@ async function expectTouchSafe(page: Page, route: string) {
 
 test.setTimeout(120_000);
 
-let current: OpenHousehold | undefined;
-
-test.afterEach(async () => {
-  const household = current;
-  current = undefined;
-  await household?.close();
-});
-
 test("@mobile every surface stays touch-safe at 390px", async ({
   context,
+  household,
   page,
 }) => {
-  current = await openHousehold();
-  await current.signIn(context);
+  await household.signIn(context);
 
-  await page.goto(`/en/g/${partyToken(current.household, "The Parkers")}`);
+  await page.goto(
+    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
+  );
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expectTouchSafe(page, "guest ledger");
 

@@ -44,6 +44,7 @@ describe("fixture household", () => {
     const household = await createFixtureHousehold(db, {
       label,
       tokenSecret,
+      deleteBoundAuthUsers: true,
     });
     let cleaned = false;
     try {
@@ -75,9 +76,9 @@ describe("fixture household", () => {
       );
       expect(invitation?.raw_message.endsWith(`[${label}]`)).toBe(true);
       expect(invitation?.structured.preferredStay).toEqual(vega.preferredStay);
-      expect(new Date(`${vega.preferredStay[0]}T00:00:00Z`).getTime()).toBeGreaterThan(
-        Date.now(),
-      );
+      expect(
+        new Date(`${vega.preferredStay[0]}T00:00:00Z`).getTime(),
+      ).toBeGreaterThan(Date.now());
 
       // A host-bound auth user and a durable session are removed by cleanup.
       const [user] = await db<{ id: string }[]>`
@@ -117,6 +118,31 @@ describe("fixture household", () => {
     }
   });
 
+  it("keeps a bound auth user unless the caller owns it", async () => {
+    const household = await createFixtureHousehold(db, {
+      label: `Hosted-safe ${randomUUID()}`,
+      tokenSecret,
+    });
+    const [user] = await db<{ id: string }[]>`
+      insert into auth.users (id, email, aud, role)
+      values (${randomUUID()}, ${`${randomUUID()}@fixture.test`}, 'authenticated', 'authenticated')
+      returning id
+    `;
+    try {
+      await db`
+        update public.hosts set auth_user_id = ${user!.id}
+        where id = ${household.hostIds[0]!}
+      `;
+      await household.cleanup();
+      const [remaining] = await db<{ count: number }[]>`
+        select count(*)::int as count from auth.users where id = ${user!.id}
+      `;
+      expect(remaining?.count).toBe(1);
+    } finally {
+      await db`delete from auth.users where id = ${user!.id}`;
+    }
+  });
+
   it("supports an empty household with no rooms or parties", async () => {
     const household = await createFixtureHousehold(db, {
       label: `Empty ${randomUUID()}`,
@@ -138,8 +164,14 @@ describe("fixture household", () => {
 
   it("lets two concurrent builders create independent households", async () => {
     const households: FixtureHousehold[] = await Promise.all([
-      createFixtureHousehold(db, { label: `Concurrent A ${randomUUID()}`, tokenSecret }),
-      createFixtureHousehold(db, { label: `Concurrent B ${randomUUID()}`, tokenSecret }),
+      createFixtureHousehold(db, {
+        label: `Concurrent A ${randomUUID()}`,
+        tokenSecret,
+      }),
+      createFixtureHousehold(db, {
+        label: `Concurrent B ${randomUUID()}`,
+        tokenSecret,
+      }),
     ]);
     try {
       const [first, second] = households;
@@ -159,26 +191,7 @@ describe("fixture household", () => {
       createFixtureHousehold(db, {
         label,
         tokenSecret,
-        parties: [
-          {
-            familyName: "Duplicate",
-            locale: "en",
-            rawMessage: "first",
-            adults: 1,
-            children: 0,
-            pets: 0,
-            specialRequests: [],
-          },
-          {
-            familyName: "Duplicate",
-            locale: "en",
-            rawMessage: "second",
-            adults: 1,
-            children: 0,
-            pets: 0,
-            specialRequests: [],
-          },
-        ],
+        parties: [{ familyName: "Duplicate" }, { familyName: "Duplicate" }],
       }),
     ).rejects.toThrow(label);
     const [homes] = await db<{ count: number }[]>`

@@ -51,10 +51,19 @@ export async function signInAsHost(
     );
   }
 
-  await sql`
-    update public.hosts set auth_user_id = ${data.user.id} where id = ${hostId}
-  `;
-  const appUrl = env.APP_URL ?? env.E2E_BASE_URL ?? "http://127.0.0.1:3008";
+  const userId = data.user.id;
+  try {
+    const bound = await sql`
+      update public.hosts set auth_user_id = ${userId} where id = ${hostId}
+      returning id
+    `;
+    if (bound.length !== 1) throw new Error(`Fixture host ${hostId} not found`);
+  } catch (error) {
+    await sql`delete from auth.users where id = ${userId}`;
+    throw error;
+  }
+  // The browser navigates the Playwright base URL, so the cookies belong there.
+  const appUrl = env.E2E_BASE_URL ?? "http://127.0.0.1:3008";
   await context.addCookies(
     [...jar].map(([name, value]) => ({
       name,
@@ -63,7 +72,7 @@ export async function signInAsHost(
       sameSite: "Lax" as const,
     })),
   );
-  return { userId: data.user.id, email };
+  return { userId, email };
 }
 
 function isLocalUrl(value: string): boolean {

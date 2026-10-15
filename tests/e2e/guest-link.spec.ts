@@ -1,25 +1,20 @@
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
+import { fixtureParty, test as householdTest } from "./helpers/household";
+
+const test = householdTest.extend<{ vegaToken: string }>({
+  vegaToken: async ({ household }, provide) => {
+    await provide(fixtureParty(household.household, "Familia Vega").token);
+  },
+});
 
 test.setTimeout(90_000);
 
-let current: OpenHousehold | undefined;
-let vegaToken = "";
-
-test.beforeEach(async () => {
-  current = await openHousehold();
-  vegaToken = partyToken(current.household, "Familia Vega");
-});
-
-test.afterEach(async () => {
-  const household = current;
-  current = undefined;
-  await household?.close();
-});
-
-test("a guest chooses an offered stay and places a hold", async ({ page }) => {
+test("a guest chooses an offered stay and places a hold", async ({
+  page,
+  vegaToken,
+}) => {
   await page.goto(`/en/g/${vegaToken}`);
 
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
@@ -71,6 +66,7 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
 
 test("supports Spanish keyboard room selection and focuses fresh results", async ({
   page,
+  vegaToken,
 }) => {
   await page.goto(`/es/g/${vegaToken}`);
   await expect(
@@ -92,6 +88,7 @@ test("supports Spanish keyboard room selection and focuses fresh results", async
 
 test("an invited guest can withdraw before choosing a stay", async ({
   page,
+  vegaToken,
 }) => {
   await page.goto(`/en/g/${vegaToken}`);
   await page.locator("#cancel-request summary").click();

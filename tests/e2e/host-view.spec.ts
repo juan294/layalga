@@ -3,34 +3,26 @@ import {
   clickAndWaitForPost,
   expectRunStatus,
 } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
+import { fixtureParty, test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
-let current: OpenHousehold | undefined;
-
-test.beforeEach(async ({ context, page }) => {
-  current = await openHousehold();
-  await current.signIn(context);
+test.beforeEach(async ({ context, household, page }) => {
+  await household.signIn(context);
   await page.goto("/en");
   await expect(page.getByTestId("host-capture-form")).toBeVisible();
 });
 
-test.afterEach(async () => {
-  const household = current;
-  current = undefined;
-  await household?.close();
-});
-
 test("captures an invitation and exposes its private guest link", async ({
+  household,
   page,
 }) => {
   await page
     .getByTestId("host-capture-message")
     .fill(
-      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. [${current!.household.homeName}]`,
+      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. ${household.household.tag}`,
     );
   await clickAndWaitForPost(page, "host-capture-submit");
 
@@ -46,9 +38,12 @@ test("captures an invitation and exposes its private guest link", async ({
 });
 
 test("a special request waits for a host and resumes after approval", async ({
+  household,
   page,
 }) => {
-  await page.goto(`/en/g/${partyToken(current!.household, "The Parkers")}`);
+  await page.goto(
+    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
+  );
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
@@ -106,9 +101,7 @@ test("the Today overview links onward to the room ledger and visit calendar thro
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Room ledger",
   );
-  await expect(
-    page.getByRole("link", { name: "← Guest stays" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "← Guest stays" })).toBeVisible();
 });
 
 test("shows the room ledger with visible door states", async ({ page }) => {
@@ -178,15 +171,13 @@ test("puts decisions and current outcomes on the Today overview", async ({
   );
 });
 
-test("an empty household renders the dashboard and adds its first room", async ({
-  context,
-  page,
-}) => {
-  const empty = await openHousehold({ rooms: [], parties: [] });
-  try {
-    await context.clearCookies();
-    await empty.signIn(context);
-    await page.goto("/en");
+test.describe("an empty household", () => {
+  test.use({ householdOptions: { rooms: [], parties: [] } });
+
+  test("renders the dashboard and adds its first room", async ({
+    household,
+    page,
+  }) => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
       "Guest stays",
     );
@@ -207,12 +198,10 @@ test("an empty household renders the dashboard and adds its first room", async (
     await form.locator('[name="inventoryState"]').selectOption("available");
     await form.locator('button[type="submit"]').click();
     await expect(ledger.locator("[data-door-state]")).toHaveCount(1);
-    const [rooms] = await empty.db<{ count: number }[]>`
+    const [rooms] = await household.db<{ count: number }[]>`
       select count(*)::int as count from public.rooms
-      where home_id = ${empty.household.homeId}
+      where home_id = ${household.household.homeId}
     `;
     expect(rooms?.count).toBe(1);
-  } finally {
-    await empty.close();
-  }
+  });
 });

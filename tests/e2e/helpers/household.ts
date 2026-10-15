@@ -1,14 +1,19 @@
 import { randomUUID } from "node:crypto";
 
-import type { BrowserContext } from "@playwright/test";
+import { test as base, type BrowserContext } from "@playwright/test";
 import postgres, { type Sql } from "postgres";
 
 import {
   createFixtureHousehold,
+  type FixtureGuest,
   type FixtureHousehold,
   type FixtureHouseholdOptions,
 } from "../../../src/test-support/fixture-household";
-import { signInAsHost } from "./host-session";
+import { signInAsHost } from "../../../src/test-support/host-session";
+
+export type HouseholdOptions = Partial<
+  Omit<FixtureHouseholdOptions, "tokenSecret" | "deleteBoundAuthUsers">
+>;
 
 export interface OpenHousehold {
   db: Sql;
@@ -18,9 +23,9 @@ export interface OpenHousehold {
   close(): Promise<void>;
 }
 
-/** One disposable household per test, removed in the matching after hook. */
+/** Opens one disposable household; the caller closes it. */
 export async function openHousehold(
-  options: Partial<Omit<FixtureHouseholdOptions, "tokenSecret">> = {},
+  options: HouseholdOptions = {},
 ): Promise<OpenHousehold> {
   const databaseUrl = process.env.DATABASE_URL;
   const tokenSecret = process.env.LINK_TOKEN_SECRET;
@@ -34,6 +39,7 @@ export async function openHousehold(
       label: `E2E household ${randomUUID()}`,
       ...options,
       tokenSecret,
+      deleteBoundAuthUsers: true,
     });
   } catch (error) {
     await db.end({ timeout: 5 });
@@ -55,10 +61,29 @@ export async function openHousehold(
   };
 }
 
-export function partyToken(household: FixtureHousehold, familyName: string) {
+/** Playwright `test` with a per-test household that is always removed. */
+export const test = base.extend<{
+  householdOptions: HouseholdOptions;
+  household: OpenHousehold;
+}>({
+  householdOptions: [{}, { option: true }],
+  household: async ({ householdOptions }, provide) => {
+    const household = await openHousehold(householdOptions);
+    try {
+      await provide(household);
+    } finally {
+      await household.close();
+    }
+  },
+});
+
+export function fixtureParty(
+  household: FixtureHousehold,
+  familyName: string,
+): FixtureGuest {
   const party = household.parties.find(
     (candidate) => candidate.familyName === familyName,
   );
   if (!party) throw new Error(`Fixture party is missing: ${familyName}`);
-  return party.token;
+  return party;
 }

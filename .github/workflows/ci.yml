@@ -118,7 +118,7 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$publishable_key" >> "$GITHUB_ENV"
       - name: Run browser tests
         run: pnpm run test:e2e
-      - name: Run demo and release probes
+      - name: Run local release probes
         shell: bash
         run: |
           pnpm run dev > "$RUNNER_TEMP/layalga-next.log" 2>&1 &
@@ -138,5 +138,4 @@ jobs:
             fi
             sleep 1
           done
-          pnpm run demo:e2e -- --base http://127.0.0.1:3008
-          pnpm run release:probes -- --base http://127.0.0.1:3008
+          pnpm run release:probes -- --target local --base http://127.0.0.1:3008

@@ -1,8 +1,6 @@
-import { randomBytes } from "node:crypto";
-
 import type { Sql } from "postgres";
 
-import { hashLinkToken } from "@/core/booking/invitations";
+import { issueLinkToken } from "@/core/booking/invitations";
 
 /**
  * Disposable, non-demo households for browser tests, integration tests and
@@ -25,12 +23,13 @@ export interface FixtureRoom {
 
 export interface FixtureParty {
   familyName: string;
-  locale: "en" | "es";
-  rawMessage: string;
-  adults: number;
-  children: number;
-  pets: number;
-  specialRequests: string[];
+  locale?: "en" | "es";
+  /** Defaults to "A visit"; the household tag is always appended. */
+  rawMessage?: string;
+  adults?: number;
+  children?: number;
+  pets?: number;
+  specialRequests?: string[];
   /** Defaults to a weekend at least three weeks after `now`. */
   preferredStay?: [string, string];
   roomAllocation?: string[];
@@ -44,6 +43,11 @@ export interface FixtureHouseholdOptions {
   parties?: readonly FixtureParty[];
   hosts?: number;
   now?: Date;
+  /**
+   * Local browser tests bind hosts to throwaway Supabase Auth users; set this
+   * so cleanup deletes them. Never set it for a hosted database.
+   */
+  deleteBoundAuthUsers?: boolean;
 }
 
 export interface FixtureGuest {
@@ -58,10 +62,17 @@ export interface FixtureGuest {
 export interface FixtureHousehold {
   homeId: string;
   homeName: string;
+  /** Raw-message suffix that tags this household's runs for cleanup. */
+  tag: string;
   hostIds: string[];
   roomIds: string[];
   parties: FixtureGuest[];
   cleanup(): Promise<void>;
+}
+
+/** Builds the raw-message suffix used to tag and later find synthetic runs. */
+export function markerSuffix(marker: string): string {
+  return ` [${marker}]`;
 }
 
 /** The three-room shape the scripted model and browser tests were built on. */
@@ -161,7 +172,7 @@ export async function createFixtureHousehold(
   const rooms = options.rooms ?? FIXTURE_ROOMS;
   const parties = options.parties ?? fixtureParties(now);
   const hostCount = options.hosts ?? 1;
-  const tag = ` [${options.label}]`;
+  const tag = markerSuffix(options.label);
   const linkExpiresAt = new Date(now.getTime() + 60 * 86_400_000);
 
   try {
@@ -205,17 +216,17 @@ export async function createFixtureHousehold(
       const guests: FixtureGuest[] = [];
       for (const [index, party] of parties.entries()) {
         const preferredStay = party.preferredStay ?? fixtureStay(now, index, 2);
-        const token = randomBytes(32).toString("base64url");
+        const link = issueLinkToken(options.tokenSecret);
         const [partyRow] = await transaction<{ id: string }[]>`
           insert into public.parties (home_id, family_name, locale)
-          values (${homeId}, ${party.familyName}, ${party.locale})
+          values (${homeId}, ${party.familyName}, ${party.locale ?? "en"})
           returning id
         `;
         const structured = {
-          adults: party.adults,
-          children: party.children,
-          pets: party.pets,
-          specialRequests: party.specialRequests,
+          adults: party.adults ?? 2,
+          children: party.children ?? 0,
+          pets: party.pets ?? 0,
+          specialRequests: party.specialRequests ?? [],
           preferredStay,
           roomAllocation: party.roomAllocation ?? [],
         };
@@ -225,8 +236,8 @@ export async function createFixtureHousehold(
             link_token, link_token_expires_at
           ) values (
             ${homeId}, ${hostIds[index % hostIds.length]!}, ${partyRow!.id},
-            ${party.rawMessage + tag}, ${transaction.json(structured)},
-            'tentative', ${hashLinkToken(token, options.tokenSecret)},
+            ${(party.rawMessage ?? "A visit") + tag},
+            ${transaction.json(structured)}, 'tentative', ${link.hash},
             ${linkExpiresAt}
           )
           returning id
@@ -235,7 +246,7 @@ export async function createFixtureHousehold(
           partyId: partyRow!.id,
           invitationId: invitation!.id,
           familyName: party.familyName,
-          token,
+          token: link.token,
           preferredStay,
         });
       }
@@ -246,10 +257,14 @@ export async function createFixtureHousehold(
     return {
       homeId: built.homeId,
       homeName: options.label,
+      tag,
       hostIds: built.hostIds,
       roomIds: built.roomIds,
       parties: built.guests,
-      cleanup: () => removeFixtureHousehold(sql, built.homeId, options.label),
+      cleanup: () =>
+        removeFixtureHousehold(sql, built.homeId, options.label, {
+          deleteBoundAuthUsers: options.deleteBoundAuthUsers ?? false,
+        }),
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
@@ -261,15 +276,17 @@ export async function createFixtureHousehold(
 
 /**
  * Removes one fixture household by id and name. Durable agent sessions are
- * keyed by session id rather than home, so they are deleted first; auth users
- * exist only for hosts that a local browser test signed in.
+ * keyed by session id rather than home, so they are deleted first. Auth users
+ * are deleted only when the caller created them locally.
  */
 export async function removeFixtureHousehold(
   sql: Sql,
   homeId: string,
   homeName: string,
+  { deleteBoundAuthUsers = false }: { deleteBoundAuthUsers?: boolean } = {},
 ): Promise<void> {
   await sql.begin(async (transaction) => {
+    // Session ids follow resolveSessionId (src/agent/run-task.ts).
     await transaction`
       delete from public.agent_sessions
       where session_id in (
@@ -284,17 +301,19 @@ export async function removeFixtureHousehold(
         select 'tick_' || id from public.scheduled_jobs where home_id = ${homeId}
       )
     `;
-    const users = await transaction<{ auth_user_id: string }[]>`
-      select auth_user_id from public.hosts
-      where home_id = ${homeId} and auth_user_id is not null
-    `;
-    await transaction`
-      delete from public.homes where id = ${homeId} and name = ${homeName}
-    `;
-    if (users.length > 0) {
+    if (deleteBoundAuthUsers) {
       await transaction`
-        delete from auth.users
-        where id = any(${transaction.array(users.map((user) => user.auth_user_id))}::uuid[])
+        with bound as (
+          select auth_user_id from public.hosts
+          where home_id = ${homeId} and auth_user_id is not null
+        ), removed as (
+          delete from public.homes where id = ${homeId} and name = ${homeName}
+        )
+        delete from auth.users where id in (select auth_user_id from bound)
+      `;
+    } else {
+      await transaction`
+        delete from public.homes where id = ${homeId} and name = ${homeName}
       `;
     }
   });

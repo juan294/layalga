@@ -3,27 +3,21 @@ import {
   clickAndWaitForPost,
   expectRunStatus,
 } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { openHousehold, partyToken, type OpenHousehold } from "./helpers/household";
+import { fixtureParty, test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
-let current: OpenHousehold | undefined;
-
-test.afterEach(async () => {
-  const household = current;
-  current = undefined;
-  await household?.close();
-});
-
 test("@mobile guest link reaches a touch-safe host decision", async ({
   context,
+  household,
   page,
 }) => {
-  current = await openHousehold();
-  await current.signIn(context);
-  await page.goto(`/en/g/${partyToken(current.household, "The Parkers")}`);
+  await household.signIn(context);
+  await page.goto(
+    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
+  );
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
@@ -50,7 +44,7 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   await page
     .getByTestId("host-capture-message")
     .fill(
-      `Invite Ana and Luis for a weekend next month. [${current.household.homeName}]`,
+      `Invite Ana and Luis for a weekend next month. ${household.household.tag}`,
     );
   await clickAndWaitForPost(page, "host-capture-submit");
   await expect(page.getByTestId("capture-queued")).toBeVisible();

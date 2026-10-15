@@ -55,4 +55,26 @@ describe("signInAsHost", () => {
     await expect(failure).rejects.toThrow("[auth.email]");
     expect(browser.addCookies).not.toHaveBeenCalled();
   });
+
+  it("names the local email provider setting when confirmations withhold the session", async () => {
+    const createClient = vi.fn(() => ({
+      auth: {
+        signUp: async () => ({
+          data: { session: null, user: { id: "user" } },
+          error: null,
+        }),
+      },
+    }));
+    await expect(
+      signInAsHost(
+        context(),
+        { sql, hostId: "host" },
+        {
+          NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54621",
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "key",
+        },
+        createClient as never,
+      ),
+    ).rejects.toThrow(EMAIL_AUTH_DISABLED_MESSAGE);
+  });
 });
