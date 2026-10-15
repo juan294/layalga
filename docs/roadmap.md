@@ -26,7 +26,7 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 - Complete a real consenting recipient verification/reminder/return/opt-out proof after authorization. Provider acceptance, inbox delivery and a guest reply are different observations.
 - Expand the existing bounded WebMCP progressive enhancement. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`; the larger agent-facing product direction remains future work.
 - Run the archived [participant protocol](archive/hackathon/participant-protocol.md) with willing hosts and guests. Record baseline effort, task completion and confusion before making human time-saving or adoption claims.
-- Redraw the architecture diagrams, which still show the removed demo guide and clock.
+- Redraw the draw.io architecture view, which still shows the removed demo guide and clock (the Mermaid sources are current).
 
 ## Deliberately deferred
 

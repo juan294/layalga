@@ -34,3 +34,12 @@ Automated:
 - `bash scripts/verify-bootstrap.sh` passes.
 
 Manual: the owner reads the host manual's new sign-in and room sections.
+
+## Implementation handoff (2026-10-15)
+
+Status: complete. Written by a separate agent in worktree `layalga-real-use-docs` (branch `docs/real-use-launch`, `9c89b3f`), merged into `feat/real-use-launch` as `64b7866`, corrected after review in `73184cb`.
+
+- [x] Every row of the Files table; `docs/submission/` moved to `docs/archive/hackathon/` with a README; `public/llms.txt` and `.github/copilot-instructions.md` also stopped pointing at the archived judge material.
+- [x] Acceptance: grep hits are history or transition text only; relative links in 33 changed files resolve; `bash scripts/verify-bootstrap.sh` passes.
+- Review: CHANGES REQUIRED (1 major, 4 minor, 1 nit), all fixed; see the notes file (P4-R1 to P4-R6). Mermaid diagrams re-rendered; the draw.io view stays marked stale on the roadmap.
+- Manual (owner): read the host manual's sign-in and room sections.
