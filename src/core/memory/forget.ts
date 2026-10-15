@@ -2,7 +2,7 @@ import "@/core/server-only";
 
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 
-import { createMemoryClient, type MemoryClient } from "./client";
+import { createMemoryClient, listAllPages, type MemoryClient } from "./client";
 
 export interface ForgetPartyMemoryResult {
   deletedRecords: number;
@@ -24,100 +24,64 @@ export async function forgetPartyMemory(
   region: string,
   client: MemoryClient = createMemoryClient(region),
 ): Promise<ForgetPartyMemoryResult> {
-  const actorId = `home-${homeId}/party-${partyId}`;
-  const namespacePath = `/parties/${actorId}`;
-
-  const deletedRecords = await deleteAllMemoryRecords(
+  const result = await forgetActorMemory(
     client,
     memoryId,
-    namespacePath,
+    `home-${homeId}/party-${partyId}`,
   );
-  const deletedEvents = await deleteAllEvents(client, memoryId, actorId);
 
   const sql = sqlClient(database);
   await sql`
     insert into public.audit_events (home_id, actor, kind, payload)
     values (
       ${homeId}, 'host', 'memory_forgotten',
-      ${JSON.stringify({ partyId, deletedRecords, deletedEvents })}::text::jsonb
+      ${JSON.stringify({ partyId, ...result })}::text::jsonb
     )
   `;
 
-  return { deletedRecords, deletedEvents };
+  return result;
 }
 
 /**
- * Deletes every record under `namespacePath` (a prefix); returns the count.
- * Every page is listed before anything is deleted, so a next token that is
- * an offset cannot skip records that a deletion moved forward.
+ * Erases one actor's memory without an audit row: every record under
+ * `/parties/<actorId>` and every event in every session of the actor.
+ * Each list is read to the end before anything is deleted, so a next token
+ * that is an offset cannot skip items that a deletion moved forward.
  */
-export async function deleteAllMemoryRecords(
-  client: MemoryClient,
-  memoryId: string,
-  namespacePath: string,
-): Promise<number> {
-  const ids: string[] = [];
-  let nextToken: string | undefined;
-  do {
-    const page = await client.listMemoryRecords({
-      memoryId,
-      namespacePath,
-      nextToken,
-    });
-    ids.push(...page.items.map((record) => record.memoryRecordId));
-    nextToken = page.nextToken;
-  } while (nextToken);
-
-  let deleted = 0;
-  for (let start = 0; start < ids.length; start += 100) {
-    const batch = ids.slice(start, start + 100);
-    const result = await client.batchDeleteMemoryRecords({
-      memoryId,
-      memoryRecordIds: batch,
-    });
-    deleted += typeof result === "number" ? result : batch.length;
-  }
-  return deleted;
-}
-
-/**
- * Deletes every event in every session of `actorId`; returns the count.
- * Like `deleteAllMemoryRecords`, it lists everything before deleting.
- */
-export async function deleteAllEvents(
+export async function forgetActorMemory(
   client: MemoryClient,
   memoryId: string,
   actorId: string,
-): Promise<number> {
-  const sessionIds: string[] = [];
-  let sessionsToken: string | undefined;
-  do {
-    const sessions = await client.listSessions({
-      memoryId,
-      actorId,
-      nextToken: sessionsToken,
-    });
-    sessionIds.push(...sessions.items);
-    sessionsToken = sessions.nextToken;
-  } while (sessionsToken);
-
-  const events: { sessionId: string; eventId: string }[] = [];
-  for (const sessionId of sessionIds) {
-    let eventsToken: string | undefined;
-    do {
-      const page = await client.listEvents({
+): Promise<ForgetPartyMemoryResult> {
+  const recordIds = (
+    await listAllPages((nextToken) =>
+      client.listMemoryRecords({
         memoryId,
-        actorId,
-        sessionId,
-        nextToken: eventsToken,
-      });
-      events.push(...page.items.map((eventId) => ({ sessionId, eventId })));
-      eventsToken = page.nextToken;
-    } while (eventsToken);
+        namespacePath: `/parties/${actorId}`,
+        nextToken,
+      }),
+    )
+  ).map((record) => record.memoryRecordId);
+  for (let start = 0; start < recordIds.length; start += 100) {
+    await client.batchDeleteMemoryRecords({
+      memoryId,
+      memoryRecordIds: recordIds.slice(start, start + 100),
+    });
   }
 
+  const sessionIds = await listAllPages((nextToken) =>
+    client.listSessions({ memoryId, actorId, nextToken }),
+  );
+  const events: { sessionId: string; eventId: string }[] = [];
+  for (const sessionId of sessionIds) {
+    const eventIds = await listAllPages((nextToken) =>
+      client.listEvents({ memoryId, actorId, sessionId, nextToken }),
+    );
+    events.push(...eventIds.map((eventId) => ({ sessionId, eventId })));
+  }
   for (const { sessionId, eventId } of events) {
     await client.deleteEvent({ memoryId, actorId, sessionId, eventId });
   }
-  return events.length;
+
+  return { deletedRecords: recordIds.length, deletedEvents: events.length };
 }

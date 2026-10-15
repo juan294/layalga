@@ -50,14 +50,11 @@ export interface MemoryClient {
     namespacePath: string;
     nextToken?: string;
   }): Promise<Page<MemoryRecordItem>>;
-  /**
-   * Resolves to the number of records deleted (a fake may resolve to
-   * nothing, which counts the whole batch); rejects when any record fails.
-   */
+  /** Rejects when any record of the batch fails to delete. */
   batchDeleteMemoryRecords(input: {
     memoryId: string;
     memoryRecordIds: readonly string[];
-  }): Promise<number | void>;
+  }): Promise<void>;
   listSessions(input: {
     memoryId: string;
     actorId: string;
@@ -86,6 +83,20 @@ export interface MemoryInventoryClient extends MemoryClient {
     memoryId: string;
     nextToken?: string;
   }): Promise<Page<string>>;
+}
+
+/** Follows `nextToken` from the first page to the last and returns every item. */
+export async function listAllPages<T>(
+  fetchPage: (nextToken?: string) => Promise<Page<T>>,
+): Promise<T[]> {
+  const items: T[] = [];
+  let nextToken: string | undefined;
+  do {
+    const page = await fetchPage(nextToken);
+    items.push(...page.items);
+    nextToken = page.nextToken;
+  } while (nextToken);
+  return items;
 }
 
 /** AgentCore's own page size ceiling; also the `BatchDeleteMemoryRecords` batch limit. */
@@ -141,7 +152,7 @@ export function createMemoryClient(region: string): MemoryInventoryClient {
       };
     },
     async batchDeleteMemoryRecords({ memoryId, memoryRecordIds }) {
-      if (memoryRecordIds.length === 0) return 0;
+      if (memoryRecordIds.length === 0) return;
       const response = await client.send(
         new BatchDeleteMemoryRecordsCommand({
           memoryId,
@@ -157,7 +168,6 @@ export function createMemoryClient(region: string): MemoryInventoryClient {
           `BatchDeleteMemoryRecords failed for ${failed} of ${memoryRecordIds.length} record(s)`,
         );
       }
-      return response.successfulRecords?.length ?? memoryRecordIds.length;
     },
     async listActors({ memoryId, nextToken }) {
       const response = await client.send(

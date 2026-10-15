@@ -53,6 +53,9 @@ describe("forget-orphaned-memory script", () => {
   it("accepts only --apply", () => {
     expect(parseForgetOrphansArguments([])).toEqual({ apply: false });
     expect(parseForgetOrphansArguments(["--apply"])).toEqual({ apply: true });
+    expect(parseForgetOrphansArguments(["--", "--apply"])).toEqual({
+      apply: true,
+    });
     expect(() => parseForgetOrphansArguments(["--force"])).toThrow(
       "Unknown argument: --force",
     );

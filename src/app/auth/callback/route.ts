@@ -1,3 +1,4 @@
+import { hasLocale } from "next-intl";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { routing } from "@/i18n/routing";
@@ -20,31 +21,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        const redirectTo = (path: string) =>
+          clearOAuthNextCookie(
+            NextResponse.redirect(new URL(path, request.url)),
+          );
         const guestToken = guestTokenFromPath(next);
-        if (guestToken && (await claimPartyForUser(guestToken, user.id))) {
-          return clearOAuthNextCookie(
-            NextResponse.redirect(new URL(next, request.url)),
-          );
-        }
-        if (guestAccountPath(next) && (await hasPartyForUser(user.id))) {
-          return clearOAuthNextCookie(
-            NextResponse.redirect(new URL(next, request.url)),
-          );
-        }
-        if (!guestToken && !guestAccountPath(next)) {
-          if (await claimHostForUser(user)) {
-            return clearOAuthNextCookie(
-              NextResponse.redirect(new URL(next, request.url)),
-            );
+        if (guestToken) {
+          if (await claimPartyForUser(guestToken, user.id)) {
+            return redirectTo(next);
           }
-          // An invited guest who claimed an invitation earlier can sign in
-          // from the main page; their visits page is their home.
+        } else {
+          if (!guestAccountPath(next) && (await claimHostForUser(user))) {
+            return redirectTo(next);
+          }
+          // A guest who claimed an invitation earlier signs in from any
+          // page except an invitation link; their visits page is their home.
           if (await hasPartyForUser(user.id)) {
-            return clearOAuthNextCookie(
-              NextResponse.redirect(
-                new URL(`/${localeOf(next)}/visits`, request.url),
-              ),
-            );
+            return redirectTo(`/${localeOf(next)}/visits`);
           }
         }
       }
@@ -86,7 +79,5 @@ function signInRedirect(
 
 function localeOf(next: string): string {
   const locale = next.split("/")[1];
-  return routing.locales.includes(locale as "en" | "es")
-    ? locale
-    : routing.defaultLocale;
+  return hasLocale(routing.locales, locale) ? locale : routing.defaultLocale;
 }

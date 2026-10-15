@@ -27,7 +27,8 @@ export function parseForgetOrphansArguments(argv: readonly string[]): {
   apply: boolean;
 } {
   for (const argument of argv) {
-    if (argument !== "--apply") {
+    // pnpm passes the `--` separator through to the script.
+    if (argument !== "--" && argument !== "--apply") {
       throw new Error(`Unknown argument: ${argument}`);
     }
   }

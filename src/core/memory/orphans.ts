@@ -2,8 +2,8 @@ import "@/core/server-only";
 
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 
-import type { MemoryInventoryClient } from "./client";
-import { deleteAllEvents, deleteAllMemoryRecords } from "./forget";
+import { listAllPages, type MemoryInventoryClient } from "./client";
+import { forgetActorMemory } from "./forget";
 
 /** The one real household, converted from the demo home during the real-use launch. */
 export const REAL_HOUSEHOLD_HOME_ID = "00000000-0000-4000-8000-000000000001";
@@ -59,40 +59,35 @@ export async function findOrphanedMemoryActors(
   client: MemoryInventoryClient,
   { requireRealHousehold = false }: { requireRealHousehold?: boolean } = {},
 ): Promise<OrphanedMemoryInventory> {
-  const actorIds = new Set<string>();
+  /** Party actor id -> its home id, for every well-formed actor seen. */
+  const actorHomes = new Map<string, string>();
+  const addActor = (actorId: string): boolean => {
+    const homeId = ACTOR_ID.exec(actorId)?.[1];
+    if (homeId) actorHomes.set(actorId, homeId);
+    return Boolean(homeId);
+  };
 
-  let actorsToken: string | undefined;
-  do {
-    const page = await client.listActors({ memoryId, nextToken: actorsToken });
-    for (const actorId of page.items) {
-      if (ACTOR_ID.test(actorId)) actorIds.add(actorId);
-    }
-    actorsToken = page.nextToken;
-  } while (actorsToken);
+  const actors = await listAllPages((nextToken) =>
+    client.listActors({ memoryId, nextToken }),
+  );
+  for (const actorId of actors) addActor(actorId);
 
-  let recordsSeen = 0;
-  let unparsedRecords = 0;
-  let recordsToken: string | undefined;
-  do {
-    const page = await client.listMemoryRecords({
+  const records = await listAllPages((nextToken) =>
+    client.listMemoryRecords({
       memoryId,
       namespacePath: "/parties",
-      nextToken: recordsToken,
-    });
-    for (const record of page.items) {
-      recordsSeen += 1;
-      let parsed = false;
-      for (const namespace of record.namespaces ?? []) {
-        const actorId = PARTY_NAMESPACE.exec(namespace)?.[1];
-        if (actorId) {
-          actorIds.add(actorId);
-          parsed = true;
-        }
-      }
-      if (!parsed) unparsedRecords += 1;
+      nextToken,
+    }),
+  );
+  let unparsedRecords = 0;
+  for (const record of records) {
+    let attributed = false;
+    for (const namespace of record.namespaces ?? []) {
+      const actorId = PARTY_NAMESPACE.exec(namespace)?.[1];
+      if (actorId && addActor(actorId)) attributed = true;
     }
-    recordsToken = page.nextToken;
-  } while (recordsToken);
+    if (!attributed) unparsedRecords += 1;
+  }
 
   // No array parameter: postgres.js has mis-serialized one on a fresh
   // connection's first query, so the home ids are filtered here instead.
@@ -113,12 +108,12 @@ export async function findOrphanedMemoryActors(
   }
 
   return {
-    orphans: [...actorIds]
-      .sort()
-      .map((actorId) => ({ actorId, homeId: ACTOR_ID.exec(actorId)![1]! }))
-      .filter(({ homeId }) => !existingHomeIds.has(homeId)),
+    orphans: [...actorHomes]
+      .filter(([, homeId]) => !existingHomeIds.has(homeId))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([actorId, homeId]) => ({ actorId, homeId })),
     homesRead: existingHomeIds.size,
-    recordsSeen,
+    recordsSeen: records.length,
     unparsedRecords,
   };
 }
@@ -146,12 +141,9 @@ export async function forgetOrphanedMemory(
   let deletedEvents = 0;
   if (apply) {
     for (const { actorId } of orphans) {
-      deletedRecords += await deleteAllMemoryRecords(
-        client,
-        memoryId,
-        `/parties/${actorId}`,
-      );
-      deletedEvents += await deleteAllEvents(client, memoryId, actorId);
+      const forgotten = await forgetActorMemory(client, memoryId, actorId);
+      deletedRecords += forgotten.deletedRecords;
+      deletedEvents += forgotten.deletedEvents;
     }
   }
   return {

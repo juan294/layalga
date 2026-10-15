@@ -109,34 +109,6 @@ describe("AgentCore memory client adapter", () => {
     });
   });
 
-  it("returns how many records a batch deleted", async () => {
-    mocks.send.mockResolvedValueOnce({
-      successfulRecords: [
-        { memoryRecordId: "record-1", status: "SUCCEEDED" },
-        { memoryRecordId: "record-2", status: "SUCCEEDED" },
-      ],
-      failedRecords: [],
-    });
-
-    await expect(
-      createMemoryClient("us-east-1").batchDeleteMemoryRecords({
-        memoryId: "memory-1",
-        memoryRecordIds: ["record-1", "record-2"],
-      }),
-    ).resolves.toBe(2);
-  });
-
-  it("counts the whole batch when a clean response omits the successes", async () => {
-    mocks.send.mockResolvedValueOnce({ failedRecords: [] });
-
-    await expect(
-      createMemoryClient("us-east-1").batchDeleteMemoryRecords({
-        memoryId: "memory-1",
-        memoryRecordIds: ["record-1", "record-2"],
-      }),
-    ).resolves.toBe(2);
-  });
-
   it("throws with only the failure count when a batch partly fails", async () => {
     mocks.send.mockResolvedValueOnce({
       successfulRecords: [{ memoryRecordId: "record-1", status: "SUCCEEDED" }],

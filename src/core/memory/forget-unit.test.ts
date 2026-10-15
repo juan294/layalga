@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DatabaseClient } from "@/core/db/client";
 import type { MemoryClient, Page } from "./client";
-import {
-  deleteAllEvents,
-  deleteAllMemoryRecords,
-  forgetPartyMemory,
-} from "./forget";
+import { forgetActorMemory, forgetPartyMemory } from "./forget";
 
 /** Pages two at a time with an offset token, which a deletion shifts. */
 function offsetPage<T>(items: T[], nextToken?: string): Page<T> {
@@ -56,33 +52,19 @@ function shrinkingMemory() {
   return { client, records, sessions };
 }
 
-describe("shared forget helpers", () => {
-  it("collects every record before deleting, so offset tokens skip nothing", async () => {
+describe("forgetActorMemory", () => {
+  it("lists everything before deleting, so offset tokens skip nothing", async () => {
     const memory = shrinkingMemory();
 
     await expect(
-      deleteAllMemoryRecords(memory.client, "memory-1", "/parties/actor-1"),
-    ).resolves.toBe(5);
+      forgetActorMemory(memory.client, "memory-1", "actor-1"),
+    ).resolves.toEqual({ deletedRecords: 5, deletedEvents: 6 });
     expect(memory.records).toEqual([]);
-    expect(memory.client.batchDeleteMemoryRecords).toHaveBeenCalledTimes(1);
-  });
-
-  it("collects every session's events before deleting, so offset tokens skip nothing", async () => {
-    const memory = shrinkingMemory();
-
-    await expect(
-      deleteAllEvents(memory.client, "memory-1", "actor-1"),
-    ).resolves.toBe(6);
     expect(memory.sessions).toEqual({ s1: [], s2: [], s3: [] });
-  });
-
-  it("counts the records a batch reports as deleted", async () => {
-    const memory = shrinkingMemory();
-    vi.mocked(memory.client.batchDeleteMemoryRecords).mockResolvedValue(3);
-
-    await expect(
-      deleteAllMemoryRecords(memory.client, "memory-1", "/parties/actor-1"),
-    ).resolves.toBe(3);
+    expect(memory.client.batchDeleteMemoryRecords).toHaveBeenCalledTimes(1);
+    expect(memory.client.listMemoryRecords).toHaveBeenCalledWith(
+      expect.objectContaining({ namespacePath: "/parties/actor-1" }),
+    );
   });
 });
 
@@ -102,7 +84,10 @@ describe("forgetPartyMemory", () => {
       batchDeleteMemoryRecords: vi.fn().mockResolvedValue(undefined),
       listSessions: vi
         .fn()
-        .mockResolvedValueOnce({ items: ["session-1", "session-2"], nextToken: "sessions-next" })
+        .mockResolvedValueOnce({
+          items: ["session-1", "session-2"],
+          nextToken: "sessions-next",
+        })
         .mockResolvedValueOnce({ items: [] }),
       listEvents: vi
         .fn()
