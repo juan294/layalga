@@ -40,10 +40,6 @@
     "otono": "autumn",
     "invierno": "winter"
   },
-  "DemoHost": {
-    "enterAsHost": "Enter as Host",
-    "enterAsGuest": "Enter as Guest"
-  },
   "Host": {
     "eyebrow": "Household guest ledger",
     "title": "Guest stays",
@@ -128,24 +124,6 @@
         "inactive": "Inactive",
         "draft": "Draft"
       }
-    },
-    "demo": {
-      "banner": "Synthetic demo data",
-      "eyebrow": "Demo clock",
-      "title": "Move the household clock",
-      "description": "Advance the demo clock to test follow-ups and escalations.",
-      "current": "Current demo time",
-      "chase": "Advance to next guest reminder",
-      "escalation": "Advance to next host follow-up",
-      "custom": "Custom date and time",
-      "set": "Set clock",
-      "working": "Setting clock…",
-      "notLive": "Time changes are simulated and affect demo data only.",
-      "error": "The demo clock could not be updated.",
-      "noEligible": "No current visit needs this reminder step.",
-      "alreadyDue": "This step was already due. Check the visit outcomes for its current status.",
-      "advanced": "The demo clock advanced. Check the visit outcomes for the result.",
-      "backward": "The clock cannot move backwards. Reset the demo to start again."
     },
     "calendar": {
       "eyebrow": "Month at a glance",
@@ -289,9 +267,6 @@
     "settings": {
       "eyebrow": "Rules & notifications",
       "title": "Settings"
-    },
-    "demoZone": {
-      "tag": "Demo tooling"
     }
   },
   "Guest": {
@@ -522,7 +497,6 @@
       "queued": "Reminder waiting to send",
       "sent": "Accepted by email service",
       "failed": "Email could not be sent",
-      "demo": "Synthetic demo: in-app reminder only",
       "unknown": "Email outcome unknown — review before retrying",
       "unavailable_access": "Invitation access unavailable — review the guest link"
     }
@@ -537,7 +511,6 @@
     "verifySend": "Send verification email",
     "pending": "Saving…",
     "disable": "Turn off reminders",
-    "demo": "This is a synthetic demo. No guest emails are sent.",
     "unverified": "Check your email, then open the verification link and confirm. Reminders stay off until you verify.",
     "enabled": "Reminders are enabled for {email}.",
     "disabled": "Email reminders are off.",
@@ -579,35 +552,5 @@
       "escalated": "Contact the guest to check their plans. Email status is separate from a reply.",
       "arrived": "Check the visit details and confirm arrival with your guests."
     }
-  },
-  "GuidedDemo": {
-    "title": "Try the household coordinator",
-    "intro": "Two independent scenarios use synthetic families and the real booking process. Try the routine visit first, then the request that needs a host.",
-    "sharedReset": "Each scenario starts from the same clean synthetic household. Demo activity is isolated from real household data.",
-    "vegaTitle": "1. Vega: a routine family visit",
-    "vegaBody": "Two adults and two children fit the two open rooms together. Keep both rooms selected and submit to see the booking outcome.",
-    "oteroTitle": "2. Parker: a request for the hosts",
-    "oteroBody": "Start afresh with two adults, a dog and a captured ground-floor access request. Select the Garage Room, submit, then review the request as a host. A floor label does not establish accessibility.",
-    "startVega": "Start Vega demo",
-    "startOtero": "Start Parker demo",
-    "starting": "Opening the guest demo…",
-    "resetFailed": "The demo could not be reset. It may be busy or your host session may have expired. Try again, or enter again from the sign-in page.",
-    "entryFailed": "The demo was reset, but the guest could not be opened. Try starting again from here.",
-    "followTitle": "Then see the follow-through",
-    "followBody": "After a visit is confirmed, advance to its next reminder below. Return as that guest to reconfirm, or leave it unanswered and advance to the next host follow-up. If no current visit needs that step, the clock stays where it is.",
-    "returnGuest": "Return to the current demo guest",
-    "entry": "Demo sign-in",
-    "synthetic": "Shared synthetic demo · no guest emails are sent"
-  },
-  "DemoGuestGuide": {
-    "title": "Your part in this synthetic demo",
-    "vega": "Vega: two adults and two children. Search the suggested dates, keep both open rooms selected, and submit. Their combined standard capacity fits all four guests.",
-    "otero": "Parker: two adults and a dog, with an explicit access request already captured. Search the suggested dates, choose the ground-floor Garage Room, and submit. The hosts must review the request before confirmation.",
-    "generic": "Search for dates, choose the exact rooms you want and submit. The resulting visit or request shows what happens next.",
-    "access": "Ground floor does not guarantee step-free or wheelchair access. This scenario asks the hosts to review the need; it does not establish that the room is accessible.",
-    "pending": "If the request is waiting for approval, return to the host view and review the pending decision. Then reopen this guest to see the actual result.",
-    "follow": "After confirmation, return as host and advance to the next reminder. Return here to answer before escalation, or leave it unanswered to try escalation. Once escalated, a host follows up with the guest.",
-    "host": "Return to the host view",
-    "shared": "This is shared synthetic data. Another person may reset the demo while you are using it. No guest email is sent."
   }
 }

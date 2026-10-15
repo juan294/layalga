@@ -3,42 +3,29 @@ import {
   clickAndWaitForPost,
   expectRunStatus,
 } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
+import {
+  findFixtureGuest,
+  VEGA_CAPTURE_MESSAGE,
+} from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
-const oterosToken = "o".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
 test.setTimeout(90_000);
 
-test.beforeEach(async ({ context, page }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
+test.beforeEach(async ({ context, household, page }) => {
+  await household.signIn(context);
   await page.goto("/en");
   await expect(page.getByTestId("host-capture-form")).toBeVisible();
 });
 
 test("captures an invitation and exposes its private guest link", async ({
+  household,
   page,
 }) => {
   await page
     .getByTestId("host-capture-message")
-    .fill(
-      "Oye, los Vega quieren venir a la casa un finde de septiembre, son Marta y Xuan con los dos crios.",
-    );
+    .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
@@ -53,9 +40,10 @@ test("captures an invitation and exposes its private guest link", async ({
 });
 
 test("a special request waits for a host and resumes after approval", async ({
+  household,
   page,
 }) => {
-  await page.goto(`/en/g/${oterosToken}`);
+  await page.goto(`/en/g/${findFixtureGuest(household, "The Parkers").token}`);
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
@@ -113,9 +101,7 @@ test("the Today overview links onward to the room ledger and visit calendar thro
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Room ledger",
   );
-  await expect(
-    page.getByRole("link", { name: "← Guest stays" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "← Guest stays" })).toBeVisible();
 });
 
 test("shows the room ledger with visible door states", async ({ page }) => {
@@ -183,4 +169,39 @@ test("puts decisions and current outcomes on the Today overview", async ({
   await expect(page.getByTestId("host-outcomes")).toContainText(
     "No upcoming visits yet",
   );
+});
+
+test.describe("an empty household", () => {
+  test.use({ householdOptions: { rooms: [], parties: [] } });
+
+  test("renders the dashboard and adds its first room", async ({
+    household,
+    page,
+  }) => {
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Guest stays",
+    );
+    await page.goto("/en/rooms");
+    const ledger = page.getByTestId("room-ledger");
+    await expect(ledger).toBeVisible();
+    await expect(ledger.locator("[data-door-state]")).toHaveCount(0);
+
+    const addRoom = ledger.locator("details", {
+      has: page.getByText("Add a room", { exact: true }),
+    });
+    await addRoom.locator("summary").click();
+    const form = addRoom.locator("form");
+    await form.locator('[name="name"]').fill("Attic room");
+    await form.locator('[name="guestLabel"]').fill("Attic");
+    await form.locator('[name="floorLabel"]').fill("Top floor");
+    await form.locator('[name="sleepingArrangement"]').fill("One double bed");
+    await form.locator('[name="inventoryState"]').selectOption("available");
+    await form.locator('button[type="submit"]').click();
+    await expect(ledger.locator("[data-door-state]")).toHaveCount(1);
+    const [rooms] = await household.db<{ count: number }[]>`
+      select count(*)::int as count from public.rooms
+      where home_id = ${household.homeId}
+    `;
+    expect(rooms?.count).toBe(1);
+  });
 });

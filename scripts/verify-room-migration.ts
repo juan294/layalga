@@ -26,8 +26,8 @@ async function seedLegacyFixture(): Promise<{
   try {
     return await sql.begin(async (transaction) => {
       const [home] = await transaction<{ id: string }[]>`
-        insert into public.homes (name, timezone, demo)
-        values (${`Legacy room migration ${suffix}`}, 'Europe/Madrid', false)
+        insert into public.homes (name, timezone)
+        values (${`Legacy room migration ${suffix}`}, 'Europe/Madrid')
         returning id
       `;
       if (!home) throw new Error("Failed to create the legacy home");

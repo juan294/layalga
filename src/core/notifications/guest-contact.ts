@@ -13,7 +13,7 @@ export interface GuestContactAuthority {
 }
 export interface GuestContactState {
   deliveryFailed?: boolean;
-  status: "demo" | "no_contact" | "unverified" | "enabled" | "disabled";
+  status: "no_contact" | "unverified" | "enabled" | "disabled";
   email: string | null;
 }
 export class GuestContactError extends Error {
@@ -37,7 +37,6 @@ export interface GuestContactRow {
   rate_count: number;
   link_token: string;
   link_token_expires_at: Date;
-  demo: boolean;
 }
 interface Capability {
   purpose: "verify" | "return";
@@ -140,10 +139,9 @@ export async function loadLiveGuestContact(
   now: Date,
 ): Promise<GuestContactRow | null> {
   const [row] = await sql<GuestContactRow[]>`
-    select contact.*,invitation.link_token,invitation.link_token_expires_at,home.demo
+    select contact.*,invitation.link_token,invitation.link_token_expires_at
     from public.guest_contacts contact
     join public.invitations invitation on invitation.id=contact.invitation_id and invitation.home_id=contact.home_id and invitation.party_id=contact.party_id
-    join public.homes home on home.id=contact.home_id
     where contact.id=${contactId} and invitation.status<>'cancelled'
       and invitation.link_token_revoked_at is null and invitation.link_token is not null
       and invitation.link_token_expires_at>${now.toISOString()}
@@ -162,7 +160,6 @@ async function contactForCapability(
   const row = await loadLiveGuestContact(sql, payload.contactId, now);
   if (
     !row ||
-    row.demo ||
     !row.consent ||
     row.generation !== payload.generation ||
     row.invitation_id !== payload.invitationId ||
@@ -181,15 +178,14 @@ async function assertAuthority(
 ) {
   if (lock)
     await sql`select pg_advisory_xact_lock(hashtextextended(${authority.homeId}::text, 0))`;
-  const [invitation] = await sql<{ demo: boolean }[]>`
-    select home.demo from public.invitations invitation join public.homes home on home.id=invitation.home_id
+  const [invitation] = await sql<{ id: string }[]>`
+    select invitation.id from public.invitations invitation
     where invitation.id=${authority.invitationId} and invitation.home_id=${authority.homeId} and invitation.party_id=${authority.partyId}
       and invitation.status<>'cancelled' and invitation.link_token_revoked_at is null
-      and (home.demo or (invitation.link_token is not null and invitation.link_token_expires_at>${now.toISOString()}))
+      and invitation.link_token is not null and invitation.link_token_expires_at>${now.toISOString()}
     ${lock ? sql`for update of invitation` : sql``}
   `;
   if (!invitation) throw new GuestContactError("unavailable");
-  return invitation;
 }
 function state(
   row: Pick<GuestContactRow, "email" | "consent" | "verified_at"> | undefined,
@@ -211,8 +207,7 @@ export async function loadGuestContact(
   clock: Clock = new SystemClock(),
 ): Promise<GuestContactState> {
   const sql = sqlClient(database);
-  const invitation = await assertAuthority(sql, authority, clock.now());
-  if (invitation.demo) return { status: "demo", email: null };
+  await assertAuthority(sql, authority, clock.now());
   const [row] = await sql<
     GuestContactRow[]
   >`select * from public.guest_contacts where invitation_id=${authority.invitationId} and home_id=${authority.homeId} and party_id=${authority.partyId}`;
@@ -241,8 +236,7 @@ export async function registerGuestContact(
   const value = parsed.data,
     now = clock.now();
   return sqlClient(database).begin(async (tx) => {
-    const invitation = await assertAuthority(tx, input, now, true);
-    if (invitation.demo) return { status: "demo" as const, email: null };
+    await assertAuthority(tx, input, now, true);
     tokenSecret(secret);
     const [prior] = await tx<
       GuestContactRow[]
@@ -279,8 +273,7 @@ export async function disableGuestContact(
 ): Promise<GuestContactState> {
   const now = clock.now();
   return sqlClient(database).begin(async (tx) => {
-    const invitation = await assertAuthority(tx, authority, now, true);
-    if (invitation.demo) return { status: "demo" as const, email: null };
+    await assertAuthority(tx, authority, now, true);
     const [row] = await tx<
       GuestContactRow[]
     >`update public.guest_contacts set consent=false,generation=generation+1,updated_at=${now.toISOString()} where invitation_id=${authority.invitationId} and home_id=${authority.homeId} and party_id=${authority.partyId} returning *`;

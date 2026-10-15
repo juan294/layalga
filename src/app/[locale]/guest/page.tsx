@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
 import { GuestShell } from "@/components/guest/guest-shell";
 import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
-import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
 import { graphite } from "@/components/host/host-styles";
 import { householdSeason } from "@/lib/season";
 import { guestVisitPresentation } from "@/components/guest/guest-visit-presentation";
@@ -52,19 +51,13 @@ export default async function GuestSessionPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const { defaults, demo, now, timeZone } = await loadGuestInvitationDefaults(
+  const { defaults, now, timeZone } = await loadGuestInvitationDefaults(
     invitation.homeId,
     invitation.structured,
   );
-  const showDemo = process.env.DEMO_MODE === "true" && demo;
 
   return (
     <GuestShell
-      demoGuide={
-        showDemo ? (
-          <DemoGuestGuide invitationId={invitation.id} locale={locale} />
-        ) : null
-      }
       locale={locale}
       managePanel={
         <>
@@ -107,7 +100,6 @@ export default async function GuestSessionPage({
         ) : null
       }
       season={householdSeason(now, timeZone)}
-      showDemo={showDemo}
       status={status}
       statusKey={statusKey}
       title={title}

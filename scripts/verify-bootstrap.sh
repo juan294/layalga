@@ -23,13 +23,15 @@ required_files=(
   src/app/[locale]/\(host\)/page.tsx
   src/app/api/health/route.ts
   .claude/settings.json
-  .claude/cc-rpi-sync.json
+  .rpi/manifest.json
+  .rpi/distribution.json
   .claude/hooks/guard-bash.sh
   .claude/hooks/verify-edit.sh
-  .claude/commands/brainstorm.md
-  .claude/commands/plan.md
-  .claude/commands/implement.md
-  .claude/commands/validate.md
+  .claude/skills/rpi-brainstorm/SKILL.md
+  .claude/skills/rpi-plan/SKILL.md
+  .claude/skills/rpi-implement/SKILL.md
+  .claude/skills/rpi-validate/SKILL.md
+  .agents/skills/rpi-plan/SKILL.md
   docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md
   docs/release/e2e-pro-playbook.md
 )
@@ -41,7 +43,9 @@ for file in "${required_files[@]}"; do
   fi
 done
 
-jq -e '.lastSyncCommit == "a423402540808c92292e0d7a6b4af80304594902" and .blueprintVersion == "v1.29.0"' .claude/cc-rpi-sync.json >/dev/null
+blueprint_version=$(jq -r '.version' .rpi/distribution.json)
+jq -e --arg version "$blueprint_version" \
+  '.installations | all(.[]; .source.version == $version)' .rpi/manifest.json >/dev/null
 jq -e '.hooks.PreToolUse and .hooks.PostToolUse and .permissions.allow' .claude/settings.json >/dev/null
 jq -e '.engines.node == "24.x" and .scripts.typecheck == "next typegen && tsc --noEmit" and .scripts.lint == "eslint ." and (.scripts.test | startswith("vitest run"))' package.json >/dev/null
 
@@ -58,7 +62,7 @@ fi
 bash -n .claude/hooks/guard-bash.sh
 bash -n .claude/hooks/verify-edit.sh
 
-if grep -R -n -E '\[PROJECT NAME\]|<path-to-your-cc-rpi-clone>|<cc-rpi-path>' CLAUDE.md AGENTS.md README.md docs/release .claude/commands; then
+if grep -R -n -E '\[PROJECT NAME\]|<path-to-your-cc-rpi-clone>|<cc-rpi-path>' CLAUDE.md AGENTS.md README.md docs/release; then
   printf 'BLOCKED: unresolved bootstrap placeholder found.\n' >&2
   exit 1
 fi

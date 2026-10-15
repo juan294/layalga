@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-These v1.3.11 documentation sources include durable review-access visibility, retain the safe run-summary presentation fix from v1.3.10, and retain broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
+The Mermaid sources were refreshed on 2026-10-15 for the real-use launch: the demo guide, demo clock and review-access ledger are gone. They retain the safe run-summary presentation fix from v1.3.10 and the broader behavior proven in production v1.3.2 at commit `90b68385`. The selected execution topology is AgentCore Runtime with the local runtime fallback. The product and guest-delivery schema are deployed; the guest SES IAM policy and real-recipient proof remain pending separately authorized operations. See [guest email readiness](../release/guest-email-readiness.md).
 
 `layalga-architecture.mmd` is the source. `mermaid-config.json` fixes the render settings. The committed SVG and PNG were generated with Mermaid CLI 11.12.0:
 
@@ -54,15 +54,15 @@ Hosts see decisions, capture and current visit outcomes before room administrati
 
 An unbooked invitation starts with a 30-day bearer lifetime. Confirmation and rescheduling preserve nonrevoked access through at least finite checkout plus seven days. Optional guest reminder contact requires explicit consent and either a server-verified Google address or account-free verification POST. Purpose-separated verification and return capabilities bind contact generation and the current invitation fingerprint; every return-session request checks live access. No original bearer is recovered to build email links.
 
-Guest delivery runs only in the web boundary. The final authorization records an attempt under the shared home lock after checking current contact, invitation, visit, job and prearrival state. SES runs outside that transaction. Accepted receipts remain truthful after later opt-out; unresolved authorized sends become unknown and are not blindly retried. In-app reminders and guest silence remain separate facts from provider acceptance. Synthetic homes never send guest email.
+Guest delivery runs only in the web boundary. The final authorization records an attempt under the shared home lock after checking current contact, invitation, visit, job and prearrival state. SES runs outside that transaction. Accepted receipts remain truthful after later opt-out; unresolved authorized sends become unknown and are not blindly retried. In-app reminders and guest silence remain separate facts from provider acceptance.
 
 Room search also reads the exact party memory namespace deterministically, bounded to three pages, 100 records and two seconds. Supported floor and bed preferences influence feasible recommendations after standard capacity and room count; the guest retains exact-room choice. Missing, off, conflicting or unusable memory falls back visibly. Ground-floor preference is not proof of accessibility.
 
-The shared demo starts fresh routine and exception scenarios explicitly. Semantic clock controls select persisted eligible chase or escalation jobs, respect current cycles and retries, never move backwards, and report no work honestly. Guest date defaults use the household clock and timezone. The public judging path uses bounded demo-session entry rather than advertised fixed bearer links.
+The application uses the system clock; guest date defaults use the household timezone. Hosts sign in only with Google through Supabase Auth, mapped to one host and home by `host_identity_claims`. Tests inject a `FakeClock` and build their own fixture households, and the release probes create and delete fixture households through the internal agent route and the tick route. The real-use launch removed the demo clock, the demo sessions and the guided demo.
 
 ## Real-house setup boundary
 
-The repository contains synthetic room fixtures only. A host adds real room facts through the authenticated room ledger. Incomplete inventory remains draft and unavailable. Real house plans, photographs, source paths, and private notes do not belong in the repository, prompts, guest output, WebMCP output, audit payloads, or calendar text.
+The repository contains synthetic room fixtures for development and tests only. A host adds real room facts through the authenticated room ledger. Incomplete inventory remains draft and unavailable. Real house plans, photographs, source paths, and private notes do not belong in the repository, prompts, guest output, WebMCP output, audit payloads, or calendar text.
 
 ## Draw.io diagram
 
@@ -97,7 +97,7 @@ export. Regenerate it with:
   docs/architecture/layalga-aws-blog-architecture.drawio
 ```
 
-**Source refreshed 2026-09-12 for the v1.3.10 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, the guided semantic demo, database-wall-time worker leases, and AgentCore invocations held open until execution settles. Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
+**Source refreshed 2026-09-12 for the v1.3.10 release.** The draw.io view includes consented guest delivery and return access, policy settings, cancellation, informational notes, scoped preference ranking, database-wall-time worker leases, and AgentCore invocations held open until execution settles. It also still shows the shared synthetic demo guide and its clock, which the real-use launch removed; the draw.io view needs a redraw for real use (the Mermaid sources are current). Its lower detail cards distinguish the deployed product from pending guest SES activation. EventBridge Scheduler remains a future item. The paired PNG embeds the diagram XML and must be regenerated after every native-source edit; current behavioral production proof comes from the v1.3.2 protected workflow rather than the export.
 
 ## Supporting diagrams
 

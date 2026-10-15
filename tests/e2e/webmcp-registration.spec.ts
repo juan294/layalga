@@ -1,40 +1,26 @@
 import { clickAndWaitForPost } from "./helpers/async-actions";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
-import { createDemoHostCookie } from "../../src/lib/auth/demo-session";
-
-const vegaToken = "v".repeat(43);
-const nelHostId = "00000000-0000-4000-8000-000000000201";
+import { fixtureStay } from "../../src/test-support/fixture-household";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
 test.beforeEach(async ({ page }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret) {
-    throw new Error("E2E database settings are missing");
-  }
-  await seedDemo(databaseUrl, tokenSecret);
   await installWebMcpTestDouble(page);
 });
 
 test("registers host WebMCP tools and prepares visible forms without a browser implementation", async ({
   context,
+  household,
   page,
 }) => {
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: "layalga_demo_host",
-      sameSite: "Lax",
-      url: "http://127.0.0.1:3008",
-      value: createDemoHostCookie(nelHostId),
-    },
-  ]);
+  await household.signIn(context);
   // The room-control WebMCP tools register on the Room ledger form, which
   // now lives at its own route -- see the hub-and-spoke host restructure.
   await page.goto("/en/rooms");
+  const [blockFrom, blockTo] = fixtureStay(new Date(), 7, 2);
 
   await expectRegisteredTools(page, [
     "layalga.host.prepare_private_block",
@@ -50,17 +36,15 @@ test("registers host WebMCP tools and prepares visible forms without a browser i
   const room = rooms.rooms[0];
   expect(room).toBeDefined();
   await executeWebMcpTool(page, "layalga.host.prepare_private_block", {
-    from: "2026-09-25",
-    to: "2026-09-27",
+    from: blockFrom,
+    to: blockTo,
     roomIds: [room!.id],
     publicLabel: "Prepared family room use",
   });
 
   const blockForm = page.locator("form[data-webmcp-host-block]");
-  await expect(blockForm.locator('input[name="from"]')).toHaveValue(
-    "2026-09-25",
-  );
-  await expect(blockForm.locator('input[name="to"]')).toHaveValue("2026-09-27");
+  await expect(blockForm.locator('input[name="from"]')).toHaveValue(blockFrom);
+  await expect(blockForm.locator('input[name="to"]')).toHaveValue(blockTo);
   await expect(blockForm.locator('input[name="publicLabel"]')).toHaveValue(
     "Prepared family room use",
   );
@@ -70,8 +54,8 @@ test("registers host WebMCP tools and prepares visible forms without a browser i
   await expect(page.getByText("Prepared family room use")).toHaveCount(0);
 
   await executeWebMcpTool(page, "layalga.host.prepare_room_control", {
-    from: "2026-09-25",
-    to: "2026-09-27",
+    from: blockFrom,
+    to: blockTo,
     roomId: room!.id,
     action: "close",
   });
@@ -83,16 +67,20 @@ test("registers host WebMCP tools and prepares visible forms without a browser i
     "close",
   );
   await expect(controlForm.locator('input[name="from"]')).toHaveValue(
-    "2026-09-25",
+    blockFrom,
   );
-  await expect(controlForm.locator('input[name="to"]')).toHaveValue(
-    "2026-09-27",
-  );
+  await expect(controlForm.locator('input[name="to"]')).toHaveValue(blockTo);
 });
 
 test("registers guest WebMCP tools and prepares an exact visible room choice", async ({
+  household,
   page,
 }) => {
+  const { token: vegaToken, preferredStay } = findFixtureGuest(
+    household,
+    "Familia Vega",
+  );
+  const [from, to] = preferredStay;
   await page.goto(`/en/g/${vegaToken}`);
 
   await expectRegisteredTools(page, [
@@ -101,16 +89,16 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
     "layalga.guest.read_room_options",
   ]);
   await executeWebMcpTool(page, "layalga.guest.prepare_search", {
-    from: "2026-09-18",
-    to: "2026-09-21",
+    from,
+    to,
     nights: 3,
     adults: 2,
     children: 2,
     pets: 0,
   });
   const search = page.locator("form[data-webmcp-guest-search]");
-  await expect(search.locator('input[name="from"]')).toHaveValue("2026-09-18");
-  await expect(search.locator('input[name="to"]')).toHaveValue("2026-09-21");
+  await expect(search.locator('input[name="from"]')).toHaveValue(from);
+  await expect(search.locator('input[name="to"]')).toHaveValue(to);
   await expect(search.locator('input[name="children"]')).toHaveValue("2");
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
     "data-status",

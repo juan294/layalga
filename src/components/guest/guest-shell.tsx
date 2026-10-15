@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
-import { DemoZone } from "@/components/host/demo-zone";
 import { TodayHero } from "@/components/host/today-hero";
 import {
   headingStyle,
@@ -10,8 +9,6 @@ import {
   panelStyle,
   paper,
   sectionGridStyle,
-  sheet,
-  teal,
 } from "@/components/host/host-styles";
 import type { Season } from "@/lib/season";
 
@@ -23,26 +20,10 @@ const shellStyle: CSSProperties = {
   padding: "clamp(1rem, 4vw, 4rem)",
 };
 
-const demoBandStyle: CSSProperties = {
-  alignItems: "center",
-  background: teal,
-  color: sheet,
-  display: "flex",
-  flexWrap: "wrap",
-  fontFamily: "var(--font-jetbrains-mono, ui-monospace, monospace)",
-  fontSize: "0.75rem",
-  fontWeight: 750,
-  justifyContent: "space-between",
-  letterSpacing: "0.1em",
-  marginBottom: "1rem",
-  padding: "0.65rem 0.9rem",
-  textTransform: "uppercase",
-};
-
 /**
  * Shared shell for the two signed-in guest routes (session-based /guest and
- * token-based /g/[token]): the same seasonal hero, panel grid and demo
- * containment the host Today overview uses, so the two views read as the
+ * token-based /g/[token]): the same seasonal hero and panel grid the host
+ * Today overview uses, so the two views read as the
  * same product. See docs handoff "Signed-in shell unification".
  */
 export async function GuestShell({
@@ -52,10 +33,8 @@ export async function GuestShell({
   title,
   partyName,
   season,
-  showDemo,
   primaryPanel,
   managePanel,
-  demoGuide,
 }: {
   locale: "en" | "es";
   status: string;
@@ -63,24 +42,14 @@ export async function GuestShell({
   title: string;
   partyName: string;
   season: Season;
-  showDemo: boolean;
   primaryPanel: ReactNode;
   managePanel: ReactNode;
-  demoGuide: ReactNode;
 }) {
   const t = await getTranslations({ locale, namespace: "Guest" });
-  const tHost = await getTranslations({ locale, namespace: "Host" });
 
   return (
     <main style={shellStyle}>
       <div style={{ margin: "0 auto", maxWidth: "92rem" }}>
-        {showDemo ? (
-          <aside style={demoBandStyle}>
-            <span>{tHost("demo.banner")}</span>
-            <span>{tHost("demo.notLive")}</span>
-          </aside>
-        ) : null}
-
         <article data-status={status} data-testid="guest-status">
           <TodayHero
             eyebrow={t("eyebrow")}
@@ -101,9 +70,6 @@ export async function GuestShell({
             </section>
           </div>
 
-          {showDemo && demoGuide ? (
-            <DemoZone tag={tHost("demoZone.tag")}>{demoGuide}</DemoZone>
-          ) : null}
         </article>
       </div>
     </main>

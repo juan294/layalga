@@ -18,7 +18,7 @@ afterAll(async () => {
 afterEach(() => vi.unstubAllEnvs());
 
 it.each(["expired", "live", "private"] as const)(
-  "guest search respects household-clock %s occupancy",
+  "guest search respects %s occupancy at the current time",
   async (scenario) => {
     vi.stubEnv("MEMORY", "none");
     const homeId = randomUUID(),
@@ -37,17 +37,13 @@ it.each(["expired", "live", "private"] as const)(
       .toISOString()
       .slice(0, 10);
     try {
-      await db`insert into public.homes(id,name,timezone,demo) values(${homeId},'Guest clock regression','Europe/Madrid',true)`;
+      await db`insert into public.homes(id,name,timezone) values(${homeId},${`Guest clock regression ${homeId}`},'Europe/Madrid')`;
       await db`insert into public.hosts(id,home_id,display_name,locale) values(${hostId},${homeId},'Host','en')`;
       await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Guest','en'),(${otherPartyId},${homeId},'Other guest','en')`;
       await db`insert into public.invitations(id,home_id,host_id,party_id,raw_message) values(${invitationId},${homeId},${hostId},${partyId},'Visit'),(${otherInvitationId},${homeId},${hostId},${otherPartyId},'Other visit')`;
       await db`insert into public.rooms(id,home_id,name,beds,guest_label,floor_label,sleeping_arrangement,maximum_capacity,inventory_state) values(${roomId},${homeId},'Room',2,'Room','Ground floor','Double bed',2,'available')`;
-      await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,pets,status,hold_expires_at) values(${visitId},${homeId},${otherPartyId},${otherInvitationId},daterange(${from}::date,${to}::date,'[)'),2,1,'hold',${new Date(now.getTime() + 30 * 60_000).toISOString()})`;
+      await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,pets,status,hold_expires_at) values(${visitId},${homeId},${otherPartyId},${otherInvitationId},daterange(${from}::date,${to}::date,'[)'),2,1,'hold',${new Date(now.getTime() + (scenario === "expired" ? -30 : 30) * 60_000).toISOString()})`;
       await db`insert into public.visit_rooms(home_id,room_id,visit_id,stay) values(${homeId},${roomId},${visitId},daterange(${from}::date,${to}::date,'[)'))`;
-      await db`insert into public.demo_clock(home_id,now,enabled) values(${homeId},${new Date(now.getTime() + 60 * 60_000).toISOString()},true)`;
-      if (scenario === "live") {
-        await db`update public.homes set demo=false where id=${homeId}`;
-      }
       if (scenario === "private") {
         const blockId = randomUUID();
         await db`delete from public.visit_rooms where visit_id=${visitId}`;

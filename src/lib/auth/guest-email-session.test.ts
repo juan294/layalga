@@ -18,10 +18,9 @@ import {
   GUEST_EMAIL_COOKIE,
   setGuestEmailSession,
 } from "./guest-email-session";
-import { DEMO_GUEST_COOKIE } from "./demo-session";
 describe("guest email session exchange", () => {
   beforeEach(() => vi.clearAllMocks());
-  it("stores only the validated capability until its original expiry and clears demo identity", async () => {
+  it("stores only the validated capability until its original expiry", async () => {
     const authority = {
       invitationId: "invitation",
       homeId: "home",
@@ -41,7 +40,7 @@ describe("guest email session exchange", () => {
         expires: new Date(authority.expiresAt),
       }),
     );
-    expect(mocks.remove).toHaveBeenCalledWith(DEMO_GUEST_COOKIE);
+    expect(mocks.remove).not.toHaveBeenCalled();
   });
   it("cannot turn an expired or revoked capability into a session", async () => {
     mocks.resolve.mockResolvedValue(null);

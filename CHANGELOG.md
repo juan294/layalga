@@ -4,6 +4,31 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-15
+
+Real-use launch, release 1 (expand): phases 1 to 4 of the [plan](docs/plans/2026-10-15-real-use-launch.md). The hackathon judging period closed on 2026-10-14. The demo schema stays in the database until release 2 drops it.
+
+### Added
+
+- A shared fixture household builder for browser tests and release probes, and `signInAsHost`, which signs a fixture host in through real local Supabase Auth and refuses any non-local Supabase URL.
+- A conversion migration that turns home `00000000-0000-4000-8000-000000000001` into the real household: it sets `demo = false`, deletes the synthetic parties, invitations, rooms and demo clock row, and keeps both hosts and their identity claims.
+- `release:probes --target local|production`, `--cleanup-only <run id>`, and `PAUSED` or `BLOCKED` failure states. Every probe now runs on two fixture households that the probe creates and deletes.
+- The hackathon archive, `docs/archive/hackathon/`, with a README that marks it as a record of the judged demo.
+
+### Changed
+
+- Google is the only sign-in. Hosts are admitted only through `host_identity_claims` rows.
+- The scripted model is test-only. Production refuses `MODEL=scripted`, and the AgentCore bundle build fails if the scripted model is included.
+- The `Production probes` workflow takes the acknowledgement `WRITE PROBE FIXTURE`, runs six probes on fixture households through the internal agent route, and no longer installs a browser.
+- The local seed is a small development household without demo data.
+- The README, `CLAUDE.md`, `AGENTS.md`, user manuals, release playbook, runbooks, data lifecycle and roadmap describe real household use.
+
+### Removed
+
+- Demo mode: `DEMO_MODE`, the demo host and guest sessions and the "Enter as" sign-in, the demo API routes, the demo clock, the guided demo and the synthetic data banners.
+- The review-access ledger code and `pnpm review:access`. The ledger table stays until the second real-use release drops the demo schema.
+- The `demo:e2e` driver and the coordination benchmark, which drove the guided demo.
+
 ## [1.3.11] - 2026-09-14
 
 ### Added

@@ -17,10 +17,10 @@ export default async function HostRoomsPage({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const { host, locale: safeLocale, timeZone, demoNow } = await loadHostContext(locale);
+  const { host, locale: safeLocale, timeZone } = await loadHostContext(locale);
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const window = calendarMonthWindow(
-    householdMonth(demoNow ?? undefined, undefined, timeZone),
+    householdMonth(timeZone),
   );
   const roomData = await loadHostRoomLedger(getDatabaseConnection().db, host.homeId, [
     window.from,

@@ -3,7 +3,6 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { getDatabaseConnection } from "@/core/db/client";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -25,7 +24,6 @@ export default async function SignInPage({
 
   const t = await getTranslations({ locale, namespace: "SignIn" });
   const brandT = await getTranslations({ locale, namespace: "Brand" });
-  const demoT = await getTranslations({ locale, namespace: "DemoHost" });
   const { error } = await searchParams;
   const callbackError =
     error === "not_a_host"
@@ -33,34 +31,6 @@ export default async function SignInPage({
       : error
         ? t("callbackError")
         : null;
-  const demoMode = process.env.DEMO_MODE === "true";
-  const demoHost = demoMode
-    ? (
-        await getDatabaseConnection().sql<{ id: string }[]>`
-          select host.id
-          from public.hosts as host
-          join public.homes as home on home.id = host.home_id
-          where home.demo = true
-          order by host.created_at, host.id
-          limit 1
-        `
-      )[0]
-    : undefined;
-  const demoGuestInvitation =
-    demoMode && demoHost
-      ? (
-          await getDatabaseConnection().sql<{ invitation_id: string }[]>`
-            select invitation.id as invitation_id
-            from public.invitations as invitation
-            join public.homes as home on home.id = invitation.home_id
-            where home.demo = true
-              and invitation.status <> 'cancelled'
-              and invitation.host_id <> ${demoHost.id}
-            order by invitation.created_at, invitation.id
-            limit 1
-          `
-        )[0]
-      : undefined;
 
   return (
     <main className="postcard">
@@ -79,35 +49,7 @@ export default async function SignInPage({
         <h1 id="sign-in-title">{t("title")}</h1>
         <p className="postcard__lead">{t("description")}</p>
         <div className="postcard__actions">
-          {!demoMode ? <SignInButton locale={locale} /> : null}
-          {demoHost ? (
-            <form action={`/${locale}/demo-enter`} method="post">
-              <input name="hostId" type="hidden" value={demoHost.id} />
-              <button
-                className="postcard__button postcard__button--secondary"
-                data-testid="demo-enter-host"
-                type="submit"
-              >
-                {demoT("enterAsHost")}
-              </button>
-            </form>
-          ) : null}
-          {demoGuestInvitation ? (
-            <form action={`/${locale}/demo-enter-guest`} method="post">
-              <input
-                name="invitationId"
-                type="hidden"
-                value={demoGuestInvitation.invitation_id}
-              />
-              <button
-                className="postcard__button postcard__button--secondary"
-                data-testid="demo-enter-guest"
-                type="submit"
-              >
-                {demoT("enterAsGuest")}
-              </button>
-            </form>
-          ) : null}
+          <SignInButton locale={locale} />
           {callbackError ? (
             <p className="postcard__error" role="alert">
               {callbackError}

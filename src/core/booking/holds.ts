@@ -391,13 +391,6 @@ export async function expireTemporaryHolds(
     where status = 'hold'
       and hold_expires_at <= ${clock.now().toISOString()}
       and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
-      and (
-        ${homeId ?? null}::uuid is not null
-        or exists (
-          select 1 from public.homes
-          where homes.id = visits.home_id and homes.demo = false
-        )
-      )
     order by home_id
   `;
   let expired = 0;

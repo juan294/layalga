@@ -1,8 +1,8 @@
 import { withdrawInvitation, type CancellationInput } from "./cancellation";
 import { requestsCancellationReview } from "./cancellation-intent";
 import { getAgentClient } from "@/agent/client";
-import { schedulerForHome } from "@/agent/scheduler";
-import { DbDemoClock } from "@/core/clock";
+import { configuredScheduler } from "@/agent/scheduler";
+import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
@@ -87,7 +87,7 @@ export async function findGuestOptionsForAuthority(
   memoryOptions?: { client?: MemoryClient },
 ): Promise<GuestOptionState> {
   const connection = getDatabaseConnection();
-  const clock = await DbDemoClock.load(authority.homeId, connection.db);
+  const clock = new SystemClock();
   const broadDraft = {
     stay: [input.from, input.to] as const,
     adults: input.adults,
@@ -241,16 +241,10 @@ export async function reconfirmGuestCore(
 ): Promise<boolean> {
   if (!invitation.visit) return false;
 
-  const connection = getDatabaseConnection();
-  const [home] = await connection.sql<{ demo: boolean }[]>`
-    select demo from public.homes where id = ${invitation.homeId}
-  `;
-  if (!home) return false;
-  const clock = await DbDemoClock.load(invitation.homeId, connection.db);
   await applyGuestReconfirmation(
-    connection.db,
-    clock,
-    schedulerForHome({ homeDemo: home.demo }),
+    getDatabaseConnection().db,
+    new SystemClock(),
+    configuredScheduler(),
     invitation.homeId,
     invitation.visit.id,
     "yes",
@@ -290,19 +284,14 @@ export async function cancelGuestInvitationCore(
   invitation: GuestInvitationData,
   review: Pick<CancellationInput, "expectedVisitId" | "expectedStay">,
 ): Promise<void> {
-  const connection = getDatabaseConnection();
-  const [home] = await connection.sql<
-    { demo: boolean }[]
-  >`select demo from public.homes where id = ${invitation.homeId}`;
-  if (!home) throw new Error("Household not found");
   await withdrawInvitation(
-    connection.db,
+    getDatabaseConnection().db,
     {
       homeId: invitation.homeId,
       invitationId: invitation.id,
       actor: { kind: "guest", partyId: invitation.partyId },
       ...review,
     },
-    schedulerForHome({ homeDemo: home.demo }),
+    configuredScheduler(),
   );
 }

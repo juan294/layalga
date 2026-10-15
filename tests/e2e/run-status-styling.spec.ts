@@ -1,40 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { DEMO_SEED, seedDemo } from "../../scripts/seed-demo";
-import {
-  createDemoHostCookie,
-  DEMO_HOST_COOKIE,
-} from "../../src/lib/auth/demo-session";
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
+import { VEGA_CAPTURE_MESSAGE } from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
 test("the host capture poller keeps its visible card and status pulse", async ({
   context,
+  household,
   page,
 }) => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret) {
-    throw new Error("E2E database settings are missing");
-  }
-
-  await seedDemo(databaseUrl, tokenSecret);
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: DEMO_HOST_COOKIE,
-      sameSite: "Lax",
-      url: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3008",
-      value: createDemoHostCookie(DEMO_SEED.hosts[0].id),
-    },
-  ]);
+  await household.signIn(context);
   await page.goto("/en");
   await page
     .getByTestId("host-capture-message")
-    .fill(
-      "Oye, los Vega quieren venir a la casa un finde de septiembre, son Marta y Xuan con los dos crios.",
-    );
+    .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
   await expectRunStatus(page, "completed");
 

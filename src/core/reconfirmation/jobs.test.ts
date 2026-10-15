@@ -48,26 +48,26 @@ describe("reconfirmation jobs", () => {
         status, confirmed_at
       ) values (
         ${visitId}, ${homeId}, ${partyId}, ${invitationId},
-        daterange('2026-09-18', '2026-09-21', '[)'), 2, 2, 0,
-        'confirmed', '2026-09-07T08:00:00Z'
+        daterange('2099-09-18', '2099-09-21', '[)'), 2, 2, 0,
+        'confirmed', '2099-09-07T08:00:00Z'
       )
     `;
     await sql`
       insert into public.scheduled_jobs (id, home_id, visit_id, kind, due_at)
-      values (${chaseJobId}, ${homeId}, ${visitId}, 'reconfirm_chase', '2026-09-15T07:00:00Z')
+      values (${chaseJobId}, ${homeId}, ${visitId}, 'reconfirm_chase', '2099-09-15T07:00:00Z')
     `;
   });
 
   afterAll(() => sql.end());
 
   it("does not create late reminder jobs after withdrawal", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    const clock = new FakeClock(new Date("2099-09-15T07:00:00Z"));
     await withdrawInvitation(sql, {
       homeId,
       invitationId,
       actor: { kind: "guest", partyId },
       expectedVisitId: visitId,
-      expectedStay: ["2026-09-18", "2026-09-21"],
+      expectedStay: ["2099-09-18", "2099-09-21"],
     });
     const scheduled = await scheduleJobs(sql, new NoopScheduler(), [
       {
@@ -85,7 +85,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("suppresses fallback delivery when a guest cancels while the model is running", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    const clock = new FakeClock(new Date("2099-09-15T07:00:00Z"));
     const outcome = await runDueJobs(
       sql,
       clock,
@@ -96,7 +96,7 @@ describe("reconfirmation jobs", () => {
             invitationId,
             actor: { kind: "guest", partyId },
             expectedVisitId: visitId,
-            expectedStay: ["2026-09-18", "2026-09-21"],
+            expectedStay: ["2099-09-18", "2099-09-21"],
           });
         },
       },
@@ -112,7 +112,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("skips dispatch when cancellation wins while the external schedule is being created", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T07:00:00Z"));
+    const clock = new FakeClock(new Date("2099-09-15T07:00:00Z"));
     const enqueued: string[] = [];
     const result = await dispatchDueJobs(
       sql,
@@ -131,7 +131,7 @@ describe("reconfirmation jobs", () => {
             invitationId,
             actor: { kind: "guest", partyId },
             expectedVisitId: visitId,
-            expectedStay: ["2026-09-18", "2026-09-21"],
+            expectedStay: ["2099-09-18", "2099-09-21"],
           });
           return null;
         },
@@ -143,7 +143,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("claims once, chases at T-3, and escalates to both hosts after 24 hours", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const invoker = scriptedInvoker(clock);
 
     const claims = await Promise.all([
@@ -158,9 +158,9 @@ describe("reconfirmation jobs", () => {
       select id, due_at from public.scheduled_jobs
       where visit_id = ${visitId} and kind = 'reconfirm_escalate'
     `;
-    expect(escalation?.due_at.toISOString()).toBe("2026-09-16T07:00:00.000Z");
+    expect(escalation?.due_at.toISOString()).toBe("2099-09-16T07:00:00.000Z");
 
-    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    clock.set(new Date("2099-09-16T09:05:00+02:00"));
     expect(await runDueJobs(sql, clock, invoker, homeId)).toHaveLength(1);
     expect(await visitStatus()).toBe("escalated");
     expect(await notificationCount("host")).toBe(2);
@@ -171,42 +171,40 @@ describe("reconfirmation jobs", () => {
   });
 
   it("does not escalate after the guest reconfirms", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const invoker = scriptedInvoker(clock);
     await runDueJobs(sql, clock, invoker, homeId);
 
-    clock.set(new Date("2026-09-15T18:00:00+02:00"));
+    clock.set(new Date("2099-09-15T18:00:00+02:00"));
     await runAgentTask(
       { task: "guest_reconfirm", homeId, visitId, answer: "yes" },
       agentDeps(clock, new ScriptedModel([])),
     );
-    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    clock.set(new Date("2099-09-16T09:05:00+02:00"));
 
     expect(await runDueJobs(sql, clock, invoker, homeId)).toEqual([]);
     expect(await visitStatus()).toBe("reconfirmed");
     expect(await notificationCount("host")).toBe(0);
   });
 
-  it("leaves demo jobs to the home-scoped demo clock runner", async () => {
+  it("dispatches every home's due jobs from the global tick", async () => {
+    // The column survives until the contract migration; the tick must not
+    // read it, so even a home still flagged demo is processed.
     await sql`update public.homes set demo = true where id = ${homeId}`;
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
-    const invoker = scriptedInvoker(clock);
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
 
-    const globalResults = await runDueJobs(sql, clock, invoker);
-    expect(globalResults).not.toContainEqual(
-      expect.objectContaining({ homeId }),
-    );
-    const [demoJob] = await sql<{ status: string }[]>`
+    const globalResults = await runDueJobs(sql, clock, scriptedInvoker(clock));
+    expect(globalResults).toContainEqual(expect.objectContaining({ homeId }));
+    const [job] = await sql<{ status: string }[]>`
       select status from public.scheduled_jobs where id = ${chaseJobId}
     `;
-    expect(demoJob?.status).toBe("scheduled");
-    expect(await runDueJobs(sql, clock, invoker, homeId)).toHaveLength(1);
+    expect(job?.status).toBe("done");
   });
 
   it("recovers a partial escalation without duplicate notifications", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
-    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    clock.set(new Date("2099-09-16T09:05:00+02:00"));
 
     let attempts = 0;
     const retryingInvoker: AgentInvoker = {
@@ -251,9 +249,9 @@ describe("reconfirmation jobs", () => {
   });
 
   it("delivers to a host the model skipped without needing a retry", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
-    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    clock.set(new Date("2099-09-16T09:05:00+02:00"));
     const incompleteInvoker: AgentInvoker = {
       async run(task) {
         await runAgentTask(
@@ -291,7 +289,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("backs off persistent faults, quarantines them, and supports explicit replay", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const failingInvoker: AgentInvoker = {
       async run() {
         throw new Error("provider request contained secret details");
@@ -313,7 +311,7 @@ describe("reconfirmation jobs", () => {
       from public.scheduled_jobs where id = ${chaseJobId}
     `;
     expect(job).toMatchObject({ status: "scheduled", attempt_count: 1 });
-    expect(job!.available_at.toISOString()).toBe("2026-09-15T07:01:00.000Z");
+    expect(job!.available_at.toISOString()).toBe("2099-09-15T07:01:00.000Z");
     expect(job!.last_error).toBe("Scheduled job execution failed");
     expect(await runDueJobs(sql, clock, failingInvoker, homeId)).toEqual([]);
 
@@ -360,7 +358,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("dispatches the due batch to durable runs without waiting for model work", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const enqueued: AgentTask[] = [];
 
     const dispatched = await dispatchDueJobs(
@@ -429,7 +427,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("delivers a new chase for a later reconfirmation cycle", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const invoker = scriptedInvoker(clock);
     await runDueJobs(sql, clock, invoker, homeId);
     expect(await notificationCount("party")).toBe(1);
@@ -458,7 +456,7 @@ describe("reconfirmation jobs", () => {
   });
 
   it("falls back to a deterministic chase notification when the model writes nothing", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     const silentInvoker: AgentInvoker = {
       async run() {
         // The real model sometimes stops without calling notify, e.g. it
@@ -495,9 +493,9 @@ describe("reconfirmation jobs", () => {
   });
 
   it("falls back to deterministic escalation delivery for hosts the model skipped", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     await runDueJobs(sql, clock, scriptedInvoker(clock), homeId);
-    clock.set(new Date("2026-09-16T09:05:00+02:00"));
+    clock.set(new Date("2099-09-16T09:05:00+02:00"));
     const partialInvoker: AgentInvoker = {
       async run(task) {
         await runAgentTask(
@@ -541,10 +539,10 @@ describe("reconfirmation jobs", () => {
   });
 
   it("reclaims only an expired job lease", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     await sql`
       update public.scheduled_jobs
-      set status = 'running', claimed_at = '2026-09-15T06:49:00Z',
+      set status = 'running', claimed_at = '2099-09-15T06:49:00Z',
         claim_token = ${crypto.randomUUID()}, attempt_count = 1
       where id = ${chaseJobId}
     `;
@@ -566,10 +564,10 @@ describe("reconfirmation jobs", () => {
   });
 
   it("does not steal a live job lease", async () => {
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     await sql`
       update public.scheduled_jobs
-      set status = 'running', claimed_at = '2026-09-15T06:59:00Z',
+      set status = 'running', claimed_at = '2099-09-15T06:59:00Z',
         claim_token = ${crypto.randomUUID()}, attempt_count = 1
       where id = ${chaseJobId}
     `;
@@ -601,11 +599,11 @@ describe("reconfirmation jobs", () => {
   it("expires stale temporary holds during the periodic runner", async () => {
     await sql`
       update public.visits
-      set status = 'hold', hold_expires_at = '2026-09-14T07:00:00Z',
+      set status = 'hold', hold_expires_at = '2099-09-14T07:00:00Z',
         confirmed_at = null
       where id = ${visitId}
     `;
-    const clock = new FakeClock(new Date("2026-09-15T09:00:00+02:00"));
+    const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
     expect(
       await runDueJobs(sql, clock, scriptedInvoker(clock), homeId),
     ).toEqual([]);
@@ -632,7 +630,7 @@ describe("reconfirmation jobs", () => {
       homeId,
       visitId,
       kind: "reconfirm_escalate" as const,
-      dueAt: new Date("2026-09-16T09:00:00+02:00"),
+      dueAt: new Date("2099-09-16T09:00:00+02:00"),
     };
 
     const [[first], [second]] = await Promise.all([

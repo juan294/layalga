@@ -7,8 +7,6 @@ import { SystemClock } from "@/core/clock";
 import { resolveGuestReturnCapability } from "@/core/notifications/guest-contact";
 import { GUEST_EMAIL_COOKIE } from "./guest-email-session";
 
-import { DEMO_GUEST_COOKIE, readDemoGuestCookie } from "./demo-session";
-
 export interface GuestInvitationRecord {
   invitationId: string;
   homeId: string;
@@ -19,49 +17,18 @@ export interface GuestInvitationRecord {
 export async function getCurrentGuestInvitation(): Promise<GuestInvitationRecord | null> {
   const cookieStore = await cookies();
   const capability = cookieStore.get(GUEST_EMAIL_COOKIE)?.value;
-  if (capability) {
-    const authority = await resolveGuestReturnCapability(
-      getDatabaseConnection().db,
-      capability,
-      new SystemClock(),
-    );
-    if (authority)
-      return {
+  if (!capability) return null;
+  const authority = await resolveGuestReturnCapability(
+    getDatabaseConnection().db,
+    capability,
+    new SystemClock(),
+  );
+  return authority
+    ? {
         invitationId: authority.invitationId,
         homeId: authority.homeId,
         partyId: authority.partyId,
         partyLocale: authority.locale,
-      };
-    return null;
-  }
-  if (process.env.DEMO_MODE !== "true") return null;
-  const invitationId = readDemoGuestCookie(
-    cookieStore.get(DEMO_GUEST_COOKIE)?.value,
-  );
-  return invitationId ? findDemoGuestInvitationById(invitationId) : null;
-}
-
-async function findDemoGuestInvitationById(
-  invitationId: string,
-): Promise<GuestInvitationRecord | null> {
-  const sql = getDatabaseConnection().sql;
-  const [row] = await sql<
-    { home_id: string; party_id: string; locale: "en" | "es" }[]
-  >`
-    select invitation.home_id, invitation.party_id, party.locale
-    from public.invitations as invitation
-    join public.parties as party on party.id = invitation.party_id
-    join public.homes as home on home.id = invitation.home_id
-    where invitation.id = ${invitationId}
-      and invitation.status <> 'cancelled'
-      and home.demo = true
-  `;
-  return row
-    ? {
-        invitationId,
-        homeId: row.home_id,
-        partyId: row.party_id,
-        partyLocale: row.locale,
       }
     : null;
 }

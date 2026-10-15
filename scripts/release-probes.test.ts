@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RunResult } from "../src/agent/task";
 import {
   assertConcurrentRunsCompleted,
-  assertRoomCoordinationProof,
+  classifyProbeFailure,
+  cleanupCommand,
   drainAndCollectTerminalRunResults,
+  PROBES,
+  ProbePausedError,
   queuedRunIds,
 } from "./release-probes";
-import { DEMO_SEED } from "./seed-demo";
 
 const firstRunId = "11111111-1111-4111-8111-111111111111";
 const secondRunId = "22222222-2222-4222-8222-222222222222";
@@ -169,35 +171,62 @@ describe("durable release probe runs", () => {
     await vi.runAllTimersAsync();
     await assertion;
   });
+});
 
-  it("requires complete, fixture-bound room coordination evidence", () => {
-    const proof = {
-      proposalCreated: true,
-      privateBlockApplied: true,
-      blockedRoomHidden: true,
-      withheldRoomOpened: true,
-      selectedRoomIds: [DEMO_SEED.rooms[0].id, DEMO_SEED.rooms[1].id],
-      overflowInterrupted: true,
-      overflowApproved: true,
-      overflowAppliedOnce: true,
-      calendarFeedRead: true,
-      calendarPrivateDataAbsent: true,
-      calendarEventCount: 3,
-    };
+describe("probe targets", () => {
+  it("runs every probe locally and the production-safe subset remotely", () => {
+    expect(PROBES.local).toEqual([
+      "health",
+      "host-capture",
+      "guest-confirmation",
+      "concurrent-conflict",
+      "interrupt-resume",
+      "reconfirmation",
+      "room-coordination",
+      "guest-isolation",
+      "cleanup",
+    ]);
+    expect(PROBES.production).toEqual([
+      "health",
+      "host-capture",
+      "guest-confirmation",
+      "concurrent-conflict",
+      "guest-isolation",
+      "cleanup",
+    ]);
+  });
 
-    expect(() => assertRoomCoordinationProof(proof)).not.toThrow();
-    expect(() =>
-      assertRoomCoordinationProof({ ...proof, overflowAppliedOnce: false }),
-    ).toThrow(/overflowAppliedOnce/);
-    expect(() =>
-      assertRoomCoordinationProof({
-        ...proof,
-        selectedRoomIds: [DEMO_SEED.rooms[1].id, DEMO_SEED.rooms[2].id],
-      }),
-    ).toThrow(/selected room ids/i);
-    expect(() =>
-      assertRoomCoordinationProof({ ...proof, calendarEventCount: 0 }),
-    ).toThrow(/calendar event/i);
+  it("pauses on environment failures and blocks on assertion failures", () => {
+    expect(classifyProbeFailure(new ProbePausedError("tick timeout"))).toBe(
+      "PAUSED",
+    );
+    expect(classifyProbeFailure(new TypeError("fetch failed"))).toBe("PAUSED");
+    expect(
+      classifyProbeFailure(
+        new Error("queued probe drain failed with HTTP 503: unavailable"),
+      ),
+    ).toBe("PAUSED");
+    expect(
+      classifyProbeFailure(
+        new Error("Fixture household failed", {
+          cause: Object.assign(new Error("connect"), { code: "ECONNREFUSED" }),
+        }),
+      ),
+    ).toBe("PAUSED");
+    expect(
+      classifyProbeFailure(
+        new Error("agent run 1 failed with HTTP 500: internal error"),
+      ),
+    ).toBe("BLOCKED");
+    expect(
+      classifyProbeFailure(new Error("both concurrent runs must complete")),
+    ).toBe("BLOCKED");
+  });
+
+  it("names the manual cleanup command for a run", () => {
+    expect(cleanupCommand("run-1")).toBe(
+      "pnpm run release:probes -- --cleanup-only run-1",
+    );
   });
 });
 
