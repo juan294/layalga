@@ -20,7 +20,7 @@ vi.mock("next/navigation", () => ({
 
 import en from "../../../../messages/en.json";
 import es from "../../../../messages/es.json";
-import PrivacyPage, { PRIVACY_SECTIONS } from "./page";
+import PrivacyPage, { generateMetadata, PRIVACY_SECTIONS } from "./page";
 
 describe("privacy page", () => {
   it("renders every section and a way back to sign-in", async () => {
@@ -35,6 +35,12 @@ describe("privacy page", () => {
       expect(html).toContain(`Privacy.${section}Body`);
     }
     expect(html).toContain('href="/es/sign-in"');
+  });
+
+  it("titles the tab with the notice title", async () => {
+    await expect(
+      generateMetadata({ params: Promise.resolve({ locale: "en" }) }),
+    ).resolves.toEqual({ title: "Privacy.title" });
   });
 
   it("rejects an unknown locale", async () => {
