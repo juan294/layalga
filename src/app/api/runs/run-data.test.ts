@@ -79,7 +79,6 @@ function asHost(homeId: string, hostId: string) {
     homeId,
     displayName: "Host",
     locale: "en",
-    demo: false,
   });
 }
 

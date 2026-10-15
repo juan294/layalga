@@ -14,6 +14,8 @@ export interface HostRecord {
   homeId: string;
   displayName: string;
   locale: AppLocale;
+  /** The household's IANA timezone. */
+  timeZone: string;
 }
 
 interface HostRow {
@@ -21,6 +23,7 @@ interface HostRow {
   home_id: string;
   display_name: string;
   locale: AppLocale;
+  timezone: string;
 }
 
 export async function getCurrentHost(): Promise<HostRecord | null> {
@@ -50,8 +53,9 @@ export async function claimHostForUser(user: User): Promise<HostRecord | null> {
 async function findHostByAuthUserId(authUserId: string): Promise<HostRecord | null> {
   const sql = getDatabaseConnection().sql;
   const [host] = await sql<HostRow[]>`
-    select host.id, host.home_id, host.display_name, host.locale
+    select host.id, host.home_id, host.display_name, host.locale, home.timezone
     from public.hosts as host
+    join public.homes as home on home.id = host.home_id
     where host.auth_user_id = ${authUserId}
     order by host.created_at, host.id
     limit 1
@@ -62,8 +66,9 @@ async function findHostByAuthUserId(authUserId: string): Promise<HostRecord | nu
 async function findHostById(hostId: string): Promise<HostRecord | null> {
   const sql = getDatabaseConnection().sql;
   const [host] = await sql<HostRow[]>`
-    select host.id, host.home_id, host.display_name, host.locale
+    select host.id, host.home_id, host.display_name, host.locale, home.timezone
     from public.hosts as host
+    join public.homes as home on home.id = host.home_id
     where host.id = ${hostId}
   `;
   return host ? toHostRecord(host) : null;
@@ -75,5 +80,6 @@ function toHostRecord(row: HostRow): HostRecord {
     homeId: row.home_id,
     displayName: row.display_name,
     locale: row.locale,
+    timeZone: row.timezone,
   };
 }

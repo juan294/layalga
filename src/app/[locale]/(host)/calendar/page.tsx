@@ -35,7 +35,7 @@ export default async function HostCalendarPage({
   const { locale } = await params;
   const { host, locale: safeLocale, timeZone } = await loadHostContext(locale);
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
-  const defaultMonth = householdMonth(undefined, undefined, timeZone);
+  const defaultMonth = householdMonth(timeZone);
   const calendarMonth = calendarMonthFromSearch(
     (await searchParams).month,
     defaultMonth,

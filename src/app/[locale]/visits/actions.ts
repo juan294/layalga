@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { schedulerForHome } from "@/agent/scheduler";
+import { configuredScheduler } from "@/agent/scheduler";
 import { CancellationChangedError } from "@/core/booking/cancellation-error";
 import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
@@ -53,7 +53,7 @@ export async function cancelAccountVisit(formData: FormData): Promise<void> {
         actor: { kind: "guest", partyId: visit.party_id },
         ...review,
       },
-      schedulerForHome(),
+      configuredScheduler(),
     );
   } catch (error) {
     if (error instanceof CancellationChangedError) {

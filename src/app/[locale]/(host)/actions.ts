@@ -12,7 +12,7 @@ import {
 import { CancellationChangedError } from "@/core/booking/cancellation-error";
 import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
-import { schedulerForHome } from "@/agent/scheduler";
+import { configuredScheduler } from "@/agent/scheduler";
 import { reissueInvitationLink } from "@/core/booking/invitations";
 import { recordHostDecision } from "@/core/decisions/host-decision";
 import { sqlClient } from "@/core/db/client";
@@ -253,7 +253,7 @@ export async function cancelHostInvitation(formData: FormData): Promise<void> {
         actor: { kind: "host", hostId: host.id },
         ...review,
       },
-      schedulerForHome(),
+      configuredScheduler(),
     );
   } catch (error) {
     if (error instanceof CancellationChangedError)

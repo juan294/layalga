@@ -34,7 +34,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/auth/guest-account", () => ({
   partyIsClaimedByUser: mocks.claim,
 }));
-vi.mock("@/agent/scheduler", () => ({ schedulerForHome: () => ({}) }));
+vi.mock("@/agent/scheduler", () => ({ configuredScheduler: () => ({}) }));
 
 import { cancelGuest } from "@/app/[locale]/g/[token]/actions";
 import { cancelGuestSession } from "@/app/[locale]/guest/actions";
@@ -74,7 +74,6 @@ beforeEach(() => {
   mocks.host.mockResolvedValue({ id: hostId, homeId });
   mocks.sql.mockResolvedValue([
     {
-      demo: true,
       home_id: homeId,
       invitation_id: invitationId,
       party_id: partyId,
@@ -106,7 +105,6 @@ describe("explicit cancellation authorities", () => {
             home_id: homeId,
             invitation_id: invitationId,
             party_id: partyId,
-            demo: true,
           },
         ]);
         mocks.sql.mockResolvedValueOnce([{ id: visitId }]);
@@ -167,7 +165,6 @@ describe("explicit cancellation authorities", () => {
         home_id: homeId,
         invitation_id: invitationId,
         party_id: partyId,
-        demo: true,
       },
     ]);
     mocks.sql.mockResolvedValueOnce([]);
@@ -189,7 +186,6 @@ describe("explicit cancellation authorities", () => {
         home_id: homeId,
         invitation_id: invitationId,
         party_id: partyId,
-        demo: true,
       },
     ]);
     mocks.sql.mockResolvedValueOnce([{ id: visitId }]);

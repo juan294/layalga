@@ -63,7 +63,7 @@ export default async function HostTodayPage({
   );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
-  const currentMonth = householdMonth(undefined, undefined, timeZone);
+  const currentMonth = householdMonth(timeZone);
   const monthWindow = calendarMonthWindow(currentMonth);
 
   const [decisionRows, hubStatuses] = await Promise.all([

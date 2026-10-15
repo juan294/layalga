@@ -110,21 +110,13 @@ export function formatDateStay(
   )}`;
 }
 
-export function householdMonth(
-  clock: Date | string | undefined,
-  visitStart: string | undefined,
-  timeZone: string,
-  now = new Date(),
-): Date {
-  if (visitStart && !clock) {
-    const [year, month] = visitStart.split("-").map(Number);
-    return new Date(Date.UTC(year, month - 1, 1));
-  }
+/** The first day (UTC) of the household's current calendar month. */
+export function householdMonth(timeZone: string, now = new Date()): Date {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
     month: "2-digit",
-  }).formatToParts(clock ? new Date(clock) : now);
+  }).formatToParts(now);
   const valueFor = (type: Intl.DateTimeFormatPartTypes) =>
     Number(parts.find((part) => part.type === type)?.value);
   return new Date(Date.UTC(valueFor("year"), valueFor("month") - 1, 1));

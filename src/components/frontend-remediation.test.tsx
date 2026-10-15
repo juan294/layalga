@@ -42,9 +42,8 @@ describe("frontend remediation contracts", () => {
   test("selects the calendar month in the household time zone", () => {
     expect(
       householdMonth(
-        "2026-08-31T22:30:00.000Z",
-        undefined,
         "Europe/Madrid",
+        new Date("2026-08-31T22:30:00.000Z"),
       ).toISOString(),
     ).toBe("2026-09-01T00:00:00.000Z");
   });

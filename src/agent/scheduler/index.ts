@@ -119,7 +119,7 @@ export class NoopScheduler implements Scheduler {
   async cancel(): Promise<void> {}
 }
 
-export function schedulerForHome({
+export function configuredScheduler({
   env = process.env,
 }: {
   env?: SchedulerEnvironment;

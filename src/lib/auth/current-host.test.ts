@@ -68,6 +68,7 @@ describe("getCurrentHost", () => {
         home_id: "home-1",
         display_name: "Host",
         locale: "en",
+        timezone: "Europe/Madrid",
       },
     ]);
 
@@ -76,6 +77,7 @@ describe("getCurrentHost", () => {
       homeId: "home-1",
       displayName: "Host",
       locale: "en",
+      timeZone: "Europe/Madrid",
     });
   });
 });

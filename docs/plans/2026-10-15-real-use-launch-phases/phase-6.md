@@ -16,6 +16,9 @@ Removes the demo schema after release 1 is live on both Vercel and AgentCore.
 | `supabase/migrations/*_drop_demo_schema.sql` (timestamp assigned by `supabase migration new`) | new |
 | `src/core/data-retention.integration.test.ts` | edit: retention on a non-demo home after the contract |
 | `src/core/notifications/guest-delivery.integration.test.ts` | edit: remove the `demo` fixture flag (`:27-32`, `:608-622`); its retention call at `:315` stays |
+| `src/core/household-conversion.integration.test.ts` | delete (it seeds `homes.demo = true` and runs the one-shot conversion; added during phase 3) |
+| `src/test-support/fixture-household.integration.test.ts` | edit: stop selecting `homes.demo` (added during phase 3 review) |
+| `src/core/reconfirmation/jobs.test.ts` | edit: the global-tick test sets `homes.demo = true` to prove the column is ignored; drop that line (added during phase 3 review) |
 | `scripts/forget-synthetic-memory.ts` and test, `package.json` entry | delete |
 | `scripts/contract-preflight.ts` | new: refuses to continue unless the deployed AgentCore runtime version equals the release 1 record |
 

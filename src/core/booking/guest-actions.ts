@@ -1,7 +1,7 @@
 import { withdrawInvitation, type CancellationInput } from "./cancellation";
 import { requestsCancellationReview } from "./cancellation-intent";
 import { getAgentClient } from "@/agent/client";
-import { schedulerForHome } from "@/agent/scheduler";
+import { configuredScheduler } from "@/agent/scheduler";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
@@ -244,7 +244,7 @@ export async function reconfirmGuestCore(
   await applyGuestReconfirmation(
     getDatabaseConnection().db,
     new SystemClock(),
-    schedulerForHome(),
+    configuredScheduler(),
     invitation.homeId,
     invitation.visit.id,
     "yes",
@@ -292,6 +292,6 @@ export async function cancelGuestInvitationCore(
       actor: { kind: "guest", partyId: invitation.partyId },
       ...review,
     },
-    schedulerForHome(),
+    configuredScheduler(),
   );
 }

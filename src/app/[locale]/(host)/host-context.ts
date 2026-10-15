@@ -3,7 +3,6 @@ import "@/core/server-only";
 import { cache } from "react";
 
 import type { AppLocale } from "@/i18n/routing";
-import { getDatabaseConnection, sqlClient } from "@/core/db/client";
 import { requireHost, type HostRecord } from "@/lib/auth/current-host";
 
 export interface HostContext {
@@ -22,14 +21,6 @@ export const loadHostContext = cache(
   async (locale: string): Promise<HostContext> => {
     const safeLocale: AppLocale = locale === "es" ? "es" : "en";
     const host = await requireHost(safeLocale);
-    const sql = sqlClient(getDatabaseConnection().db);
-    const [home] = await sql<{ timezone: string }[]>`
-      select timezone from public.homes where id = ${host.homeId}
-    `;
-    return {
-      host,
-      locale: safeLocale,
-      timeZone: home?.timezone ?? "UTC",
-    };
+    return { host, locale: safeLocale, timeZone: host.timeZone };
   },
 );

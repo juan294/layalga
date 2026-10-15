@@ -9,7 +9,7 @@ test("the sign-in page offers Google and no demo entry", async ({ page }) => {
 test("a host error keeps the Google button beside it", async ({ page }) => {
   await page.goto("/es/sign-in?error=not_a_host");
   await expect(page.getByTestId("google-sign-in")).toBeVisible();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator(".postcard__error")).toHaveAttribute("role", "alert");
 });
 
 test("the retired demo routes are gone", async ({ request }) => {

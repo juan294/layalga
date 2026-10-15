@@ -3,7 +3,11 @@ import postgres from "postgres";
 import { createMemoryClient, type MemoryClient } from "@/core/memory/client";
 import { forgetPartyMemory } from "@/core/memory/forget";
 
-import { isDirectExecution, safeErrorMessage } from "./release-helpers";
+import {
+  isDirectExecution,
+  requiredEnvironment,
+  safeErrorMessage,
+} from "./release-helpers";
 
 /**
  * One-off erase of the AgentCore Memory written for the two synthetic demo
@@ -27,9 +31,9 @@ export async function forgetSyntheticMemory(
   env: Readonly<Record<string, string | undefined>> = process.env,
   client?: MemoryClient,
 ): Promise<ForgottenParty[]> {
-  const memoryId = required(env, "MEMORY_ID");
-  const region = required(env, "AWS_REGION");
-  const sql = postgres(required(env, "DATABASE_URL"), {
+  const memoryId = requiredEnvironment("MEMORY_ID", env);
+  const region = requiredEnvironment("AWS_REGION", env);
+  const sql = postgres(requiredEnvironment("DATABASE_URL", env), {
     prepare: false,
     max: 1,
   });
@@ -51,15 +55,6 @@ export async function forgetSyntheticMemory(
   } finally {
     await sql.end({ timeout: 5 });
   }
-}
-
-function required(
-  env: Readonly<Record<string, string | undefined>>,
-  name: string,
-): string {
-  const value = env[name];
-  if (!value) throw new Error(`${name} is required`);
-  return value;
 }
 
 if (isDirectExecution(import.meta.url, process.argv[1])) {

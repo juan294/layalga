@@ -24,7 +24,9 @@ Production actions in a fixed order. Every numbered action that changes producti
 | 9 | Dispatch `production-probes.yml` with the release commit and `WRITE PROBE FIXTURE` | production probe | Run passes; run URL recorded in the playbook |
 | 10 | Owner Google sign-in (Claude in Chrome on the owner's browser session, or the owner) | verification | Lands on the host dashboard of home `…0001` with zero rooms and the add-room path |
 
-Steps 2 to 5 can run before the release PR merges: with `DEMO_MODE` removed, the old code already shows the Google button. Step 6 must precede step 7 under the playbook's migration-first rule. The conversion is safe for the old code: with `demo = false` the old demo branches stay inactive.
+Steps 2 to 5 can run before the release PR merges. Step 6 must precede step 7 under the playbook's migration-first rule. The conversion is safe for the old code: with `demo = false` the old demo branches stay inactive.
+
+Correction (phase 3 review, 2026-10-15): Vercel applies an environment change only to a new deployment, so removing `DEMO_MODE` in step 4 does not change the running build. Between step 6 (conversion) and step 7 (new deployment) the old build still reads `DEMO_MODE=true`, finds no demo home, and shows neither the Google button nor demo entry; existing Google sessions keep working. Keep that window short by running step 7 directly after step 6, or redeploy the current production build after step 4 (a separate authorized production action).
 
 ## Exit
 

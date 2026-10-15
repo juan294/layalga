@@ -38,7 +38,7 @@ begin
   delete from public.notifications where home_id = converted_home;
   delete from public.host_email_pings where home_id = converted_home;
   delete from public.guest_email_outbox where home_id = converted_home;
-  -- These three restrict deletes of hosts, which stay; remove them first.
+  -- Room and run keys reference these, so they go before rooms and runs.
   delete from public.room_action_proposals where home_id = converted_home;
   delete from public.private_room_blocks where home_id = converted_home;
   delete from public.room_availability_overrides where home_id = converted_home;

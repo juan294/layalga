@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   EventBridgeScheduler,
   NoopScheduler,
-  schedulerForHome,
+  configuredScheduler,
   type SchedulerCommandClient,
 } from "./index";
 
@@ -117,9 +117,9 @@ describe("EventBridgeScheduler", () => {
   });
 });
 
-describe("schedulerForHome", () => {
+describe("configuredScheduler", () => {
   it("uses no external scheduler when scheduling is disabled", () => {
-    expect(schedulerForHome({ env: { SCHEDULER: "none" } })).toBeInstanceOf(
+    expect(configuredScheduler({ env: { SCHEDULER: "none" } })).toBeInstanceOf(
       NoopScheduler,
     );
   });

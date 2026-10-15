@@ -13,6 +13,13 @@ Plan: [2026-10-15-real-use-launch.md](2026-10-15-real-use-launch.md)
 | 2 | Interrupt-resume approves "through the same core function `decideAction` uses" | `decideAction` held the decision SQL inline | Extracted `recordHostDecision` (`src/core/decisions/host-decision.ts`), used by `decideAction` and the probe | One code path for the decision update |
 | 2 | `grep -rnE "DEMO_SEED|runDemoE2E|/api/demo/|demo-enter" scripts .github` returns nothing | `scripts/seed-demo*` and `scripts/seed-memory*` still reference `DEMO_SEED` | Left for phase 3, which deletes or converts them (plan consumer sweep: "Seed and reset", "`scripts/seed-memory.ts`") | Phase ownership in the plan |
 | 2 | (not planned) | postgres.js serialized a text array parameter as `a,b` on a fresh connection's first query (VERIFIED with a probe script) | New cleanup code uses explicit parameters and subqueries instead of array parameters | `--cleanup-only` runs that query first |
+| 3 | Move the `MODEL=scripted` branch into a wrapper used by `local.ts`, `client.ts` and `/api/agent/run` | `enqueueAgentTask` never reads the model; only executing runs do. `client.ts` imports `local.ts`, so the wrapper reaches it through `LocalAgentClient` | `localRuntimeDeps` (`src/agent/runtime/local-deps.ts`) is used by `LocalAgentClient`; `/api/agent/run` and `AgentCoreClient` keep `runtimeDeps` | The model is irrelevant to enqueueing; the AgentCore bundle check proves the scripted model is not shipped |
+| 3 | `src/agent/runtime/handler.ts` keeps using `runtimeDeps` alone | Its integration test ran AgentCore requests with the scripted model through `runtimeDeps` | `handleAgentCoreRequest` takes an optional deps factory (default `runtimeDeps`); the test passes `localRuntimeDeps` | Keeps production behavior and the test's coverage |
+| 3 | The acceptance grep returns only the 404 checks in `tests/e2e/sign-in.spec.ts` | Regression tests must name `DEMO_MODE`, `DEMO_SESSION_SECRET` and `demo-enter` to prove leftovers are ignored | Allowed hits also include `sign-in/page.test.tsx`, `current-host.test.ts` and `current-guest.test.ts` | They assert the removal; no product code matches |
+| 3 | Conversion deletes the home's audit events | Phase 5 runs the memory forget before `db push`; its `memory_forgotten` audit rows would be deleted | The migration keeps `memory_forgotten` audit rows | Keeps the accountability record of the erasure |
+| 3 | (not planned) | The real Google button had no test id | Added `data-testid="google-sign-in"` to `SignInButton` | The new e2e spec and the page test assert on it |
+| 3 | (not planned) | `supabase migration new` waits on stdin in a non-interactive shell | Created the file through the CLI, then wrote its content | Timestamp still assigned by the CLI |
+| 3 | `.env.development.local` note | The worktree and main checkout copies still set `DEMO_MODE` and `DEMO_SESSION_SECRET` | Not edited (gitignored, local); the application ignores both | Owner may delete the two lines locally |
 
 ## Open decisions for the owner
 
@@ -30,6 +37,19 @@ Plan: [2026-10-15-real-use-launch.md](2026-10-15-real-use-launch.md)
 - P2-R7 fixed: the workflow run name says two households.
 - P2-R8 deferred to phase 4 (owner of `CLAUDE.md` and `README.md`): command lists still name `demo:e2e`.
 - P2-R9 fixed: an integration test proves `runReleaseProbes` follows `PROBES` order.
+
+## Review and simplify dispositions (phase 3)
+
+Review (fresh-context agent): APPROVED.
+
+- P3-R1 fixed: `sign-in.spec.ts` targets `.postcard__error` (Next's route announcer is also `role="alert"`).
+- P3-R2 fixed in the plan: `phase-6.md` now lists the three further tests that touch `homes.demo`.
+- P3-R3 fixed in the plan: `phase-5.md` records that a Vercel env change needs a deployment and how to keep the sign-in gap short.
+- P3-R4 fixed: stale `demo` fields removed from test mocks.
+- P3-R5 accepted: the conversion test does not seed every deleted table; the foreign-key order was checked against `pg_constraint` by the reviewer and production holds none of those rows (research, 2026-10-15).
+- P3-R6 fixed: migration comment.
+
+Simplify (four angles): applied `requiredEnvironment` reuse, `householdMonth(timeZone, now)`, one ternary in guest email preferences, `schedulerForHome` renamed `configuredScheduler`, and the household timezone carried on `HostRecord` (one query fewer per host page). Not applied, with reason: the migration's session-id union stays a copy (one-shot migration); `runDueJobs` stays as the test seam for job runs; the `loadGuestInvitation` clock parameter stays because the plan requires a caller clock for fake-clock tests; the `runtimeDeps` home existence check stays for a clear error; the env refusal keeps its explicit message instead of a per-environment enum; the handler deps factory stays because the testing rule prefers injecting over mocking owned modules.
 
 ## Pre-existing failures found at the phase 1 baseline
 

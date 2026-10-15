@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   }),
   roomOptionsForStay: vi.fn(),
   scheduler: { schedule: vi.fn(), cancel: vi.fn() },
-  schedulerForHome: vi.fn(),
+  configuredScheduler: vi.fn(),
   sql: vi.fn(),
 }));
 
@@ -24,7 +24,7 @@ vi.mock("@/agent/client", () => ({
   getAgentClient: () => ({ enqueue: mocks.enqueue }),
 }));
 vi.mock("@/agent/scheduler", () => ({
-  schedulerForHome: mocks.schedulerForHome,
+  configuredScheduler: mocks.configuredScheduler,
 }));
 vi.mock("@/core/clock", () => ({
   SystemClock: class SystemClock {
@@ -68,7 +68,7 @@ describe("guest room actions", () => {
       homeId,
       structured: {},
     });
-    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
+    mocks.configuredScheduler.mockReturnValue(mocks.scheduler);
     mocks.resolveGuestInvitationAuthority.mockResolvedValue({
       id: invitationId,
       homeId,

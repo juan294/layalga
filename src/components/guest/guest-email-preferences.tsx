@@ -79,8 +79,7 @@ export async function AuthorizedGuestEmailPreferences({
       {error ? <p role="alert">{t(error)}</p> : null}
       {unavailable ? (
         <p role="status">{t("unavailable")}</p>
-      ) : null}
-      {!unavailable ? (
+      ) : (
         <form action={action} className={styles.changeForm}>
           {resolved.verifiedEmail ? (
             <>
@@ -110,7 +109,7 @@ export async function AuthorizedGuestEmailPreferences({
             testId="guest-email-enable"
           />
         </form>
-      ) : null}
+      )}
       {state.status === "enabled" || state.status === "unverified" ? (
         <form action={action}>
           <input type="hidden" name="operation" value="disable" />

@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   connection: { db: { database: "db" } },
   parseEnvironment: vi.fn(),
   scheduler: { schedule: vi.fn(), cancel: vi.fn() },
-  schedulerForHome: vi.fn(),
+  configuredScheduler: vi.fn(),
   scriptedModel: { model: "scripted" },
   scriptedModelForTask: vi.fn(),
   sql: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock("@/core/db/client", () => ({
 vi.mock("@/lib/server/env", () => ({
   parseServerEnvironment: mocks.parseEnvironment,
 }));
-vi.mock("../scheduler", () => ({ schedulerForHome: mocks.schedulerForHome }));
+vi.mock("../scheduler", () => ({ configuredScheduler: mocks.configuredScheduler }));
 vi.mock("../scripted-model-selection", () => ({
   scriptedModelForTask: mocks.scriptedModelForTask,
 }));
@@ -41,7 +41,7 @@ describe("runtimeDeps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sql.mockResolvedValue([{ id: hostTask.homeId }]);
-    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
+    mocks.configuredScheduler.mockReturnValue(mocks.scheduler);
     mocks.scriptedModelForTask.mockReturnValue(mocks.scriptedModel);
   });
 
@@ -62,7 +62,7 @@ describe("runtimeDeps", () => {
     });
     expect(deps.clock).toBeInstanceOf(SystemClock);
     expect(deps).not.toHaveProperty("model");
-    expect(mocks.schedulerForHome).toHaveBeenCalledWith();
+    expect(mocks.configuredScheduler).toHaveBeenCalledWith();
     expect(mocks.scriptedModelForTask).not.toHaveBeenCalled();
   });
 
@@ -100,7 +100,7 @@ describe("localRuntimeDeps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.sql.mockResolvedValue([{ id: hostTask.homeId }]);
-    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
+    mocks.configuredScheduler.mockReturnValue(mocks.scheduler);
     mocks.scriptedModelForTask.mockReturnValue(mocks.scriptedModel);
   });
 

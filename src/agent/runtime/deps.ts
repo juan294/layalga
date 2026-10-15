@@ -4,7 +4,7 @@ import { parseServerEnvironment } from "@/lib/server/env";
 
 import type { ExecutionRuntime } from "../ports";
 import type { RunAgentDeps } from "../run-task";
-import { schedulerForHome } from "../scheduler";
+import { configuredScheduler } from "../scheduler";
 import type { AgentTask } from "../task";
 
 /**
@@ -25,7 +25,7 @@ export async function runtimeDeps(
   return {
     db: connection.db,
     clock: new SystemClock(),
-    scheduler: schedulerForHome(),
+    scheduler: configuredScheduler(),
     appUrl: config.appUrl,
     locale: "locale" in task && task.locale ? task.locale : "en",
     executionRuntime: options?.executionRuntime ?? "local",
