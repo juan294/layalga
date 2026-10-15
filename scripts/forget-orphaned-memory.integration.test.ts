@@ -4,6 +4,7 @@ import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
 import type { MemoryInventoryClient } from "@/core/memory/client";
+import { REAL_HOUSEHOLD_HOME_ID } from "@/core/memory/orphans";
 
 import {
   describeOrphanCleanup,
@@ -71,6 +72,16 @@ describe("forget-orphaned-memory script", () => {
       insert into public.homes (id, name, timezone)
       values (${liveHomeId}, 'Orphan memory test', 'Europe/Madrid')
     `;
+    // --apply requires the real household; the seeded local database has it.
+    const [realHousehold] = await sql`
+      select id from public.homes where id = ${REAL_HOUSEHOLD_HOME_ID}
+    `;
+    if (!realHousehold) {
+      await sql`
+        insert into public.homes (id, name, timezone)
+        values (${REAL_HOUSEHOLD_HOME_ID}, 'Orphan memory test', 'Europe/Madrid')
+      `;
+    }
     try {
       const dryRun = fakeMemory([liveActor, goneActor]);
       const reported = await forgetOrphanedMemoryFromEnvironment(
@@ -78,8 +89,12 @@ describe("forget-orphaned-memory script", () => {
         { apply: false },
         dryRun.client,
       );
+      expect(reported.homesRead).toBeGreaterThanOrEqual(2);
       expect(reported).toEqual({
         applied: false,
+        homesRead: reported.homesRead,
+        recordsSeen: 2,
+        unparsedRecords: 0,
         orphanActorIds: [goneActor],
         orphanHomeIds: [goneHomeId],
         deletedRecords: 0,
@@ -88,6 +103,7 @@ describe("forget-orphaned-memory script", () => {
       expect(dryRun.deletedRecordIds).toEqual([]);
       expect(dryRun.deletedEventActors).toEqual([]);
       expect(describeOrphanCleanup(reported)).toEqual([
+        `Read ${reported.homesRead} existing home(s).`,
         "Dry run: 1 orphaned actor(s) across 1 deleted home(s). Nothing was deleted; rerun with --apply to delete.",
         `Orphaned home: ${goneHomeId}`,
       ]);
@@ -106,11 +122,33 @@ describe("forget-orphaned-memory script", () => {
       });
       expect(applied.deletedRecordIds).toEqual([`record-${goneActor}`]);
       expect(applied.deletedEventActors).toEqual([goneActor]);
-      expect(describeOrphanCleanup(result)[0]).toBe(
+      expect(describeOrphanCleanup(result)[1]).toBe(
         "Forgot 1 record(s) and 1 event(s) for 1 orphaned actor(s) across 1 deleted home(s).",
       );
     } finally {
       await sql`delete from public.homes where id = ${liveHomeId}`;
+      if (!realHousehold) {
+        await sql`delete from public.homes where id = ${REAL_HOUSEHOLD_HOME_ID}`;
+      }
     }
+  });
+
+  it("warns when listed records could not be attributed to a party", () => {
+    expect(
+      describeOrphanCleanup({
+        applied: false,
+        homesRead: 3,
+        recordsSeen: 5,
+        unparsedRecords: 2,
+        orphanActorIds: [],
+        orphanHomeIds: [],
+        deletedRecords: 0,
+        deletedEvents: 0,
+      }),
+    ).toEqual([
+      "Read 3 existing home(s).",
+      "Dry run: 0 orphaned actor(s) across 0 deleted home(s). Nothing was deleted; rerun with --apply to delete.",
+      "Warning: 2 of 5 listed memory record(s) have no home-<uuid>/party-<uuid> namespace and were not checked.",
+    ]);
   });
 });

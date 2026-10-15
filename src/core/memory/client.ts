@@ -50,10 +50,14 @@ export interface MemoryClient {
     namespacePath: string;
     nextToken?: string;
   }): Promise<Page<MemoryRecordItem>>;
+  /**
+   * Resolves to the number of records deleted (a fake may resolve to
+   * nothing, which counts the whole batch); rejects when any record fails.
+   */
   batchDeleteMemoryRecords(input: {
     memoryId: string;
     memoryRecordIds: readonly string[];
-  }): Promise<void>;
+  }): Promise<number | void>;
   listSessions(input: {
     memoryId: string;
     actorId: string;
@@ -137,8 +141,8 @@ export function createMemoryClient(region: string): MemoryInventoryClient {
       };
     },
     async batchDeleteMemoryRecords({ memoryId, memoryRecordIds }) {
-      if (memoryRecordIds.length === 0) return;
-      await client.send(
+      if (memoryRecordIds.length === 0) return 0;
+      const response = await client.send(
         new BatchDeleteMemoryRecordsCommand({
           memoryId,
           records: memoryRecordIds.map((memoryRecordId) => ({
@@ -146,6 +150,14 @@ export function createMemoryClient(region: string): MemoryInventoryClient {
           })),
         }),
       );
+      // Only the count: record ids and error messages can echo memory content.
+      const failed = response.failedRecords?.length ?? 0;
+      if (failed > 0) {
+        throw new Error(
+          `BatchDeleteMemoryRecords failed for ${failed} of ${memoryRecordIds.length} record(s)`,
+        );
+      }
+      return response.successfulRecords?.length ?? 0;
     },
     async listActors({ memoryId, nextToken }) {
       const response = await client.send(

@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DatabaseClient } from "@/core/db/client";
 import type { MemoryInventoryClient, Page } from "./client";
-import { findOrphanedMemoryActors, forgetOrphanedMemory } from "./orphans";
+import {
+  findOrphanedMemoryActors,
+  forgetOrphanedMemory,
+  REAL_HOUSEHOLD_HOME_ID,
+} from "./orphans";
 
 const LIVE_HOME = "11111111-1111-4111-8111-111111111111";
 const GONE_HOME = "22222222-2222-4222-8222-222222222222";
@@ -15,7 +19,10 @@ const actor = (homeId: string, partyId: string) =>
 
 interface FakeRecord {
   id: string;
+  /** The namespace the record lives in, matched against the listing prefix. */
   namespace: string;
+  /** What the listing reports as its namespaces; defaults to `[namespace]`. */
+  listedNamespaces?: string[];
 }
 
 interface FakeMemoryState {
@@ -29,6 +36,8 @@ interface FakeMemoryState {
 /**
  * An in-memory AgentCore Memory: records filtered by namespace prefix,
  * events per actor and session, every listing paged two items at a time.
+ * Next tokens are offsets, so a deletion between pages shifts what the next
+ * page returns, as an offset-style service token would.
  */
 function fakeMemory(state: FakeMemoryState = {}) {
   const records = [...(state.records ?? [])];
@@ -36,23 +45,19 @@ function fakeMemory(state: FakeMemoryState = {}) {
   const deletedRecordIds: string[] = [];
   const deletedEvents: string[] = [];
 
-  // The next token is the key of the first item of the next page, so a
-  // deletion between pages does not shift what the next page returns.
-  function page<T>(
-    items: T[],
-    nextToken: string | undefined,
-    key: (item: T) => string = String,
-  ): Page<T> {
-    const start = nextToken
-      ? items.findIndex((item) => key(item) === nextToken)
-      : 0;
-    if (start < 0) return { items: [] };
-    const next = items[start + 2];
+  function page<T>(items: T[], nextToken: string | undefined): Page<T> {
+    const start = nextToken ? Number(nextToken) : 0;
+    const end = start + 2;
     return {
-      items: items.slice(start, start + 2),
-      nextToken: next === undefined ? undefined : key(next),
+      items: items.slice(start, end),
+      nextToken: end < items.length ? String(end) : undefined,
     };
   }
+
+  const sessionsOf = (actorId: string) =>
+    Object.keys(events[actorId] ?? {}).filter(
+      (sessionId) => (events[actorId]?.[sessionId] ?? []).length > 0,
+    );
 
   const client: MemoryInventoryClient = {
     createEvent: vi.fn(async () => {
@@ -62,7 +67,7 @@ function fakeMemory(state: FakeMemoryState = {}) {
       page(
         [
           ...Object.keys(events).filter(
-            (actorId) => Object.keys(events[actorId] ?? {}).length > 0,
+            (actorId) => sessionsOf(actorId).length > 0,
           ),
           ...(state.extraActors ?? []),
         ],
@@ -77,10 +82,9 @@ function fakeMemory(state: FakeMemoryState = {}) {
             memoryRecordId: record.id,
             text: "fact",
             createdAt: new Date("2026-10-15T10:00:00Z"),
-            namespaces: [record.namespace],
+            namespaces: record.listedNamespaces ?? [record.namespace],
           })),
         nextToken,
-        (record) => record.memoryRecordId,
       ),
     ),
     batchDeleteMemoryRecords: vi.fn(async ({ memoryRecordIds }) => {
@@ -91,25 +95,28 @@ function fakeMemory(state: FakeMemoryState = {}) {
       }
     }),
     listSessions: vi.fn(async ({ actorId, nextToken }) =>
-      page(Object.keys(events[actorId] ?? {}), nextToken),
+      page(sessionsOf(actorId), nextToken),
     ),
     listEvents: vi.fn(async ({ actorId, sessionId, nextToken }) =>
       page(events[actorId]?.[sessionId] ?? [], nextToken),
     ),
     deleteEvent: vi.fn(async ({ actorId, sessionId, eventId }) => {
+      const session = events[actorId]?.[sessionId] ?? [];
+      session.splice(session.indexOf(eventId), 1);
       deletedEvents.push(`${actorId}:${sessionId}:${eventId}`);
     }),
   };
   return { client, records, deletedRecordIds, deletedEvents };
 }
 
-function homesDatabase(homeIds: string[]): DatabaseClient {
-  return vi
-    .fn()
-    .mockResolvedValue(
-      homeIds.map((id) => ({ id })),
-    ) as unknown as DatabaseClient;
+function homesDatabase(homeIds: string[]) {
+  return vi.fn().mockResolvedValue(homeIds.map((id) => ({ id })));
 }
+
+const asDatabase = (database: ReturnType<typeof homesDatabase>) =>
+  database as unknown as DatabaseClient;
+
+const existingHomes = [REAL_HOUSEHOLD_HOME_ID, LIVE_HOME];
 
 describe("findOrphanedMemoryActors", () => {
   it("finds an orphan known only from its events", async () => {
@@ -117,11 +124,16 @@ describe("findOrphanedMemoryActors", () => {
       events: { [actor(GONE_HOME, PARTY_A)]: { s1: ["e1"] } },
     });
 
-    await expect(
-      findOrphanedMemoryActors(homesDatabase([LIVE_HOME]), "memory-1", client),
-    ).resolves.toEqual([
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
       { actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME },
     ]);
+    expect(inventory.homesRead).toBe(2);
   });
 
   it("finds an orphan known only from its long-term records", async () => {
@@ -134,14 +146,21 @@ describe("findOrphanedMemoryActors", () => {
       ],
     });
 
-    await expect(
-      findOrphanedMemoryActors(homesDatabase([LIVE_HOME]), "memory-1", client),
-    ).resolves.toEqual([
-      { actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME },
-    ]);
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory).toEqual({
+      orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
+      homesRead: 2,
+      recordsSeen: 1,
+      unparsedRecords: 0,
+    });
     expect(client.listMemoryRecords).toHaveBeenCalledWith({
       memoryId: "memory-1",
-      namespacePath: "/parties/",
+      namespacePath: "/parties",
       nextToken: undefined,
     });
   });
@@ -163,19 +182,44 @@ describe("findOrphanedMemoryActors", () => {
       },
     });
 
-    const orphans = await findOrphanedMemoryActors(
-      homesDatabase([LIVE_HOME]),
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
       "memory-1",
       client,
     );
 
-    expect(orphans).toEqual([
+    expect(inventory.orphans).toEqual([
       { actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME },
       { actorId: actor(GONE_HOME, PARTY_B), homeId: GONE_HOME },
       { actorId: actor(OTHER_GONE_HOME, PARTY_B), homeId: OTHER_GONE_HOME },
     ]);
     expect(client.listActors).toHaveBeenCalledTimes(2);
     expect(client.listMemoryRecords).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads the homes table only after both memory listings", async () => {
+    const { client } = fakeMemory({
+      records: [
+        { id: "r1", namespace: `/parties/${actor(GONE_HOME, PARTY_A)}/facts` },
+        { id: "r2", namespace: `/parties/${actor(GONE_HOME, PARTY_B)}/facts` },
+        { id: "r3", namespace: `/parties/${actor(LIVE_HOME, PARTY_A)}/facts` },
+      ],
+      events: {
+        [actor(GONE_HOME, PARTY_A)]: { s1: ["e1"] },
+        [actor(GONE_HOME, PARTY_B)]: { s1: ["e1"] },
+        [actor(LIVE_HOME, PARTY_B)]: { s1: ["e1"] },
+      },
+    });
+    const database = homesDatabase(existingHomes);
+
+    await findOrphanedMemoryActors(asDatabase(database), "memory-1", client);
+
+    const lastListing = Math.max(
+      ...vi.mocked(client.listActors).mock.invocationCallOrder,
+      ...vi.mocked(client.listMemoryRecords).mock.invocationCallOrder,
+    );
+    expect(database.mock.invocationCallOrder).toHaveLength(1);
+    expect(database.mock.invocationCallOrder[0]).toBeGreaterThan(lastListing);
   });
 
   it("ignores actor ids and namespaces that are not exactly home-<uuid>/party-<uuid>", async () => {
@@ -195,9 +239,62 @@ describe("findOrphanedMemoryActors", () => {
       ],
     });
 
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([]);
+    expect(inventory.unparsedRecords).toBe(3);
+  });
+
+  it("counts listed records whose namespaces name no party", async () => {
+    const { client } = fakeMemory({
+      records: [
+        {
+          id: "r1",
+          namespace: `/parties/${actor(GONE_HOME, PARTY_A)}/facts`,
+        },
+        {
+          id: "r2",
+          namespace: `/parties/${actor(GONE_HOME, PARTY_B)}/facts`,
+          listedNamespaces: [],
+        },
+        {
+          id: "r3",
+          namespace: `/parties/${actor(GONE_HOME, PARTY_B)}/facts`,
+          listedNamespaces: ["/parties/unknown"],
+        },
+      ],
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory).toEqual({
+      orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
+      homesRead: 2,
+      recordsSeen: 3,
+      unparsedRecords: 2,
+    });
+  });
+
+  it("refuses to classify anything when the homes read returns no rows", async () => {
+    const { client } = fakeMemory({
+      events: { [actor(GONE_HOME, PARTY_A)]: { s1: ["e1"] } },
+    });
+
     await expect(
-      findOrphanedMemoryActors(homesDatabase([]), "memory-1", client),
-    ).resolves.toEqual([]);
+      findOrphanedMemoryActors(
+        asDatabase(homesDatabase([])),
+        "memory-1",
+        client,
+      ),
+    ).rejects.toThrow("Read 0 homes");
   });
 });
 
@@ -224,12 +321,15 @@ describe("forgetOrphanedMemory", () => {
 
     await expect(
       forgetOrphanedMemory(
-        homesDatabase([LIVE_HOME]),
+        asDatabase(homesDatabase(existingHomes)),
         "memory-1",
         memory.client,
       ),
     ).resolves.toEqual({
       applied: false,
+      homesRead: 2,
+      recordsSeen: 4,
+      unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
       orphanHomeIds: [GONE_HOME],
       deletedRecords: 0,
@@ -241,14 +341,17 @@ describe("forgetOrphanedMemory", () => {
 
   it("deletes every orphan's records and events and never touches a live home", async () => {
     const memory = fakeMemory(state());
-    const database = homesDatabase([LIVE_HOME]);
+    const database = homesDatabase(existingHomes);
 
     await expect(
-      forgetOrphanedMemory(database, "memory-1", memory.client, {
+      forgetOrphanedMemory(asDatabase(database), "memory-1", memory.client, {
         apply: true,
       }),
     ).resolves.toEqual({
       applied: true,
+      homesRead: 2,
+      recordsSeen: 4,
+      unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
       orphanHomeIds: [GONE_HOME],
       deletedRecords: 3,
@@ -276,12 +379,12 @@ describe("forgetOrphanedMemory", () => {
 
     await expect(
       forgetOrphanedMemory(
-        homesDatabase([LIVE_HOME, GONE_HOME]),
+        asDatabase(homesDatabase([...existingHomes, GONE_HOME])),
         "memory-1",
         memory.client,
         { apply: true },
       ),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       applied: true,
       orphanActorIds: [],
       orphanHomeIds: [],
@@ -290,5 +393,45 @@ describe("forgetOrphanedMemory", () => {
     });
     expect(memory.client.batchDeleteMemoryRecords).not.toHaveBeenCalled();
     expect(memory.client.deleteEvent).not.toHaveBeenCalled();
+  });
+
+  it("deletes nothing when the homes read returns no rows", async () => {
+    const memory = fakeMemory(state());
+
+    await expect(
+      forgetOrphanedMemory(
+        asDatabase(homesDatabase([])),
+        "memory-1",
+        memory.client,
+        { apply: true },
+      ),
+    ).rejects.toThrow("Read 0 homes");
+    expect(memory.client.batchDeleteMemoryRecords).not.toHaveBeenCalled();
+    expect(memory.client.deleteEvent).not.toHaveBeenCalled();
+  });
+
+  it("refuses to apply when the real household is not among the homes read", async () => {
+    const memory = fakeMemory(state());
+
+    await expect(
+      forgetOrphanedMemory(
+        asDatabase(homesDatabase([LIVE_HOME])),
+        "memory-1",
+        memory.client,
+        { apply: true },
+      ),
+    ).rejects.toThrow(REAL_HOUSEHOLD_HOME_ID);
+    expect(memory.client.batchDeleteMemoryRecords).not.toHaveBeenCalled();
+    expect(memory.client.deleteEvent).not.toHaveBeenCalled();
+
+    // A dry run against the same read still reports, so the owner can see
+    // what a wrong database would have deleted.
+    await expect(
+      forgetOrphanedMemory(
+        asDatabase(homesDatabase([LIVE_HOME])),
+        "memory-1",
+        fakeMemory(state()).client,
+      ),
+    ).resolves.toMatchObject({ applied: false, orphanHomeIds: [GONE_HOME] });
   });
 });

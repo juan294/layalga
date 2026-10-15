@@ -18,8 +18,10 @@ import {
 /**
  * Forgets AgentCore Memory whose home no longer exists, such as the fixture
  * parties a production probe run writes before its cleanup deletes their
- * homes. Reports only by default; `--apply` deletes. Run after production
- * probe runs (see `docs/release/e2e-pro-playbook.md`).
+ * homes. Reports only by default; `--apply` deletes. It fails closed when
+ * the homes read is empty, and `--apply` also fails closed without the real
+ * household. Run after production probe runs (see
+ * `docs/release/e2e-pro-playbook.md`).
  */
 export function parseForgetOrphansArguments(argv: readonly string[]): {
   apply: boolean;
@@ -62,8 +64,16 @@ export function describeOrphanCleanup(
   const summary = result.applied
     ? `Forgot ${result.deletedRecords} record(s) and ${result.deletedEvents} event(s) for ${scope}.`
     : `Dry run: ${scope}. Nothing was deleted; rerun with --apply to delete.`;
+  const unparsed =
+    result.unparsedRecords > 0
+      ? [
+          `Warning: ${result.unparsedRecords} of ${result.recordsSeen} listed memory record(s) have no home-<uuid>/party-<uuid> namespace and were not checked.`,
+        ]
+      : [];
   return [
+    `Read ${result.homesRead} existing home(s).`,
     summary,
+    ...unparsed,
     ...result.orphanHomeIds.map((homeId) => `Orphaned home: ${homeId}`),
   ];
 }

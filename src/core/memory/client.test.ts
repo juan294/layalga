@@ -109,6 +109,52 @@ describe("AgentCore memory client adapter", () => {
     });
   });
 
+  it("returns how many records a batch deleted", async () => {
+    mocks.send.mockResolvedValueOnce({
+      successfulRecords: [
+        { memoryRecordId: "record-1", status: "SUCCEEDED" },
+        { memoryRecordId: "record-2", status: "SUCCEEDED" },
+      ],
+      failedRecords: [],
+    });
+
+    await expect(
+      createMemoryClient("us-east-1").batchDeleteMemoryRecords({
+        memoryId: "memory-1",
+        memoryRecordIds: ["record-1", "record-2"],
+      }),
+    ).resolves.toBe(2);
+  });
+
+  it("throws with only the failure count when a batch partly fails", async () => {
+    mocks.send.mockResolvedValueOnce({
+      successfulRecords: [{ memoryRecordId: "record-1", status: "SUCCEEDED" }],
+      failedRecords: [
+        {
+          memoryRecordId: "record-secret-2",
+          status: "FAILED",
+          errorCode: 500,
+          errorMessage: "Prefers the ground floor",
+        },
+      ],
+    });
+
+    const error = await createMemoryClient("us-east-1")
+      .batchDeleteMemoryRecords({
+        memoryId: "memory-1",
+        memoryRecordIds: ["record-1", "record-secret-2"],
+      })
+      .then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe(
+      "BatchDeleteMemoryRecords failed for 1 of 2 record(s)",
+    );
+  });
+
   it("filters anonymous session and event summaries and deletes one event", async () => {
     mocks.send
       .mockResolvedValueOnce({
