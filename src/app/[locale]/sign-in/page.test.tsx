@@ -51,6 +51,13 @@ describe("sign-in page", () => {
     expect(html).not.toContain("demo-enter");
   });
 
+  it("links to the privacy notice", async () => {
+    const html = await renderPage("es");
+
+    expect(html).toContain('href="/es/privacy"');
+    expect(html).toContain("SignIn.privacyLink");
+  });
+
   it("shows the not-a-host error next to the Google button", async () => {
     const html = await renderPage("en", "not_a_host");
 

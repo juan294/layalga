@@ -8,7 +8,7 @@ This guide describes L’Ayalga for real household use, after the real-use launc
 
 Your host sends a private invitation link. You can use it without creating an account. Treat it as private: anyone holding a valid link can access that invitation. A new unbooked link normally lasts 30 days. Confirmation and rescheduling extend a valid, unrevoked invitation through checkout plus seven days when needed. Cancellation or withdrawal ends that invitation's access; an extension never revives a revoked or cancelled link.
 
-You can also sign in with Google and use a party already claimed by your verified account. A reminder return link provides a separate, revocable guest session after its capability is validated. These routes all authorize the invitation on the server; knowing a visit identifier is insufficient.
+You can link the invitation to your Google account by signing in with Google from the invitation page. After that, you can sign in with the same Google account from the main sign-in page, and it takes you to your visits. A reminder return link provides a separate, revocable guest session after its capability is validated. These routes all authorize the invitation on the server; knowing a visit identifier is insufficient.
 
 An expired or revoked link cannot be recovered by changing the URL. Contact your host. Signing out clears account and guest-session cookies; it does not erase a private link that someone already holds.
 
