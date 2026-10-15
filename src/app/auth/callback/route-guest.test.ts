@@ -57,6 +57,34 @@ describe("OAuth callback from the main sign-in page", () => {
     expect(auth.signOut).not.toHaveBeenCalled();
   });
 
+  it("ignores the requested page for a guest and keeps only its locale", async () => {
+    hasPartyForUser.mockResolvedValue(true);
+
+    expect(location(await GET(callback("/es/settings")))).toBe("/es/visits");
+    expect(location(await GET(callback("/api/x")))).toBe("/en/visits");
+  });
+
+  it("treats someone who is both host and guest as a host", async () => {
+    claimHostForUser.mockResolvedValue(true);
+    hasPartyForUser.mockResolvedValue(true);
+
+    const response = await GET(callback("/en/rooms"));
+
+    expect(location(response)).toBe("/en/rooms");
+    expect(hasPartyForUser).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to the visits page after a failed invitation claim", async () => {
+    hasPartyForUser.mockResolvedValue(true);
+    const token = "a".repeat(43);
+
+    const response = await GET(callback(`/en/g/${token}`));
+
+    expect(location(response)).toBe(`/en/g/${token}?claim=failed`);
+    expect(claimHostForUser).not.toHaveBeenCalled();
+    expect(auth.signOut).toHaveBeenCalledOnce();
+  });
+
   it("signs out an account that is neither a host nor an invited guest", async () => {
     const response = await GET(callback("/en"));
 
