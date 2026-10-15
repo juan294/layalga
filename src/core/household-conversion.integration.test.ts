@@ -50,7 +50,9 @@ async function seedDemoShape(tx: TransactionSql): Promise<void> {
   await tx`insert into public.parties (id, home_id, family_name, locale) values (${PARTY}, ${HOME}, 'Familia Vega', 'es')`;
   await tx`insert into public.invitations (id, home_id, host_id, party_id, raw_message) values (${INVITATION}, ${HOME}, ${HOSTS[0]}, ${PARTY}, 'Synthetic invitation')`;
   await tx`insert into public.visits (home_id, party_id, invitation_id, stay, adults, status) values (${HOME}, ${PARTY}, ${INVITATION}, daterange('2026-09-18', '2026-09-21', '[)'), 2, 'confirmed')`;
-  const [run] = await tx<{ id: string }[]>`insert into public.runs (home_id, session_id, task, payload, status) values (${HOME}, ${`inv_${INVITATION}`}, 'guest_submit', '{}'::jsonb, 'completed') returning id`;
+  const [run] = await tx<
+    { id: string }[]
+  >`insert into public.runs (home_id, session_id, task, payload, status) values (${HOME}, ${`inv_${INVITATION}`}, 'guest_submit', '{}'::jsonb, 'completed') returning id`;
   await tx`insert into public.audit_events (home_id, run_id, actor, kind) values (${HOME}, ${run!.id}, 'agent', 'tool_call')`;
   await tx`insert into public.audit_events (home_id, actor, kind, payload) values (${HOME}, 'host', 'memory_forgotten', ${tx.json({ partyId: PARTY })})`;
   await tx`insert into public.agent_sessions (key, session_id, data) values (${`inv_${INVITATION}/snapshot`}, ${`inv_${INVITATION}`}, ${Buffer.from("{}")})`;

@@ -12,7 +12,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) =>
-      mocks.cookies.has(name) ? { name, value: mocks.cookies.get(name) } : undefined,
+      mocks.cookies.has(name)
+        ? { name, value: mocks.cookies.get(name) }
+        : undefined,
   }),
 }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));

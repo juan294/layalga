@@ -13,7 +13,11 @@ test("a host error keeps the Google button beside it", async ({ page }) => {
 });
 
 test("the retired demo routes are gone", async ({ request }) => {
-  for (const path of ["/en/demo-enter", "/en/demo-enter-guest", "/api/demo/reset"]) {
+  for (const path of [
+    "/en/demo-enter",
+    "/en/demo-enter-guest",
+    "/api/demo/reset",
+  ]) {
     const response = await request.post(path, { maxRedirects: 0 });
     expect(response.status(), path).toBe(404);
   }

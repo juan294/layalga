@@ -18,7 +18,9 @@ vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => mocks.connection,
   sqlClient: () => mocks.sql,
 }));
-vi.mock("@/lib/server/env", () => ({ parseServerEnvironment: mocks.parseEnvironment }));
+vi.mock("@/lib/server/env", () => ({
+  parseServerEnvironment: mocks.parseEnvironment,
+}));
 vi.mock("../scheduler", () => ({ schedulerForHome: mocks.schedulerForHome }));
 vi.mock("../scripted-model-selection", () => ({
   scriptedModelForTask: mocks.scriptedModelForTask,
@@ -44,7 +46,10 @@ describe("runtimeDeps", () => {
   });
 
   it("uses the system clock and configured scheduler, and never the scripted model", async () => {
-    mocks.parseEnvironment.mockReturnValue({ appUrl: "https://app.example", model: "scripted" });
+    mocks.parseEnvironment.mockReturnValue({
+      appUrl: "https://app.example",
+      model: "scripted",
+    });
 
     const deps = await runtimeDeps(hostTask, { executionRuntime: "agentcore" });
 
@@ -62,7 +67,10 @@ describe("runtimeDeps", () => {
   });
 
   it("falls back to English for a task without a locale", async () => {
-    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "bedrock" });
+    mocks.parseEnvironment.mockReturnValue({
+      appUrl: "http://localhost:3008",
+      model: "bedrock",
+    });
     const tick: AgentTask = {
       task: "tick",
       homeId: hostTask.homeId,
@@ -76,10 +84,15 @@ describe("runtimeDeps", () => {
   });
 
   it("rejects an unknown home", async () => {
-    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "scripted" });
+    mocks.parseEnvironment.mockReturnValue({
+      appUrl: "http://localhost:3008",
+      model: "scripted",
+    });
     mocks.sql.mockResolvedValue([]);
 
-    await expect(runtimeDeps(hostTask)).rejects.toThrow(`Home not found: ${hostTask.homeId}`);
+    await expect(runtimeDeps(hostTask)).rejects.toThrow(
+      `Home not found: ${hostTask.homeId}`,
+    );
   });
 });
 
@@ -92,12 +105,18 @@ describe("localRuntimeDeps", () => {
   });
 
   it("attaches the scripted model only when MODEL=scripted", async () => {
-    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "scripted" });
+    mocks.parseEnvironment.mockReturnValue({
+      appUrl: "http://localhost:3008",
+      model: "scripted",
+    });
     const deps = await localRuntimeDeps(hostTask);
     expect(deps.model).toBe(mocks.scriptedModel);
     expect(mocks.scriptedModelForTask).toHaveBeenCalledWith(hostTask, deps);
 
-    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "bedrock" });
+    mocks.parseEnvironment.mockReturnValue({
+      appUrl: "http://localhost:3008",
+      model: "bedrock",
+    });
     expect(await localRuntimeDeps(hostTask)).not.toHaveProperty("model");
   });
 });

@@ -66,7 +66,9 @@ describe("getCurrentGuestInvitation", () => {
   it("ignores a leftover demo guest cookie", async () => {
     vi.stubEnv("DEMO_MODE", "true");
     mocks.getCookie.mockImplementation((name: string) =>
-      name === "layalga_demo_guest" ? { value: "v1.payload.signature" } : undefined,
+      name === "layalga_demo_guest"
+        ? { value: "v1.payload.signature" }
+        : undefined,
     );
 
     await expect(getCurrentGuestInvitation()).resolves.toBeNull();
