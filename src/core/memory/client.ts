@@ -5,6 +5,7 @@ import {
   BedrockAgentCoreClient,
   CreateEventCommand,
   DeleteEventCommand,
+  ListActorsCommand,
   ListEventsCommand,
   ListMemoryRecordsCommand,
   ListSessionsCommand,
@@ -16,6 +17,8 @@ export interface MemoryRecordItem {
   memoryRecordId: string;
   text: string;
   createdAt: Date;
+  /** The record's namespaces; set by the real client, optional for fakes. */
+  namespaces?: readonly string[];
 }
 
 export interface CreateMemoryEventInput {
@@ -70,6 +73,17 @@ export interface MemoryClient {
   }): Promise<void>;
 }
 
+/**
+ * `MemoryClient` plus the memory-wide listing the orphan cleanup needs to
+ * discover every actor, not only the one a caller already knows.
+ */
+export interface MemoryInventoryClient extends MemoryClient {
+  listActors(input: {
+    memoryId: string;
+    nextToken?: string;
+  }): Promise<Page<string>>;
+}
+
 /** AgentCore's own page size ceiling; also the `BatchDeleteMemoryRecords` batch limit. */
 const MAX_PAGE_SIZE = 100;
 
@@ -81,7 +95,7 @@ function sdkClient(region: string): BedrockAgentCoreClient {
 }
 
 /** The real `MemoryClient`, calling AgentCore Memory through the AWS SDK. */
-export function createMemoryClient(region: string): MemoryClient {
+export function createMemoryClient(region: string): MemoryInventoryClient {
   const client = sdkClient(region);
   return {
     async createEvent(input) {
@@ -117,6 +131,7 @@ export function createMemoryClient(region: string): MemoryClient {
           memoryRecordId: summary.memoryRecordId ?? "",
           text: memoryContentText(summary.content),
           createdAt: summary.createdAt ?? new Date(0),
+          namespaces: summary.namespaces ?? [],
         })),
         nextToken: response.nextToken,
       };
@@ -131,6 +146,21 @@ export function createMemoryClient(region: string): MemoryClient {
           })),
         }),
       );
+    },
+    async listActors({ memoryId, nextToken }) {
+      const response = await client.send(
+        new ListActorsCommand({
+          memoryId,
+          nextToken,
+          maxResults: MAX_PAGE_SIZE,
+        }),
+      );
+      return {
+        items: (response.actorSummaries ?? [])
+          .map((summary) => summary.actorId)
+          .filter((actorId): actorId is string => Boolean(actorId)),
+        nextToken: response.nextToken,
+      };
     },
     async listSessions({ memoryId, actorId, nextToken }) {
       const response = await client.send(

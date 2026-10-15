@@ -167,7 +167,15 @@ pnpm run release:probes -- --cleanup-only <run id>
 
 Read a failed run's state before acting. `PAUSED` allows the same candidate to be dispatched again after the environment is repaired. `BLOCKED` needs a fixed candidate. The production `guest-confirmation` probe has so far run only against the scripted model; if Bedrock returns an `interrupted` result, examine the run before treating it as a candidate defect (review note P2-R6 in the [implementation notes](../plans/2026-10-15-real-use-launch-notes.md)).
 
-Open owner decision P2-R1: each production run writes AgentCore Memory events for its fixture parties. Database cleanup deletes the parties, but the long-term memory records extracted under `/parties/home-<fixture home>/party-<id>` remain; raw events expire after 30 days. About four actors accrue per run. They are scoped to the fixture homes, so the real household does not read them. The options are to accept them and forget probe actors periodically, to grant the workflow a narrow AWS role that forgets fixture parties before cleanup, or to run the production gate without the memory assertion. The decision is open; until it is taken, each production run adds these records.
+Owner decision P2-R1, option (a), chosen 2026-10-15: each production run writes AgentCore Memory events for its fixture parties. Database cleanup deletes the fixture homes, but the long-term memory records extracted under `/parties/home-<fixture home>/party-<id>` remain; raw events expire after 30 days. About four actors accrue per run. They are scoped to the fixture homes, so the real household does not read them. The gate stays as it is. After production probe runs, `pnpm run memory:forget-orphans` (`scripts/forget-orphaned-memory.ts`) forgets the memory whose home no longer exists. It finds party actors from both raw events (`ListActors`) and long-term record namespaces under `/parties/`, reads the `homes` table, and treats as orphaned only an actor of the exact form `home-<uuid>/party-<uuid>` whose home is absent. It never touches an actor whose home exists, ignores ids of any other form, and writes no audit row because the home is gone. It reports only by default; `--apply` deletes.
+
+The script reads the production database and deletes production memory, so each run needs owner authorization. It needs `DATABASE_URL` (the production web-role URL), `MEMORY_ID` (`LayalgaHouseholdMemory-CBgKZc7mK4`), `AWS_REGION` (`us-east-1`) and AWS credentials allowed by `infra/iam/memory-data-plane.json`. Run the dry run first and check that no reported home id is the real household's (`00000000-0000-4000-8000-000000000001`; it exists, so it cannot be reported). Then apply, and repeat the dry run to confirm that it reports 0 orphaned actors:
+
+```bash
+pnpm run memory:forget-orphans
+pnpm run memory:forget-orphans -- --apply
+pnpm run memory:forget-orphans
+```
 
 ### Production workflow release-system impact
 

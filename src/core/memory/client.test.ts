@@ -14,6 +14,7 @@ vi.mock("@aws-sdk/client-bedrock-agentcore", () => {
     BedrockAgentCoreClient: FakeClient,
     CreateEventCommand: FakeCommand,
     DeleteEventCommand: FakeCommand,
+    ListActorsCommand: FakeCommand,
     ListEventsCommand: FakeCommand,
     ListMemoryRecordsCommand: FakeCommand,
     ListSessionsCommand: FakeCommand,
@@ -62,6 +63,7 @@ describe("AgentCore memory client adapter", () => {
           memoryRecordId: "record-1",
           content: { text: "Ground floor" },
           createdAt: new Date("2026-09-10T10:00:00.000Z"),
+          namespaces: ["/parties/actor-1/preferences"],
         },
         { memoryRecordId: undefined, content: { binary: "ignored" } },
       ],
@@ -78,8 +80,14 @@ describe("AgentCore memory client adapter", () => {
           memoryRecordId: "record-1",
           text: "Ground floor",
           createdAt: new Date("2026-09-10T10:00:00.000Z"),
+          namespaces: ["/parties/actor-1/preferences"],
         },
-        { memoryRecordId: "", text: "", createdAt: new Date(0) },
+        {
+          memoryRecordId: "",
+          text: "",
+          createdAt: new Date(0),
+          namespaces: [],
+        },
       ],
       nextToken: "next",
     });
@@ -135,6 +143,25 @@ describe("AgentCore memory client adapter", () => {
       sessionId: "session-1",
       eventId: "event-1",
       actorId: "actor-1",
+    });
+  });
+
+  it("lists actor ids page by page, dropping anonymous summaries", async () => {
+    mocks.send.mockResolvedValueOnce({
+      actorSummaries: [{ actorId: "actor-1" }, {}, { actorId: "" }],
+      nextToken: "actors-next",
+    });
+
+    await expect(
+      createMemoryClient("us-east-1").listActors({
+        memoryId: "memory-1",
+        nextToken: "actors-previous",
+      }),
+    ).resolves.toEqual({ items: ["actor-1"], nextToken: "actors-next" });
+    expect(mocks.send.mock.calls[0]?.[0].input).toEqual({
+      memoryId: "memory-1",
+      nextToken: "actors-previous",
+      maxResults: 100,
     });
   });
 });

@@ -1,0 +1,86 @@
+import postgres from "postgres";
+
+import {
+  createMemoryClient,
+  type MemoryInventoryClient,
+} from "@/core/memory/client";
+import {
+  forgetOrphanedMemory,
+  type ForgetOrphanedMemoryResult,
+} from "@/core/memory/orphans";
+
+import {
+  isDirectExecution,
+  requiredEnvironment,
+  safeErrorMessage,
+} from "./release-helpers";
+
+/**
+ * Forgets AgentCore Memory whose home no longer exists, such as the fixture
+ * parties a production probe run writes before its cleanup deletes their
+ * homes. Reports only by default; `--apply` deletes. Run after production
+ * probe runs (see `docs/release/e2e-pro-playbook.md`).
+ */
+export function parseForgetOrphansArguments(argv: readonly string[]): {
+  apply: boolean;
+} {
+  for (const argument of argv) {
+    if (argument !== "--apply") {
+      throw new Error(`Unknown argument: ${argument}`);
+    }
+  }
+  return { apply: argv.includes("--apply") };
+}
+
+export async function forgetOrphanedMemoryFromEnvironment(
+  env: Readonly<Record<string, string | undefined>>,
+  { apply }: { apply: boolean },
+  client?: MemoryInventoryClient,
+): Promise<ForgetOrphanedMemoryResult> {
+  const memoryId = requiredEnvironment("MEMORY_ID", env);
+  const region = requiredEnvironment("AWS_REGION", env);
+  const sql = postgres(requiredEnvironment("DATABASE_URL", env), {
+    prepare: false,
+    max: 1,
+  });
+  try {
+    return await forgetOrphanedMemory(
+      sql,
+      memoryId,
+      client ?? createMemoryClient(region),
+      { apply },
+    );
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+export function describeOrphanCleanup(
+  result: ForgetOrphanedMemoryResult,
+): string[] {
+  const scope = `${result.orphanActorIds.length} orphaned actor(s) across ${result.orphanHomeIds.length} deleted home(s)`;
+  const summary = result.applied
+    ? `Forgot ${result.deletedRecords} record(s) and ${result.deletedEvents} event(s) for ${scope}.`
+    : `Dry run: ${scope}. Nothing was deleted; rerun with --apply to delete.`;
+  return [
+    summary,
+    ...result.orphanHomeIds.map((homeId) => `Orphaned home: ${homeId}`),
+  ];
+}
+
+if (isDirectExecution(import.meta.url, process.argv[1])) {
+  Promise.resolve()
+    .then(() =>
+      forgetOrphanedMemoryFromEnvironment(
+        process.env,
+        parseForgetOrphansArguments(process.argv.slice(2)),
+      ),
+    )
+    .then((result) => {
+      for (const line of describeOrphanCleanup(result)) console.log(line);
+    })
+    .catch((error: unknown) => {
+      console.error(safeErrorMessage(error));
+      process.exitCode = 1;
+    });
+}

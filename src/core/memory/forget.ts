@@ -46,7 +46,8 @@ export async function forgetPartyMemory(
   return { deletedRecords, deletedEvents };
 }
 
-async function deleteAllMemoryRecords(
+/** Deletes every record under `namespacePath` (a prefix); returns the count. */
+export async function deleteAllMemoryRecords(
   client: MemoryClient,
   memoryId: string,
   namespacePath: string,
@@ -73,7 +74,8 @@ async function deleteAllMemoryRecords(
   return deleted;
 }
 
-async function deleteAllEvents(
+/** Deletes every event in every session of `actorId`; returns the count. */
+export async function deleteAllEvents(
   client: MemoryClient,
   memoryId: string,
   actorId: string,
