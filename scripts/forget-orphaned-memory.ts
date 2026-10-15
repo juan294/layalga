@@ -16,9 +16,9 @@ import {
 } from "./release-helpers";
 
 /**
- * Forgets AgentCore Memory whose home no longer exists, such as the fixture
+ * Forgets AgentCore Memory whose party no longer exists, such as the fixture
  * parties a production probe run writes before its cleanup deletes their
- * homes. Reports only by default; `--apply` deletes. It fails closed when
+ * homes, or the synthetic parties the real-use conversion deleted. Reports only by default; `--apply` deletes. It fails closed when
  * the homes read is empty, and `--apply` also fails closed without the real
  * household. Run after production probe runs (see
  * `docs/release/e2e-pro-playbook.md`).
@@ -61,7 +61,7 @@ export async function forgetOrphanedMemoryFromEnvironment(
 export function describeOrphanCleanup(
   result: ForgetOrphanedMemoryResult,
 ): string[] {
-  const scope = `${result.orphanActorIds.length} orphaned actor(s) across ${result.orphanHomeIds.length} deleted home(s)`;
+  const scope = `${result.orphanActorIds.length} orphaned actor(s) across ${result.orphanHomeIds.length} home(s)`;
   const summary = result.applied
     ? `Forgot ${result.deletedRecords} record(s) and ${result.deletedEvents} event(s) for ${scope}.`
     : `Dry run: ${scope}. Nothing was deleted; rerun with --apply to delete.`;
@@ -75,7 +75,7 @@ export function describeOrphanCleanup(
     `Read ${result.homesRead} existing home(s).`,
     summary,
     ...unparsed,
-    ...result.orphanHomeIds.map((homeId) => `Orphaned home: ${homeId}`),
+    ...result.orphanHomeIds.map((homeId) => `Home with orphaned memory: ${homeId}`),
   ];
 }
 

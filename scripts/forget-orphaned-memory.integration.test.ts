@@ -64,7 +64,8 @@ describe("forget-orphaned-memory script", () => {
   it("reports on a dry run and deletes only the deleted home's memory with --apply", async () => {
     const liveHomeId = randomUUID();
     const goneHomeId = randomUUID();
-    const liveActor = `home-${liveHomeId}/party-${randomUUID()}`;
+    const livePartyId = randomUUID();
+    const liveActor = `home-${liveHomeId}/party-${livePartyId}`;
     const goneActor = `home-${goneHomeId}/party-${randomUUID()}`;
     const env = {
       MEMORY_ID: "mem-test",
@@ -74,6 +75,10 @@ describe("forget-orphaned-memory script", () => {
     await sql`
       insert into public.homes (id, name, timezone)
       values (${liveHomeId}, 'Orphan memory test', 'Europe/Madrid')
+    `;
+    await sql`
+      insert into public.parties (id, home_id, family_name, locale)
+      values (${livePartyId}, ${liveHomeId}, 'Orphan memory test', 'en')
     `;
     // --apply requires the real household; the seeded local database has it.
     const [realHousehold] = await sql`
@@ -107,8 +112,8 @@ describe("forget-orphaned-memory script", () => {
       expect(dryRun.deletedEventActors).toEqual([]);
       expect(describeOrphanCleanup(reported)).toEqual([
         `Read ${reported.homesRead} existing home(s).`,
-        "Dry run: 1 orphaned actor(s) across 1 deleted home(s). Nothing was deleted; rerun with --apply to delete.",
-        `Orphaned home: ${goneHomeId}`,
+        "Dry run: 1 orphaned actor(s) across 1 home(s). Nothing was deleted; rerun with --apply to delete.",
+        `Home with orphaned memory: ${goneHomeId}`,
       ]);
 
       const applied = fakeMemory([liveActor, goneActor]);
@@ -126,7 +131,7 @@ describe("forget-orphaned-memory script", () => {
       expect(applied.deletedRecordIds).toEqual([`record-${goneActor}`]);
       expect(applied.deletedEventActors).toEqual([goneActor]);
       expect(describeOrphanCleanup(result)[1]).toBe(
-        "Forgot 1 record(s) and 1 event(s) for 1 orphaned actor(s) across 1 deleted home(s).",
+        "Forgot 1 record(s) and 1 event(s) for 1 orphaned actor(s) across 1 home(s).",
       );
     } finally {
       await sql`delete from public.homes where id = ${liveHomeId}`;
@@ -150,7 +155,7 @@ describe("forget-orphaned-memory script", () => {
       }),
     ).toEqual([
       "Read 3 existing home(s).",
-      "Dry run: 0 orphaned actor(s) across 0 deleted home(s). Nothing was deleted; rerun with --apply to delete.",
+      "Dry run: 0 orphaned actor(s) across 0 home(s). Nothing was deleted; rerun with --apply to delete.",
       "Warning: 2 of 5 listed memory record(s) have no home-<uuid>/party-<uuid> namespace and were not checked.",
     ]);
   });
