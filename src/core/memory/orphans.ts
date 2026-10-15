@@ -22,6 +22,8 @@ export interface OrphanedMemoryInventory {
   orphans: OrphanedMemoryActor[];
   /** Distinct homes the homes-and-parties read returned. */
   homesRead: number;
+  /** Parties that read returned. */
+  partiesRead: number;
   /** Long-term records listed under `/parties`. */
   recordsSeen: number;
   /** Listed records with no `home-<uuid>/party-<uuid>` namespace; never checked. */
@@ -140,6 +142,7 @@ export async function findOrphanedMemoryActors(
   return {
     orphans,
     homesRead: existingHomeIds.size,
+    partiesRead: existingActors.size,
     recordsSeen: records.length,
     unparsedRecords,
   };

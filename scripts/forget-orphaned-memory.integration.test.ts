@@ -9,6 +9,7 @@ import { REAL_HOUSEHOLD_HOME_ID } from "@/core/memory/orphans";
 import {
   describeOrphanCleanup,
   forgetOrphanedMemoryFromEnvironment,
+  assertApplyTarget,
   parseForgetOrphansArguments,
 } from "./forget-orphaned-memory";
 
@@ -50,23 +51,34 @@ function fakeMemory(actorIds: string[]) {
 describe("forget-orphaned-memory script", () => {
   afterAll(() => sql.end());
 
-  it("accepts only --apply", () => {
+  it("accepts --apply only together with --project-ref", () => {
     expect(parseForgetOrphansArguments([])).toEqual({ apply: false });
-    expect(parseForgetOrphansArguments(["--apply"])).toEqual({ apply: true });
-    expect(parseForgetOrphansArguments(["--", "--apply"])).toEqual({
-      apply: true,
-    });
+    expect(
+      parseForgetOrphansArguments(["--", "--apply", "--project-ref", "abc"]),
+    ).toEqual({ apply: true, projectRef: "abc" });
+    expect(() => parseForgetOrphansArguments(["--apply"])).toThrow(
+      "--apply needs --project-ref <ref>",
+    );
+    expect(() => parseForgetOrphansArguments(["--project-ref"])).toThrow(
+      "--project-ref needs a value",
+    );
     expect(() => parseForgetOrphansArguments(["--force"])).toThrow(
       "Unknown argument: --force",
     );
   });
 
-  it("reports on a dry run and deletes only the deleted home's memory with --apply", async () => {
+  it("reports on a dry run and deletes only memory of deleted homes and parties with --apply", async () => {
     const liveHomeId = randomUUID();
     const goneHomeId = randomUUID();
     const livePartyId = randomUUID();
     const liveActor = `home-${liveHomeId}/party-${livePartyId}`;
     const goneActor = `home-${goneHomeId}/party-${randomUUID()}`;
+    // A party deleted from a home that still exists.
+    const deletedPartyActor = `home-${liveHomeId}/party-${randomUUID()}`;
+    const orphanActors = [goneActor, deletedPartyActor].sort();
+    const orphanHomes = orphanActors.map((actorId) =>
+      actorId === goneActor ? goneHomeId : liveHomeId,
+    );
     const env = {
       MEMORY_ID: "mem-test",
       AWS_REGION: "us-east-1",
@@ -91,7 +103,7 @@ describe("forget-orphaned-memory script", () => {
       `;
     }
     try {
-      const dryRun = fakeMemory([liveActor, goneActor]);
+      const dryRun = fakeMemory([liveActor, goneActor, deletedPartyActor]);
       const reported = await forgetOrphanedMemoryFromEnvironment(
         env,
         { apply: false },
@@ -101,22 +113,23 @@ describe("forget-orphaned-memory script", () => {
       expect(reported).toEqual({
         applied: false,
         homesRead: reported.homesRead,
-        recordsSeen: 2,
+        partiesRead: reported.partiesRead,
+        recordsSeen: 3,
         unparsedRecords: 0,
-        orphanActorIds: [goneActor],
-        orphanHomeIds: [goneHomeId],
+        orphanActorIds: orphanActors,
+        orphanHomeIds: orphanHomes,
         deletedRecords: 0,
         deletedEvents: 0,
       });
       expect(dryRun.deletedRecordIds).toEqual([]);
       expect(dryRun.deletedEventActors).toEqual([]);
       expect(describeOrphanCleanup(reported)).toEqual([
-        `Read ${reported.homesRead} existing home(s).`,
-        "Dry run: 1 orphaned actor(s) across 1 home(s). Nothing was deleted; rerun with --apply to delete.",
-        `Home with orphaned memory: ${goneHomeId}`,
+        `Read ${reported.homesRead} home(s) and ${reported.partiesRead} party record(s).`,
+        "Dry run: 2 orphaned actor(s) across 2 home(s). Nothing was deleted; rerun with --apply to delete.",
+        ...orphanHomes.map((homeId) => `Home with orphaned memory: ${homeId}`),
       ]);
 
-      const applied = fakeMemory([liveActor, goneActor]);
+      const applied = fakeMemory([liveActor, goneActor, deletedPartyActor]);
       const result = await forgetOrphanedMemoryFromEnvironment(
         env,
         { apply: true },
@@ -124,14 +137,16 @@ describe("forget-orphaned-memory script", () => {
       );
       expect(result).toMatchObject({
         applied: true,
-        orphanHomeIds: [goneHomeId],
-        deletedRecords: 1,
-        deletedEvents: 1,
+        orphanHomeIds: orphanHomes,
+        deletedRecords: 2,
+        deletedEvents: 2,
       });
-      expect(applied.deletedRecordIds).toEqual([`record-${goneActor}`]);
-      expect(applied.deletedEventActors).toEqual([goneActor]);
+      expect(applied.deletedRecordIds).toEqual(
+        orphanActors.map((actorId) => `record-${actorId}`),
+      );
+      expect(applied.deletedEventActors).toEqual(orphanActors);
       expect(describeOrphanCleanup(result)[1]).toBe(
-        "Forgot 1 record(s) and 1 event(s) for 1 orphaned actor(s) across 1 home(s).",
+        "Forgot 2 record(s) and 2 event(s) for 2 orphaned actor(s) across 2 home(s).",
       );
     } finally {
       await sql`delete from public.homes where id = ${liveHomeId}`;
@@ -141,11 +156,46 @@ describe("forget-orphaned-memory script", () => {
     }
   });
 
+  it("applies only against the named Supabase project", () => {
+    const pooler =
+      "postgresql://layalga_agent.prodref:secret@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    const direct =
+      "postgresql://postgres:secret@db.prodref.supabase.co:5432/postgres";
+    expect(() =>
+      assertApplyTarget(
+        { DATABASE_URL: pooler },
+        { apply: true, projectRef: "prodref" },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertApplyTarget(
+        { DATABASE_URL: direct },
+        { apply: true, projectRef: "prodref" },
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertApplyTarget(
+        { DATABASE_URL: url },
+        { apply: true, projectRef: "prodref" },
+      ),
+    ).toThrow("DATABASE_URL does not name Supabase project prodref");
+    expect(() =>
+      assertApplyTarget(
+        { DATABASE_URL: pooler },
+        { apply: true, projectRef: "other" },
+      ),
+    ).toThrow("DATABASE_URL does not name Supabase project other");
+    expect(() =>
+      assertApplyTarget({ DATABASE_URL: url }, { apply: false }),
+    ).not.toThrow();
+  });
+
   it("warns when listed records could not be attributed to a party", () => {
     expect(
       describeOrphanCleanup({
         applied: false,
         homesRead: 3,
+        partiesRead: 4,
         recordsSeen: 5,
         unparsedRecords: 2,
         orphanActorIds: [],
@@ -154,7 +204,7 @@ describe("forget-orphaned-memory script", () => {
         deletedEvents: 0,
       }),
     ).toEqual([
-      "Read 3 existing home(s).",
+      "Read 3 home(s) and 4 party record(s).",
       "Dry run: 0 orphaned actor(s) across 0 home(s). Nothing was deleted; rerun with --apply to delete.",
       "Warning: 2 of 5 listed memory record(s) have no home-<uuid>/party-<uuid> namespace and were not checked.",
     ]);

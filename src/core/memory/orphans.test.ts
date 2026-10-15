@@ -172,6 +172,7 @@ describe("findOrphanedMemoryActors", () => {
     expect(inventory).toEqual({
       orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 1,
       unparsedRecords: 0,
     });
@@ -369,6 +370,7 @@ describe("findOrphanedMemoryActors", () => {
     expect(inventory).toEqual({
       orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 3,
       unparsedRecords: 2,
     });
@@ -419,6 +421,7 @@ describe("forgetOrphanedMemory", () => {
     ).resolves.toEqual({
       applied: false,
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 4,
       unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
@@ -441,6 +444,7 @@ describe("forgetOrphanedMemory", () => {
     ).resolves.toEqual({
       applied: true,
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 4,
       unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
