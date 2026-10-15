@@ -46,12 +46,17 @@ export async function forgetPartyMemory(
   return { deletedRecords, deletedEvents };
 }
 
-async function deleteAllMemoryRecords(
+/**
+ * Deletes every record under `namespacePath` (a prefix); returns the count.
+ * Every page is listed before anything is deleted, so a next token that is
+ * an offset cannot skip records that a deletion moved forward.
+ */
+export async function deleteAllMemoryRecords(
   client: MemoryClient,
   memoryId: string,
   namespacePath: string,
 ): Promise<number> {
-  let deleted = 0;
+  const ids: string[] = [];
   let nextToken: string | undefined;
   do {
     const page = await client.listMemoryRecords({
@@ -59,26 +64,32 @@ async function deleteAllMemoryRecords(
       namespacePath,
       nextToken,
     });
-    const ids = page.items.map((record) => record.memoryRecordId);
-    for (let start = 0; start < ids.length; start += 100) {
-      const batch = ids.slice(start, start + 100);
-      await client.batchDeleteMemoryRecords({
-        memoryId,
-        memoryRecordIds: batch,
-      });
-      deleted += batch.length;
-    }
+    ids.push(...page.items.map((record) => record.memoryRecordId));
     nextToken = page.nextToken;
   } while (nextToken);
+
+  let deleted = 0;
+  for (let start = 0; start < ids.length; start += 100) {
+    const batch = ids.slice(start, start + 100);
+    const result = await client.batchDeleteMemoryRecords({
+      memoryId,
+      memoryRecordIds: batch,
+    });
+    deleted += typeof result === "number" ? result : batch.length;
+  }
   return deleted;
 }
 
-async function deleteAllEvents(
+/**
+ * Deletes every event in every session of `actorId`; returns the count.
+ * Like `deleteAllMemoryRecords`, it lists everything before deleting.
+ */
+export async function deleteAllEvents(
   client: MemoryClient,
   memoryId: string,
   actorId: string,
 ): Promise<number> {
-  let deleted = 0;
+  const sessionIds: string[] = [];
   let sessionsToken: string | undefined;
   do {
     const sessions = await client.listSessions({
@@ -86,23 +97,27 @@ async function deleteAllEvents(
       actorId,
       nextToken: sessionsToken,
     });
-    for (const sessionId of sessions.items) {
-      let eventsToken: string | undefined;
-      do {
-        const events = await client.listEvents({
-          memoryId,
-          actorId,
-          sessionId,
-          nextToken: eventsToken,
-        });
-        for (const eventId of events.items) {
-          await client.deleteEvent({ memoryId, actorId, sessionId, eventId });
-          deleted += 1;
-        }
-        eventsToken = events.nextToken;
-      } while (eventsToken);
-    }
+    sessionIds.push(...sessions.items);
     sessionsToken = sessions.nextToken;
   } while (sessionsToken);
-  return deleted;
+
+  const events: { sessionId: string; eventId: string }[] = [];
+  for (const sessionId of sessionIds) {
+    let eventsToken: string | undefined;
+    do {
+      const page = await client.listEvents({
+        memoryId,
+        actorId,
+        sessionId,
+        nextToken: eventsToken,
+      });
+      events.push(...page.items.map((eventId) => ({ sessionId, eventId })));
+      eventsToken = page.nextToken;
+    } while (eventsToken);
+  }
+
+  for (const { sessionId, eventId } of events) {
+    await client.deleteEvent({ memoryId, actorId, sessionId, eventId });
+  }
+  return events.length;
 }

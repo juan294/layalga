@@ -1,8 +1,90 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { DatabaseClient } from "@/core/db/client";
-import type { MemoryClient } from "./client";
-import { forgetPartyMemory } from "./forget";
+import type { MemoryClient, Page } from "./client";
+import {
+  deleteAllEvents,
+  deleteAllMemoryRecords,
+  forgetPartyMemory,
+} from "./forget";
+
+/** Pages two at a time with an offset token, which a deletion shifts. */
+function offsetPage<T>(items: T[], nextToken?: string): Page<T> {
+  const start = nextToken ? Number(nextToken) : 0;
+  const end = start + 2;
+  return {
+    items: items.slice(start, end),
+    nextToken: end < items.length ? String(end) : undefined,
+  };
+}
+
+function shrinkingMemory() {
+  const records = ["r1", "r2", "r3", "r4", "r5"];
+  const sessions: Record<string, string[]> = {
+    s1: ["e1", "e2", "e3"],
+    s2: ["e4"],
+    s3: ["e5", "e6"],
+  };
+  const liveSessions = () =>
+    Object.keys(sessions).filter((id) => (sessions[id] ?? []).length > 0);
+  const client: MemoryClient = {
+    createEvent: vi.fn(),
+    listMemoryRecords: vi.fn(async ({ nextToken }) =>
+      offsetPage(
+        records.map((memoryRecordId) => ({
+          memoryRecordId,
+          text: "fact",
+          createdAt: new Date("2026-10-15T10:00:00Z"),
+        })),
+        nextToken,
+      ),
+    ),
+    batchDeleteMemoryRecords: vi.fn(async ({ memoryRecordIds }) => {
+      for (const id of memoryRecordIds) records.splice(records.indexOf(id), 1);
+    }),
+    listSessions: vi.fn(async ({ nextToken }) =>
+      offsetPage(liveSessions(), nextToken),
+    ),
+    listEvents: vi.fn(async ({ sessionId, nextToken }) =>
+      offsetPage(sessions[sessionId] ?? [], nextToken),
+    ),
+    deleteEvent: vi.fn(async ({ sessionId, eventId }) => {
+      const events = sessions[sessionId] ?? [];
+      events.splice(events.indexOf(eventId), 1);
+    }),
+  };
+  return { client, records, sessions };
+}
+
+describe("shared forget helpers", () => {
+  it("collects every record before deleting, so offset tokens skip nothing", async () => {
+    const memory = shrinkingMemory();
+
+    await expect(
+      deleteAllMemoryRecords(memory.client, "memory-1", "/parties/actor-1"),
+    ).resolves.toBe(5);
+    expect(memory.records).toEqual([]);
+    expect(memory.client.batchDeleteMemoryRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it("collects every session's events before deleting, so offset tokens skip nothing", async () => {
+    const memory = shrinkingMemory();
+
+    await expect(
+      deleteAllEvents(memory.client, "memory-1", "actor-1"),
+    ).resolves.toBe(6);
+    expect(memory.sessions).toEqual({ s1: [], s2: [], s3: [] });
+  });
+
+  it("counts the records a batch reports as deleted", async () => {
+    const memory = shrinkingMemory();
+    vi.mocked(memory.client.batchDeleteMemoryRecords).mockResolvedValue(3);
+
+    await expect(
+      deleteAllMemoryRecords(memory.client, "memory-1", "/parties/actor-1"),
+    ).resolves.toBe(3);
+  });
+});
 
 describe("forgetPartyMemory", () => {
   it("deletes paginated records and events, then audits the totals", async () => {
@@ -47,7 +129,12 @@ describe("forgetPartyMemory", () => {
       namespacePath: "/parties/home-home-1/party-party-1",
       nextToken: undefined,
     });
-    expect(client.batchDeleteMemoryRecords).toHaveBeenCalledTimes(2);
+    // All 101 ids are collected first, then deleted as 100 + 1.
+    expect(
+      vi
+        .mocked(client.batchDeleteMemoryRecords)
+        .mock.calls.map(([input]) => input.memoryRecordIds.length),
+    ).toEqual([100, 1]);
     expect(client.deleteEvent).toHaveBeenCalledWith({
       memoryId: "memory-1",
       actorId: "home-home-1/party-party-1",
