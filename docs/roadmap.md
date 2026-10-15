@@ -18,7 +18,7 @@ Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [ha
 
 The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. Phases 1 to 4 change only the repository: tests and release probes move to real local Supabase sessions and fixture households, the application loses demo mode, Google becomes the only sign-in, and the documentation follows. Phases 5 and 6 are production work, and each production action needs explicit owner authorization:
 
-- Release 1 (phase 5): shipped as v2.0.0 on 2026-10-15 (main `e0cb4d1`, AgentCore runtime version 38). Email sign-in is off, the demo variables are gone from Vercel production, the conversion migration is applied, the new production gate passed, and the owner signed in with Google to the empty household. Two items remain open: forgetting the synthetic Vega and Parker memory, and the Google OAuth app's publishing status (still "Testing").
+- Release 1 (phase 5): shipped as v2.0.0 on 2026-10-15 (main `e0cb4d1`, AgentCore runtime version 38). Email sign-in is off, the demo variables are gone from Vercel production, the conversion migration is applied, the new production gate passed, and the owner signed in with Google to the empty household. The synthetic Vega and Parker memory is forgotten. One item remains open: the Google OAuth app's publishing status (still "Testing").
 - Release 2 (phase 6): after release 1's AgentCore runtime version is recorded, drop the demo schema and remove the demo predicates from the retention function.
 
 ## Remaining owner and operational actions
