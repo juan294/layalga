@@ -111,3 +111,18 @@ Automated:
 - The new tests named in steps 1, 3, 5 and 6 pass.
 
 Manual: open the local host dashboard after `supabase db reset` and signing in through `signInAsHost`. Check it in light and dark themes with no demo banner and no demo zone, then open a guest token page. Green checks do not prove appearance.
+
+## Implementation handoff (2026-10-15)
+
+Status: complete. Commits `253db6c` (implementation), `398889b` (format), `aab4acb` (review and simplify findings); the e2e selector fix is in `aab4acb`.
+
+- [x] Step 1: Google is the only sign-in; demo sessions, demo routes, review-access code and scripts removed; `getCurrentHost` ignores a validly signed leftover demo cookie (new test).
+- [x] Step 2: `DbDemoClock` and `src/core/demo/` removed; runtime callers use `SystemClock`; `loadGuestInvitation` takes a caller clock; host routes use the current time.
+- [x] Step 3: `configuredScheduler()` (renamed from `schedulerForHome`), tick filters no longer exclude demo homes (test proves a still-flagged home is processed), the `demo` guest-email status and the link-expiry bypass are gone (integration test: an expired link on a former demo home is rejected), `schema.ts` drops `demo` and `demo_clock`.
+- [x] Step 4: demo UI, CSS and 47 keys per locale removed; `tests/e2e/sign-in.spec.ts` added; demo specs and global setup deleted.
+- [x] Step 5: production refuses `MODEL=scripted`; `localRuntimeDeps` is the only scripted wiring; `scripts/agent-bundle-guard.mjs` fails the AgentCore bundle on any `scripted-model` input (bundle verified free of it).
+- [x] Step 6: `20261015082739_convert_household_to_real_use.sql` (tested: conversion, idempotence, absent home, untouched real home); `seed.sql` is a non-demo development household; `forget-synthetic-memory` replaces `seed-memory`.
+- [x] Step 7: `DEMO_MODE` and `DEMO_SESSION_SECRET` removed from `.env.example` and CI. Local `.env.development.local` copies still contain them (gitignored; ignored by the app).
+- Manual check (VERIFIED by screenshots on a local fixture household): sign-in shows only Google; host dashboard (light and dark) and a guest token page show no demo band or zone.
+- Gate on `aab4acb`, sequential, `DATABASE_URL` exported for vitest: typecheck, lint, `test` 739 passed, `test:integration` 174 passed, `test:coverage` passed (55.29% statements), `build` with the CI acceptance environment passed, AgentCore bundle passed, bootstrap passed, `test:e2e` 25 passed, `release:probes --target local` 9 of 9 passed. No pre-existing failures remain.
+- Next: phase 4 integration (documentation, run in its own worktree), then phase 5, which needs owner authorization for every production step.
