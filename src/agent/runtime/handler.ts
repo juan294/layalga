@@ -27,14 +27,19 @@ export interface AsyncTaskRegistry {
 
 const inFlightTasks = new Set<Promise<void>>();
 
-const tickAgent: AgentInvoker = {
-  async run(task: TickTask) {
-    return runAgentTask(
-      task,
-      await runtimeDeps(task, { executionRuntime: "agentcore" }),
-    );
-  },
-};
+/** Builds run dependencies; tests pass the local wrapper with the scripted model. */
+export type AgentCoreDepsFactory = typeof runtimeDeps;
+
+function tickAgentFor(depsFor: AgentCoreDepsFactory): AgentInvoker {
+  return {
+    async run(task: TickTask) {
+      return runAgentTask(
+        task,
+        await depsFor(task, { executionRuntime: "agentcore" }),
+      );
+    },
+  };
+}
 
 /**
  * Handles one AgentCore invocation request. Split out from the
@@ -46,6 +51,7 @@ export async function handleAgentCoreRequest(
   request: unknown,
   log: AgentCoreLog,
   registry: AsyncTaskRegistry,
+  depsFor: AgentCoreDepsFactory = runtimeDeps,
 ): Promise<unknown> {
   log.info(
     {
@@ -65,7 +71,7 @@ export async function handleAgentCoreRequest(
             execute: async ({ runId, task: queuedTask }) =>
               executeQueuedAgentRun(
                 runId,
-                await runtimeDeps(queuedTask, {
+                await depsFor(queuedTask, {
                   executionRuntime: "agentcore",
                 }),
               ),
@@ -84,14 +90,14 @@ export async function handleAgentCoreRequest(
             jobId: parsed.jobId,
           };
           const taskId = registry.addAsyncTask("tick");
-          const trackedTick = runtimeDeps(tickTask, {
+          const trackedTick = depsFor(tickTask, {
             executionRuntime: "agentcore",
           })
             .then((deps) =>
               runJob(
                 deps.db,
                 deps.clock,
-                tickAgent,
+                tickAgentFor(depsFor),
                 tickTask.jobId,
                 deps.scheduler,
               ),
@@ -123,7 +129,7 @@ export async function handleAgentCoreRequest(
     // check to fail.
     return await runAgentTask(
       parsed,
-      await runtimeDeps(parsed, { executionRuntime: "agentcore" }),
+      await depsFor(parsed, { executionRuntime: "agentcore" }),
     );
   } catch (error) {
     log.error(describeError(error), "AgentCore invocation failed");

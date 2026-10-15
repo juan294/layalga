@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   database: {},
   enqueue: vi.fn(),
   loadGuestInvitation: vi.fn(),
-  loadClock: vi.fn(),
   resolveGuestInvitationAuthority: vi.fn(),
   loadGuestRoomSearchWindow: vi.fn(),
   redirect: vi.fn(() => {
@@ -14,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   }),
   roomOptionsForStay: vi.fn(),
   scheduler: { schedule: vi.fn(), cancel: vi.fn() },
-  schedulerForHome: vi.fn(),
+  configuredScheduler: vi.fn(),
   sql: vi.fn(),
 }));
 
@@ -25,11 +24,14 @@ vi.mock("@/agent/client", () => ({
   getAgentClient: () => ({ enqueue: mocks.enqueue }),
 }));
 vi.mock("@/agent/scheduler", () => ({
-  schedulerForHome: mocks.schedulerForHome,
+  configuredScheduler: mocks.configuredScheduler,
 }));
 vi.mock("@/core/clock", () => ({
-  DbDemoClock: { load: mocks.loadClock },
-  SystemClock: class SystemClock {},
+  SystemClock: class SystemClock {
+    now() {
+      return mocks.clock.now();
+    }
+  },
 }));
 vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => ({ db: mocks.database, sql: mocks.sql }),
@@ -66,9 +68,7 @@ describe("guest room actions", () => {
       homeId,
       structured: {},
     });
-    mocks.loadClock.mockResolvedValue(mocks.clock);
-    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
-    mocks.sql.mockResolvedValue([{ demo: true }]);
+    mocks.configuredScheduler.mockReturnValue(mocks.scheduler);
     mocks.resolveGuestInvitationAuthority.mockResolvedValue({
       id: invitationId,
       homeId,
@@ -243,7 +243,7 @@ describe("guest room actions", () => {
     });
     expect(mocks.applyGuestReconfirmation).toHaveBeenCalledWith(
       mocks.database,
-      mocks.clock,
+      expect.objectContaining({ now: expect.any(Function) }),
       mocks.scheduler,
       homeId,
       visitId,

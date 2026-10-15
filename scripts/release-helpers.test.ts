@@ -1,80 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  assertDemoSnapshot,
-  markerSuffix,
   normalizeBaseUrl,
   parseReleaseCliOptions,
   safeErrorMessage,
-  type DemoSnapshot,
 } from "./release-helpers";
-
-const validSnapshot: DemoSnapshot = {
-  visits: [
-    { id: "vega", status: "escalated" },
-    { id: "oteros", status: "reconfirm_pending" },
-  ],
-  notifications: [
-    { recipient_kind: "party", recipient_id: "vega", kind: "reconfirm_chase" },
-    {
-      recipient_kind: "party",
-      recipient_id: "oteros",
-      kind: "reconfirm_chase",
-    },
-    {
-      recipient_kind: "host",
-      recipient_id: "nel",
-      kind: "reconfirm_escalation",
-    },
-    {
-      recipient_kind: "host",
-      recipient_id: "covadonga",
-      kind: "reconfirm_escalation",
-    },
-  ],
-  decisions: [{ id: "decision", status: "approved" }],
-};
-
-describe("assertDemoSnapshot", () => {
-  it("accepts four total notifications with exactly two host escalations", () => {
-    expect(() => assertDemoSnapshot(validSnapshot)).not.toThrow();
-  });
-
-  it("rejects four host notifications", () => {
-    expect(() =>
-      assertDemoSnapshot({
-        ...validSnapshot,
-        notifications: validSnapshot.notifications.map(() => ({
-          recipient_kind: "host",
-          recipient_id: "nel",
-          kind: "reconfirm_escalation",
-        })),
-      }),
-    ).toThrow(/exactly two host escalation notifications/i);
-  });
-
-  it("rejects two escalations sent to the same host", () => {
-    expect(() =>
-      assertDemoSnapshot({
-        ...validSnapshot,
-        notifications: validSnapshot.notifications.map((notification) =>
-          notification.recipient_kind === "host"
-            ? { ...notification, recipient_id: "nel" }
-            : notification,
-        ),
-      }),
-    ).toThrow(/two distinct hosts/i);
-  });
-
-  it("rejects a pending host decision", () => {
-    expect(() =>
-      assertDemoSnapshot({
-        ...validSnapshot,
-        decisions: [{ id: "decision", status: "pending" }],
-      }),
-    ).toThrow(/one approved pending decision/i);
-  });
-});
 
 describe("normalizeBaseUrl", () => {
   it("removes trailing slashes from an HTTP origin", () => {
@@ -96,26 +26,39 @@ describe("parseReleaseCliOptions", () => {
     ).toEqual({
       baseUrl: "http://localhost:3008",
       expectedCommit: undefined,
-      headed: false,
       expectedRuntime: undefined,
-      expectEmail: false,
       expectMemory: false,
+      target: "local",
+      cleanupOnly: undefined,
     });
   });
 
-  it("defaults --expect-email from EMAIL=ses in the script environment", () => {
-    expect(parseReleaseCliOptions([], {})).toMatchObject({
-      expectEmail: false,
-    });
-    expect(parseReleaseCliOptions([], { EMAIL: "ses" })).toMatchObject({
-      expectEmail: true,
-    });
+  it("selects the production probe target", () => {
+    expect(
+      parseReleaseCliOptions(["--target", "production"], {}),
+    ).toMatchObject({ target: "production" });
+    expect(() => parseReleaseCliOptions(["--target", "staging"], {})).toThrow(
+      /must be "local" or "production"/,
+    );
   });
 
-  it("forces expectEmail on with --expect-email regardless of EMAIL", () => {
-    expect(parseReleaseCliOptions(["--expect-email"], {})).toMatchObject({
-      expectEmail: true,
-    });
+  it("parses --cleanup-only with a run id", () => {
+    const runId = "33333333-3333-4333-8333-333333333333";
+    expect(
+      parseReleaseCliOptions(["--", "--cleanup-only", runId], {}),
+    ).toMatchObject({ cleanupOnly: runId });
+    expect(() =>
+      parseReleaseCliOptions(["--cleanup-only", "not-a-run"], {}),
+    ).toThrow(/run id/i);
+  });
+
+  it("no longer accepts the demo-only flags", () => {
+    expect(() => parseReleaseCliOptions(["--expect-email"], {})).toThrow(
+      /Unknown argument/,
+    );
+    expect(() => parseReleaseCliOptions(["--headed"], {})).toThrow(
+      /Unknown argument/,
+    );
   });
 
   it("defaults --expect-memory from MEMORY=agentcore in the script environment", () => {
@@ -155,18 +98,6 @@ describe("parseReleaseCliOptions", () => {
     expect(() => parseReleaseCliOptions(["--expect-runtime"], {})).toThrow(
       /requires a value/,
     );
-  });
-});
-
-describe("markerSuffix", () => {
-  it("wraps the marker in a leading space and brackets", () => {
-    expect(markerSuffix("release-probe:abc")).toBe(" [release-probe:abc]");
-  });
-
-  it("produces a suffix a tagged raw message ends with", () => {
-    const marker = "agentcore-smoke:abc-123";
-    const rawMessage = `Some message${markerSuffix(marker)}`;
-    expect(rawMessage.endsWith(markerSuffix(marker))).toBe(true);
   });
 });
 

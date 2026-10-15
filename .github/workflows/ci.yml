@@ -76,11 +76,9 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54622/postgres
       LINK_TOKEN_SECRET: 0123456789abcdef0123456789abcdef
       CALENDAR_FEED_SECRET: calendar-0123456789abcdef012345678901
-      DEMO_SESSION_SECRET: abcdef0123456789abcdef0123456789
       TICK_SECRET: fedcba9876543210fedcba9876543210
       AGENT_ROUTE_SECRET: 1234567890abcdef1234567890abcdef
       APP_URL: http://127.0.0.1:3008
-      DEMO_MODE: "true"
       AGENT_RUNTIME: local
       MODEL: scripted
       SCHEDULER: none
@@ -118,7 +116,7 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$publishable_key" >> "$GITHUB_ENV"
       - name: Run browser tests
         run: pnpm run test:e2e
-      - name: Run demo and release probes
+      - name: Run local release probes
         shell: bash
         run: |
           pnpm run dev > "$RUNNER_TEMP/layalga-next.log" 2>&1 &
@@ -138,5 +136,4 @@ jobs:
             fi
             sleep 1
           done
-          pnpm run demo:e2e -- --base http://127.0.0.1:3008
-          pnpm run release:probes -- --base http://127.0.0.1:3008
+          pnpm run release:probes -- --target local --base http://127.0.0.1:3008

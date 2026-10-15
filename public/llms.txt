@@ -4,24 +4,16 @@
 
 This index links to public Markdown on the repository's production branch, main.
 The guides distinguish implementation, local scripted tests, dated deployment
-evidence, and remaining limitations. They support independent evaluation against
-the AWS Agents for Humans rubric. They do not prescribe a score.
+evidence, and remaining limitations. L’Ayalga began as an AWS Agents for Humans
+hackathon entry; judging closed on 2026-10-14, and the submission material is
+archived. The archive describes the hackathon demo, not current behavior.
 
-The v1.3.6 release adds safe structured public run summaries and keeps
-internal interrupt payloads out of the run page. That behavior was proven in production v1.3.2 at commit
-90b68385a590144d6d44cd7dd41298180b2d182c: its protected workflow verified the
-exact Vercel and AgentCore candidate with the guided demo and all nine probes.
-Historical measurements retain their own revisions and limits.
+## Product
 
-## Evaluation
-
-- [Judge guide and rubric](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/judge-guide.md): Repository-first reading route, five judging criteria, synthetic walkthrough, and deployment limits.
-- [Architecture evidence and verification](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/evidence.md): Current completion source/test cards alongside explicitly dated baseline architecture evidence and verification.
-- [Strands Agents SDK inventory](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/strands-usage.md): How the selected SDK features serve the product, with source references.
 - [Product overview and local setup](https://raw.githubusercontent.com/juan294/layalga/main/README.md): Audience, behavior, setup, and disclosure.
-
-- [Measured coordination evidence](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/coordination-evidence.md): Actual local scripted workflow measurements, exact revision/configuration and limits; no human time-saving or production-email claim.
-- [Participant protocol](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/participant-protocol.md): Planned human baseline; no participant results are implied.
+- [Host manual](https://raw.githubusercontent.com/juan294/layalga/main/docs/guides/host-manual.md): Google sign-in, adding hosts and rooms, decisions, follow-up, and recovery.
+- [Guest manual](https://raw.githubusercontent.com/juan294/layalga/main/docs/guides/guest-manual.md): Invitation links, room choice, requests, reminders, changes, and cancellation.
+- [Roadmap](https://raw.githubusercontent.com/juan294/layalga/main/docs/roadmap.md): Released work, the real-use launch, and remaining work.
 
 ## Architecture
 
@@ -31,5 +23,5 @@ Historical measurements retain their own revisions and limits.
 
 ## Optional
 
-- [System guide](https://raw.githubusercontent.com/juan294/layalga/main/docs/submission/system-guide.md): Detailed product, agent, and operations explanation.
+- [Hackathon archive](https://raw.githubusercontent.com/juan294/layalga/main/docs/archive/hackathon/README.md): The judge guide, evidence index, Strands inventory, system guide, and submission copy as of 2026-10-14.
 - [Documentation index](https://raw.githubusercontent.com/juan294/layalga/main/docs/README.md): Guides, decisions, operations, and dated development history.

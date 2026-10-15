@@ -1,14 +1,12 @@
 import "server-only";
 
 import type { User } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import type { AppLocale } from "@/i18n/routing";
 import { getDatabaseConnection } from "@/core/db/client";
 import { createClient } from "@/lib/supabase/server";
 
-import { DEMO_HOST_COOKIE, readDemoHostCookie } from "./demo-session";
 import { claimHostIdentity } from "./host-identity";
 
 export interface HostRecord {
@@ -16,7 +14,8 @@ export interface HostRecord {
   homeId: string;
   displayName: string;
   locale: AppLocale;
-  demo: boolean;
+  /** The household's IANA timezone. */
+  timeZone: string;
 }
 
 interface HostRow {
@@ -24,7 +23,7 @@ interface HostRow {
   home_id: string;
   display_name: string;
   locale: AppLocale;
-  demo: boolean;
+  timezone: string;
 }
 
 export async function getCurrentHost(): Promise<HostRecord | null> {
@@ -33,16 +32,7 @@ export async function getCurrentHost(): Promise<HostRecord | null> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) {
-    const authenticatedHost = await findHostByAuthUserId(user.id);
-    if (authenticatedHost) return authenticatedHost;
-  }
-
-  if (process.env.DEMO_MODE !== "true") return null;
-
-  const cookieStore = await cookies();
-  const hostId = readDemoHostCookie(cookieStore.get(DEMO_HOST_COOKIE)?.value);
-  return hostId ? findDemoHostById(hostId) : null;
+  return user ? findHostByAuthUserId(user.id) : null;
 }
 
 export async function requireHost(locale: AppLocale = "en"): Promise<HostRecord> {
@@ -63,7 +53,7 @@ export async function claimHostForUser(user: User): Promise<HostRecord | null> {
 async function findHostByAuthUserId(authUserId: string): Promise<HostRecord | null> {
   const sql = getDatabaseConnection().sql;
   const [host] = await sql<HostRow[]>`
-    select host.id, host.home_id, host.display_name, host.locale, home.demo
+    select host.id, host.home_id, host.display_name, host.locale, home.timezone
     from public.hosts as host
     join public.homes as home on home.id = host.home_id
     where host.auth_user_id = ${authUserId}
@@ -73,25 +63,15 @@ async function findHostByAuthUserId(authUserId: string): Promise<HostRecord | nu
   return host ? toHostRecord(host) : null;
 }
 
-async function findDemoHostById(hostId: string): Promise<HostRecord | null> {
-  const host = await findHostRowById(hostId);
-  return host?.demo ? toHostRecord(host) : null;
-}
-
 async function findHostById(hostId: string): Promise<HostRecord | null> {
-  const host = await findHostRowById(hostId);
-  return host ? toHostRecord(host) : null;
-}
-
-async function findHostRowById(hostId: string): Promise<HostRow | null> {
   const sql = getDatabaseConnection().sql;
   const [host] = await sql<HostRow[]>`
-    select host.id, host.home_id, host.display_name, host.locale, home.demo
+    select host.id, host.home_id, host.display_name, host.locale, home.timezone
     from public.hosts as host
     join public.homes as home on home.id = host.home_id
     where host.id = ${hostId}
   `;
-  return host ?? null;
+  return host ? toHostRecord(host) : null;
 }
 
 function toHostRecord(row: HostRow): HostRecord {
@@ -100,6 +80,6 @@ function toHostRecord(row: HostRow): HostRecord {
     homeId: row.home_id,
     displayName: row.display_name,
     locale: row.locale,
-    demo: row.demo,
+    timeZone: row.timezone,
   };
 }

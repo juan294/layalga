@@ -1,20 +1,21 @@
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
-import { seedDemo } from "../../scripts/seed-demo";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test as householdTest } from "./helpers/household";
 
-const vegaToken = "v".repeat(43);
-test.setTimeout(90_000);
-
-test.beforeEach(async () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  const tokenSecret = process.env.LINK_TOKEN_SECRET;
-  if (!databaseUrl || !tokenSecret)
-    throw new Error("E2E database settings are missing");
-  await seedDemo(databaseUrl, tokenSecret);
+const test = householdTest.extend<{ vegaToken: string }>({
+  vegaToken: async ({ household }, provide) => {
+    await provide(findFixtureGuest(household, "Familia Vega").token);
+  },
 });
 
-test("a guest chooses an offered stay and places a hold", async ({ page }) => {
+test.setTimeout(90_000);
+
+test("a guest chooses an offered stay and places a hold", async ({
+  page,
+  vegaToken,
+}) => {
   await page.goto(`/en/g/${vegaToken}`);
 
   await expect(page.getByTestId("guest-status")).toHaveAttribute(
@@ -66,6 +67,7 @@ test("a guest chooses an offered stay and places a hold", async ({ page }) => {
 
 test("supports Spanish keyboard room selection and focuses fresh results", async ({
   page,
+  vegaToken,
 }) => {
   await page.goto(`/es/g/${vegaToken}`);
   await expect(
@@ -87,6 +89,7 @@ test("supports Spanish keyboard room selection and focuses fresh results", async
 
 test("an invited guest can withdraw before choosing a stay", async ({
   page,
+  vegaToken,
 }) => {
   await page.goto(`/en/g/${vegaToken}`);
   await page.locator("#cancel-request summary").click();

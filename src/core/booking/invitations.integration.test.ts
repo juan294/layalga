@@ -238,7 +238,7 @@ describe("invitation persistence", () => {
         structured: { adults: 2 },
         tokenSecret: secret,
         appUrl: "https://example.test",
-        now: new Date("2026-08-31T10:00:00.000Z"),
+        now: new Date("2099-08-31T10:00:00.000Z"),
       });
 
       const token = new URL(captured.guestLink).pathname.split("/").at(-1);
@@ -252,7 +252,7 @@ describe("invitation persistence", () => {
       `;
       expect(stored?.link_token).not.toBe(token);
       expect(stored?.link_token_expires_at.toISOString()).toBe(
-        "2026-09-30T10:00:00.000Z",
+        "2099-09-30T10:00:00.000Z",
       );
 
       if (!token) throw new Error("Guest link token is missing");
@@ -266,7 +266,7 @@ describe("invitation persistence", () => {
       expect(await findInvitationByToken(db, token, "wrong-secret")).toBeNull();
 
       const reissued = await reissueInvitationLink(db, captured.invitationId, {
-        now: new Date("2026-09-02T10:00:00.000Z"),
+        now: new Date("2099-09-02T10:00:00.000Z"),
         tokenSecret: secret,
         appUrl: "https://example.test",
       });
@@ -308,7 +308,7 @@ describe("invitation persistence", () => {
         rawMessage: "First visit",
         tokenSecret: secret,
         appUrl: "https://example.test",
-        now: new Date("2026-08-31T10:00:00.000Z"),
+        now: new Date("2099-08-31T10:00:00.000Z"),
       });
       const second = await captureInvitation(db, {
         homeId: home.id,
@@ -318,7 +318,7 @@ describe("invitation persistence", () => {
         rawMessage: "Second visit",
         tokenSecret: secret,
         appUrl: "https://example.test",
-        now: new Date("2026-09-01T10:00:00.000Z"),
+        now: new Date("2099-09-01T10:00:00.000Z"),
       });
       const firstToken = new URL(first.guestLink).pathname.split("/").at(-1)!;
       const secondToken = new URL(second.guestLink).pathname.split("/").at(-1)!;
@@ -342,7 +342,7 @@ describe("invitation persistence", () => {
         {
           tokenSecret: secret,
           appUrl: "https://example.test",
-          now: new Date("2026-09-02T10:00:00.000Z"),
+          now: new Date("2099-09-02T10:00:00.000Z"),
         },
       );
       const replacementToken = new URL(replacementLink).pathname

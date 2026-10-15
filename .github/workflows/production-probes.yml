@@ -1,5 +1,5 @@
 name: Production probes
-run-name: "Production probes: ${{ inputs.commit }} resets synthetic demo data"
+run-name: "Production probes: ${{ inputs.commit }} writes and removes two probe fixture households"
 
 on:
   workflow_dispatch:
@@ -9,11 +9,11 @@ on:
         required: true
         type: string
       acknowledge:
-        description: This resets the synthetic demo home and rotates its guest links
+        description: This creates two probe fixture households and deletes them after the run
         required: true
         type: choice
         options:
-          - RESET DEMO DATA
+          - WRITE PROBE FIXTURE
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   probes:
-    name: Nine production probes
+    name: Production release probes
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production-probes
@@ -39,8 +39,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$ACKNOWLEDGEMENT" != "RESET DEMO DATA" ]]; then
-            echo "The acknowledgement must equal RESET DEMO DATA." >&2
+          if [[ "$ACKNOWLEDGEMENT" != "WRITE PROBE FIXTURE" ]]; then
+            echo "The acknowledgement must equal WRITE PROBE FIXTURE." >&2
             exit 1
           fi
           if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -74,8 +74,9 @@ jobs:
           {
             echo "## Production probe blast radius"
             echo
-            echo "This run resets the synthetic demo home and rotates its guest link tokens."
-            echo "It cannot touch real household data: the reset matches on exact id, exact name, and \`demo = true\`."
+            echo "This run creates two fixture households named \`Release probe <run id>\` and \`Release probe conflict <run id>\`, then deletes them."
+            echo "It never reads or writes a real household: every probe row lives under the fixture homes, and cleanup deletes by exact id and name."
+            echo "If a run stops before cleanup, its log prints \`pnpm run release:probes -- --cleanup-only <run id>\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check out the exact candidate
@@ -98,10 +99,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run the production demo and all nine probes
+      - name: Run the production probes
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
           LINK_TOKEN_SECRET: ${{ secrets.PROD_LINK_TOKEN_SECRET }}
@@ -109,7 +107,6 @@ jobs:
           TICK_SECRET: ${{ secrets.PROD_TICK_SECRET }}
           APP_URL: https://layalga.thecreativetoken.com
           EXPECTED_COMMIT_SHA: ${{ inputs.commit }}
-          EMAIL: ses
           MEMORY: agentcore
           PRODUCTION_URL: https://layalga.thecreativetoken.com
         shell: bash
@@ -126,8 +123,7 @@ jobs:
             echo "Production changed after candidate admission; refusing to run." >&2
             exit 1
           fi
-          pnpm run demo:e2e -- \
-            --base https://layalga.thecreativetoken.com
           pnpm run release:probes -- \
+            --target production \
             --base https://layalga.thecreativetoken.com \
             --expect-runtime agentcore

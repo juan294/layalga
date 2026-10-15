@@ -162,7 +162,7 @@ describe("durable agent queue", () => {
     }
   });
 
-  it("keeps a queued run leased while the demo clock advances", async () => {
+  it("keeps a queued run leased while the injected clock advances", async () => {
     const fixture = await seedHost();
     const clock = new FakeClock(new Date("2026-09-07T08:00:00Z"));
     let release: () => void = () => {};

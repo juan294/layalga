@@ -8,7 +8,6 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({ auth: { getUser, signOut } })),
 }));
 
-import { DEMO_HOST_COOKIE, DEMO_GUEST_COOKIE } from "@/lib/auth/demo-session";
 import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 
 import { POST } from "./route";
@@ -21,7 +20,7 @@ describe("POST /auth/sign-out", () => {
     getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
   });
 
-  test("signs out only this session and clears the demo host cookie", async () => {
+  test("signs out only this session and returns to sign-in", async () => {
     const response = await POST(request("http://localhost:3008", "es"));
 
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
@@ -29,7 +28,7 @@ describe("POST /auth/sign-out", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost:3008/es/sign-in",
     );
-    expect(response.cookies.get(DEMO_HOST_COOKIE)?.value).toBe("");
+    expect(response.cookies.get("layalga_demo_host")).toBeUndefined();
   });
 
   test("rejects a cross-origin request before changing the session", async () => {
@@ -40,34 +39,24 @@ describe("POST /auth/sign-out", () => {
     expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toBeUndefined();
   });
 
-  test("ends email and demo guest authority even without a Google session", async () => {
+  test("ends email guest authority even without a Google session", async () => {
     getUser.mockResolvedValue({ data: { user: null } });
     const response = await POST(request("http://localhost:3008", "en"));
 
     expect(signOut).not.toHaveBeenCalled();
     expect(response.status).toBe(303);
-    for (const cookie of [
-      GUEST_EMAIL_COOKIE,
-      DEMO_GUEST_COOKIE,
-      DEMO_HOST_COOKIE,
-    ]) {
-      expect(response.cookies.get(cookie)).toMatchObject({
-        value: "",
-        maxAge: 0,
-        path: "/",
-        httpOnly: true,
-      });
-    }
+    expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toMatchObject({
+      value: "",
+      maxAge: 0,
+      path: "/",
+      httpOnly: true,
+    });
   });
 
   test("clears all guest capabilities after successful Google sign-out", async () => {
     const response = await POST(request("http://localhost:3008", "es"));
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toMatchObject({
-      value: "",
-      maxAge: 0,
-    });
-    expect(response.cookies.get(DEMO_GUEST_COOKIE)).toMatchObject({
       value: "",
       maxAge: 0,
     });

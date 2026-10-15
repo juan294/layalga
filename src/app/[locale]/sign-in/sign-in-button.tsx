@@ -50,6 +50,7 @@ export function SignInButton({
     <>
       <button
         className={className}
+        data-testid="google-sign-in"
         type="button"
         onClick={signIn}
         disabled={pending}

@@ -1,5 +1,4 @@
 import { HostOutcomes } from "@/components/host/host-outcomes";
-import { GuidedDemoPanel } from "@/components/host/guided-demo-panel";
 import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
 import { getTranslations } from "next-intl/server";
@@ -21,9 +20,6 @@ import {
 } from "@/components/frontend-utils";
 import { householdSeason, SEASON_LABEL } from "@/lib/season";
 import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
-import { DemoClockPanel } from "@/components/host/demo-clock-panel";
-import { DemoSeasonSync } from "@/components/host/demo-season-sync";
-import { DemoZone } from "@/components/host/demo-zone";
 import { HubCards, type HubCard } from "@/components/host/hub-cards";
 import { TodayHero } from "@/components/host/today-hero";
 import { cancelHostInvitation } from "./actions";
@@ -34,7 +30,6 @@ import {
   type PendingDecisionItem,
 } from "@/components/host/pending-decisions";
 import {
-  graphite,
   headingStyle,
   labelStyle,
   panelStyle,
@@ -62,13 +57,13 @@ export default async function HostTodayPage({
   searchParams,
 }: HostPageProps) {
   const { locale } = await params;
-  const { host, locale: safeLocale, timeZone, demoNow } = await loadHostContext(locale);
+  const { host, locale: safeLocale, timeZone } = await loadHostContext(locale);
   after(() =>
     dispatchHostEmailPingsSafely(getDatabaseConnection().db, new SystemClock()),
   );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
-  const currentMonth = householdMonth(demoNow ?? undefined, undefined, timeZone);
+  const currentMonth = householdMonth(timeZone);
   const monthWindow = calendarMonthWindow(currentMonth);
 
   const [decisionRows, hubStatuses] = await Promise.all([
@@ -214,16 +209,16 @@ export default async function HostTodayPage({
     },
   ];
 
-  const season = householdSeason(demoNow ?? new Date().toISOString(), timeZone);
+  const now = new Date().toISOString();
+  const season = householdSeason(now, timeZone);
   const dateSeasonLabel = `${formatHouseholdDate(
-    demoNow ?? new Date().toISOString(),
+    now,
     safeLocale,
     timeZone,
   )} · ${SEASON_LABEL[season]}`;
 
   return (
     <>
-      {demoNow ? <DemoSeasonSync demoNow={demoNow} timeZone={timeZone} /> : null}
       <TodayHero
         dateSeasonLabel={dateSeasonLabel}
         eyebrow={t("eyebrow")}
@@ -311,46 +306,6 @@ export default async function HostTodayPage({
 
       <HubCards cards={hubCards} openLabel={t("hub.open")} />
 
-      {process.env.DEMO_MODE === "true" && host.demo ? (
-        <DemoZone tag={t("demoZone.tag")}>
-          <div style={sectionGridStyle}>
-            <GuidedDemoPanel homeId={host.homeId} locale={safeLocale} />
-            {demoNow ? (
-              <section style={panelStyle}>
-                <p style={labelStyle}>{t("demo.eyebrow")}</p>
-                <h2 style={headingStyle}>{t("demo.title")}</h2>
-                <p style={{ color: graphite, lineHeight: 1.6, margin: 0 }}>
-                  {t("demo.description")}
-                </p>
-                <DemoClockPanel
-                  current={demoNow}
-                  currentLabel={formatHouseholdDateTime(
-                    demoNow,
-                    safeLocale,
-                    timeZone,
-                  )}
-                  homeId={host.homeId}
-                  labels={{
-                    current: t("demo.current"),
-                    chase: t("demo.chase"),
-                    escalation: t("demo.escalation"),
-                    custom: t("demo.custom"),
-                    set: t("demo.set"),
-                    working: t("demo.working"),
-                    error: t("demo.error"),
-                    noEligible: t("demo.noEligible"),
-                    alreadyDue: t("demo.alreadyDue"),
-                    advanced: t("demo.advanced"),
-                    backward: t("demo.backward"),
-                  }}
-                  locale={safeLocale}
-                  timeZone={timeZone}
-                />
-              </section>
-            ) : null}
-          </div>
-        </DemoZone>
-      ) : null}
     </>
   );
 }

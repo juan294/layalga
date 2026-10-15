@@ -29,7 +29,7 @@ export const SEASON_LABEL: Record<Season, string> = {
 
 /**
  * currentSeason() reads getMonth()/getDate() in the server or browser's own
- * timezone. The host dashboard's demo clock is a household-local instant, so
+ * timezone. The host dashboard needs the household's local season, so
  * this resolves the season from its calendar date in the household's own
  * timezone first, the same way householdMonth() resolves a calendar month.
  */

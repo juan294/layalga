@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import { DbDemoClock } from "@/core/clock";
+import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { formatDateStay } from "@/components/frontend-utils";
 import {
@@ -23,7 +23,7 @@ export async function HostOutcomes({
 }) {
   const t = await getTranslations({ locale, namespace: "HostOutcomes" });
   const connection = getDatabaseConnection();
-  const clock = await DbDemoClock.load(homeId, connection.db);
+  const clock = new SystemClock();
   const now = clock.now().toISOString();
   const visits = await connection.sql<
     {

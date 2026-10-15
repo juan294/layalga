@@ -4,7 +4,7 @@ import {
   formatHouseholdDateTime,
 } from "@/components/frontend-utils";
 import { getDatabaseConnection } from "@/core/db/client";
-import { DbDemoClock } from "@/core/clock";
+import { SystemClock } from "@/core/clock";
 import { loadGuestDeliveryFacts } from "@/core/notifications/guest-outbox";
 import { headingStyle, panelStyle, graphite, rule } from "./host-styles";
 
@@ -17,7 +17,7 @@ export async function GuestDeliveryPanel({
 }) {
   const t = await getTranslations({ locale, namespace: "GuestDeliveryHost" });
   const connection = getDatabaseConnection();
-  const clock = await DbDemoClock.load(homeId, connection.db);
+  const clock = new SystemClock();
   const visits = await connection.sql<
     {
       id: string;
@@ -25,11 +25,10 @@ export async function GuestDeliveryPanel({
       start: string;
       end: string;
       timezone: string;
-      demo: boolean;
     }[]
   >`
     select v.id, p.family_name, lower(v.stay)::text as start, upper(v.stay)::text as end,
-      h.timezone, h.demo from public.visits v
+      h.timezone from public.visits v
     join public.parties p on p.id = v.party_id and p.home_id = v.home_id
     join public.homes h on h.id = v.home_id
     where v.home_id = ${homeId} and v.status in ('confirmed', 'reconfirm_pending', 'reconfirmed', 'escalated')
@@ -47,7 +46,7 @@ export async function GuestDeliveryPanel({
     <section style={panelStyle} data-testid="guest-delivery-panel">
       <h2 style={headingStyle}>{t("title")}</h2>
       <p style={{ color: graphite }}>{t("description")}</p>
-      {!visits[0].demo && process.env.EMAIL !== "ses" ? (
+      {process.env.EMAIL !== "ses" ? (
         <p role="status">{t("unavailable")}</p>
       ) : null}
       <ul style={{ listStyle: "none", padding: 0 }}>

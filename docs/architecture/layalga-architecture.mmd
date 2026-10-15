@@ -14,7 +14,6 @@ flowchart LR
     guestContact["Guest consent and verification<br/>POST verify • signed return capability"]
     guestOutbox["Guest outbox • web only<br/>source checks • authorization receipts<br/>accepted / failed / unknown"]
     hostControls["Host decisions and outcomes<br/>policy version • cancellation • notes"]
-    demo["Shared synthetic guide<br/>routine then exception<br/>next eligible job clock • no guest email"]
     preferenceRead["Scoped memory read<br/>bounded preference mapping<br/>feasible rooms • explained ranking"]
   end
 
@@ -33,7 +32,7 @@ flowchart LR
     contacts["Guest contacts • consent generation<br/>guest_email_outbox • guest_email_attempts<br/>web only • no agent access"]
   end
 
-  models["Amazon Bedrock<br/>Sonnet 4.6<br/>scripted for tests + demo driver"]
+  models["Amazon Bedrock<br/>Sonnet 4.6<br/>scripted for tests only"]
   memory["AgentCore Memory<br/>household preferences • facts"]
   ses["Amazon SES<br/>host pings active; guest verification and reminders<br/>guest IAM activation pending"]
   eventbridge["EventBridge Scheduler<br/>future retry trigger"]
@@ -46,8 +45,6 @@ flowchart LR
   webmcp -. "reuses page authority" .-> web
   web --> identity
   web --> hostControls --> state
-  web --> demo
-  demo --> jobs
   guest --> guestContact --> contacts
   guestContact -- "live access check; GET does not consent" --> state
   web --> preferenceRead --> memory
@@ -89,7 +86,7 @@ flowchart LR
   classDef future fill:#eee8dc,stroke:#756b61,color:#3a3530,stroke-width:2px,stroke-dasharray: 7 5;
   classDef selected fill:#143f3b,stroke:#a46d3c,color:#fffdf7,stroke-width:3px;
   class host,guest,guestAccount,calendarApp person;
-  class web,dispatch,cron,webmcp,calendarFeed,emailOutbox,guestContact,guestOutbox,hostControls,demo,preferenceRead app;
+  class web,dispatch,cron,webmcp,calendarFeed,emailOutbox,guestContact,guestOutbox,hostControls,preferenceRead app;
   class policy,models,rooms core;
   class identity,queue,state,jobs,contacts store;
   class worker,otel,memory,ses selected;

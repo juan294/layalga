@@ -1,28 +1,19 @@
 # Documentation index
 
-The v1.3.11 release adds a durable, privacy-minimized review-access ledger for host and guest demo entry, while automated release probes exclude themselves. It retains the localized sharing metadata and safe run-result presentation from v1.3.10 and the broader production evidence from v1.3.2 at commit `90b68385`, with historical measurements, pending guest-email activation, and unmeasured human evidence identified separately. Start with the root README or canonical judge guide. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, generated design-bundle copies, private inventory, and ignored agent reports.
+Start with the root README, the [current roadmap](roadmap.md) and the user manuals below. Production still runs v1.3.11, the hackathon demo; the real-use launch removes demo mode and is not released yet. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, the hackathon archive, generated design-bundle copies, private inventory, and ignored agent reports. The public-site discovery index is [`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
 
-## For judges and readers
+## Real-use launch
 
-Start with the [judge guide](submission/judge-guide.md) for a short repository
-route. The [evidence index](submission/evidence.md) pairs claims with source,
-tests, operating modes, and limits. The public-site discovery index is
-[`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
+| Document                                                                                          | What it is                                                                                    |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [Demo mode removal and Google sign-in](research/2026-10-15-demo-mode-removal-and-google-login.md) | Research: every demo surface, the Google sign-in path, and the production state on 2026-10-15 |
+| [Real-use launch plan](plans/2026-10-15-real-use-launch.md)                                       | Six phases: test foundation, fixture probes, demo removal, documentation, two releases        |
+| [Real-use launch notes](plans/2026-10-15-real-use-launch-notes.md)                                | Implementation deviations, review dispositions and open owner decisions                       |
+| [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals     |
 
-| Document                                                   | What it is                                                                                                      |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [submission/judge-guide.md](submission/judge-guide.md)     | Repository evidence and guided demo routes organized by the five judging criteria                               |
-| [submission/pitch.md](submission/pitch.md)                 | The Everyday Agents product narrative, technical foundation, evidence limits and spoken close                   |
-| [submission/strands-usage.md](submission/strands-usage.md) | Every Strands Agents SDK feature the project uses, with code pointers                                           |
-| [submission/system-guide.md](submission/system-guide.md)   | The long-form guide: product, hackathon, architecture, AWS services, agent, host and guest journeys, operations |
-| [submission/devpost.md](submission/devpost.md)             | Devpost source copy, public video, submission status, testing instructions, and evidence links                  |
-| [submission/video-script.md](submission/video-script.md)   | Production recording script with timings, shot directions, narration, and recording checks                      |
-| [submission/posts/](submission/posts/)                     | Source copies of three published AWS Builder Center articles and a general social post about everyday agents    |
-| [submission/assets/](submission/assets/)                   | The CloudWatch GenAI Observability trace screenshot                                                             |
+## Hackathon archive
 
-- [Coordination evidence](submission/coordination-evidence.md) — reproducible synthetic measurements with source revision and explicit limitations.
-- [Participant protocol](submission/participant-protocol.md) — planned human baseline study; no human results yet.
-- [Current roadmap](roadmap.md) — released capabilities, post-submission operating actions, guest-email work, and accepted deferrals.
+The [hackathon archive](archive/hackathon/README.md) keeps the AWS Agents for Humans submission: the judge guide, evidence index, pitch, Strands inventory, system guide, Devpost copy, video scripts, coordination evidence, participant protocol and the published articles. It describes the judged demo as of 2026-10-14, not current behavior.
 
 ## For hosts and guests
 
@@ -42,12 +33,12 @@ tests, operating modes, and limits. The public-site discovery index is
 
 ## Operations
 
-| Document                                                                             | What it is                                                                                    |
-| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| [release/e2e-pro-playbook.md](release/e2e-pro-playbook.md)                           | The exact-candidate release gate: thirteen steps, nine production probes, rollback            |
-| [release/runtime-database-and-identity.md](release/runtime-database-and-identity.md) | Database roles, the AgentCore identity, password rotation, quarantined-job replay             |
-| [security/data-lifecycle.md](security/data-lifecycle.md)                             | Retention rules, the Bedrock prompt boundary, disclosure levels per audience, trace retention |
-| [compliance/third-party-licenses.md](compliance/third-party-licenses.md)             | License inventory command                                                                     |
+| Document                                                                             | What it is                                                                                        |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [release/e2e-pro-playbook.md](release/e2e-pro-playbook.md)                           | The exact-candidate release gate: local and production probe targets, rollback, real-use releases |
+| [release/runtime-database-and-identity.md](release/runtime-database-and-identity.md) | Database roles, the AgentCore identity, password rotation, quarantined-job replay                 |
+| [security/data-lifecycle.md](security/data-lifecycle.md)                             | Retention rules, the Bedrock prompt boundary, disclosure levels per audience, trace retention     |
+| [compliance/third-party-licenses.md](compliance/third-party-licenses.md)             | License inventory command                                                                         |
 
 - [Guest email production readiness](release/guest-email-readiness.md) — prepared guest SES policy, activation steps and delivery evidence limits.
 - [Email template design](design/email-templates/README.md) — the shared transactional email template, its design handoff, and where each automated email is rendered.
@@ -60,4 +51,4 @@ tests, operating modes, and limits. The public-site discovery index is
 | [Everyday Agents product checkup](research/2026-09-05-everyday-agents-product-checkup.md) | September 5 assessment of award positioning, product gaps, judge experience, and roadmap priorities |
 | [plans/README.md](plans/README.md)                                                        | Index of the dated implementation plans and their phase files                                       |
 
-- [Agent-readable evaluation research](research/2026-09-05-agent-readable-evaluation-evidence.md) — dated rationale for the canonical evidence route; current claims live in the judge guide.
+- [Agent-readable evaluation research](research/2026-09-05-agent-readable-evaluation-evidence.md): dated rationale for the hackathon evidence route; the judge guide it describes is now in the hackathon archive.

@@ -13,6 +13,29 @@ describe("server environment", () => {
     });
   });
 
+  it("refuses the test-only scripted model in production", () => {
+    expect(() =>
+      parseServerEnvironment({
+        NODE_ENV: "production",
+        VERCEL_ENV: "production",
+        AGENT_RUNTIME: "local",
+        MODEL: "scripted",
+      }),
+    ).toThrow("MODEL=scripted is test-only; set MODEL=bedrock");
+    expect(
+      serverEnvironmentReadiness({ NODE_ENV: "production", MODEL: "scripted" })
+        .issues,
+    ).toContainEqual({ key: "MODEL", code: "invalid" });
+  });
+
+  it("accepts the scripted model in development and test", () => {
+    for (const NODE_ENV of ["development", "test"]) {
+      expect(parseServerEnvironment({ NODE_ENV, MODEL: "scripted" }).model).toBe(
+        "scripted",
+      );
+    }
+  });
+
   it("keeps health ok with EMAIL=none", () => {
     const readiness = serverEnvironmentReadiness({ NODE_ENV: "development" });
     expect(readiness.ready).toBe(true);
@@ -127,7 +150,9 @@ describe("server environment", () => {
       NODE_ENV: "production",
       VERCEL_ENV: "production",
       AGENT_RUNTIME: "local",
-      MODEL: "scripted",
+      MODEL: "bedrock",
+      BEDROCK_MODEL_ID: "us.anthropic.claude-sonnet-4-6",
+      AWS_REGION: "us-east-1",
       SCHEDULER: "none",
       APP_URL: "https://layalga.example",
       DATABASE_URL: "postgresql://database.example/postgres",

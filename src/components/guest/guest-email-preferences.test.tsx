@@ -46,17 +46,6 @@ describe("guest email preferences", () => {
     expect(html).toContain("unavailable");
     expect(html).not.toContain("<form");
   });
-  it("clearly labels demo delivery and offers no address collection", async () => {
-    mocks.load.mockResolvedValue({ status: "demo", email: null });
-    const html = renderToStaticMarkup(
-      await GuestEmailPreferences({
-        locale: "es",
-        context: { kind: "session" },
-      }),
-    );
-    expect(html).toContain("demo");
-    expect(html).not.toContain('name="email"');
-  });
   it("shows a failed-send notice without treating it as guest silence", async () => {
     mocks.load.mockResolvedValue({
       status: "no_contact",
@@ -72,7 +61,7 @@ describe("guest email preferences", () => {
     expect(html).toContain('role="alert">deliveryFailed');
   });
   it("reuses an account page's owned read context without another identity lookup", async () => {
-    mocks.load.mockResolvedValue({ status: "demo", email: null });
+    mocks.load.mockResolvedValue({ status: "no_contact", email: null });
     const authority = {
       invitationId: "owned-invitation",
       homeId: "owned-home",

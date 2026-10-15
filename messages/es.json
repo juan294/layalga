@@ -40,10 +40,6 @@
     "otono": "otoño",
     "invierno": "invierno"
   },
-  "DemoHost": {
-    "enterAsHost": "Entrar como anfitrión",
-    "enterAsGuest": "Entrar como invitado"
-  },
   "Host": {
     "eyebrow": "Libro de visitas del hogar",
     "title": "Estancias de invitados",
@@ -128,24 +124,6 @@
         "inactive": "Inactiva",
         "draft": "Borrador"
       }
-    },
-    "demo": {
-      "banner": "Datos de demostración sintéticos",
-      "eyebrow": "Reloj de demostración",
-      "title": "Mueve el reloj del hogar",
-      "description": "Avanza el reloj de demostración para probar seguimientos y avisos.",
-      "current": "Hora actual de la demostración",
-      "chase": "Avanzar al próximo recordatorio",
-      "escalation": "Avanzar al próximo aviso a anfitriones",
-      "custom": "Fecha y hora personalizadas",
-      "set": "Fijar reloj",
-      "working": "Ajustando el reloj…",
-      "notLive": "Los cambios de hora son simulados y solo afectan a los datos de demostración.",
-      "error": "No se pudo actualizar el reloj de demostración.",
-      "noEligible": "Ninguna visita actual necesita este paso de recordatorio.",
-      "alreadyDue": "Este paso ya estaba pendiente. Consulta el estado actual de las visitas.",
-      "advanced": "El reloj de demostración ha avanzado. Consulta el resultado en las visitas actuales.",
-      "backward": "El reloj no puede retroceder. Reinicia la demostración para volver a empezar."
     },
     "calendar": {
       "eyebrow": "El mes de un vistazo",
@@ -289,9 +267,6 @@
     "settings": {
       "eyebrow": "Normas y notificaciones",
       "title": "Ajustes"
-    },
-    "demoZone": {
-      "tag": "Herramientas de demo"
     }
   },
   "Guest": {
@@ -522,7 +497,6 @@
       "queued": "Recordatorio pendiente de envío",
       "sent": "Aceptado por el servicio de correo",
       "failed": "No se ha podido enviar el correo",
-      "demo": "Demostración sintética: recordatorio solo en la aplicación",
       "unknown": "Resultado del correo desconocido: revisa antes de reintentar",
       "unavailable_access": "Acceso a la invitación no disponible: revisa el enlace del huésped"
     }
@@ -537,7 +511,6 @@
     "verifySend": "Enviar correo de verificación",
     "pending": "Guardando…",
     "disable": "Desactivar recordatorios",
-    "demo": "Esta es una demo con datos ficticios. No se envían correos a los huéspedes.",
     "unverified": "Revisa tu correo, abre el enlace de verificación y confirma. Los recordatorios seguirán desactivados hasta entonces.",
     "enabled": "Los recordatorios están activados para {email}.",
     "disabled": "Los recordatorios por correo están desactivados.",
@@ -579,35 +552,5 @@
       "escalated": "Contacta con el huésped para comprobar sus planes. El estado del correo es distinto de una respuesta.",
       "arrived": "Consulta los detalles de la visita y confirma la llegada con los huéspedes."
     }
-  },
-  "GuidedDemo": {
-    "title": "Prueba la coordinación de la casa",
-    "intro": "Dos situaciones independientes usan familias ficticias y el proceso real de reserva. Prueba primero la visita habitual y después la petición que necesita a un anfitrión.",
-    "sharedReset": "Cada situación empieza con la misma casa sintética limpia. La actividad de demostración está aislada de los datos reales de la casa.",
-    "vegaTitle": "1. Vega: una visita familiar habitual",
-    "vegaBody": "Dos adultos y dos niños caben entre las dos habitaciones abiertas. Mantén ambas seleccionadas y envía la solicitud para ver el resultado de la reserva.",
-    "oteroTitle": "2. Parker: una petición para los anfitriones",
-    "oteroBody": "Empieza de nuevo con dos adultos, un perro y una petición de acceso a planta baja ya recogida. Elige Garage Room, envía y revisa la petición como anfitrión. La etiqueta de planta no demuestra accesibilidad.",
-    "startVega": "Iniciar demo de Vega",
-    "startOtero": "Iniciar demo de Parker",
-    "starting": "Abriendo la visita de demostración…",
-    "resetFailed": "No se ha podido reiniciar la demo. Puede estar ocupada o tu sesión de anfitrión puede haber caducado. Inténtalo de nuevo o vuelve a entrar desde la página de acceso.",
-    "entryFailed": "La demo se ha reiniciado, pero no se ha podido abrir la visita. Intenta empezar de nuevo desde aquí.",
-    "followTitle": "Después, prueba el seguimiento",
-    "followBody": "Tras confirmar una visita, avanza a su próximo recordatorio con el control de abajo. Vuelve como ese huésped para reconfirmar, o deja la petición sin respuesta y avanza al próximo aviso a anfitriones. Si ninguna visita actual necesita ese paso, el reloj se queda donde está.",
-    "returnGuest": "Volver al huésped de demo actual",
-    "entry": "Acceso a la demo",
-    "synthetic": "Demo sintética compartida · no se envían correos a huéspedes"
-  },
-  "DemoGuestGuide": {
-    "title": "Tu papel en esta demostración",
-    "vega": "Vega: dos adultos y dos niños. Busca las fechas sugeridas, mantén seleccionadas las dos habitaciones abiertas y envía. Su capacidad habitual conjunta permite alojar a las cuatro personas.",
-    "otero": "Parker: dos adultos y un perro, con una petición explícita de acceso ya recogida. Busca las fechas sugeridas, elige Garage Room en planta baja y envía. Los anfitriones deben revisar la petición antes de confirmar.",
-    "generic": "Busca fechas, elige las habitaciones exactas que quieras y envía. La visita o petición resultante muestra el siguiente paso.",
-    "access": "La planta baja no garantiza acceso sin escalones ni para silla de ruedas. Esta situación pide a los anfitriones que revisen la necesidad; no demuestra que la habitación sea accesible.",
-    "pending": "Si la petición está esperando aprobación, vuelve a la vista de anfitrión y revisa la decisión pendiente. Después abre de nuevo este huésped para ver el resultado real.",
-    "follow": "Tras confirmar, vuelve como anfitrión y avanza al próximo recordatorio. Regresa aquí para responder antes de la escalada o déjalo sin respuesta para probarla. Después de la escalada, un anfitrión contacta con el huésped.",
-    "host": "Volver a la vista de anfitrión",
-    "shared": "Estos datos ficticios son compartidos. Otra persona puede reiniciar la demo mientras la usas. No se envían correos a huéspedes."
   }
 }

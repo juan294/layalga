@@ -12,8 +12,9 @@ import {
 import { CancellationChangedError } from "@/core/booking/cancellation-error";
 import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
-import { schedulerForHome } from "@/agent/scheduler";
+import { configuredScheduler } from "@/agent/scheduler";
 import { reissueInvitationLink } from "@/core/booking/invitations";
+import { recordHostDecision } from "@/core/decisions/host-decision";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
 import { forgetPartyMemory } from "@/core/memory/forget";
@@ -135,38 +136,22 @@ export async function decideAction(formData: FormData): Promise<void> {
     );
   }
   const note = noteValue || undefined;
-  const sql = sqlClient(getDatabaseConnection().db);
   let runId: string | null = null;
 
   try {
-    const [decision] = await sql<
-      { agent_session_id: string; interrupt_id: string }[]
-    >`
-      update public.pending_decisions
-      set status = ${approved ? "approved" : "declined"},
-        decided_by_host_id = ${host.id},
-        decided_at = ${new Date().toISOString()},
-        note = ${note ?? null},
-        application_error = null
-      where id = ${decisionId}
-        and home_id = ${host.homeId}
-        and (
-          status = 'pending'
-          or (
-            status = ${approved ? "approved" : "declined"}
-            and applied_run_id is null
-            and decided_by_host_id = ${host.id}
-            and note is not distinct from ${note ?? null}
-          )
-        )
-      returning agent_session_id, interrupt_id
-    `;
+    const decision = await recordHostDecision(getDatabaseConnection().db, {
+      decisionId,
+      homeId: host.homeId,
+      hostId: host.id,
+      approved,
+      note,
+    });
     if (!decision) return;
 
     const run = await getAgentClient().enqueue({
       task: "resume",
       homeId: host.homeId,
-      sessionId: decision.agent_session_id,
+      sessionId: decision.agentSessionId,
       // The deciding host's own locale, so the resumed run's final summary
       // is written in the language of the host reading the run status
       // page, not the guest session's language the resumed conversation
@@ -174,7 +159,7 @@ export async function decideAction(formData: FormData): Promise<void> {
       locale: host.locale,
       responses: [
         {
-          interruptId: decision.interrupt_id,
+          interruptId: decision.interruptId,
           response: { approved, hostId: host.id, note },
         },
       ],
@@ -259,21 +244,16 @@ export async function cancelHostInvitation(formData: FormData): Promise<void> {
   const host = await requireHost(locale);
   const invitationId = z.uuid().parse(formData.get("invitationId"));
   const review = cancellationReviewInput(formData);
-  const connection = getDatabaseConnection();
-  const [home] = await connection.sql<
-    { demo: boolean }[]
-  >`select demo from public.homes where id = ${host.homeId}`;
-  if (!home) return;
   try {
     await withdrawInvitation(
-      connection.db,
+      getDatabaseConnection().db,
       {
         homeId: host.homeId,
         invitationId,
         actor: { kind: "host", hostId: host.id },
         ...review,
       },
-      schedulerForHome({ homeDemo: home.demo }),
+      configuredScheduler(),
     );
   } catch (error) {
     if (error instanceof CancellationChangedError)

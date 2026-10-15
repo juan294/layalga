@@ -125,7 +125,7 @@ export class TaskScriptedModel extends ScriptedModel {
       const stay = roomRequestStay(this.task.rawMessage);
       if (!stay) {
         return {
-          text: "Include exact dates in YYYY-MM-DD format so the local demo can prepare the proposal.",
+          text: "Include exact dates in YYYY-MM-DD format so the local scripted model can prepare the proposal.",
         };
       }
       return {

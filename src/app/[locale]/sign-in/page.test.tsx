@@ -1,9 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  sql: vi.fn(),
-}));
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   hasLocale: (locales: readonly string[], locale: string) =>
@@ -11,24 +7,14 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("next-intl/server", () => ({
   getTranslations:
-    async ({ locale, namespace }: { locale: "en" | "es"; namespace: string }) =>
-    (key: string) => {
-      if (namespace === "DemoHost" && key === "enterAsHost") {
-        return locale === "es" ? "Entrar como anfitrión" : "Enter as Host";
-      }
-      if (namespace === "DemoHost" && key === "enterAsGuest") {
-        return locale === "es" ? "Entrar como invitado" : "Enter as Guest";
-      }
-      return `${namespace}.${key}`;
-    },
+    async ({ namespace }: { locale: "en" | "es"; namespace: string }) =>
+    (key: string) =>
+      `${namespace}.${key}`,
 }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("not found");
   },
-}));
-vi.mock("@/core/db/client", () => ({
-  getDatabaseConnection: () => ({ sql: mocks.sql }),
 }));
 vi.mock("@/i18n/locale-switcher", () => ({
   LocaleSwitcher: () => null,
@@ -44,65 +30,47 @@ vi.mock("./sign-in-button", () => ({
 import SignInPage from "./page";
 
 describe("sign-in page", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.stubEnv("DEMO_MODE", "true");
-    mocks.sql
-      .mockResolvedValueOnce([
-        {
-          id: "00000000-0000-4000-8000-000000000801",
-          display_name: "Juan González",
-        },
-      ])
-      .mockResolvedValueOnce([
-        { invitation_id: "00000000-0000-4000-8000-000000000802" },
-      ]);
-  });
-
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it("renders exactly the host and guest entries in demo mode", async () => {
+  it("renders Google sign-in and no demo entry", async () => {
     const html = await renderPage("en");
 
-    expect(html.match(/data-testid="demo-enter-/g)).toHaveLength(2);
-    expect(html).toContain('data-testid="demo-enter-host"');
-    expect(html).toContain('data-testid="demo-enter-guest"');
-    expect(html).not.toContain('data-testid="google-sign-in"');
-    expect(html).toContain("Enter as Host");
-    expect(html).not.toContain("Juan González");
-    expect(html).toContain("Enter as Guest");
-
-    const guestQuery = mocks.sql.mock.calls[1]?.[0] as
-      TemplateStringsArray | undefined;
-    expect(guestQuery?.join(" ")).toContain("invitation.status <> 'cancelled'");
-    expect(guestQuery?.join(" ")).not.toContain("party.family_name");
+    expect(html).toContain('data-testid="google-sign-in"');
+    expect(html).not.toContain("demo-enter");
+    expect(html).not.toContain('role="alert"');
   });
 
-  it("renders only Google sign-in outside demo mode", async () => {
-    vi.stubEnv("DEMO_MODE", "false");
+  it("renders Google sign-in even when DEMO_MODE is still set", async () => {
+    vi.stubEnv("DEMO_MODE", "true");
 
     const html = await renderPage("en");
 
     expect(html).toContain('data-testid="google-sign-in"');
-    expect(html).not.toContain('data-testid="demo-enter-host"');
-    expect(html).not.toContain('data-testid="demo-enter-guest"');
-    expect(mocks.sql).not.toHaveBeenCalled();
+    expect(html).not.toContain("demo-enter");
   });
 
-  it("renders the Spanish host and guest labels", async () => {
-    const html = await renderPage("es");
+  it("shows the not-a-host error next to the Google button", async () => {
+    const html = await renderPage("en", "not_a_host");
 
-    expect(html).toContain("Entrar como anfitrión");
-    expect(html).toContain("Entrar como invitado");
+    expect(html).toContain('data-testid="google-sign-in"');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("SignIn.notHostError");
+  });
+
+  it("shows the callback error for a failed OAuth exchange", async () => {
+    const html = await renderPage("es", "oauth_failed");
+
+    expect(html).toContain('data-testid="google-sign-in"');
+    expect(html).toContain("SignIn.callbackError");
   });
 });
 
-async function renderPage(locale: "en" | "es") {
+async function renderPage(locale: "en" | "es", error?: string) {
   const page = await SignInPage({
     params: Promise.resolve({ locale }),
-    searchParams: Promise.resolve({}),
+    searchParams: Promise.resolve(error ? { error } : {}),
   });
   return renderToStaticMarkup(page);
 }
