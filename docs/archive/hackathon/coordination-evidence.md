@@ -27,9 +27,9 @@ The JSON artifact records the source revision, controlled local configuration, t
 
 ## Running and interpreting it
 
-The runner is [scripts/benchmark-coordination.ts](../../scripts/benchmark-coordination.ts). It requires explicit scripted/local execution, disabled email/memory/external scheduling, and loopback application, database and Supabase URLs. It starts its own local application process, verifies the served revision and health, and blocks browser requests or redirects outside the allowed local origins. Run it only against the disposable local demo database, after committing the reviewed source and stopping other Next development servers in the checkout.
+The runner is [scripts/benchmark-coordination.ts](https://github.com/juan294/layalga/blob/v1.3.11/scripts/benchmark-coordination.ts). It requires explicit scripted/local execution, disabled email/memory/external scheduling, and loopback application, database and Supabase URLs. It starts its own local application process, verifies the served revision and health, and blocks browser requests or redirects outside the allowed local origins. Run it only against the disposable local demo database, after committing the reviewed source and stopping other Next development servers in the checkout.
 
-After setting the explicit local environment described in the [release playbook](../release/e2e-pro-playbook.md), keeping APP_URL at an unused local port, and committing reviewed source, run:
+After setting the explicit local environment described in the [release playbook](../../release/e2e-pro-playbook.md), keeping APP_URL at an unused local port, and committing reviewed source, run:
 
 ```bash
 pnpm run benchmark:coordination -- --output docs/submission/coordination-benchmark.json
@@ -37,7 +37,7 @@ pnpm run benchmark:coordination -- --output docs/submission/coordination-benchma
 
 The recorded run used `APP_URL=http://127.0.0.1:3008`, local Supabase ports 54621/54622 and the disabled external-service modes recorded in JSON. The separate release driver retains its existing acceptance contract; a benchmark result does not replace release checks.
 
-Do not convert this run into “minutes saved,” a reduction in real household messages, or an award score. Those claims require a measured human baseline. The [participant protocol](participant-protocol.md) describes how to collect that evidence without confusing scripted latency with human effort. Production guest email activation and real recipient testing remain separate, authorized work described in the [readiness checklist](../release/guest-email-readiness.md).
+Do not convert this run into “minutes saved,” a reduction in real household messages, or an award score. Those claims require a measured human baseline. The [participant protocol](participant-protocol.md) describes how to collect that evidence without confusing scripted latency with human effort. Production guest email activation and real recipient testing remain separate, authorized work described in the [readiness checklist](../../release/guest-email-readiness.md).
 
 ## Measured result
 

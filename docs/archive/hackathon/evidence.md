@@ -1,6 +1,6 @@
 # Implementation evidence for L’Ayalga
 
-This is the source-backed companion to the [judge guide](judge-guide.md). Each card connects a user benefit to an implementation decision and an inspectable test. The [Strands inventory](strands-usage.md) gives broader SDK detail; the [architecture index](../architecture/README.md) includes text-readable Mermaid sources.
+This is the source-backed companion to the [judge guide](judge-guide.md). Each card connects a user benefit to an implementation decision and an inspectable test. The [Strands inventory](strands-usage.md) gives broader SDK detail; the [architecture index](../../architecture/README.md) includes text-readable Mermaid sources.
 
 ## Current completion evidence
 
@@ -48,7 +48,7 @@ The [protected production workflow](https://github.com/juan294/layalga/actions/r
 
 **Source and tests:** [guest contact service](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-contact.ts), [guest outbox](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-outbox.ts), [guest return browser journey](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/tests/e2e/guest-email.spec.ts), and [delivery integration tests](https://github.com/juan294/layalga/blob/90b68385a590144d6d44cd7dd41298180b2d182c/src/core/notifications/guest-delivery.integration.test.ts).
 
-**Mode and limit:** Local tests inject a sender and use synthetic fixtures without real email. SES acceptance, definite failure and unknown send outcomes are distinct from inbox receipt or a guest reply. Production guest permissions and real-recipient proof remain pending in [guest email readiness](../release/guest-email-readiness.md).
+**Mode and limit:** Local tests inject a sender and use synthetic fixtures without real email. SES acceptance, definite failure and unknown send outcomes are distinct from inbox receipt or a guest reply. Production guest permissions and real-recipient proof remain pending in [guest email readiness](../../release/guest-email-readiness.md).
 
 ### Memory affects feasible room recommendations
 
@@ -72,7 +72,7 @@ These current cards complement the five-criterion mapping in the judge guide. Th
 
 All source and test permalinks below refer to the integration baseline **`bf5041601b8910f92e632034c4c21b644dc6a3a9`**, inspected on **2026-09-05**. Symbols support navigation in later checkouts; pinned lines preserve what was actually inspected. Feature-branch work is outside this evidence snapshot.
 
-**Status for every historical baseline card: implemented source inspected; test exists and inspected.** These labels do not assert a fresh passing test run. Local validation results, if recorded for a later documentation commit, apply to that stated revision and environment. Historical deployment observations are recorded in [ADR 0002](../decisions/0002-agent-runtime.md); they are not a fresh observation of this snapshot. No uploaded video URL is recorded in the submission draft at this baseline.
+**Status for every historical baseline card: implemented source inspected; test exists and inspected.** These labels do not assert a fresh passing test run. Local validation results, if recorded for a later documentation commit, apply to that stated revision and environment. Historical deployment observations are recorded in [ADR 0002](../../decisions/0002-agent-runtime.md); they are not a fresh observation of this snapshot. No uploaded video URL is recorded in the submission draft at this baseline.
 
 ## Human approval refreshes booking authority
 
@@ -220,9 +220,9 @@ All source and test permalinks below refer to the integration baseline **`bf5041
 
 ## Reproduce local verification
 
-Use Node.js 24, pnpm 11, Docker, and the local Supabase setup in the [README](../../README.md#local-setup). Tests that manipulate fixtures must target an isolated local database. Configure the local app with `AGENT_RUNTIME=local`, `MODEL=scripted`, `MEMORY=none`, `EMAIL=none`, and `SCHEDULER=none`; enable the synthetic demo and use local secrets from the setup procedure.
+Use Node.js 24, pnpm 11, Docker, and the local Supabase setup in the [README](https://github.com/juan294/layalga/blob/v1.3.11/README.md#local-setup). Tests that manipulate fixtures must target an isolated local database. Configure the local app with `AGENT_RUNTIME=local`, `MODEL=scripted`, `MEMORY=none`, `EMAIL=none`, and `SCHEDULER=none`; enable the synthetic demo and use local secrets from the setup procedure.
 
-Follow the sequential commands in the [README local checks](../../README.md#local-setup), the [CI test selection](../../.github/workflows/ci.yml), and the [release playbook's local demo and probes](../release/e2e-pro-playbook.md#executable-local-verification). Browser tests additionally require the configured Playwright browsers. These linked procedures are the canonical command recipes.
+Follow the sequential commands in the [README local checks](https://github.com/juan294/layalga/blob/v1.3.11/README.md#local-setup), the [CI test selection](https://github.com/juan294/layalga/blob/v1.3.11/.github/workflows/ci.yml), and the [release playbook's local demo and probes](../../release/e2e-pro-playbook.md#executable-local-verification). Browser tests additionally require the configured Playwright browsers. These linked procedures are the canonical command recipes.
 
 Local scripted probes cover application flow. A deployed candidate needs separate authorized runtime, model, memory, email, and observability checks; local success cannot substitute for those observations.
 

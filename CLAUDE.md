@@ -8,41 +8,32 @@ An AI hospitality coordinator for shared homes that turns informal invitations i
 
 - Repository name: `layalga`
 - Intended public URL: `https://layalga.thecreativetoken.com`
-- Hackathon: AWS Agents for Humans, Everyday Agents track
+- Origin: AWS Agents for Humans hackathon, Everyday Agents track. Judging closed on 2026-10-14. The submission material is in `docs/archive/hackathon/` and describes the hackathon demo, not current behavior.
 - Working assessment: `docs/research/2026-08-29-agents-for-humans-hackathon-assessment.md`
-
-## Repository review
-
-Start with the [judge guide](docs/submission/judge-guide.md) for the rubric and
-reading route, then the [evidence index](docs/submission/evidence.md) for source,
-tests, operating modes, and limitations. The
-[Strands inventory](docs/submission/strands-usage.md) explains SDK choices in
-detail. These documents support independent evaluation; they do not prescribe
-a score.
 
 ## Implemented Stack
 
 - Next.js 16 and TypeScript 6 on the selected Vercel web path
 - Strands Agents SDK with durable queued runs, executed on Amazon Bedrock AgentCore Runtime in production (`AGENT_RUNTIME=agentcore`); the local `runAgentTask` worker is the one-flag fallback (the web IAM policy allows Sonnet 4.5 and 4.6)
-- Amazon Bedrock Claude Sonnet 4.6 in production (`MODEL=bedrock`); a scripted model for deterministic demo and test runs
+- Amazon Bedrock Claude Sonnet 4.6 in production (`MODEL=bedrock`); a scripted model for deterministic tests only. Production refuses `MODEL=scripted`, and the AgentCore bundle does not include it
 - AgentCore Memory for per-party household preferences and facts (`MEMORY=agentcore`), ADOT tracing to CloudWatch GenAI Observability, and host email pings through Amazon SES (`EMAIL=ses`); consented guest delivery is implemented with separate web-only state and prepared production activation
 - PostgreSQL through Supabase for authoritative booking, agent, decision, and scheduling state
 - Vercel Cron `/api/ticks` every minute for lease recovery, bounded queue draining, due jobs, and email dispatch; an implemented but unselected EventBridge Scheduler adapter (`SCHEDULER=none` in production)
-- Supabase Auth with Google OAuth, optional guest invitation claims, and signed synthetic-demo sessions
+- Supabase Auth with Google OAuth as the only sign-in. A host signs in only when a `host_identity_claims` row maps their email to a host and home; guests can optionally claim invitations
 
 ADR 0002 records the initial Anthropic access failure, the AgentCore model-and-tool proof, the 2026-09-03 decision that made AgentCore the selected production runtime, and the tracing, memory, and release addenda since.
 
 ## Current product
 
-The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, actual preference-informed room ranking, and guided time-aware demo flows. It is in production since v1.0.0 (2026-09-05); guest SES IAM application remains separately authorized rollout work.
+The September 5 completion adds explicit cancellation/withdrawal, stay-aligned access, informational notes separated from immutable approval requests, versioned host policy, verified opt-in guest reminders and return access, and actual preference-informed room ranking. It is in production since v1.0.0 (2026-09-05); guest SES IAM application remains separately authorized rollout work.
 
-The [synthetic coordination evidence](docs/submission/coordination-evidence.md) and [current roadmap](docs/roadmap.md) distinguish source verification, production observations and measured human impact.
+The real-use launch ([plan](docs/plans/2026-10-15-real-use-launch.md), [notes](docs/plans/2026-10-15-real-use-launch-notes.md)) prepares the product for one real household. It removes demo mode: the demo sessions and "Enter as" sign-in, the demo API routes, the demo clock, the guided demo and the review-access ledger code. A conversion migration turns home `00000000-0000-4000-8000-000000000001` into the real household: it sets `demo = false`, deletes the synthetic parties, invitations, rooms and demo clock row, and keeps both hosts and their `host_identity_claims`. The hosts then add real rooms in the app. Tests and release probes use real local Supabase sessions and throwaway fixture households. The [current roadmap](docs/roadmap.md) separates released work from the launch steps that remain.
 
 ## Product Safety Contracts
 
 - The database is authoritative for availability, holds, visits, and household policy. The model must not invent or directly mutate booking state.
 - A deterministic policy or hook must interrupt sensitive actions for host approval.
-- The demo uses synthetic guests and an explicitly labeled injectable clock.
+- Tests and release probes use synthetic fixture households that they create and delete. Never write test data into the real household. Tests control time through an injected `FakeClock`; the application uses the system clock.
 - Do not expose another guest's identity without approval. Raw host invitation text can contain names; prompt minimization is not general free-text anonymization.
 - Guest contact/consent/delivery state belongs to the web boundary and never enters agent prompts or memory. SES acceptance does not prove inbox delivery or a reply.
 - Cancellation requires explicit human confirmation; memory recommendations never bypass policy, verified room facts or guest choice.
@@ -69,12 +60,11 @@ pnpm run lint
 pnpm run test
 pnpm run build
 pnpm run test:e2e
-pnpm run demo:e2e
-pnpm run release:probes
+pnpm run release:probes -- --target local --base http://127.0.0.1:3008
 bash scripts/verify-bootstrap.sh
 ```
 
-Run verification sequentially. Database-backed tests, browser tests, the demo driver, and release probes require the local Supabase stack and demo seed.
+Run verification sequentially. Database-backed tests, browser tests and release probes require the local Supabase stack (`pnpm run db:start`, `pnpm run db:reset`); the release probes also need a running local dev server. Tests build their own fixture households, and browser tests sign hosts in through real local Supabase sessions (`signInAsHost`, `src/test-support/host-session.ts`).
 
 ## Git Workflow
 
@@ -91,7 +81,11 @@ Use conventional commits: `feat|fix|test|refactor|chore|docs(scope): description
 
 Git-triggered Vercel deployments are enabled only for `main` through `vercel.json` `git.deploymentEnabled`. Feature branches and `develop` must never create preview deployments. Keep this restriction in the first commit pushed for any new branch. GitHub Actions still runs for PRs and pushes to `develop`/`main`; batch reviewed work and pass the applicable checks locally before pushing.
 
-The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`; v1.3.11 adds a durable, privacy-minimized ledger for host and guest demo entry while excluding automated release probes. It retains the localized social sharing metadata, authoritative resumed-run results, Parker-family guided demo, and safe public-summary boundary from earlier v1.3 releases. The broader coordination behavior was proven in v1.3.2 on 2026-09-11 (main `90b6838`) through the protected exact-SHA workflow, with all nine production probes green and AgentCore runtime `layalga_agent-mONXXjFms4` version 30 deployed from the same commit. It adds categorical computed-style design-token guards, the dispatched production gate, and database-wall-time worker leases. v1.3.1 was released on 2026-09-10 (main `de8da43`), with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` version 27 deployed from the same commit, restoring the guest ledger module's `--guest-*` tokens to `:root`, where they remain in scope after the shell wrapper was removed. v1.3.0 was released on 2026-09-10 (main `02dbb35`), with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` version 26 deployed from the same commit, unifying the signed-in shell between host and guest views. v1.2.1 was released on 2026-09-09 (main `e1ddc1b`), with the web app on Vercel and the agent bundle on AgentCore runtime `layalga_agent-mONXXjFms4` version 25 deployed from the same commit, fixing host and guest sign-out presentation. v1.2.0 was released on 2026-09-09 (main `0545ac0`) through the nine-probe gate, with runtime version 24, adding compact header language/theme controls and a design-sync preview fix. v1.1.0 was released on 2026-09-09 (main `4e2d733`), with runtime version 23, adding the host dashboard hub-and-spoke IA and fixing a client-side run-status polling bug. v1.0.0 was released on 2026-09-05 (main `0f1fcf2`) through the nine-probe gate, with runtime version 21, after v0.4.0 and v0.5.0 on 2026-09-04. Apply migrations with `supabase db push --linked` before merging a release into `main`, because the merge deploys the web app. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
+The repository is linked to the Vercel project `thecreativetoken/layalga`, and the Supabase project is configured. Production is live at `https://layalga.thecreativetoken.com`. It runs v1.3.11 (2026-09-14, main `3ce5736`), the hackathon demo. The broader coordination behavior was last proven in v1.3.2 on 2026-09-11 (main `90b6838`, AgentCore runtime `layalga_agent-mONXXjFms4` version 30). `CHANGELOG.md` and the release playbook hold the earlier release history.
+
+The real-use launch ships in two releases, because migrations run before the web deploy and AgentCore deploys separately. Release 1 (expand) ships the code without demo mode and the conversion migration; the demo schema (`homes.demo`, `demo_clock`, the demo mutation tables, `review_access_events`) stays in the database so the old web app and the old AgentCore bundle keep working during the release window. Release 2 (contract) drops that schema and removes the demo branch from the retention function, and starts only after release 1's AgentCore runtime version is recorded. Neither release has run: each production step needs explicit owner authorization.
+
+The production gate is the `Production probes` workflow, dispatched from `main` with the exact deployed commit and the acknowledgement `WRITE PROBE FIXTURE`. It runs `pnpm run release:probes -- --target production` against two fixture households that it creates and deletes; it never reads or writes the real household. Apply migrations with `supabase db push --linked` before merging a release into `main`, because the merge deploys the web app. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
 ## Agent Behavior
 
@@ -110,7 +104,7 @@ Exhaust CLI and browser automation before asking the user to perform operations.
 | Architecture         | `docs/architecture/`                                                 | Mermaid and draw.io diagrams with README             |
 | Security             | `docs/security/data-lifecycle.md`                                    | Retention and prompt boundary                        |
 | User manuals         | `docs/guides/`                                                       | Host and guest journeys, non-technical               |
-| Submission           | `docs/submission/`                                                   | Devpost, pitch, video script, judge guide, posts     |
+| Hackathon archive    | `docs/archive/hackathon/`                                            | Hackathon demo as of 2026-10-14; not current state   |
 | Docs index           | `docs/README.md`                                                     | One line per document                                |
 | Agent reports        | `docs/agents/*-report.md`                                            | Gitignored because the intended repository is public |
 <!-- rpi:claude-import:start -->

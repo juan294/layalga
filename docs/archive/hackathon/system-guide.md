@@ -2,7 +2,7 @@
 
 Current release: v1.3.11, with durable, privacy-minimized review-access visibility and automated release probes excluded from the ledger. It retains the safe run-result presentation from v1.3.10. The behavioral production reference is v1.3.2 commit `90b68385a590144d6d44cd7dd41298180b2d182c`, released 11 September 2026. Vercel and AgentCore Runtime version 30 were deployed from that exact commit, and the protected production workflow passed its guided demo and all nine probes. Guest-email permission and real-recipient verification remain separate pending operations.
 
-For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../guides/host-manual.md) and [guest](../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
+For a first review, use the [canonical judge guide](judge-guide.md). For everyday use, see the [host](../../guides/host-manual.md) and [guest](../../guides/guest-manual.md) manuals. This document explains how the parts fit together without duplicating every operator command.
 
 ## 1. The product and its intended audience
 
@@ -20,7 +20,7 @@ The AWS Builder ID is recorded in the Devpost entry. Three â€œAgents for Humansâ
 
 ## 3. Architecture and authority
 
-The [architecture sources and diagrams](../architecture/README.md) are the visual reference.
+The [architecture sources and diagrams](../../architecture/README.md) are the visual reference.
 
 | Layer                   | Responsibility                                                                                   | Boundary                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ The [architecture sources and diagrams](../architecture/README.md) are the visua
 | PostgreSQL              | Authoritative rooms, occupancy, visits, invitations, decisions, jobs, runs and delivery receipts | Constraints and household serialization preserve consistency under races.                 |
 | People                  | Requests, room choice, explicit consent, exception decisions, cancellation confirmation          | Remain responsible for judgments the workflow asks them to make.                          |
 
-Web and agent execution use non-owner database identities with distinct granted roles. The agent cannot read private room notes or web-only guest contacts, outbox and attempt receipts. Administrative connections are reserved for migrations/operations. See the [database/runtime runbook](../release/runtime-database-and-identity.md) for exact provisioned role names and deployment details.
+Web and agent execution use non-owner database identities with distinct granted roles. The agent cannot read private room notes or web-only guest contacts, outbox and attempt receipts. Administrative connections are reserved for migrations/operations. See the [database/runtime runbook](../../release/runtime-database-and-identity.md) for exact provisioned role names and deployment details.
 
 ## 4. AWS services and deployment evidence
 
@@ -40,13 +40,13 @@ Web and agent execution use non-owner database identities with distinct granted 
 
 **AgentCore Memory** supports optional party-scoped recall and bounded room preference reads. It is not authoritative for booking facts. **CloudWatch and OpenTelemetry** expose runtime, model and tool execution. Identifier-only custom attributes do not guarantee raw text elsewhere in a trace contains no personal information.
 
-**SES** supports web-owned host pings and implemented consented guest verification/reminder delivery. Production guest activation still requires the prepared permissions and operational checks in [guest email readiness](../release/guest-email-readiness.md). Do not infer permission deployment or inbox delivery from local tests.
+**SES** supports web-owned host pings and implemented consented guest verification/reminder delivery. Production guest activation still requires the prepared permissions and operational checks in [guest email readiness](../../release/guest-email-readiness.md). Do not infer permission deployment or inbox delivery from local tests.
 
 **EventBridge Scheduler** has an adapter, but the documented selected scheduling path uses the PostgreSQL job table and Vercel Cron. Demo homes use the no-op external scheduler. Infrastructure provisioning and production configuration live in the operator runbooks, not this walkthrough.
 
 ## 5. Strands integration
 
-[`buildAgent`](../../src/agent/agent.ts) wires the SDK Agent, task-specific typed tools, sequential execution, locale system prompts, PostgreSQL SessionManager storage, policy hook and optional MemoryManager. The [Strands guide](strands-usage.md) contains the authoritative tool inventory and source map.
+[`buildAgent`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/agent.ts) wires the SDK Agent, task-specific typed tools, sequential execution, locale system prompts, PostgreSQL SessionManager storage, policy hook and optional MemoryManager. The [Strands guide](strands-usage.md) contains the authoritative tool inventory and source map.
 
 The policy hook gates hold creation, confirmation and rescheduling. It checks trusted room selection and deterministic overlap rules, audits the verdict, denies impossible requests and interrupts for explicit requests or overflow. The SDK saves the interrupted execution; the application persists the host decision separately.
 
@@ -58,7 +58,7 @@ User requests enqueue work and return a run identifier for progress. Idempotency
 
 Confirmation schedules a reconfirmation chase for 09:00 household time three days before arrival, or immediately inside that window. A chase opens a current request and schedules escalation after 24 hours. A guest answer cancels the escalation. Rescheduling and cancellation retire work belonging to the old state or cycle. The job engine supplies required-recipient notification fallback when the model omits it; durable delivery does not depend solely on prompt compliance.
 
-Jobs use leases and bounded retries; exhausted jobs can be quarantined. Follow the [runtime runbook](../release/runtime-database-and-identity.md) for recovery instead of replaying arbitrary jobs.
+Jobs use leases and bounded retries; exhausted jobs can be quarantined. Follow the [runtime runbook](../../release/runtime-database-and-identity.md) for recovery instead of replaying arbitrary jobs.
 
 `DbDemoClock` only substitutes stored time for enabled synthetic households. Guest search/defaults and demo policy use that household clock. Real invitation and contact capability expiry still use real time. Semantic chase/escalation controls choose an eligible persisted job and its effective retry time, preserve current-cycle/pre-arrival/lease guards, and report no work when exhausted. Custom time can move forward only.
 
@@ -80,7 +80,7 @@ Capture progress is embedded and follows the exact run. Successful completion au
 
 Informational notes are available in authorized visit detail without creating decisions. Explicit requests remain visible in the booking draft and survive resume. Hosts approve or decline requests, configure household rules and explicitly review/confirm cancellation or withdrawal. Outstanding unanswered reconfirmation remains visible as follow-up, including after planned arrival; a scheduled date alone does not prove arrival.
 
-The [host manual](../guides/host-manual.md) covers room controls, memory deletion, calendar subscriptions and recovery.
+The [host manual](../../guides/host-manual.md) covers room controls, memory deletion, calendar subscriptions and recovery.
 
 ## 9. Guest journey and access
 
@@ -100,7 +100,7 @@ Memory has two paths: explicit SDK recall for agent context, and a bounded deter
 
 Recall never overrides dates, counts, consent, requests or rules. Host capture conversations are excluded from automatic extraction; a separate deterministic capture event omits the family-name field and records bounded facts. Free-text arrival and request facts can still identify people. The assembled guest-submit prompt omits notes, arrival details and explicit request prose. Raw host and guest-change text can contain personal information and may reach the model/provider traces, so do not describe this as universal anonymization.
 
-Guest contact data and email capabilities stay in web-owned services, outside agent prompts and agent database grants. Guest pages omit other parties' names and private room notes. Retention and authorized erasure are specified in [data lifecycle](../security/data-lifecycle.md); active work is protected while terminal notes, contacts and delivery records have defined cleanup.
+Guest contact data and email capabilities stay in web-owned services, outside agent prompts and agent database grants. Guest pages omit other parties' names and private room notes. Retention and authorized erasure are specified in [data lifecycle](../../security/data-lifecycle.md); active work is protected while terminal notes, contacts and delivery records have defined cleanup.
 
 ## 11. Email is separate from guest response
 
@@ -108,13 +108,13 @@ Host pings notify pending decisions and escalations when enabled. Guest verifica
 
 Before sending, delivery rechecks source state, current cycle and consent, and records an authorized attempt. Cancellation, revocation and opt-out suppress obsolete work. A known failure and an uncertain outcome are different: an unknown provider result is not blindly retried. SES acceptance means the provider accepted the request, not that a person received or read it.
 
-The host panel distinguishes delivery facts from an unanswered reconfirmation. Disabled delivery is reported honestly. Production activation remains subject to the [readiness document](../release/guest-email-readiness.md).
+The host panel distinguishes delivery facts from an unanswered reconfirmation. Disabled delivery is reported honestly. Production activation remains subject to the [readiness document](../../release/guest-email-readiness.md).
 
 ## 12. Demonstration and evidence
 
 The canonical flow is routine Vega for four guests in both open rooms, an answered reconfirmation, then a fresh reset into Parker's two-person Garage Room explicit request. Approve that exception, chase its reconfirmation, leave it unanswered, and escalate. Cancellation closes the loop. The shared resets are visible; the scenarios are not represented as concurrent visits.
 
-The [guided browser regression](../../tests/e2e/guided-demo.spec.ts) tests real local transitions in English and Spanish/mobile. The [benchmark report](coordination-evidence.md) records its own exact committed revision, configuration, automated operations and persisted outcomes. Neither is a human study or evidence of live-model/email behavior. Historical production traces remain separately labeled.
+The [guided browser regression](https://github.com/juan294/layalga/blob/v1.3.11/tests/e2e/guided-demo.spec.ts) tests real local transitions in English and Spanish/mobile. The [benchmark report](coordination-evidence.md) records its own exact committed revision, configuration, automated operations and persisted outcomes. Neither is a human study or evidence of live-model/email behavior. Historical production traces remain separately labeled.
 
 The v1.3.10 [video script](video-script.md) presents this story in one visible English tab and omits the architecture cutaway. Recording/upload, final entry, guest-email activation, and participant research remain distinct actions.
 
@@ -126,8 +126,8 @@ Use the release/security runbooks for exact configuration, migrations, probes an
 
 ## 14. Source index
 
-- Agent assembly and authority: [`agent.ts`](../../src/agent/agent.ts), [`deps.ts`](../../src/agent/deps.ts), [`run-task.ts`](../../src/agent/run-task.ts), [`policy-hook.ts`](../../src/agent/policy-hook.ts).
-- Booking and lifecycle: [`holds.ts`](../../src/core/booking/holds.ts), [`invitations.ts`](../../src/core/booking/invitations.ts), [`cancellation.ts`](../../src/core/booking/cancellation.ts), [`settings.ts`](../../src/core/policy/settings.ts).
-- Recommendation and clock: [`room-preferences.ts`](../../src/core/memory/room-preferences.ts), [`preferences.ts`](../../src/core/rooms/preferences.ts), [`advance-clock.ts`](../../src/core/demo/advance-clock.ts).
-- Follow-through and email: [`jobs.ts`](../../src/core/reconfirmation/jobs.ts), [`guest-contact.ts`](../../src/core/notifications/guest-contact.ts), [`guest-outbox.ts`](../../src/core/notifications/guest-outbox.ts).
-- Review routes: [judge guide](judge-guide.md), [Strands usage](strands-usage.md), [evidence](coordination-evidence.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
+- Agent assembly and authority: [`agent.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/agent.ts), [`deps.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/deps.ts), [`run-task.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/run-task.ts), [`policy-hook.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/policy-hook.ts).
+- Booking and lifecycle: [`holds.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/holds.ts), [`invitations.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/invitations.ts), [`cancellation.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/cancellation.ts), [`settings.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/policy/settings.ts).
+- Recommendation and clock: [`room-preferences.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/memory/room-preferences.ts), [`preferences.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/rooms/preferences.ts), [`advance-clock.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/demo/advance-clock.ts).
+- Follow-through and email: [`jobs.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/reconfirmation/jobs.ts), [`guest-contact.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/notifications/guest-contact.ts), [`guest-outbox.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/core/notifications/guest-outbox.ts).
+- Review routes: [judge guide](judge-guide.md), [Strands usage](strands-usage.md), [evidence](coordination-evidence.md), [host manual](../../guides/host-manual.md), [guest manual](../../guides/guest-manual.md).
