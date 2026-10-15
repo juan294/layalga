@@ -186,6 +186,15 @@ describe("forget-orphaned-memory script", () => {
       ),
     ).toThrow("DATABASE_URL does not name Supabase project other");
     expect(() =>
+      assertApplyTarget(
+        {
+          DATABASE_URL:
+            "postgresql://layalga_agent.prodref:secret@127.0.0.1:54622/postgres",
+        },
+        { apply: true, projectRef: "prodref" },
+      ),
+    ).toThrow("DATABASE_URL does not name Supabase project prodref");
+    expect(() =>
       assertApplyTarget({ DATABASE_URL: url }, { apply: false }),
     ).not.toThrow();
   });

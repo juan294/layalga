@@ -54,7 +54,8 @@ export function parseForgetOrphansArguments(argv: readonly string[]): {
 
 /**
  * With `--apply`, `DATABASE_URL` must name the given Supabase project: as
- * the pooler user `<role>.<ref>` or the direct host `db.<ref>.supabase.co`.
+ * the user `<role>.<ref>` on a Supabase pooler host, or the direct host
+ * `db.<ref>.supabase.co`.
  * A local or other database that also holds the real household would pass
  * the homes guards, and every real party missing from it would look deleted.
  */
@@ -67,8 +68,11 @@ export function assertApplyTarget(
   const user = decodeURIComponent(url.username);
   if (
     !projectRef ||
-    (!user.endsWith(`.${projectRef}`) &&
-      url.hostname !== `db.${projectRef}.supabase.co`)
+    !(
+      (user.endsWith(`.${projectRef}`) &&
+        url.hostname.endsWith(".pooler.supabase.com")) ||
+      url.hostname === `db.${projectRef}.supabase.co`
+    )
   ) {
     throw new Error(
       `DATABASE_URL does not name Supabase project ${projectRef ?? "(none)"}; refusing to delete.`,
