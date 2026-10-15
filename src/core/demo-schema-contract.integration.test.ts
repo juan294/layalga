@@ -32,6 +32,10 @@ function withPreContractShape(body: (tx: TransactionSql) => Promise<void>) {
   return inRollback(async (tx) => {
     await tx`alter table public.homes add column demo boolean not null default false`;
     await tx`create table public.demo_clock (home_id uuid primary key references public.homes(id) on delete cascade)`;
+    await tx`create table public.demo_mutation_leases (home_id uuid primary key)`;
+    await tx`create table public.demo_mutation_limits (home_id uuid primary key)`;
+    await tx`create table private.review_access_events (id uuid primary key)`;
+    await tx`create function private.restore_demo_identity_claims() returns void language sql as 'select'`;
     await body(tx);
   });
 }
@@ -66,12 +70,29 @@ describe("demo schema contract migration", () => {
         await tx`insert into public.homes (name, timezone) values (${`Contract ${randomUUID()}`}, 'Europe/Madrid')`;
         await tx.unsafe(migration);
         expect(await columnExists(tx)).toBe(false);
-        const [tables] = await tx<{ clock: string | null; ledger: string | null }[]>`
+        const [objects] = await tx<
+          {
+            clock: string | null;
+            leases: string | null;
+            limits: string | null;
+            ledger: string | null;
+            helpers: number;
+          }[]
+        >`
           select
             to_regclass('public.demo_clock')::text as clock,
-            to_regclass('private.review_access_events')::text as ledger
+            to_regclass('public.demo_mutation_leases')::text as leases,
+            to_regclass('public.demo_mutation_limits')::text as limits,
+            to_regclass('private.review_access_events')::text as ledger,
+            (select count(*)::int from pg_proc where proname = 'restore_demo_identity_claims') as helpers
         `;
-        expect(tables).toEqual({ clock: null, ledger: null });
+        expect(objects).toEqual({
+          clock: null,
+          leases: null,
+          limits: null,
+          ledger: null,
+          helpers: 0,
+        });
       }),
     ).rejects.toBeInstanceOf(Rollback);
   });

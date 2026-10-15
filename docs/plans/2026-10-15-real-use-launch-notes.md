@@ -20,6 +20,10 @@ Plan: [2026-10-15-real-use-launch.md](2026-10-15-real-use-launch.md)
 | 3 | (not planned) | The real Google button had no test id | Added `data-testid="google-sign-in"` to `SignInButton` | The new e2e spec and the page test assert on it |
 | 3 | (not planned) | `supabase migration new` waits on stdin in a non-interactive shell | Created the file through the CLI, then wrote its content | Timestamp still assigned by the CLI |
 | 3 | `.env.development.local` note | The worktree and main checkout copies still set `DEMO_MODE` and `DEMO_SESSION_SECRET` | Not edited (gitignored, local); the application ignores both | Owner may delete the two lines locally |
+| 6 | Implement after phase 5 has deployed release 1 | The owner asked for every phase; the contract migration must not reach `develop` before release 1 ships, or the release 1 `db push` would drop `homes.demo` under the old web app and AgentCore bundle | Implemented on local branch `feat/drop-demo-schema`, not merged into `develop`; merge it only when phase 6 entry conditions hold | Keeps the two-release safety and the plan's order |
+| 6 | Acceptance grep returns nothing | The contract migration test must name the objects it drops | The only allowed hits are in `src/core/demo-schema-contract.integration.test.ts` | It asserts the removal |
+| 6 | The migration fails on a demo home and drops the objects | A plain `alter`/`drop` would fail if the migration is applied twice | The guard reads `homes.demo` only inside a nested branch taken when the column exists; drops use `if exists` | Safe re-application; tested |
+| 6 | `scripts/contract-preflight.ts` compares with "the release 1 record" | The repository keeps no machine-readable release record | The operator passes `--runtime-id` and `--expected-version` from the release 1 notes; the script reads `GetAgentRuntime` and requires `READY` and the same version | A newer deploy makes it fail closed |
 
 ## Open decisions for the owner
 
@@ -61,6 +65,18 @@ Documentation written by a separate agent in worktree `layalga-real-use-docs` (b
 - P4-R4 fixed: the playbook carries the Vercel env-change window caveat from `phase-5.md`.
 - P4-R5 fixed for Mermaid: the three affected `.mmd` sources were edited and re-rendered with Mermaid CLI 11.12.0 (SVG, and PNG for the topology); the draw.io view stays marked stale.
 - P4-R6 fixed: the edited docs index line uses a colon instead of an em dash; existing em dashes elsewhere in that list are unchanged.
+
+## Review and simplify dispositions (phase 6)
+
+Branch `feat/drop-demo-schema` (local, unmerged). Review: CHANGES REQUIRED, then fixed:
+
+- P6-R1 fixed: the retention integration test now covers the notification (180 days) and host email ping (90 days) branches.
+- P6-R2 fixed: deviation row for the acceptance-grep hits in the contract test.
+- P6-R3 fixed: the contract test restores and asserts every dropped object.
+- P6-R7 fixed: the playbook marks `forget-synthetic-memory` as release 1 only.
+- Verified by the reviewer, no change: the retention body equals the previous one minus the demo predicates; revoking `usage on schema private` from the web runtime removes nothing it still uses; `GetAgentRuntime` reports the latest version, so a later deploy fails the preflight closed.
+
+Simplify: applied `util.parseArgs`, the `AWS_REGION` idiom from `agentcore-smoke`, one rollback helper in the contract test, a static nested guard instead of dynamic SQL, and removal of the dead `MEMORY_ID`/`AWS_REGION` members of `requiredEnvironment`. Kept the `demo: true` field in the `current-host` regression mock, which models the retired demo-era lookup on purpose.
 
 ## Pre-existing failures found at the phase 1 baseline
 

@@ -60,3 +60,13 @@ Check whether `layalga_web_runtime` still needs `usage on schema private` (grant
 Automated: all plan-level checks, the migration and retention tests, and `grep -rnE "homes\.demo|home\.demo|demo_clock|demo_mutation|review_access|restore_demo_identity_claims" src scripts supabase/seed.sql` returns nothing.
 
 Manual: the next nightly retention run (03:17) is checked once with `select * from cron.job_run_details` for the retention job and shows success.
+
+## Implementation handoff (2026-10-15)
+
+Status: code complete on local branch `feat/drop-demo-schema` (worktree removed after merge decisions; see the final commit on that branch). Not merged into `develop` by design: merging it before release 1 ships would let the release 1 `db push` drop `homes.demo` under the running old code.
+
+- [x] Step 1: `supabase/migrations/20261015084815_drop_demo_schema.sql` (fail-closed guard, retention body without demo predicates, drops, `revoke usage on schema private from layalga_web_runtime`).
+- [x] Step 2: `src/core/demo-schema-contract.integration.test.ts`; `src/core/data-retention.integration.test.ts` covers every threshold branch after the contract; other demo-schema test edits; `forget-synthetic-memory` and the conversion test deleted; `scripts/contract-preflight.ts` (`pnpm run contract:preflight -- --runtime-id <id> --expected-version <n>`).
+- [ ] Step 3 (release 2): not run; every action needs owner authorization, and the entry conditions (release 1 deployed on Vercel and AgentCore, runtime version recorded, memory forget done) are not met.
+- Gate on the branch with the contract applied to a reset local database (commit `2aa57c6`): typecheck, lint, `test` 743 passed, `test:integration` 174 passed, coverage, build, bootstrap, `test:e2e` 25 passed, `release:probes --target local` 9 of 9 passed. The review fixes after it change only tests and docs; their targeted tests pass (5 of 5).
+- To release: rebase or merge `feat/drop-demo-schema` onto `develop` after release 1, re-run the gate, then follow step 3.

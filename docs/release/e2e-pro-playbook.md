@@ -214,7 +214,7 @@ Release 1 (expand) follows the release procedure above, with these additional ac
 - Confirm that the Google OAuth client is published "In production" and lists the Supabase callback URI.
 - Disable the email provider in hosted Supabase Auth, keep Google enabled, and check that `/auth/v1/settings` reports `email: false` and `google: true`.
 - Remove `DEMO_MODE` and `DEMO_SESSION_SECRET` from Vercel production. Vercel applies the change only to a new deployment: until the merge deploys, the old build still reads `DEMO_MODE=true`. After the conversion it finds no demo home and shows neither Google sign-in nor demo entry, so merge directly after `db push`, or redeploy the current build after the env change as a separate authorized action.
-- Run `pnpm run forget-synthetic-memory` against the production AgentCore Memory store to remove the synthetic Vega and Parker records.
+- Run `pnpm run forget-synthetic-memory` against the production AgentCore Memory store to remove the synthetic Vega and Parker records. This script exists only in release 1 code; release 2 deletes it.
 - Apply the conversion migration with `supabase db push --linked` before the merge. Home `…0001` then has `demo = false`, no parties, invitations or rooms, two hosts and two claims.
 - After the deploy and the production gate, the owner signs in with Google and reaches the empty household dashboard.
 
