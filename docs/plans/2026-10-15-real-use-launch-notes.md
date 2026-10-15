@@ -51,6 +51,17 @@ Review (fresh-context agent): APPROVED.
 
 Simplify (four angles): applied `requiredEnvironment` reuse, `householdMonth(timeZone, now)`, one ternary in guest email preferences, `schedulerForHome` renamed `configuredScheduler`, and the household timezone carried on `HostRecord` (one query fewer per host page). Not applied, with reason: the migration's session-id union stays a copy (one-shot migration); `runDueJobs` stays as the test seam for job runs; the `loadGuestInvitation` clock parameter stays because the plan requires a caller clock for fake-clock tests; the `runtimeDeps` home existence check stays for a clear error; the env refusal keeps its explicit message instead of a per-environment enum; the handler deps factory stays because the testing rule prefers injecting over mocking owned modules.
 
+## Review dispositions (phase 4)
+
+Documentation written by a separate agent in worktree `layalga-real-use-docs` (branch `docs/real-use-launch`, commit `9c89b3f`), merged as `64b7866`. Parent checks: acceptance grep (remaining hits are history or transition text), relative links in 33 changed files resolve, no remaining `docs/submission` path, bootstrap passes, v1.3.11 commit `3ce5736` verified against the tag. Independent review: CHANGES REQUIRED, then fixed:
+
+- P4-R1 fixed: the README and identity runbook said the seed uses placeholder emails; the seed maps the two operator addresses (as `restore_demo_identity_claims` did in the public migration history).
+- P4-R2 fixed: the runbook lists everything the conversion deletes.
+- P4-R3 fixed: the runbook says the production gate needs the web role's host insert and delete grants.
+- P4-R4 fixed: the playbook carries the Vercel env-change window caveat from `phase-5.md`.
+- P4-R5 fixed for Mermaid: the three affected `.mmd` sources were edited and re-rendered with Mermaid CLI 11.12.0 (SVG, and PNG for the topology); the draw.io view stays marked stale.
+- P4-R6 fixed: the edited docs index line uses a colon instead of an em dash; existing em dashes elsewhere in that list are unchanged.
+
 ## Pre-existing failures found at the phase 1 baseline
 
 VERIFIED on unchanged `develop` (`fea093b`) on 2026-10-15, with `DATABASE_URL` set as the CI integration job sets it: `tests/e2e/guided-demo.spec.ts` (2 runs, demo clock outcome `no_eligible`) and 17 vitest tests in 3 files fail identically: `src/core/booking/invitations.integration.test.ts` (2), `src/core/demo/advance-clock.integration.test.ts` (2) and `src/core/reconfirmation/jobs.test.ts` (13). They pin a `FakeClock` to September 2026 while rows take database defaults such as `available_at = now()` and fixed link expiry `2026-10-01`, so they started failing once the real date passed those values. The `Coverage` workflow stays green because it runs unit tests only.

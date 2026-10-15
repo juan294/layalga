@@ -51,4 +51,4 @@ The [hackathon archive](archive/hackathon/README.md) keeps the AWS Agents for Hu
 | [Everyday Agents product checkup](research/2026-09-05-everyday-agents-product-checkup.md) | September 5 assessment of award positioning, product gaps, judge experience, and roadmap priorities |
 | [plans/README.md](plans/README.md)                                                        | Index of the dated implementation plans and their phase files                                       |
 
-- [Agent-readable evaluation research](research/2026-09-05-agent-readable-evaluation-evidence.md) — dated rationale for the hackathon evidence route; the judge guide it describes is now in the hackathon archive.
+- [Agent-readable evaluation research](research/2026-09-05-agent-readable-evaluation-evidence.md): dated rationale for the hackathon evidence route; the judge guide it describes is now in the hackathon archive.

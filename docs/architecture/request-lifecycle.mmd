@@ -42,7 +42,7 @@ sequenceDiagram
       AC->>DB: claimQueuedRun
       Note over W,AC: Cron dispatch also waits for<br/>the runtime execution response.
       W->>W: dispatchHostEmailPingsSafely
-      W->>EMAIL: dispatchGuestEmailPingsSafely<br/>real clock, synthetic homes excluded
+      W->>EMAIL: dispatchGuestEmailPingsSafely<br/>real clock
       EMAIL->>DB: claim source + contact generation with lease
       EMAIL->>DB: under home lock recheck consent, access,<br/>current visit/job cycle and prearrival,<br/>persist authorized attempt
       EMAIL->>EMAIL: send through SES outside transaction
@@ -76,5 +76,5 @@ sequenceDiagram
     W->>DB: scoped contact generation and verification outbox
     Note over B,DB: Account-free GET only previews verification,<br/>explicit POST verifies. Return capability is checked<br/>against live access and consent on every guest request.
   end
-  Note over DB: Run claims, heartbeats, deadlines and stale recovery use DB wall time.<br/>The demo clock drives household behavior, not worker ownership.
+  Note over DB: Run claims, heartbeats, deadlines and stale recovery use DB wall time.<br/>An injected household clock never decides worker ownership.
   Note over B: After the server duration the poller stops<br/>and shows a Retry status button.
