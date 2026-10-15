@@ -19,15 +19,20 @@ const migration = readFileSync(
 
 class Rollback extends Error {}
 
-/** Restores the pre-contract shape inside a transaction that is rolled back. */
-async function withPreContractShape(
-  body: (tx: TransactionSql) => Promise<void>,
-): Promise<unknown> {
+/** Runs `body` inside a transaction that is always rolled back. */
+function inRollback(body: (tx: TransactionSql) => Promise<void>) {
   return db.begin(async (tx) => {
+    await body(tx);
+    throw new Rollback();
+  });
+}
+
+/** Restores a minimal pre-contract shape, then runs `body`, rolled back. */
+function withPreContractShape(body: (tx: TransactionSql) => Promise<void>) {
+  return inRollback(async (tx) => {
     await tx`alter table public.homes add column demo boolean not null default false`;
     await tx`create table public.demo_clock (home_id uuid primary key references public.homes(id) on delete cascade)`;
     await body(tx);
-    throw new Rollback();
   });
 }
 
@@ -91,10 +96,9 @@ describe("demo schema contract migration", () => {
 
   it("is a no-op when applied again", async () => {
     await expect(
-      db.begin(async (tx) => {
+      inRollback(async (tx) => {
         await tx.unsafe(migration);
         expect(await columnExists(tx)).toBe(false);
-        throw new Rollback();
       }),
     ).rejects.toBeInstanceOf(Rollback);
   });

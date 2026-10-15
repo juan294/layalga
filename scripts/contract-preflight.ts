@@ -1,3 +1,5 @@
+import { parseArgs } from "node:util";
+
 import {
   BedrockAgentCoreControlClient,
   GetAgentRuntimeCommand,
@@ -52,20 +54,16 @@ export function parsePreflightArgs(argv: readonly string[]): {
   runtimeId: string;
   expectedVersion: string;
 } {
-  const values = new Map<string, string>();
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument === "--") continue;
-    if (argument !== "--runtime-id" && argument !== "--expected-version") {
-      throw new Error(`Unknown argument: ${argument}`);
-    }
-    const value = argv[index + 1];
-    if (!value) throw new Error(`${argument} requires a value`);
-    values.set(argument, value);
-    index += 1;
-  }
-  const runtimeId = values.get("--runtime-id");
-  const expectedVersion = values.get("--expected-version");
+  const { values } = parseArgs({
+    args: argv.filter((argument) => argument !== "--"),
+    options: {
+      "runtime-id": { type: "string" },
+      "expected-version": { type: "string" },
+    },
+    strict: true,
+  });
+  const runtimeId = values["runtime-id"];
+  const expectedVersion = values["expected-version"];
   if (!runtimeId || !expectedVersion) {
     throw new Error(
       "Usage: contract-preflight --runtime-id <id> --expected-version <release 1 runtime version>",
@@ -81,7 +79,7 @@ if (isDirectExecution(import.meta.url, process.argv[1])) {
   contractPreflight(
     runtimeId,
     expectedVersion,
-    awsRuntimeReader(process.env.AWS_REGION ?? "us-east-1"),
+    awsRuntimeReader(process.env.AWS_REGION?.trim() || "us-east-1"),
   )
     .then((message) => console.log(message))
     .catch((error: unknown) => {

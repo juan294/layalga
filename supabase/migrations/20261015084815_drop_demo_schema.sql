@@ -6,18 +6,16 @@
 -- column before reading it, and every drop tolerates an absent object.
 
 do $$
-declare
-  demo_homes_exist boolean := false;
 begin
+  -- PL/pgSQL plans the inner statement only when it runs, so a re-run after
+  -- the column is gone never reads it.
   if exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'homes' and column_name = 'demo'
   ) then
-    execute 'select exists (select 1 from public.homes where demo)'
-      into demo_homes_exist;
-  end if;
-  if demo_homes_exist then
-    raise exception 'demo homes still exist; apply the conversion first';
+    if exists (select 1 from public.homes where demo) then
+      raise exception 'demo homes still exist; apply the conversion first';
+    end if;
   end if;
 end
 $$;
