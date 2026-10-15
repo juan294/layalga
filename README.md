@@ -160,7 +160,7 @@ SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=replace-with-google-oauth-client-sec
 
 Set `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54621` and use the publishable key reported by `supabase status` for this local stack.
 
-`pnpm run db:reset` loads a small local development household: one home, three rooms and two hosts. Its two host claims use placeholder `example.com` addresses, so nobody can sign in with them. To sign in locally with Google, map your own Google email to one of the local hosts with a `host_identity_claims` row, as the [runtime database and identity runbook](docs/release/runtime-database-and-identity.md) describes.
+`pnpm run db:reset` loads a small local development household: one home, three rooms and two hosts. Its two host claims map the two operators' Google addresses, the same mapping the production household uses. To sign in locally as someone else, map your own Google email to one of the local hosts with a `host_identity_claims` row, as the [runtime database and identity runbook](docs/release/runtime-database-and-identity.md) describes.
 
 Browser tests do not need Google. They create their own fixture household and sign a host in through the local Supabase email provider with `signInAsHost` (`src/test-support/host-session.ts`). That helper refuses any Supabase URL that is not `127.0.0.1` or `localhost`.
 

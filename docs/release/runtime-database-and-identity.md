@@ -7,7 +7,7 @@ The application must not use the Supabase `postgres` owner credential outside th
 | Vercel web and local agent runtime | `layalga_web`   | `layalga_web_runtime`   |
 | AgentCore runtime                  | `layalga_agent` | `layalga_agent_runtime` |
 
-The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role still holds the insert and delete grants on host rows that the removed demo reset used (`20260831001100_secure_invitation_identity.sql`); no application code uses them. It can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
+The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role holds insert and delete grants on host rows (`20260831001100_secure_invitation_identity.sql`). The application does not use them, but the production release gate does: its fixture households insert and delete host rows through the web role (`src/test-support/fixture-household.ts`, `.github/workflows/production-probes.yml`). Do not revoke them without changing the gate. It can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
 
 Migration `20260831083526_agent_first_room_coordination.sql` narrows `layalga_agent_runtime`'s room access further: `select` on a restricted column subset of `rooms` (no `private_notes`), `select` and `delete` plus column-scoped `insert` on `visit_rooms`, and `select` and `insert` on `room_action_proposal_rooms`. It grants no access to `private_room_blocks` or write access to `room_availability_overrides` — those stay host-only through `layalga_web`. The agent can only ever create a pending room-action proposal; applying one still runs through a host-authenticated web action.
 
@@ -99,7 +99,7 @@ where host.id = :'host_id'::uuid;
 
 Run this only through the administrative connection. The web role can read and claim a prepared mapping, but it cannot insert, delete, or redirect one. Existing claimed users are backfilled from `auth.users`. Duplicate user claims, conflicting emails, and missing mappings fail closed.
 
-Juan González and Jordan Lynn are the two stable host identities (`…0201` and `…0202`) of the real household, home `00000000-0000-4000-8000-000000000001`. The real-use conversion migration keeps both host rows, their claim rows and any existing Google auth binding; it deletes only the synthetic guests, invitations, rooms and demo clock. Host email pings reach only the two addresses that `infra/iam/web-ses-policy.json` allows.
+Juan González and Jordan Lynn are the two stable host identities (`…0201` and `…0202`) of the real household, home `00000000-0000-4000-8000-000000000001`. The real-use conversion migration keeps both host rows, their claim rows and any existing Google auth binding; it deletes every synthetic guest, invitation, visit, room and demo clock row of that home, together with its runs, agent sessions, decisions, notifications, email pings, room proposals, blocks and overrides, and audit events other than memory erasure records (`supabase/migrations/20261015082739_convert_household_to_real_use.sql`). Host email pings reach only the two addresses that `infra/iam/web-ses-policy.json` allows.
 
 To add another host, insert a host row first, then provision its claim with the statement above. The display name must be unique in the household:
 
@@ -113,7 +113,7 @@ values (
 returning id;
 ```
 
-The person's first Google sign-in binds their auth user to the host row and the claim. A claim for a host that another auth user already holds fails closed with a claim conflict. For local development, insert a claim for your own Google email against one of the two local seed hosts; the seeded claims use placeholder `example.com` addresses.
+The person's first Google sign-in binds their auth user to the host row and the claim. A claim for a host that another auth user already holds fails closed with a claim conflict. For local development, the seed already maps the two operators' addresses (`supabase/seed.sql`); insert a claim for another Google email against one of the two local seed hosts to sign in as someone else.
 
 Verify the mapping without printing the email:
 
