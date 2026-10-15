@@ -20,12 +20,16 @@ Plan: [2026-10-15-real-use-launch.md](2026-10-15-real-use-launch.md)
 | 3 | (not planned) | The real Google button had no test id | Added `data-testid="google-sign-in"` to `SignInButton` | The new e2e spec and the page test assert on it |
 | 3 | (not planned) | `supabase migration new` waits on stdin in a non-interactive shell | Created the file through the CLI, then wrote its content | Timestamp still assigned by the CLI |
 | 3 | `.env.development.local` note | The worktree and main checkout copies still set `DEMO_MODE` and `DEMO_SESSION_SECRET` | Not edited (gitignored, local); the application ignores both | Owner may delete the two lines locally |
+| 5 | Steps 2 to 5 run before the release PR merges | Step 5 (`forget-synthetic-memory`) was blocked by the operating environment's permission classifier | Continued with steps 6 to 10 and left step 5 open | The forget does not depend on the parties existing: it uses fixed actor ids, and the conversion keeps `memory_forgotten` audit rows. Phase 6 deletes the script, so step 5 must run before phase 6 merges, or from a v2.0.0 checkout |
+| 5 | Step 2 expects publishing status "In production" | The Google OAuth app is in "Testing" with no test users; the Publish button needs a completed Branding page (home page and privacy policy links are empty); the redirect URI is correct | Released anyway; owner decision P5-G1 | The owner's Google sign-in worked in production (step 10). Publishing needs a public privacy policy page, which is new product content |
+| 5 | (not planned) | The release needed a version | v2.0.0 (`chore(release): prepare v2.0.0`) | Demo mode and email sign-in are removed |
 
 ## Open decisions for the owner
 
 | ID | Finding | Why it is not fixed here | Options |
 | --- | --- | --- | --- |
 | P2-R1 | Each production probe run writes AgentCore Memory events for its fixture parties (`host_capture` and `guest_submit` with `MEMORY=agentcore`). Database cleanup removes the parties, but the extracted long-term memory records under `/parties/home-<fixture>/party-<id>` persist; raw events expire after 30 days (`scripts/create-memory.sh:107`). About four actors accrue per run. They are home-scoped, so no real household reads them (INFERRED from `src/agent/memory.ts` actor ids). | Forgetting them from the probe needs AWS credentials in the `production-probes` workflow, which is an infrastructure and permission change outside this plan. | (a) Accept and forget probe actors periodically with `forget-synthetic-memory` extended to probe homes; (b) grant the workflow a narrow AWS role and forget fixture parties before cleanup; (c) run the production gate with `MEMORY=none` assertions off. |
+| P5-G1 | The Google OAuth app (project `layalga`) is in publishing status "Testing" with 0 test users. The owner's sign-in works (VERIFIED 2026-10-15). The second host's claim (`…0202`) is unclaimed, and whether Google lets that account through in "Testing" is unverified. | Publishing needs a privacy policy and home page link on the Branding page, which is product content. Adding a test user enters personal data in a Google Cloud form and needs owner approval. | (a) Add the second host as a test user (quick; Testing mode stays); (b) add a privacy page and publish the app (needed before guests can claim invitations with Google). |
 
 ## Review dispositions (phase 2)
 

@@ -2,7 +2,7 @@
 
 L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
 
-This guide describes L’Ayalga for real household use, after the real-use launch removes the hackathon demo. Until that release reaches production, the live site still runs the v1.3.11 demo.
+This guide describes L’Ayalga for real household use. The live site runs it since v2.0.0 (2026-10-15).
 
 ## 1. Sign in with Google
 

@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [hackathon archive](archive/hackathon/README.md) keeps the submission material. Production still runs v1.3.11, the hackathon demo; the broader coordination evidence remains tied to the proven v1.3.2 production candidate. The next step is the real-use launch, which removes demo mode and prepares the household for real data. Dated research and earlier plans record the decisions that led here; they are not a current backlog.
+Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [hackathon archive](archive/hackathon/README.md) keeps the submission material. Production runs v2.0.0, real-use release 1 (2026-10-15), without demo mode. The next step is release 2, which drops the leftover demo schema. Dated research and earlier plans record the decisions that led here; they are not a current backlog.
 
 ## Implemented in the completion
 
@@ -18,7 +18,7 @@ Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [ha
 
 The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. Phases 1 to 4 change only the repository: tests and release probes move to real local Supabase sessions and fixture households, the application loses demo mode, Google becomes the only sign-in, and the documentation follows. Phases 5 and 6 are production work, and each production action needs explicit owner authorization:
 
-- Release 1 (phase 5): disable email sign-in in hosted Supabase Auth, remove the demo environment variables from Vercel, forget the synthetic Vega and Parker memory, apply the conversion migration, deploy web and AgentCore from one commit, and run the new production gate. The owner then signs in with Google and adds the real rooms.
+- Release 1 (phase 5): shipped as v2.0.0 on 2026-10-15 (main `e0cb4d1`, AgentCore runtime version 38). Email sign-in is off, the demo variables are gone from Vercel production, the conversion migration is applied, the new production gate passed, and the owner signed in with Google to the empty household. Two items remain open: forgetting the synthetic Vega and Parker memory, and the Google OAuth app's publishing status (still "Testing").
 - Release 2 (phase 6): after release 1's AgentCore runtime version is recorded, drop the demo schema and remove the demo predicates from the retention function.
 
 ## Remaining owner and operational actions
