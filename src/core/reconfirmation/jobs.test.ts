@@ -188,9 +188,6 @@ describe("reconfirmation jobs", () => {
   });
 
   it("dispatches every home's due jobs from the global tick", async () => {
-    // The column survives until the contract migration; the tick must not
-    // read it, so even a home still flagged demo is processed.
-    await sql`update public.homes set demo = true where id = ${homeId}`;
     const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
 
     const globalResults = await runDueJobs(sql, clock, scriptedInvoker(clock));

@@ -24,12 +24,12 @@ const secret = "guest-delivery-test-secret-at-least-32-bytes";
 const clock = () => new FakeClock(new Date("2026-09-10T09:00:00Z"));
 afterAll(() => db.end({ timeout: 5 }));
 afterEach(() => vi.unstubAllEnvs());
-async function fixture(demo = false) {
+async function fixture() {
   const homeId = randomUUID(),
     hostId = randomUUID(),
     partyId = randomUUID(),
     invitationId = randomUUID();
-  await db`insert into public.homes(id,name,timezone,demo) values(${homeId},${homeId},'Europe/Madrid',${demo})`;
+  await db`insert into public.homes(id,name,timezone) values(${homeId},${homeId},'Europe/Madrid')`;
   await db`insert into public.hosts(id,home_id,display_name,locale) values(${hostId},${homeId},'Host','en')`;
   await db`insert into public.parties(id,home_id,family_name,locale) values(${partyId},${homeId},'Private Family','en')`;
   await db`insert into public.invitations(id,home_id,host_id,party_id,raw_message,link_token,link_token_expires_at) values(${invitationId},${homeId},${hostId},${partyId},'Private invitation',${randomUUID()},'2027-01-01')`;
@@ -605,10 +605,8 @@ describe("consented guest delivery", () => {
       await db`delete from public.homes where id=${f.homeId}`;
     }
   });
-  it("rejects an expired invitation link on any home, including a former demo home", async () => {
-    // The demo flag no longer bypasses link expiry (the column stays until
-    // the contract migration, so the former bypass is exercised directly).
-    const f = await fixture(true);
+  it("rejects an expired invitation link", async () => {
+    const f = await fixture();
     const time = clock();
     emailEnv();
     try {
