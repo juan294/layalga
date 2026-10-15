@@ -31,14 +31,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             NextResponse.redirect(new URL(next, request.url)),
           );
         }
-        if (
-          !guestToken &&
-          !guestAccountPath(next) &&
-          (await claimHostForUser(user))
-        ) {
-          return clearOAuthNextCookie(
-            NextResponse.redirect(new URL(next, request.url)),
-          );
+        if (!guestToken && !guestAccountPath(next)) {
+          if (await claimHostForUser(user)) {
+            return clearOAuthNextCookie(
+              NextResponse.redirect(new URL(next, request.url)),
+            );
+          }
+          // An invited guest who claimed an invitation earlier can sign in
+          // from the main page; their visits page is their home.
+          if (await hasPartyForUser(user.id)) {
+            return clearOAuthNextCookie(
+              NextResponse.redirect(
+                new URL(`/${localeOf(next)}/visits`, request.url),
+              ),
+            );
+          }
         }
       }
       await supabase.auth.signOut();
@@ -72,11 +79,14 @@ function signInRedirect(
   next: string,
   error: "not_a_host" | "oauth_failed",
 ): NextResponse {
+  return NextResponse.redirect(
+    new URL(`/${localeOf(next)}/sign-in?error=${error}`, request.url),
+  );
+}
+
+function localeOf(next: string): string {
   const locale = next.split("/")[1];
-  const safeLocale = routing.locales.includes(locale as "en" | "es")
+  return routing.locales.includes(locale as "en" | "es")
     ? locale
     : routing.defaultLocale;
-  return NextResponse.redirect(
-    new URL(`/${safeLocale}/sign-in?error=${error}`, request.url),
-  );
 }

@@ -22,3 +22,13 @@ test("the retired demo routes are gone", async ({ request }) => {
     expect(response.status(), path).toBe(404);
   }
 });
+
+test("the privacy notice is public and linked from sign-in", async ({
+  page,
+}) => {
+  await page.goto("/en/sign-in");
+  await page.getByRole("link", { name: "Privacy" }).click();
+  await expect(page).toHaveURL(/\/en\/privacy$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy");
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(6);
+});
