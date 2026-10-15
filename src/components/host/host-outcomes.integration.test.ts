@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../../messages/en.json";
 import es from "../../../messages/es.json";
@@ -32,8 +32,8 @@ async function fixture(
   const hostId = randomUUID();
   const partyId = randomUUID();
   const invitationId = randomUUID();
-  await sql`insert into public.homes(id,name,timezone,demo)
-    values(${homeId},'Synthetic outcome review','Europe/Madrid',true)`;
+  await sql`insert into public.homes(id,name,timezone)
+    values(${homeId},${`Outcome review ${homeId}`},'Europe/Madrid')`;
   await sql`insert into public.hosts(id,home_id,display_name,locale)
     values(${hostId},${homeId},'Synthetic host','en')`;
   await sql`insert into public.parties(id,home_id,family_name,locale)
@@ -42,13 +42,19 @@ async function fixture(
     values(${invitationId},${homeId},${hostId},${partyId},'Synthetic invitation')`;
   await sql`insert into public.visits(home_id,party_id,invitation_id,stay,adults,status,confirmed_at,reconfirm_requested_at)
     values(${homeId},${partyId},${invitationId},daterange('2027-09-19','2027-09-22','[)'),2,${status},'2027-09-01T09:00:00Z','2027-09-16T07:00:00Z')`;
-  // Madrid has reached the scheduled arrival day; UTC is still the previous day.
-  await sql`insert into public.demo_clock(home_id,now,enabled)
-    values(${homeId},'2027-09-18T22:15:00Z',true)`;
   return homeId;
 }
 
 describe("current host outcomes on the scheduled arrival day", () => {
+  // Madrid has reached the scheduled arrival day; UTC is still the previous day.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2027-09-18T22:15:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it.each([
     ["reconfirm_pending", "en"],
     ["reconfirm_pending", "es"],

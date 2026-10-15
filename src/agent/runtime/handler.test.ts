@@ -10,9 +10,10 @@ import {
   type AgentCoreLog,
   type AsyncTaskRegistry,
 } from "./handler";
+import { localRuntimeDeps } from "./local-deps";
 
-// Regression coverage for a claim-order bug: runDueJobs (the demo clock
-// route's production caller) claims a scheduled job before it invokes the
+// Regression coverage for a claim-order bug: runDueJobs (the minute tick's
+// production caller) claims a scheduled job before it invokes the
 // agent. A bare {task:"tick"} request must execute the task directly and
 // must never re-claim the job through runJob, or it finds the job already
 // running, skips execution, and the caller's delivery check fails.
@@ -64,6 +65,7 @@ describe("handleAgentCoreRequest", () => {
             tickTask,
             silentLog,
             silentRegistry(),
+            localRuntimeDeps,
           );
           capturedResult = result;
           return result;
@@ -110,6 +112,7 @@ describe("handleAgentCoreRequest", () => {
         },
         silentLog,
         registry,
+        localRuntimeDeps,
       );
 
       expect(response).toEqual({ status: "accepted", jobId: fixture.jobId });

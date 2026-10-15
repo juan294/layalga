@@ -187,20 +187,18 @@ describe("reconfirmation jobs", () => {
     expect(await notificationCount("host")).toBe(0);
   });
 
-  it("leaves demo jobs to the home-scoped demo clock runner", async () => {
+  it("dispatches every home's due jobs from the global tick", async () => {
+    // The column survives until the contract migration; the tick must not
+    // read it, so even a home still flagged demo is processed.
     await sql`update public.homes set demo = true where id = ${homeId}`;
     const clock = new FakeClock(new Date("2099-09-15T09:00:00+02:00"));
-    const invoker = scriptedInvoker(clock);
 
-    const globalResults = await runDueJobs(sql, clock, invoker);
-    expect(globalResults).not.toContainEqual(
-      expect.objectContaining({ homeId }),
-    );
-    const [demoJob] = await sql<{ status: string }[]>`
+    const globalResults = await runDueJobs(sql, clock, scriptedInvoker(clock));
+    expect(globalResults).toContainEqual(expect.objectContaining({ homeId }));
+    const [job] = await sql<{ status: string }[]>`
       select status from public.scheduled_jobs where id = ${chaseJobId}
     `;
-    expect(demoJob?.status).toBe("scheduled");
-    expect(await runDueJobs(sql, clock, invoker, homeId)).toHaveLength(1);
+    expect(job?.status).toBe("done");
   });
 
   it("recovers a partial escalation without duplicate notifications", async () => {

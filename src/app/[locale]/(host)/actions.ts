@@ -244,21 +244,16 @@ export async function cancelHostInvitation(formData: FormData): Promise<void> {
   const host = await requireHost(locale);
   const invitationId = z.uuid().parse(formData.get("invitationId"));
   const review = cancellationReviewInput(formData);
-  const connection = getDatabaseConnection();
-  const [home] = await connection.sql<
-    { demo: boolean }[]
-  >`select demo from public.homes where id = ${host.homeId}`;
-  if (!home) return;
   try {
     await withdrawInvitation(
-      connection.db,
+      getDatabaseConnection().db,
       {
         homeId: host.homeId,
         invitationId,
         actor: { kind: "host", hostId: host.id },
         ...review,
       },
-      schedulerForHome({ homeDemo: home.demo }),
+      schedulerForHome(),
     );
   } catch (error) {
     if (error instanceof CancellationChangedError)

@@ -28,22 +28,20 @@ export async function cancelAccountVisit(formData: FormData): Promise<void> {
           home_id: string;
           invitation_id: string;
           party_id: string;
-          demo: boolean;
         }[]
       >`
-        select i.home_id, i.id as invitation_id, i.party_id, h.demo from public.invitations i
-        join public.homes h on h.id = i.home_id where i.id = ${invitationId.data}
+        select i.home_id, i.id as invitation_id, i.party_id from public.invitations i
+        where i.id = ${invitationId.data}
       `
     : await connection.sql<
         {
           home_id: string;
           invitation_id: string;
           party_id: string;
-          demo: boolean;
         }[]
       >`
-        select v.home_id, v.invitation_id, v.party_id, h.demo from public.visits v
-        join public.homes h on h.id = v.home_id where v.id = ${parsed.success ? parsed.data : null}
+        select v.home_id, v.invitation_id, v.party_id from public.visits v
+        where v.id = ${parsed.success ? parsed.data : null}
       `;
   if (!visit || !(await partyIsClaimedByUser(visit.party_id, user.id))) return;
   try {
@@ -55,7 +53,7 @@ export async function cancelAccountVisit(formData: FormData): Promise<void> {
         actor: { kind: "guest", partyId: visit.party_id },
         ...review,
       },
-      schedulerForHome({ homeDemo: visit.demo }),
+      schedulerForHome(),
     );
   } catch (error) {
     if (error instanceof CancellationChangedError) {

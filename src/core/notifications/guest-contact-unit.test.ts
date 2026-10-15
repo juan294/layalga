@@ -39,19 +39,19 @@ const row: GuestContactRow = {
   rate_count: 1,
   link_token: "opaque-link-token",
   link_token_expires_at: new Date("2026-10-13T10:00:00.000Z"),
-  demo: false,
 };
 
 function fakeDatabase(options: {
-  demo?: boolean;
+  /** False when the invitation's link is revoked, expired or cancelled. */
+  live?: boolean;
   contact?: GuestContactRow | null;
   failure?: { failed: boolean } | null;
   prior?: GuestContactRow | null;
 }) {
   const sql = vi.fn((strings: TemplateStringsArray) => {
     const query = strings.join(" ");
-    if (query.includes("select home.demo from public.invitations")) {
-      return options.demo === undefined ? [{ demo: false }] : [{ demo: options.demo }];
+    if (query.includes("select invitation.id from public.invitations")) {
+      return options.live === false ? [] : [{ id: authority.invitationId }];
     }
     if (query.includes("from public.guest_contacts contact")) {
       return options.contact ? [options.contact] : [];
@@ -144,7 +144,7 @@ describe("guest contact capability and state boundaries", () => {
     expect(() => mintGuestCapability(row, "verify", now, "")).toThrow();
   });
 
-  it("loads live contact and reports demo, delivery, and contact states", async () => {
+  it("loads live contact and reports delivery and contact states", async () => {
     const clock = new FakeClock(now);
     await expect(
       loadLiveGuestContact(
@@ -162,10 +162,9 @@ describe("guest contact capability and state boundaries", () => {
       email: row.email,
       deliveryFailed: true,
     });
-    await expect(loadGuestContact(fakeDatabase({ demo: true }), authority, clock)).resolves.toEqual({
-      status: "demo",
-      email: null,
-    });
+    await expect(
+      loadGuestContact(fakeDatabase({ live: false }), authority, clock),
+    ).rejects.toMatchObject({ code: "unavailable" });
     await expect(loadGuestContact(fakeDatabase({ contact: null }), authority, clock)).resolves.toEqual({
       status: "no_contact",
       email: null,
@@ -200,8 +199,8 @@ describe("guest contact capability and state boundaries", () => {
       ),
     ).rejects.toMatchObject({ code: "rate_limit" });
     await expect(
-      registerGuestContact(fakeDatabase({ demo: true }), { ...authority, email: "new@example.test", locale: "en", consent: true }, clock, secret),
-    ).resolves.toEqual({ status: "demo", email: null });
+      registerGuestContact(fakeDatabase({ live: false }), { ...authority, email: "new@example.test", locale: "en", consent: true }, clock, secret),
+    ).rejects.toMatchObject({ code: "unavailable" });
 
     await expect(disableGuestContact(fakeDatabase({ contact: row }), authority, clock)).resolves.toEqual({
       status: "disabled",
@@ -211,9 +210,8 @@ describe("guest contact capability and state boundaries", () => {
       status: "no_contact",
       email: null,
     });
-    await expect(disableGuestContact(fakeDatabase({ demo: true }), authority, clock)).resolves.toEqual({
-      status: "demo",
-      email: null,
-    });
+    await expect(
+      disableGuestContact(fakeDatabase({ live: false }), authority, clock),
+    ).rejects.toMatchObject({ code: "unavailable" });
   });
 });

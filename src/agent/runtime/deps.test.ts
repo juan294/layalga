@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SystemClock } from "@/core/clock";
+
 import type { AgentTask } from "../task";
 
 const mocks = vi.hoisted(() => ({
-  clock: { now: () => new Date("2026-09-13T10:00:00Z") },
-  clockLoad: vi.fn(),
   connection: { db: { database: "db" } },
   parseEnvironment: vi.fn(),
   scheduler: { schedule: vi.fn(), cancel: vi.fn() },
@@ -14,7 +14,6 @@ const mocks = vi.hoisted(() => ({
   sql: vi.fn(),
 }));
 
-vi.mock("@/core/clock", () => ({ DbDemoClock: { load: mocks.clockLoad } }));
 vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => mocks.connection,
   sqlClient: () => mocks.sql,
@@ -26,6 +25,7 @@ vi.mock("../scripted-model-selection", () => ({
 }));
 
 import { runtimeDeps } from "./deps";
+import { localRuntimeDeps } from "./local-deps";
 
 const hostTask: AgentTask = {
   task: "host_capture",
@@ -38,34 +38,31 @@ const hostTask: AgentTask = {
 describe("runtimeDeps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.sql.mockResolvedValue([{ demo: true }]);
-    mocks.clockLoad.mockResolvedValue(mocks.clock);
+    mocks.sql.mockResolvedValue([{ id: hostTask.homeId }]);
     mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
     mocks.scriptedModelForTask.mockReturnValue(mocks.scriptedModel);
   });
 
-  it("loads demo-aware dependencies and a scripted model", async () => {
+  it("uses the system clock and configured scheduler, and never the scripted model", async () => {
     mocks.parseEnvironment.mockReturnValue({ appUrl: "https://app.example", model: "scripted" });
 
     const deps = await runtimeDeps(hostTask, { executionRuntime: "agentcore" });
 
     expect(deps).toMatchObject({
       db: mocks.connection.db,
-      clock: mocks.clock,
       scheduler: mocks.scheduler,
       appUrl: "https://app.example",
       locale: "es",
       executionRuntime: "agentcore",
-      model: mocks.scriptedModel,
     });
-    expect(mocks.clockLoad).toHaveBeenCalledWith(hostTask.homeId, mocks.connection.db);
-    expect(mocks.schedulerForHome).toHaveBeenCalledWith({ homeDemo: true });
-    expect(mocks.scriptedModelForTask).toHaveBeenCalledWith(hostTask, deps);
+    expect(deps.clock).toBeInstanceOf(SystemClock);
+    expect(deps).not.toHaveProperty("model");
+    expect(mocks.schedulerForHome).toHaveBeenCalledWith();
+    expect(mocks.scriptedModelForTask).not.toHaveBeenCalled();
   });
 
-  it("falls back to English and omits the scripted model for Bedrock", async () => {
+  it("falls back to English for a task without a locale", async () => {
     mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "bedrock" });
-    mocks.sql.mockResolvedValue([{ demo: false }]);
     const tick: AgentTask = {
       task: "tick",
       homeId: hostTask.homeId,
@@ -76,8 +73,6 @@ describe("runtimeDeps", () => {
 
     expect(deps.locale).toBe("en");
     expect(deps.executionRuntime).toBe("local");
-    expect(deps).not.toHaveProperty("model");
-    expect(mocks.schedulerForHome).toHaveBeenCalledWith({ homeDemo: false });
   });
 
   it("rejects an unknown home", async () => {
@@ -85,6 +80,24 @@ describe("runtimeDeps", () => {
     mocks.sql.mockResolvedValue([]);
 
     await expect(runtimeDeps(hostTask)).rejects.toThrow(`Home not found: ${hostTask.homeId}`);
-    expect(mocks.clockLoad).not.toHaveBeenCalled();
+  });
+});
+
+describe("localRuntimeDeps", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.sql.mockResolvedValue([{ id: hostTask.homeId }]);
+    mocks.schedulerForHome.mockReturnValue(mocks.scheduler);
+    mocks.scriptedModelForTask.mockReturnValue(mocks.scriptedModel);
+  });
+
+  it("attaches the scripted model only when MODEL=scripted", async () => {
+    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "scripted" });
+    const deps = await localRuntimeDeps(hostTask);
+    expect(deps.model).toBe(mocks.scriptedModel);
+    expect(mocks.scriptedModelForTask).toHaveBeenCalledWith(hostTask, deps);
+
+    mocks.parseEnvironment.mockReturnValue({ appUrl: "http://localhost:3008", model: "bedrock" });
+    expect(await localRuntimeDeps(hostTask)).not.toHaveProperty("model");
   });
 });

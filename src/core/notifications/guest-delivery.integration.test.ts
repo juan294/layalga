@@ -605,21 +605,25 @@ describe("consented guest delivery", () => {
       await db`delete from public.homes where id=${f.homeId}`;
     }
   });
-  it("never queues or sends guest email in a synthetic home", async () => {
+  it("rejects an expired invitation link on any home, including a former demo home", async () => {
+    // The demo flag no longer bypasses link expiry (the column stays until
+    // the contract migration, so the former bypass is exercised directly).
     const f = await fixture(true);
     const time = clock();
     emailEnv();
     try {
-      expect(
-        (
-          await registerGuestContact(
-            db,
-            { ...f, email: "guest@example.test", locale: "en", consent: true },
-            time,
-            secret,
-          )
-        ).status,
-      ).toBe("demo");
+      await db`update public.invitations set link_token_expires_at='2026-09-01' where id=${f.invitationId}`;
+      await expect(
+        registerGuestContact(
+          db,
+          { ...f, email: "guest@example.test", locale: "en", consent: true },
+          time,
+          secret,
+        ),
+      ).rejects.toMatchObject({ code: "unavailable" });
+      await expect(loadGuestContact(db, f, time)).rejects.toMatchObject({
+        code: "unavailable",
+      });
       const send = vi.fn().mockResolvedValue({ messageId: "must-not-send" });
       await dispatchGuestEmailPings(db, time, send);
       expect(send).not.toHaveBeenCalled();

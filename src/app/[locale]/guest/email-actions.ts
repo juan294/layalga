@@ -58,7 +58,7 @@ export async function saveGuestEmail(
             new SystemClock(),
           );
           result = state.status;
-          if (context.kind === "session" && state.status !== "demo") {
+          if (context.kind === "session") {
             // Updating a contact revokes this session's old capability generation.
             (await cookies()).delete(GUEST_EMAIL_COOKIE);
             redirect(

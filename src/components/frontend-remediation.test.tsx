@@ -5,7 +5,6 @@ import en from "../../messages/en.json";
 import es from "../../messages/es.json";
 
 import {
-  clockInputToIso,
   clockInputValue,
   copyText,
   householdMonth,
@@ -31,16 +30,12 @@ describe("frontend remediation contracts", () => {
     );
   });
 
-  test("formats and parses demo wall time in the household time zone", () => {
-    const instant = "2026-09-15T23:30:00.000Z";
-
-    expect(clockInputValue(instant, "Europe/Madrid")).toBe("2026-09-16T01:30");
-    expect(clockInputToIso("2026-09-16T01:30", "Europe/Madrid")).toBe(instant);
+  test("formats wall time in the household time zone", () => {
+    expect(clockInputValue("2026-09-15T23:30:00.000Z", "Europe/Madrid")).toBe(
+      "2026-09-16T01:30",
+    );
     expect(clockInputValue("2026-03-29T00:30:00.000Z", "Europe/Madrid")).toBe(
       "2026-03-29T01:30",
-    );
-    expect(clockInputToIso("2026-03-29T03:30", "Europe/Madrid")).toBe(
-      "2026-03-29T01:30:00.000Z",
     );
   });
 
@@ -127,9 +122,7 @@ describe("frontend remediation contracts", () => {
     ).toBe(false);
   });
 
-  test("uses truthful bilingual demo and optional-claim messages", () => {
-    expect(en.Host.demo.notLive).not.toMatch(/not available/i);
-    expect(es.Host.demo.notLive).not.toMatch(/no est[aá] disponible/i);
+  test("uses truthful bilingual optional-claim messages", () => {
     expect(en.Guest.claimOptional).toMatch(/optional/i);
     expect(es.Guest.claimOptional).toMatch(/opcional/i);
   });

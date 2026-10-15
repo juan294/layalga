@@ -3,6 +3,7 @@ import {
   findInvitationByToken,
   type InvitationByToken,
 } from "@/core/booking/invitations";
+import { SystemClock, type Clock } from "@/core/clock";
 import {
   getDatabaseConnection,
   sqlClient,
@@ -78,12 +79,14 @@ export async function resolveGuestInvitationAuthority(
 export async function loadGuestInvitation(
   identity: GuestIdentity,
   locale: "en" | "es",
+  clock: Clock = new SystemClock(),
 ): Promise<GuestInvitationData | null> {
   const connection = getDatabaseConnection();
   const invitation = await findInvitationForIdentity(connection.db, identity);
   if (!invitation) return null;
 
   const sql = sqlClient(connection.db);
+  const now = clock.now().toISOString();
   const [visit] = await sql<
     {
       id: string;
@@ -115,9 +118,9 @@ export async function loadGuestInvitation(
       v.hold_expires_at,
       h.timezone,
       v.hold_expires_at is not null
-        and v.hold_expires_at <= coalesce(dc.now, now()) as hold_expired,
+        and v.hold_expires_at <= ${now}::timestamptz as hold_expired,
       lower(v.stay) >
-        (coalesce(dc.now, now()) at time zone h.timezone)::date as pre_arrival,
+        (${now}::timestamptz at time zone h.timezone)::date as pre_arrival,
       coalesce(assigned.room_count, 0) as room_count,
       coalesce(assigned.room_labels, '{}'::text[]) as room_labels,
       exists (
@@ -132,7 +135,6 @@ export async function loadGuestInvitation(
       ) as has_overlap
     from public.visits v
     join public.homes h on h.id = v.home_id
-    left join public.demo_clock dc on dc.home_id = h.id and dc.enabled
     left join lateral (
       select
         count(*)::integer as room_count,

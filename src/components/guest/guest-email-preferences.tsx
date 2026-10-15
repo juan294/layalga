@@ -77,10 +77,10 @@ export async function AuthorizedGuestEmailPreferences({
       <p role="status">{t(state.status, { email: state.email ?? "" })}</p>
       {state.deliveryFailed ? <p role="alert">{t("deliveryFailed")}</p> : null}
       {error ? <p role="alert">{t(error)}</p> : null}
-      {state.status !== "demo" && unavailable ? (
+      {unavailable ? (
         <p role="status">{t("unavailable")}</p>
       ) : null}
-      {state.status !== "demo" && !unavailable ? (
+      {!unavailable ? (
         <form action={action} className={styles.changeForm}>
           {resolved.verifiedEmail ? (
             <>

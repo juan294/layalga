@@ -86,7 +86,6 @@ export const homes = pgTable("homes", {
   maxFamiliesWithChildren: integer("max_families_with_children")
     .notNull()
     .default(1),
-  demo: boolean("demo").notNull().default(false),
   createdAt: createdAt(),
 });
 
@@ -565,14 +564,6 @@ export const notifications = pgTable(
       ),
   ],
 );
-
-export const demoClock = pgTable("demo_clock", {
-  homeId: uuid("home_id")
-    .primaryKey()
-    .references(() => homes.id, { onDelete: "cascade" }),
-  now: timestamp("now", { withTimezone: true, mode: "date" }).notNull(),
-  enabled: boolean("enabled").notNull().default(true),
-});
 
 export type HostEmailPingKind = "pending_decision" | "reconfirm_escalation";
 export type HostEmailPingStatus = "sending" | "sent" | "failed";

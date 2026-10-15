@@ -8,8 +8,6 @@ const e2eEnv = {
     "postgresql://postgres:postgres@127.0.0.1:54622/postgres",
   LINK_TOKEN_SECRET:
     process.env.LINK_TOKEN_SECRET ?? "0123456789abcdef0123456789abcdef",
-  DEMO_SESSION_SECRET:
-    process.env.DEMO_SESSION_SECRET ?? "abcdef0123456789abcdef0123456789",
   TICK_SECRET: process.env.TICK_SECRET ?? "fedcba9876543210fedcba9876543210",
   AGENT_ROUTE_SECRET:
     process.env.AGENT_ROUTE_SECRET ?? "agent-route-0123456789abcdef0123456789",
@@ -21,7 +19,6 @@ const e2eEnv = {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
     "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
   APP_URL: process.env.APP_URL ?? e2eBaseUrl,
-  DEMO_MODE: "true",
   AGENT_RUNTIME: "local",
   MODEL: "scripted",
   SCHEDULER: "none",
@@ -30,7 +27,6 @@ Object.assign(process.env, e2eEnv);
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

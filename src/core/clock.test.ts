@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { DbDemoClock, FakeClock, SystemClock } from "./clock";
+import { FakeClock, SystemClock } from "./clock";
 
 describe("clocks", () => {
   it("lets a fake clock move deterministically", () => {
@@ -21,44 +21,6 @@ describe("clocks", () => {
 
     expect(clock.now().getUTCFullYear()).toBe(2026);
   });
-
-  it("uses the database clock only for an enabled demo home", async () => {
-    const fallback = new FakeClock(new Date("2026-09-01T00:00:00.000Z"));
-    const read = vi.fn().mockResolvedValue({
-      enabled: true,
-      homeDemo: true,
-      now: "2026-09-07T08:00:00.000Z",
-    });
-
-    const clock = await DbDemoClock.load("home-1", { read }, fallback);
-
-    expect(read).toHaveBeenCalledWith("home-1");
-    expect(clock.now().toISOString()).toBe("2026-09-07T08:00:00.000Z");
-  });
-
-  it.each([
-    { enabled: false, homeDemo: true },
-    { enabled: true, homeDemo: false },
-    null,
-  ])(
-    "falls back when the database clock is unavailable or disabled",
-    async (record) => {
-      const fallback = new FakeClock(new Date("2026-09-01T00:00:00.000Z"));
-      const clock = await DbDemoClock.load(
-        "home-1",
-        {
-          read: vi
-            .fn()
-            .mockResolvedValue(
-              record && { ...record, now: "2026-09-07T08:00:00.000Z" },
-            ),
-        },
-        fallback,
-      );
-
-      expect(clock.now().toISOString()).toBe("2026-09-01T00:00:00.000Z");
-    },
-  );
 
   it("system time is close to the current time", () => {
     const before = Date.now();

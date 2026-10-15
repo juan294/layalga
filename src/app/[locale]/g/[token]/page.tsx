@@ -5,7 +5,6 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import { GuestShell } from "@/components/guest/guest-shell";
 import { loadGuestInvitationDefaults } from "@/components/guest/load-guest-invitation-defaults";
-import { DemoGuestGuide } from "@/components/guest/demo-guest-guide";
 import { GuestInviteForm } from "@/components/guest/guest-invite-form";
 import styles from "@/components/guest/guest-ledger.module.css";
 import { graphite } from "@/components/host/host-styles";
@@ -70,11 +69,10 @@ export default async function GuestPage({
     : null;
   const statusKey = presentation?.statusKey ?? status;
   const title = t(`${statusKey}Title`);
-  const { defaults, demo, now, timeZone } = await loadGuestInvitationDefaults(
+  const { defaults, now, timeZone } = await loadGuestInvitationDefaults(
     invitation.homeId,
     invitation.structured,
   );
-  const showDemo = process.env.DEMO_MODE === "true" && demo;
   const supabase = await createClient();
   const {
     data: { user },
@@ -85,11 +83,6 @@ export default async function GuestPage({
 
   return (
     <GuestShell
-      demoGuide={
-        showDemo ? (
-          <DemoGuestGuide invitationId={invitation.id} locale={locale} />
-        ) : null
-      }
       locale={locale}
       managePanel={
         <>
@@ -157,7 +150,6 @@ export default async function GuestPage({
         ) : null
       }
       season={householdSeason(now, timeZone)}
-      showDemo={showDemo}
       status={status}
       statusKey={statusKey}
       title={title}

@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import { resolveGuestReturnCapability } from "@/core/notifications/guest-contact";
-import { DEMO_GUEST_COOKIE } from "./demo-session";
 
 import { GUEST_EMAIL_COOKIE } from "./guest-email-cookie";
 export { GUEST_EMAIL_COOKIE } from "./guest-email-cookie";
@@ -18,7 +17,6 @@ export async function setGuestEmailSession(capability: string) {
   );
   if (!authority) return null;
   const cookieStore = await cookies();
-  cookieStore.delete(DEMO_GUEST_COOKIE);
   cookieStore.set(GUEST_EMAIL_COOKIE, capability, {
     httpOnly: true,
     sameSite: "lax",

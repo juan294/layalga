@@ -4,7 +4,7 @@ import { enqueueAgentTask, executeQueuedAgentRun } from "../queue";
 import { runAgentTask } from "../run-task";
 import type { AgentTask, RunResult } from "../task";
 import type { AgentRunAccepted } from "./async-execution";
-import { runtimeDeps } from "./deps";
+import { localRuntimeDeps } from "./local-deps";
 
 export interface AgentClient {
   run(payload: AgentTask): Promise<RunResult>;
@@ -22,7 +22,7 @@ export class LocalAgentClient implements AgentClient {
   async run(payload: AgentTask): Promise<RunResult> {
     return runAgentTask(
       payload,
-      await runtimeDeps(payload, { executionRuntime: "local" }),
+      await localRuntimeDeps(payload, { executionRuntime: "local" }),
     );
   }
 
@@ -30,7 +30,7 @@ export class LocalAgentClient implements AgentClient {
     payload: AgentTask,
     options: { opportunistic?: boolean } = {},
   ): Promise<RunResult> {
-    const deps = await runtimeDeps(payload, { executionRuntime: "local" });
+    const deps = await localRuntimeDeps(payload, { executionRuntime: "local" });
     const result = await enqueueAgentTask(payload, deps);
     if (result.status === "queued" && options.opportunistic !== false) {
       after(() =>
@@ -48,7 +48,7 @@ export class LocalAgentClient implements AgentClient {
   async executeQueued(runId: string, payload: AgentTask): Promise<RunResult> {
     return executeQueuedAgentRun(
       runId,
-      await runtimeDeps(payload, { executionRuntime: "local" }),
+      await localRuntimeDeps(payload, { executionRuntime: "local" }),
     );
   }
 }

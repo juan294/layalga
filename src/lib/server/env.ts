@@ -94,6 +94,9 @@ export function parseServerEnvironment(
     production ? undefined : "scripted",
     "MODEL",
   );
+  if (production && model === "scripted") {
+    throw fieldError("MODEL", SCRIPTED_IN_PRODUCTION);
+  }
   const scheduler = parseMode(
     schedulerSchema,
     raw.SCHEDULER,
@@ -251,6 +254,7 @@ export function serverEnvironmentReadiness(
     "scripted",
     production,
   );
+  if (production && model === "scripted") add("MODEL", "invalid");
   const scheduler = mode(
     "SCHEDULER",
     values.SCHEDULER,
@@ -387,6 +391,8 @@ function requireHttpsUrl(value: string | undefined, key: string): void {
     throw fieldError(key, "Invalid HTTPS URL");
   }
 }
+
+const SCRIPTED_IN_PRODUCTION = "MODEL=scripted is test-only; set MODEL=bedrock";
 
 function fieldError(key: string, message: string): z.ZodError {
   return new z.ZodError([

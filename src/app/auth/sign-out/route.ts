@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { DEMO_HOST_COOKIE, DEMO_GUEST_COOKIE } from "@/lib/auth/demo-session";
 import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,18 +25,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     new URL(`/${locale}/sign-in`, request.url),
     303,
   );
-  for (const cookie of [
-    DEMO_HOST_COOKIE,
-    DEMO_GUEST_COOKIE,
-    GUEST_EMAIL_COOKIE,
-  ]) {
-    response.cookies.set(cookie, "", {
-      httpOnly: true,
-      maxAge: 0,
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
-  }
+  response.cookies.set(GUEST_EMAIL_COOKIE, "", {
+    httpOnly: true,
+    maxAge: 0,
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
   return response;
 }

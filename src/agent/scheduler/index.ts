@@ -120,13 +120,10 @@ export class NoopScheduler implements Scheduler {
 }
 
 export function schedulerForHome({
-  homeDemo,
   env = process.env,
 }: {
-  homeDemo: boolean;
   env?: SchedulerEnvironment;
-}): Scheduler {
-  if (homeDemo) return new NoopScheduler();
+} = {}): Scheduler {
   const config = parseServerEnvironment(env);
   if (config.scheduler === "none") {
     return new NoopScheduler();

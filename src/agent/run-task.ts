@@ -168,7 +168,7 @@ async function enqueueAgentTaskInternal(
 
 /**
  * Runs a task to completion in this process. A synchronous caller (the
- * demo clock route ticking due jobs, a Server Action awaiting its own
+ * minute tick running due jobs, a Server Action awaiting its own
  * result) must never have its run sit visible as `queued` even for one
  * round trip: the queue drain (`drainAgentQueue`, `src/agent/queue.ts`)
  * polls `status = 'queued' and queue_available_at <= now` every minute, and
@@ -738,8 +738,9 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
             await loadRequestUsage(transaction, task, actorKey, startedAt),
           );
         }
-        // Queue leases use database wall time. Household demo time can jump
-        // forward between requests and must not expire active worker leases.
+        // Queue leases use database wall time. An injected household clock
+        // can jump forward between requests and must not expire active
+        // worker leases.
         const [restarted] = await transaction<{ id: string }[]>`
           update public.runs
           set status = ${status}, result = null,

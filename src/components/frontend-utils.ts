@@ -135,24 +135,6 @@ export function clockInputValue(value: string, timeZone: string): string {
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
-export function clockInputToIso(value: string, timeZone: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
-  if (!match)
-    throw new RangeError("Demo clock value must be a local date and time");
-
-  const [, year, month, day, hour, minute] = match;
-  const wallTime = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-  );
-  let instant = wallTime - timeZoneOffset(new Date(wallTime), timeZone);
-  instant = wallTime - timeZoneOffset(new Date(instant), timeZone);
-  return new Date(instant).toISOString();
-}
-
 export async function copyText(
   writeText: (value: string) => Promise<void>,
   value: string,
@@ -163,19 +145,6 @@ export async function copyText(
   } catch {
     return false;
   }
-}
-
-function timeZoneOffset(value: Date, timeZone: string): number {
-  const parts = dateTimeParts(value, timeZone);
-  const representedAsUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  );
-  return representedAsUtc - Math.floor(value.getTime() / 1_000) * 1_000;
 }
 
 function isoDate(value: Date): string {

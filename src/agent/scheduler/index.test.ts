@@ -118,18 +118,9 @@ describe("EventBridgeScheduler", () => {
 });
 
 describe("schedulerForHome", () => {
-  it("uses no external scheduler for demo homes", () => {
-    expect(
-      schedulerForHome({
-        homeDemo: true,
-        env: { SCHEDULER: "eventbridge" },
-      }),
-    ).toBeInstanceOf(NoopScheduler);
-  });
-
   it("uses no external scheduler when scheduling is disabled", () => {
-    expect(
-      schedulerForHome({ homeDemo: false, env: { SCHEDULER: "none" } }),
-    ).toBeInstanceOf(NoopScheduler);
+    expect(schedulerForHome({ env: { SCHEDULER: "none" } })).toBeInstanceOf(
+      NoopScheduler,
+    );
   });
 });

@@ -37,7 +37,6 @@ export type GuestDeliveryStatus =
   | "queued"
   | "sent"
   | "failed"
-  | "demo"
   | "unknown"
   | "unavailable_access";
 export interface GuestDeliveryFact {
@@ -58,7 +57,7 @@ async function enqueueReminders(sql: GuestSql, now: Date) {
     join public.invitations invitation on invitation.id=contact.invitation_id and invitation.party_id=contact.party_id and invitation.home_id=contact.home_id
     join public.homes home on home.id=contact.home_id
     where notification.kind='reconfirm_chase' and notification.recipient_kind='party' and notification.recipient_id=contact.party_id
-      and not home.demo and contact.consent and contact.verified_at is not null
+      and contact.consent and contact.verified_at is not null
       and invitation.status<>'cancelled' and invitation.link_token_revoked_at is null
       and invitation.link_token_expires_at>${now.toISOString()}
       and lower(visit.stay) > (${now.toISOString()}::timestamptz at time zone home.timezone)::date
@@ -76,7 +75,6 @@ async function currentRecipient(
   const contact = await loadLiveGuestContact(sql, ping.contact_id, now);
   if (
     !contact ||
-    contact.demo ||
     !contact.consent ||
     contact.generation !== ping.generation
   )
@@ -319,8 +317,7 @@ export async function loadGuestDeliveryFacts(
     { visit_id: string; status: GuestDeliveryStatus; sent_at: Date | null }[]
   >`
     select visit.id as visit_id,
-      case when home.demo then 'demo'
-        when invitation.status='cancelled' or invitation.link_token_revoked_at is not null or invitation.link_token is null or invitation.link_token_expires_at<=${clock.now().toISOString()} then 'unavailable_access'
+      case when invitation.status='cancelled' or invitation.link_token_revoked_at is not null or invitation.link_token is null or invitation.link_token_expires_at<=${clock.now().toISOString()} then 'unavailable_access'
         when contact.id is null then 'no_contact'
         when not contact.consent then 'disabled'
         when contact.verified_at is null then 'unverified'

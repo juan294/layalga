@@ -24,9 +24,12 @@ AGENT_ENTRY="$project_root/src/agent/runtime/agentcore.ts" \
   AGENT_OUTFILE="$build_dir/app.js" \
   ROOT_PACKAGE="$project_root/package.json" \
   BUNDLE_PACKAGE="$build_dir/package.json" \
+  BUNDLE_GUARD="$project_root/scripts/agent-bundle-guard.mjs" \
   node --input-type=module <<'NODE'
 import { builtinModules } from "node:module";
 import { readFile, writeFile } from "node:fs/promises";
+
+import { pathToFileURL } from "node:url";
 
 import { build } from "esbuild";
 
@@ -40,6 +43,11 @@ const result = await build({
   target: "node22",
   outfile: process.env.AGENT_OUTFILE,
 });
+
+const { assertNoScriptedModel } = await import(
+  pathToFileURL(process.env.BUNDLE_GUARD).href
+);
+assertNoScriptedModel(result.metafile);
 
 const rootPackage = JSON.parse(await readFile(process.env.ROOT_PACKAGE, "utf8"));
 const builtins = new Set([

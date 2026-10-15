@@ -631,13 +631,6 @@ async function claimDueJob(
         and available_at <= ${now.toISOString()}
         and id <> all(${transaction.array([...excludedJobIds])}::uuid[])
         and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
-        and (
-          ${homeId ?? null}::uuid is not null
-          or exists (
-            select 1 from public.homes
-            where homes.id = scheduled_jobs.home_id and homes.demo = false
-          )
-        )
       order by due_at, id
       limit 1
       for update skip locked
@@ -716,7 +709,7 @@ export async function reconcileStaleRuns(
   homeId?: string,
 ): Promise<number> {
   const sql = sqlClient(database);
-  // Worker leases are operational time. Demo clock jumps model household
+  // Worker leases are operational time. An injected clock models household
   // events but must not make live executions appear abandoned.
   return sql.begin(async (transaction) => {
     const recovered = await transaction<{ id: string }[]>`

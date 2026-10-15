@@ -24,7 +24,6 @@ import {
   copyButtonLabel,
 } from "./host/capture-invitation-form";
 import { buttonStyle } from "./host/host-styles";
-import { DemoClockPanel } from "./host/demo-clock-panel";
 import { shouldFocusGuestOptions } from "./guest/guest-invite-form";
 
 describe("frontend boundary remediation", () => {
@@ -83,34 +82,6 @@ describe("frontend boundary remediation", () => {
     expect(captureStatusHref("es", "run-1")).toBe(
       "/es/runs/run-1/status?returnTo=%2Fes",
     );
-  });
-
-  test("hydrates the demo clock with server-formatted household text", () => {
-    const html = renderToStaticMarkup(
-      <DemoClockPanel
-        current="2026-09-07T08:00:00.000Z"
-        currentLabel="SERVER CLOCK TEXT"
-        homeId="home-1"
-        labels={{
-          current: "Current",
-          chase: "Chase",
-          escalation: "Escalate",
-          custom: "Custom",
-          set: "Set",
-          working: "Working",
-          error: "Error",
-          noEligible: "No visit needs this step",
-          alreadyDue: "Already due",
-          advanced: "Advanced",
-          backward: "Cannot move backwards",
-        }}
-        locale="en"
-        timeZone="Europe/Madrid"
-      />,
-    );
-
-    expect(html).toContain("SERVER CLOCK TEXT");
-    expect(html).not.toContain("Sep 7");
   });
 
   test("uses shared target sizes without preventing wrapped labels", async () => {
