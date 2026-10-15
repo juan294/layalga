@@ -213,7 +213,9 @@ export async function runReleaseProbes(
       detail: healthDetail,
     });
     current = "setup";
-    const [household, conflict] = await Promise.all([
+    // allSettled: a failed build must not race cleanup past the other
+    // household's still-open transaction.
+    const [household, conflict] = await settledAll([
       createFixtureHousehold(sql, {
         label,
         tokenSecret,
@@ -294,6 +296,19 @@ export async function runReleaseProbes(
     );
   }
   return report;
+}
+
+async function settledAll<T extends readonly unknown[]>(
+  promises: readonly [...{ [K in keyof T]: Promise<T[K]> }],
+): Promise<T> {
+  const results = await Promise.allSettled(promises);
+  const failure = results.find(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failure) throw failure.reason;
+  return results.map(
+    (result) => (result as PromiseFulfilledResult<unknown>).value,
+  ) as unknown as T;
 }
 
 /** Deletes both fixture households of a probe run and proves none remain. */

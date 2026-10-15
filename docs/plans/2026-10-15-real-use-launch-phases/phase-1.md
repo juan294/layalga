@@ -87,3 +87,14 @@ Automated:
 - All plan-level automated checks pass.
 
 Manual: none.
+
+## Implementation handoff (2026-10-15)
+
+Status: complete. Branch `feat/real-use-launch` in worktree `/Users/juan/code/layalga-real-use`, base `develop` at `fea093b`. Commits `0de6625` (implementation) and the phase 1 simplify changes folded into `b2fb8ad`.
+
+- [x] Step 1: `src/test-support/fixture-household.ts` builds non-demo households (default three rooms, Familia Vega and The Parkers with future stays from `fixtureStay`) and removes them by id and name; auth-user deletion is opt-in (`deleteBoundAuthUsers`).
+- [x] Step 2: `src/test-support/host-session.ts` (moved from `tests/e2e/helpers/` during simplify) signs a fixture host in through local Supabase Auth and installs the captured `@supabase/ssr` cookies.
+- [x] Step 3: all eight specs use the Playwright `household` fixture (`tests/e2e/helpers/household.ts`); `host-view` adds the empty-household dashboard and first-room assertion.
+- Review (fresh-context agent): APPROVED with 7 minor/nit findings, all fixed (opt-in auth deletion, host-binding check and user rollback, cookie origin from the Playwright base URL, guest-email setup leak, session deletion inside the cleanup transaction, confirmation-without-session test, future dates in `webmcp-registration`).
+- Simplify (four angles): applied the shared Playwright fixture, `openHousehold` reuse, party defaults, `issueLinkToken` reuse, one `markerSuffix`, and the helper move that keeps both runner configurations unchanged. Skipped: multi-row inserts and a worker-scoped auth user (small local cost), converting `src/agent/testing/seed-host.ts` (outside this diff).
+- Evidence: `pnpm run test:e2e` 27 passed, 2 failed (`guided-demo`, failing identically on unchanged `develop`; deleted in phase 3). Typecheck, lint, build and bootstrap passed. Deviations: see the notes file.

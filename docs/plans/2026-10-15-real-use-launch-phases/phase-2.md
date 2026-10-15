@@ -77,3 +77,18 @@ Automated:
 - All plan-level automated checks pass.
 
 Manual: none. The first production run happens in phase 5.
+
+## Implementation handoff (2026-10-15)
+
+Status: complete. Commits `b2fb8ad` (implementation), `9d1e3ab` (pre-existing date failures fixed), `23535c2` (review and simplify findings).
+
+- [x] Step 1: `scripts/release-probes.ts` runs per-target probe sets (`PROBES.local`: nine; `PROBES.production`: six) on two fixture households through `/api/agent/run` and `/api/ticks`; `--cleanup-only <runId>`; `PAUSED`/`BLOCKED` classification through the cause chain; run id printed before any write.
+- [x] `recordHostDecision` (`src/core/decisions/host-decision.ts`) is shared by `decideAction` and the interrupt-resume probe.
+- [x] `scripts/agentcore-smoke.ts` uses a probe-labelled fixture household; `demo-e2e` and `benchmark-coordination` scripts and package entries deleted.
+- [x] Step 2: `ci.yml` runs `release:probes --target local`; `production-probes.yml` requires `WRITE PROBE FIXTURE`, drops Chromium and `demo:e2e`, and runs `--target production --expect-runtime agentcore`.
+- Evidence: local dev server, `release:probes --target local` passed nine probes; `--target production --expect-runtime local` passed six; an unreachable base reported `PAUSED` with the cleanup command; zero `Release probe%` homes remained.
+- Review: CHANGES REQUIRED (1 major, 5 minor, 3 nits); dispositions in the notes file. P2-R1 (AgentCore Memory records from production probe runs) is an open owner decision.
+- Re-review of `23535c2`: APPROVED; its one minor item (concurrent fixture creation racing cleanup) is fixed with `Promise.allSettled`.
+- Gate on `23535c2` with `DATABASE_URL` exported: `test` 782 passed, 2 failed; `test:integration` 188 passed, 2 failed (both failures are the pre-existing `src/core/demo/advance-clock.integration.test.ts`, deleted in phase 3); `test:coverage`, `build`, `verify-bootstrap` passed; `test:e2e` 27 passed, 2 failed (pre-existing `guided-demo`, deleted in phase 3).
+- Not yet run in production: the first production run is phase 5 step 9.
+- Next: phase 3 (entry condition met: tests no longer depend on demo sessions or the demo seed outside the two demo specs phase 3 deletes).
