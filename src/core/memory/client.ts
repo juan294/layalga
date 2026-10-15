@@ -157,7 +157,7 @@ export function createMemoryClient(region: string): MemoryInventoryClient {
           `BatchDeleteMemoryRecords failed for ${failed} of ${memoryRecordIds.length} record(s)`,
         );
       }
-      return response.successfulRecords?.length ?? 0;
+      return response.successfulRecords?.length ?? memoryRecordIds.length;
     },
     async listActors({ memoryId, nextToken }) {
       const response = await client.send(
