@@ -20,8 +20,10 @@ export interface OrphanedMemoryActor {
 
 export interface OrphanedMemoryInventory {
   orphans: OrphanedMemoryActor[];
-  /** Rows the homes read returned. */
+  /** Distinct homes the homes-and-parties read returned. */
   homesRead: number;
+  /** Parties that read returned. */
+  partiesRead: number;
   /** Long-term records listed under `/parties`. */
   recordsSeen: number;
   /** Listed records with no `home-<uuid>/party-<uuid>` namespace; never checked. */
@@ -40,15 +42,18 @@ export interface ForgetOrphanedMemoryResult extends Omit<
 }
 
 /**
- * Lists every party actor AgentCore Memory still holds whose home no longer
- * exists. Actors come from both `ListActors` (raw events, which expire after
+ * Lists every party actor AgentCore Memory still holds whose party no
+ * longer exists in its home: the home was deleted (a probe fixture), or the
+ * party was (the synthetic parties the real-use conversion removed). The
+ * agent reads a home's whole `/parties/home-<id>` subtree, so a deleted
+ * party's memory would otherwise still reach that household. Actors come from both `ListActors` (raw events, which expire after
  * 30 days) and the namespaces of the long-term records under `/parties`
  * (which do not expire). Only ids of the exact `home-<uuid>/party-<uuid>`
  * shape count; anything else is ignored, never reported as an orphan, and
  * a listed record without such a namespace is counted as unparsed.
  *
- * Memory is listed before the homes table is read, so a home that wrote
- * memory and still exists is always in the set it is checked against. The
+ * Memory is listed before homes and parties are read, so a party that
+ * wrote memory and still exists is always in the set it is checked against. The
  * read fails closed: no rows (or, with `requireRealHousehold`, no real
  * household) means a wrong database, which would make every actor look
  * orphaned.
@@ -79,23 +84,34 @@ export async function findOrphanedMemoryActors(
       nextToken,
     }),
   );
+  const actorsWithRecords = new Set<string>();
   let unparsedRecords = 0;
   for (const record of records) {
     let attributed = false;
     for (const namespace of record.namespaces ?? []) {
       const actorId = PARTY_NAMESPACE.exec(namespace)?.[1];
-      if (actorId && addActor(actorId)) attributed = true;
+      if (actorId && addActor(actorId)) {
+        actorsWithRecords.add(actorId);
+        attributed = true;
+      }
     }
     if (!attributed) unparsedRecords += 1;
   }
 
   // No array parameter: postgres.js has mis-serialized one on a fresh
-  // connection's first query, so the home ids are filtered here instead.
+  // connection's first query, so the actors are filtered here instead.
   const sql = sqlClient(database);
-  const homes = await sql<{ id: string }[]>`
-    select id::text as id from public.homes
+  const rows = await sql<{ home_id: string; party_id: string | null }[]>`
+    select h.id::text as home_id, p.id::text as party_id
+    from public.homes h
+    left join public.parties p on p.home_id = h.id
   `;
-  const existingHomeIds = new Set(homes.map(({ id }) => id));
+  const existingHomeIds = new Set(rows.map((row) => row.home_id));
+  const existingActors = new Set(
+    rows.flatMap(({ home_id, party_id }) =>
+      party_id ? [`home-${home_id}/party-${party_id}`] : [],
+    ),
+  );
   if (existingHomeIds.size === 0) {
     throw new Error(
       "Read 0 homes; refusing to treat all memory as orphaned. Check DATABASE_URL.",
@@ -107,12 +123,26 @@ export async function findOrphanedMemoryActors(
     );
   }
 
+  const orphans: OrphanedMemoryActor[] = [];
+  for (const [actorId, homeId] of [...actorHomes].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    if (existingActors.has(actorId)) continue;
+    // AgentCore keeps listing an actor after its events are deleted, so an
+    // actor known only from ListActors counts only while it has a session.
+    if (
+      !actorsWithRecords.has(actorId) &&
+      (await client.listSessions({ memoryId, actorId })).items.length === 0
+    ) {
+      continue;
+    }
+    orphans.push({ actorId, homeId });
+  }
+
   return {
-    orphans: [...actorHomes]
-      .filter(([, homeId]) => !existingHomeIds.has(homeId))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([actorId, homeId]) => ({ actorId, homeId })),
+    orphans,
     homesRead: existingHomeIds.size,
+    partiesRead: existingActors.size,
     recordsSeen: records.length,
     unparsedRecords,
   };
@@ -122,7 +152,7 @@ export async function findOrphanedMemoryActors(
  * Finds orphaned party memory (see `findOrphanedMemoryActors`) and, only
  * with `apply: true`, erases each orphan's records and events. Applying
  * also requires the real household among the homes read. Unlike
- * `forgetPartyMemory` it writes no audit row: the home it would belong to
+ * `forgetPartyMemory` it writes no audit row: the party it would describe
  * is gone.
  */
 export async function forgetOrphanedMemory(
