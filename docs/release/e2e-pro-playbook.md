@@ -4,7 +4,7 @@
 
 Releases from v0.4.0 through v1.3.11 used the retired demo-based gate: a browser demo driver and nine probes that reset and drove the shared synthetic demo home. v1.3.2 (main `90b6838`, 2026-09-11) is the last release that passed that gate in full, on AgentCore runtime version 30. The historical decisions below record each release and the evidence that substituted when the full gate could not run.
 
-The real-use launch replaces that gate. Demo mode, the demo seed and the demo API routes are removed, so every probe now runs on fixture households that the probe creates and deletes. One probe script serves local CI and production, and `--target` selects the probe set. The new production gate has not run yet; its first run is part of real-use release 1, which needs owner authorization. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
+The real-use launch replaces that gate. Demo mode, the demo seed and the demo API routes are removed, so every probe now runs on fixture households that the probe creates and deletes. One probe script serves local CI and production, and `--target` selects the probe set. The new production gate first ran for v2.0.0 (real-use release 1) on 2026-10-15 and passed. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
 
 Guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
@@ -167,7 +167,15 @@ pnpm run release:probes -- --cleanup-only <run id>
 
 Read a failed run's state before acting. `PAUSED` allows the same candidate to be dispatched again after the environment is repaired. `BLOCKED` needs a fixed candidate. The production `guest-confirmation` probe has so far run only against the scripted model; if Bedrock returns an `interrupted` result, examine the run before treating it as a candidate defect (review note P2-R6 in the [implementation notes](../plans/2026-10-15-real-use-launch-notes.md)).
 
-Open owner decision P2-R1: each production run writes AgentCore Memory events for its fixture parties. Database cleanup deletes the parties, but the long-term memory records extracted under `/parties/home-<fixture home>/party-<id>` remain; raw events expire after 30 days. About four actors accrue per run. They are scoped to the fixture homes, so the real household does not read them. The options are to accept them and forget probe actors periodically, to grant the workflow a narrow AWS role that forgets fixture parties before cleanup, or to run the production gate without the memory assertion. The decision is open; until it is taken, each production run adds these records.
+Owner decision P2-R1, option (a), chosen 2026-10-15: each production run writes AgentCore Memory events for its fixture parties. Database cleanup deletes the fixture homes, but the long-term memory records extracted under `/parties/home-<fixture home>/party-<id>` remain; raw events expire after 30 days. About four actors accrue per run. They are scoped to the fixture homes, so the real household does not read them. The gate stays as it is. After production probe runs, `pnpm run memory:forget-orphans` (`scripts/forget-orphaned-memory.ts`) forgets the memory whose home no longer exists. It finds party actors from both raw events (`ListActors`) and long-term record namespaces under `/parties`, reads the `homes` table, and treats as orphaned only an actor of the exact form `home-<uuid>/party-<uuid>` whose home is absent. It never touches an actor whose home exists, ignores ids of any other form, and writes no audit row because the home is gone. It reports only by default; `--apply` deletes.
+
+The script reads the production database and deletes production memory, so each run needs owner authorization. It needs `DATABASE_URL` (the production web-role URL), `MEMORY_ID` (`LayalgaHouseholdMemory-CBgKZc7mK4`), `AWS_REGION` (`us-east-1`) and AWS credentials allowed by `infra/iam/memory-data-plane.json`. The script prints how many homes it read. A wrong `DATABASE_URL` makes every home look deleted, so the real household (`00000000-0000-4000-8000-000000000001`) can appear among the orphaned homes. For that reason the script stops when the homes read returns no rows, and `--apply` also stops, deleting nothing, when the real household is not among the homes read. Run the dry run first. Check that the home count is plausible, that the real household is not reported, and that there is no warning about records it could not attribute to a party. Then apply, and repeat the dry run to confirm that it reports 0 orphaned actors:
+
+```bash
+pnpm run memory:forget-orphans
+pnpm run memory:forget-orphans -- --apply
+pnpm run memory:forget-orphans
+```
 
 ### Production workflow release-system impact
 
@@ -206,7 +214,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Real-use launch releases
 
-The real-use launch ([plan](../plans/2026-10-15-real-use-launch.md)) removes demo mode in two releases. Schema removal needs two steps because migrations run before the web deploy and AgentCore deploys separately: dropping `homes.demo` while the old web app or the old AgentCore bundle still reads it would break live requests. Neither release has run. Every production action in them needs explicit owner authorization at the time it runs.
+The real-use launch ([plan](../plans/2026-10-15-real-use-launch.md)) removes demo mode in two releases. Schema removal needs two steps because migrations run before the web deploy and AgentCore deploys separately: dropping `homes.demo` while the old web app or the old AgentCore bundle still reads it would break live requests. Release 1 shipped as v2.0.0 on 2026-10-15. Release 2 has not run. Every production action in it needs explicit owner authorization at the time it runs.
 
 Release 1 (expand) follows the release procedure above, with these additional actions ([phase 5](../plans/2026-10-15-real-use-launch-phases/phase-5.md)):
 
@@ -219,6 +227,12 @@ Release 1 (expand) follows the release procedure above, with these additional ac
 - After the deploy and the production gate, the owner signs in with Google and reaches the empty household dashboard.
 
 Release 2 (contract) starts only after release 1's AgentCore runtime version is recorded ([phase 6](../plans/2026-10-15-real-use-launch-phases/phase-6.md)). A preflight script refuses to continue unless the deployed runtime version matches that record. The contract migration fails while any home has `demo = true`. It redefines the retention function without its demo predicates and drops `homes.demo`, `demo_clock`, the demo mutation tables, `review_access_events` and `private.restore_demo_identity_claims()`. Release 2 then follows the normal procedure and production gate.
+
+## Real-use release decisions
+
+RELEASED. v2.0.0, real-use release 1, shipped 2026-10-15 on its first candidate, main `e0cb4d1242c777b92a0e3a841081960b174afdbd` (pull request #201). `main` was already an ancestor of `develop`, so no reconciliation merge was needed. The release pull request passed CI, CodeQL, coverage and dependency review. The read-only preflight found one home (`…0001`, `demo = true`), 2 parties, 2 invitations, 0 visits, 0 runs, 3 rooms, 2 hosts and 2 claims. Hosted Supabase Auth reports `email: false` and `google: true`. `DEMO_MODE` and `DEMO_SESSION_SECRET` are removed from Vercel production; their Preview copies remain, and Preview deployments stay disabled. Migration `20261015082739_convert_household_to_real_use.sql` was applied directly before the merge; home `…0001` then had `demo = false`, 0 parties, invitations and rooms, 2 hosts and 2 claims. `/api/health` reported the candidate with status `ok` and no stale work. AgentCore runtime `layalga_agent-mONXXjFms4` moved from version 37 (S3 object version `aGkoYkHAMOcWbZ.k7Mbmz24D9oiVVmQt`) to version 38 (S3 object version `rqpNEq_vsxcXiIUd7dFWpnzahz7P0Yz1`), built from a clean detached checkout of the candidate. The [production probe run](https://github.com/juan294/layalga/actions/runs/38724687108) passed all six production probes, including cleanup; a later read showed 1 home, 0 runs and 0 visits. The live sign-in page shows only the Google button, `/en/demo-enter` returns 404, and the owner signed in with Google and reached the host dashboard of home `…0001` with an empty room ledger and the add-room form.
+
+The synthetic memory forget (`pnpm run forget-synthetic-memory`) first hit the operating environment's permission classifier; after the owner granted the permission it ran later the same day and removed 36 memory records for Familia Vega and 0 for The Parkers, with 0 raw events for either. A follow-up listing showed no records under either party namespace, and both `memory_forgotten` audit rows exist. One release-1 item stays open: the Google OAuth app is still in publishing status "Testing" with no test users, and its redirect URI is correct. The owner's sign-in worked; whether the second host can sign in before the app is published or the host is added as a test user is unverified.
 
 ## Historical release decision
 

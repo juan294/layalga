@@ -4,6 +4,20 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-15
+
+Google sign-in for real use.
+
+### Added
+
+- A public privacy notice at `/en/privacy` and `/es/privacy`, linked from the sign-in page. Google requires it before the OAuth app can leave Testing.
+- `pnpm run memory:forget-orphans`, which forgets AgentCore Memory whose home no longer exists, such as the fixture parties of production probe runs (owner decision P2-R1, option (a)). It reports by default, deletes only with `--apply`, and refuses to run when the homes read is empty or, with `--apply`, lacks the real household.
+
+### Changed
+
+- An invited guest who linked an invitation to Google can sign in from the main sign-in page and lands on their visits. Accounts that are neither hosts nor invited guests still get the not-a-host message, which now points guests to their invitation link.
+- Forgetting a party's memory lists every record and event before deleting any, and a partly failed batch delete now fails instead of being counted as deleted.
+
 ## [2.0.0] - 2026-10-15
 
 Real-use launch, release 1 (expand): phases 1 to 4 of the [plan](docs/plans/2026-10-15-real-use-launch.md). The hackathon judging period closed on 2026-10-14. The demo schema stays in the database until release 2 drops it.

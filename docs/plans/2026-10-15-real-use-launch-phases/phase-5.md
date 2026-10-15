@@ -33,3 +33,22 @@ Correction (phase 3 review, 2026-10-15): Vercel applies an environment change on
 - The live sign-in page shows Google only, and `/en/demo-enter` returns 404.
 - Release record contains: commit, Vercel deployment, AgentCore runtime version, probe run URL, Supabase settings result and memory forget result.
 - Phase 6 may start only after step 8's runtime version is recorded.
+
+## Handoff (2026-10-15)
+
+Release 1 shipped as v2.0.0 on main `e0cb4d1242c777b92a0e3a841081960b174afdbd` (pull request #201), tag `v2.0.0`. The owner authorized the phase 5 steps and the `develop` push in chat.
+
+| # | Result | Evidence |
+| --- | --- | --- |
+| 1 | Passed | One home (`…0001`, `demo = true`), 2 parties, 2 invitations, 0 visits, 0 runs, 3 rooms, 2 hosts, 2 claims (read-only SQL) |
+| 2 | Partial | Redirect URI `https://hyyrnpyidipkuhakeiyb.supabase.co/auth/v1/callback` present; publishing status "Testing" with 0 test users (Google Cloud console). Owner decision P5-G1 |
+| 3 | Done | Management API PATCH; `/auth/v1/settings` reports `email: false`, `google: true`, sign-up open |
+| 4 | Done | `vercel env ls production` lists neither `DEMO_MODE` nor `DEMO_SESSION_SECRET`; Preview copies remain (Preview deployments disabled) |
+| 5 | Done (late) | First blocked by the permission classifier; ran after the owner granted it. Familia Vega: 36 records, 0 events; The Parkers: 0 records, 0 events. No records remain under either namespace; two `memory_forgotten` audit rows |
+| 6 | Done | `20261015082739_convert_household_to_real_use.sql` applied; `demo = false`, 0 parties, invitations and rooms, 2 hosts, 2 claims, 0 demo clock rows |
+| 7 | Done | Merged directly after step 6; `/api/health` reports `e0cb4d1…` with status `ok` and no stale work; `main` CI and CodeQL green |
+| 8 | Done | Runtime `layalga_agent-mONXXjFms4` version 38, S3 object version `rqpNEq_vsxcXiIUd7dFWpnzahz7P0Yz1`, clean detached checkout of `e0cb4d1`. Previous: version 37, `aGkoYkHAMOcWbZ.k7Mbmz24D9oiVVmQt` |
+| 9 | Passed | [Run 38724687108](https://github.com/juan294/layalga/actions/runs/38724687108): six probes passed, cleanup removed run `93260649-7080-4556-9029-3f832878d2b3`; afterwards 1 home, 0 runs, 0 visits |
+| 10 | Passed | Owner Google sign-in (Chrome) reached the host dashboard; the room ledger shows no rooms and the add-room form |
+
+Exit: the live sign-in page shows only `google-sign-in`, and `/en/demo-enter` returns 404. Phase 6 entry condition met: release 1 runtime version is 38 (`contract-preflight --runtime-id layalga_agent-mONXXjFms4 --expected-version 38`). Open before or alongside phase 6: P5-G1. P2-R1 was decided on 2026-10-15 with option (a): orphaned memory is forgotten after production probe runs with `pnpm run memory:forget-orphans` (see the [implementation notes](../2026-10-15-real-use-launch-notes.md)).

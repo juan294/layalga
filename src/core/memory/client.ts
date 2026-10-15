@@ -5,6 +5,7 @@ import {
   BedrockAgentCoreClient,
   CreateEventCommand,
   DeleteEventCommand,
+  ListActorsCommand,
   ListEventsCommand,
   ListMemoryRecordsCommand,
   ListSessionsCommand,
@@ -16,6 +17,8 @@ export interface MemoryRecordItem {
   memoryRecordId: string;
   text: string;
   createdAt: Date;
+  /** The record's namespaces; set by the real client, optional for fakes. */
+  namespaces?: readonly string[];
 }
 
 export interface CreateMemoryEventInput {
@@ -47,6 +50,7 @@ export interface MemoryClient {
     namespacePath: string;
     nextToken?: string;
   }): Promise<Page<MemoryRecordItem>>;
+  /** Rejects when any record of the batch fails to delete. */
   batchDeleteMemoryRecords(input: {
     memoryId: string;
     memoryRecordIds: readonly string[];
@@ -70,6 +74,31 @@ export interface MemoryClient {
   }): Promise<void>;
 }
 
+/**
+ * `MemoryClient` plus the memory-wide listing the orphan cleanup needs to
+ * discover every actor, not only the one a caller already knows.
+ */
+export interface MemoryInventoryClient extends MemoryClient {
+  listActors(input: {
+    memoryId: string;
+    nextToken?: string;
+  }): Promise<Page<string>>;
+}
+
+/** Follows `nextToken` from the first page to the last and returns every item. */
+export async function listAllPages<T>(
+  fetchPage: (nextToken?: string) => Promise<Page<T>>,
+): Promise<T[]> {
+  const items: T[] = [];
+  let nextToken: string | undefined;
+  do {
+    const page = await fetchPage(nextToken);
+    items.push(...page.items);
+    nextToken = page.nextToken;
+  } while (nextToken);
+  return items;
+}
+
 /** AgentCore's own page size ceiling; also the `BatchDeleteMemoryRecords` batch limit. */
 const MAX_PAGE_SIZE = 100;
 
@@ -81,7 +110,7 @@ function sdkClient(region: string): BedrockAgentCoreClient {
 }
 
 /** The real `MemoryClient`, calling AgentCore Memory through the AWS SDK. */
-export function createMemoryClient(region: string): MemoryClient {
+export function createMemoryClient(region: string): MemoryInventoryClient {
   const client = sdkClient(region);
   return {
     async createEvent(input) {
@@ -117,13 +146,14 @@ export function createMemoryClient(region: string): MemoryClient {
           memoryRecordId: summary.memoryRecordId ?? "",
           text: memoryContentText(summary.content),
           createdAt: summary.createdAt ?? new Date(0),
+          namespaces: summary.namespaces ?? [],
         })),
         nextToken: response.nextToken,
       };
     },
     async batchDeleteMemoryRecords({ memoryId, memoryRecordIds }) {
       if (memoryRecordIds.length === 0) return;
-      await client.send(
+      const response = await client.send(
         new BatchDeleteMemoryRecordsCommand({
           memoryId,
           records: memoryRecordIds.map((memoryRecordId) => ({
@@ -131,6 +161,28 @@ export function createMemoryClient(region: string): MemoryClient {
           })),
         }),
       );
+      // Only the count: record ids and error messages can echo memory content.
+      const failed = response.failedRecords?.length ?? 0;
+      if (failed > 0) {
+        throw new Error(
+          `BatchDeleteMemoryRecords failed for ${failed} of ${memoryRecordIds.length} record(s)`,
+        );
+      }
+    },
+    async listActors({ memoryId, nextToken }) {
+      const response = await client.send(
+        new ListActorsCommand({
+          memoryId,
+          nextToken,
+          maxResults: MAX_PAGE_SIZE,
+        }),
+      );
+      return {
+        items: (response.actorSummaries ?? [])
+          .map((summary) => summary.actorId)
+          .filter((actorId): actorId is string => Boolean(actorId)),
+        nextToken: response.nextToken,
+      };
     },
     async listSessions({ memoryId, actorId, nextToken }) {
       const response = await client.send(

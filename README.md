@@ -29,7 +29,7 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 The [documentation index](docs/README.md) lists every current document. The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates released work from the remaining steps. L’Ayalga began as an AWS Agents for Humans hackathon entry; the [hackathon archive](docs/archive/hackathon/README.md) keeps the submission material, which describes the judged demo as of 2026-10-14.
 
-Production runs v1.3.11 (2026-09-14), which is still the public hackathon demo. The broader coordination behavior was proven in production as v1.3.2 at commit `90b68385a590144d6d44cd7dd41298180b2d182c` against the exact Vercel and AgentCore candidate. The real-use launch described below removes demo mode; it is not released yet, and each production step needs owner authorization. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
+Production runs v2.0.0 (2026-10-15), real-use release 1, at commit `e0cb4d1242c777b92a0e3a841081960b174afdbd` with AgentCore runtime version 38. Demo mode is gone: hosts sign in with Google, and the household starts with no rooms. The release passed the production probe gate on fixture households. Release 2, which drops the leftover demo schema, has not run. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
 
 [![Simplified L’Ayalga AWS architecture](docs/architecture/layalga-aws-blog-architecture.drawio.png)](docs/architecture/layalga-aws-blog-architecture.drawio)
 

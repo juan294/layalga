@@ -103,10 +103,10 @@ describe("forgetPartyMemory", () => {
         { namespacePath: expectedNamespacePath, nextToken: undefined },
         { namespacePath: expectedNamespacePath, nextToken: "records-page-2" },
       ]);
-      // 150 records batches into 100 + 50; 100 records is one more batch.
+      // All 250 ids from both pages are collected first, then batched in 100s.
       expect(
         calls.batchDeleteMemoryRecords.map((batch) => batch.length),
-      ).toEqual([100, 50, 100]);
+      ).toEqual([100, 100, 50]);
       expect(calls.listSessions).toEqual([{ actorId: expectedActorId }]);
       expect(calls.listEvents).toEqual([
         { actorId: expectedActorId, sessionId: "session-a" },
