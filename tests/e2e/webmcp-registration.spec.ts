@@ -2,7 +2,8 @@ import { clickAndWaitForPost } from "./helpers/async-actions";
 import { expect, type Page } from "@playwright/test";
 
 import { fixtureStay } from "../../src/test-support/fixture-household";
-import { fixtureParty, test } from "./helpers/household";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
@@ -75,8 +76,8 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
   household,
   page,
 }) => {
-  const { token: vegaToken, preferredStay } = fixtureParty(
-    household.household,
+  const { token: vegaToken, preferredStay } = findFixtureGuest(
+    household,
     "Familia Vega",
   );
   const [from, to] = preferredStay;

@@ -5,7 +5,8 @@ import {
 } from "./helpers/async-actions";
 import { expect } from "@playwright/test";
 
-import { fixtureParty, test } from "./helpers/household";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
@@ -15,9 +16,7 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
   page,
 }) => {
   await household.signIn(context);
-  await page.goto(
-    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
-  );
+  await page.goto(`/en/g/${findFixtureGuest(household, "The Parkers").token}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
@@ -43,9 +42,7 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
 
   await page
     .getByTestId("host-capture-message")
-    .fill(
-      `Invite Ana and Luis for a weekend next month. ${household.household.tag}`,
-    );
+    .fill(`Invite Ana and Luis for a weekend next month. ${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
   await expect(page.getByTestId("capture-queued")).toBeVisible();
   await expect(page.getByTestId("structured-invitation")).toBeVisible({

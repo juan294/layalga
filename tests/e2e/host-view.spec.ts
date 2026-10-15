@@ -5,7 +5,11 @@ import {
 } from "./helpers/async-actions";
 import { expect } from "@playwright/test";
 
-import { fixtureParty, test } from "./helpers/household";
+import {
+  findFixtureGuest,
+  VEGA_CAPTURE_MESSAGE,
+} from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
@@ -21,9 +25,7 @@ test("captures an invitation and exposes its private guest link", async ({
 }) => {
   await page
     .getByTestId("host-capture-message")
-    .fill(
-      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. ${household.household.tag}`,
-    );
+    .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
@@ -41,9 +43,7 @@ test("a special request waits for a host and resumes after approval", async ({
   household,
   page,
 }) => {
-  await page.goto(
-    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
-  );
+  await page.goto(`/en/g/${findFixtureGuest(household, "The Parkers").token}`);
   await expect(
     page.locator('form[data-webmcp-guest-search][data-hydrated="true"]'),
   ).toBeVisible();
@@ -200,7 +200,7 @@ test.describe("an empty household", () => {
     await expect(ledger.locator("[data-door-state]")).toHaveCount(1);
     const [rooms] = await household.db<{ count: number }[]>`
       select count(*)::int as count from public.rooms
-      where home_id = ${household.household.homeId}
+      where home_id = ${household.homeId}
     `;
     expect(rooms?.count).toBe(1);
   });

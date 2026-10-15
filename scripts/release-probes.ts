@@ -9,9 +9,11 @@ import { parseStoredRunResult, type AgentTask } from "../src/agent/task";
 import { recordHostDecision } from "../src/core/decisions/host-decision";
 import {
   createFixtureHousehold,
+  findFixtureGuest,
   fixtureParties,
   fixtureStay,
   removeFixtureHousehold,
+  VEGA_CAPTURE_MESSAGE,
   type FixtureHousehold,
 } from "../src/test-support/fixture-household";
 import {
@@ -79,7 +81,7 @@ export interface ProbeReport {
   target: ProbeTarget;
   runId: string;
   evidence: ProbeEvidence[];
-  failure?: { probe: ProbeName; message: string };
+  failure?: { probe: ProbeName | "setup"; message: string };
   cleanupCommand?: string;
 }
 
@@ -101,6 +103,7 @@ export interface ProbeContext {
 }
 
 export type ProbeFn = (context: ProbeContext) => Promise<string>;
+type HealthFn = (options: ReleaseCliOptions) => Promise<string>;
 
 export function probeHomeLabels(runId: string): [string, string] {
   return [`Release probe ${runId}`, `Release probe conflict ${runId}`];
@@ -110,11 +113,34 @@ export function cleanupCommand(runId: string): string {
   return `pnpm run release:probes -- --cleanup-only ${runId}`;
 }
 
+const TRANSIENT_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "CONNECT_TIMEOUT",
+  "CONNECTION_CLOSED",
+  "CONNECTION_ENDED",
+]);
+
+/**
+ * `PAUSED` for environment failures anywhere in the cause chain: an
+ * unreachable base, a gateway status, a dropped database connection or a run
+ * timeout. Everything else is a candidate defect.
+ */
 export function classifyProbeFailure(error: unknown): "PAUSED" | "BLOCKED" {
-  if (error instanceof ProbePausedError) return "PAUSED";
-  // fetch() rejects with a TypeError when the base cannot be reached.
-  if (error instanceof TypeError && /fetch failed/i.test(error.message)) {
-    return "PAUSED";
+  for (let cause = error, depth = 0; cause && depth < 8; depth += 1) {
+    if (cause instanceof ProbePausedError) return "PAUSED";
+    if (!(cause instanceof Error)) break;
+    // fetch() rejects with a TypeError when the base cannot be reached.
+    if (cause instanceof TypeError && /fetch failed/i.test(cause.message)) {
+      return "PAUSED";
+    }
+    if (/failed with HTTP 50[234]\b/.test(cause.message)) return "PAUSED";
+    const code = (cause as { code?: unknown }).code;
+    if (typeof code === "string" && TRANSIENT_CODES.has(code)) return "PAUSED";
+    cause = cause.cause;
   }
   return "BLOCKED";
 }
@@ -144,8 +170,7 @@ interface TerminalProbeRunResult {
   executedOn?: "local" | "agentcore";
 }
 
-const PROBE_FNS: Record<Exclude<ProbeName, "cleanup">, ProbeFn> = {
-  health: probeHealth,
+const PROBE_FNS: Record<Exclude<ProbeName, "health" | "cleanup">, ProbeFn> = {
   "host-capture": probeHostCapture,
   "guest-confirmation": probeGuestConfirmation,
   "concurrent-conflict": probeConcurrentConflict,
@@ -157,7 +182,9 @@ const PROBE_FNS: Record<Exclude<ProbeName, "cleanup">, ProbeFn> = {
 
 export async function runReleaseProbes(
   options: ReleaseCliOptions,
-  overrides: Partial<Record<ProbeName, ProbeFn>> = {},
+  overrides: Partial<Record<Exclude<ProbeName, "health">, ProbeFn>> & {
+    health?: HealthFn;
+  } = {},
 ): Promise<ProbeReport> {
   const databaseUrl = requiredEnvironment("DATABASE_URL");
   const tokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
@@ -173,41 +200,53 @@ export async function runReleaseProbes(
     runId,
     evidence: [],
   };
-  let current: ProbeName = "health";
+  let current: ProbeName | "setup" = "health";
+  // Printed first, so a cancelled run still names its cleanup command.
+  console.error(`[release-probes] run ${runId}: ${cleanupCommand(runId)}`);
 
   try {
-    const household = await createFixtureHousehold(sql, {
-      label,
-      tokenSecret,
-      hosts: 2,
-      now,
-      parties: [
-        ...fixtureParties(now),
-        { familyName: "Reconfirmation family", locale: "en" },
-      ],
+    // Health runs before any write, so an unreachable base touches nothing.
+    const healthDetail = await (overrides.health ?? probeHealth)(options);
+    report.evidence.push({
+      probe: "health",
+      status: "passed",
+      detail: healthDetail,
     });
-    const conflict = await createFixtureHousehold(sql, {
-      label: conflictLabel,
-      tokenSecret,
-      now,
-      rooms: [
-        {
-          name: "Only room",
-          beds: 2,
-          guestLabel: "Probe room",
-          floorLabel: "Probe floor",
-          sleepingArrangement: "One double bed",
-          overflowArrangement: null,
-          maximumCapacity: 2,
-          inventoryState: "available",
-          overflowPolicy: "none",
-        },
-      ],
-      parties: [
-        { familyName: "Probe party 1" },
-        { familyName: "Probe party 2" },
-      ],
-    });
+    current = "setup";
+    const [household, conflict] = await Promise.all([
+      createFixtureHousehold(sql, {
+        label,
+        tokenSecret,
+        hosts: 2,
+        now,
+        parties: [
+          ...fixtureParties(now),
+          { familyName: "Reconfirmation family", locale: "en" },
+        ],
+      }),
+      createFixtureHousehold(sql, {
+        label: conflictLabel,
+        tokenSecret,
+        now,
+        rooms: [
+          {
+            name: "Only room",
+            beds: 2,
+            guestLabel: "Probe room",
+            floorLabel: "Probe floor",
+            sleepingArrangement: "One double bed",
+            overflowArrangement: null,
+            maximumCapacity: 2,
+            inventoryState: "available",
+            overflowPolicy: "none",
+          },
+        ],
+        parties: [
+          { familyName: "Probe party 1" },
+          { familyName: "Probe party 2" },
+        ],
+      }),
+    ]);
     const context: ProbeContext = {
       sql,
       options,
@@ -219,7 +258,7 @@ export async function runReleaseProbes(
       now,
     };
     for (const probe of PROBES[options.target]) {
-      if (probe === "cleanup") continue;
+      if (probe === "health" || probe === "cleanup") continue;
       current = probe;
       const detail = await (overrides[probe] ?? PROBE_FNS[probe])(context);
       report.evidence.push({ probe, status: "passed", detail });
@@ -266,18 +305,14 @@ export async function removeProbeHouseholds(
   const homes = await sql<{ id: string; name: string }[]>`
     select id, name from public.homes where name in (${label}, ${conflictLabel})
   `;
+  // Each removal proves its own home is gone.
   for (const home of homes) {
     await removeFixtureHousehold(sql, home.id, home.name);
   }
-  const [remaining] = await sql<{ count: number }[]>`
-    select count(*)::int as count from public.homes
-    where name in (${label}, ${conflictLabel})
-  `;
-  assert.equal(remaining?.count, 0, "probe household cleanup was incomplete");
   return homes.length;
 }
 
-async function probeHealth({ options }: ProbeContext): Promise<string> {
+async function probeHealth(options: ReleaseCliOptions): Promise<string> {
   let health: { status: string; commit?: string };
   try {
     health = await responseJson(
@@ -307,7 +342,7 @@ async function probeHealth({ options }: ProbeContext): Promise<string> {
 
 async function probeHostCapture(context: ProbeContext): Promise<string> {
   const { sql, household, options } = context;
-  const rawMessage = `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios.${household.tag}`;
+  const rawMessage = `${VEGA_CAPTURE_MESSAGE}${household.tag}`;
   const [result] = await runToTerminal(context, [
     {
       task: "host_capture",
@@ -437,7 +472,7 @@ async function probeConcurrentConflict(context: ProbeContext): Promise<string> {
 
 async function probeInterruptResume(context: ProbeContext): Promise<string> {
   const { sql, household, options } = context;
-  const parkers = fixtureGuest(household, "The Parkers");
+  const parkers = findFixtureGuest(household, "The Parkers");
   const [interrupted] = await runToTerminal(context, [
     {
       task: "guest_submit",
@@ -520,7 +555,7 @@ async function probeInterruptResume(context: ProbeContext): Promise<string> {
 
 async function probeReconfirmation(context: ProbeContext): Promise<string> {
   const { sql, household } = context;
-  const guest = fixtureGuest(household, "Reconfirmation family");
+  const guest = findFixtureGuest(household, "Reconfirmation family");
   const [visit] = await sql<{ id: string }[]>`
     insert into public.visits (
       home_id, party_id, invitation_id, stay, adults, children, pets,
@@ -586,7 +621,7 @@ async function probeReconfirmation(context: ProbeContext): Promise<string> {
 
 async function probeRoomCoordination(context: ProbeContext): Promise<string> {
   const { sql, household } = context;
-  const vega = fixtureGuest(household, "Familia Vega");
+  const vega = findFixtureGuest(household, "Familia Vega");
   const roomIds = household.roomIds.slice(0, 2);
   const [result] = await runToTerminal(context, [
     {
@@ -635,14 +670,6 @@ async function probeGuestIsolation({
   return "invalid token revealed no family identity";
 }
 
-function fixtureGuest(household: FixtureHousehold, familyName: string) {
-  const guest = household.parties.find(
-    (party) => party.familyName === familyName,
-  );
-  assert.ok(guest, `the probe household must invite ${familyName}`);
-  return guest;
-}
-
 async function runToTerminal(
   context: ProbeContext,
   tasks: readonly AgentTask[],
@@ -665,24 +692,14 @@ async function runToTerminal(
     ),
   );
   const runIds = queuedRunIds(acknowledgements);
-  try {
-    return await drainAndCollectTerminalRunResults(
-      runIds,
-      () => drainTicks(context),
-      (exactRunIds) => context.sql`
-        select id, status, result from public.runs
-        where id = any(${context.sql.array([...exactRunIds])}::uuid[])
-      `,
-    );
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      /did not reach terminal status/.test(error.message)
-    ) {
-      throw new ProbePausedError(error.message);
-    }
-    throw error;
-  }
+  return drainAndCollectTerminalRunResults(
+    runIds,
+    () => drainTicks(context),
+    (exactRunIds) => context.sql`
+      select id, status, result from public.runs
+      where id = any(${context.sql.array([...exactRunIds])}::uuid[])
+    `,
+  );
 }
 
 async function drainTicks({
@@ -775,7 +792,7 @@ export async function drainAndCollectTerminalRunResults(
     }
 
     if (Date.now() >= deadline) {
-      throw new Error(
+      throw new ProbePausedError(
         `queued probe runs did not reach terminal status: ${runIds.join(", ")}`,
       );
     }

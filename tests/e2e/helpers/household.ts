@@ -5,7 +5,6 @@ import postgres, { type Sql } from "postgres";
 
 import {
   createFixtureHousehold,
-  type FixtureGuest,
   type FixtureHousehold,
   type FixtureHouseholdOptions,
 } from "../../../src/test-support/fixture-household";
@@ -15,9 +14,8 @@ export type HouseholdOptions = Partial<
   Omit<FixtureHouseholdOptions, "tokenSecret" | "deleteBoundAuthUsers">
 >;
 
-export interface OpenHousehold {
+export interface OpenHousehold extends FixtureHousehold {
   db: Sql;
-  household: FixtureHousehold;
   /** Signs the first fixture host in through local Supabase Auth. */
   signIn(context: Pick<BrowserContext, "addCookies">): Promise<void>;
   close(): Promise<void>;
@@ -46,8 +44,8 @@ export async function openHousehold(
     throw error;
   }
   return {
+    ...household,
     db,
-    household,
     async signIn(context) {
       await signInAsHost(context, { sql: db, hostId: household.hostIds[0]! });
     },
@@ -76,14 +74,3 @@ export const test = base.extend<{
     }
   },
 });
-
-export function fixtureParty(
-  household: FixtureHousehold,
-  familyName: string,
-): FixtureGuest {
-  const party = household.parties.find(
-    (candidate) => candidate.familyName === familyName,
-  );
-  if (!party) throw new Error(`Fixture party is missing: ${familyName}`);
-  return party;
-}

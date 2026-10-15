@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createFixtureHousehold } from "../src/test-support/fixture-household";
 import {
+  PROBES,
   probeHomeLabels,
   removeProbeHouseholds,
   runReleaseProbes,
@@ -42,12 +43,10 @@ describe("release probe recovery", () => {
     const report = await runReleaseProbes(
       parseReleaseCliOptions(["--target", "production"], {}),
       {
-        health: async ({ runId }) => {
+        health: async () => "stubbed health",
+        "host-capture": async ({ runId }) => {
           labels = probeHomeLabels(runId);
           expect(await homesNamed(labels)).toBe(2);
-          return "stubbed health";
-        },
-        "host-capture": async () => {
           throw new Error("capture assertion failed");
         },
       },
@@ -58,6 +57,32 @@ describe("release probe recovery", () => {
       `pnpm run release:probes -- --cleanup-only ${report.runId}`,
     );
     expect(await homesNamed(labels!)).toBe(0);
+  });
+
+  it("runs the target's probes in the declared order", async () => {
+    const ran: string[] = [];
+    const record = (probe: string) => async () => {
+      ran.push(probe);
+      return probe;
+    };
+    const report = await runReleaseProbes(
+      parseReleaseCliOptions(["--target", "production"], {}),
+      {
+        health: record("health"),
+        "host-capture": record("host-capture"),
+        "guest-confirmation": record("guest-confirmation"),
+        "concurrent-conflict": record("concurrent-conflict"),
+        "guest-isolation": record("guest-isolation"),
+        "interrupt-resume": record("interrupt-resume"),
+      },
+    );
+    expect(report.status).toBe("passed");
+    expect(ran).toEqual(
+      PROBES.production.filter((probe) => probe !== "cleanup"),
+    );
+    expect(report.evidence.map(({ probe }) => probe)).toEqual(
+      PROBES.production,
+    );
   });
 
   it("reports PAUSED when the base cannot be reached", async () => {

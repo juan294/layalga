@@ -202,6 +202,23 @@ describe("probe targets", () => {
     );
     expect(classifyProbeFailure(new TypeError("fetch failed"))).toBe("PAUSED");
     expect(
+      classifyProbeFailure(
+        new Error("queued probe drain failed with HTTP 503: unavailable"),
+      ),
+    ).toBe("PAUSED");
+    expect(
+      classifyProbeFailure(
+        new Error("Fixture household failed", {
+          cause: Object.assign(new Error("connect"), { code: "ECONNREFUSED" }),
+        }),
+      ),
+    ).toBe("PAUSED");
+    expect(
+      classifyProbeFailure(
+        new Error("agent run 1 failed with HTTP 500: internal error"),
+      ),
+    ).toBe("BLOCKED");
+    expect(
       classifyProbeFailure(new Error("both concurrent runs must complete")),
     ).toBe("BLOCKED");
   });

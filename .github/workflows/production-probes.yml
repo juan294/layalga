@@ -1,5 +1,5 @@
 name: Production probes
-run-name: "Production probes: ${{ inputs.commit }} writes and removes one probe fixture"
+run-name: "Production probes: ${{ inputs.commit }} writes and removes two probe fixture households"
 
 on:
   workflow_dispatch:

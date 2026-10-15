@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
+import { VEGA_CAPTURE_MESSAGE } from "../../src/test-support/fixture-household";
 import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
@@ -14,9 +15,7 @@ test("the host capture poller keeps its visible card and status pulse", async ({
   await page.goto("/en");
   await page
     .getByTestId("host-capture-message")
-    .fill(
-      `Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios. ${household.household.tag}`,
-    );
+    .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
   await expectRunStatus(page, "completed");
 

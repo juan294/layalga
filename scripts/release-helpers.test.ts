@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  markerSuffix,
   normalizeBaseUrl,
   parseReleaseCliOptions,
   safeErrorMessage,
@@ -99,18 +98,6 @@ describe("parseReleaseCliOptions", () => {
     expect(() => parseReleaseCliOptions(["--expect-runtime"], {})).toThrow(
       /requires a value/,
     );
-  });
-});
-
-describe("markerSuffix", () => {
-  it("wraps the marker in a leading space and brackets", () => {
-    expect(markerSuffix("release-probe:abc")).toBe(" [release-probe:abc]");
-  });
-
-  it("produces a suffix a tagged raw message ends with", () => {
-    const marker = "agentcore-smoke:abc-123";
-    const rawMessage = `Some message${markerSuffix(marker)}`;
-    expect(rawMessage.endsWith(markerSuffix(marker))).toBe(true);
   });
 });
 

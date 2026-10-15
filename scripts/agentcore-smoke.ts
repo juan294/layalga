@@ -6,7 +6,11 @@ import postgres from "postgres";
 import { AgentCoreClient } from "../src/agent/client";
 import { closeDatabase } from "../src/core/db/client";
 import { createFixtureHousehold } from "../src/test-support/fixture-household";
-import { drainAndCollectTerminalRunResults } from "./release-probes";
+import {
+  cleanupCommand,
+  drainAndCollectTerminalRunResults,
+  probeHomeLabels,
+} from "./release-probes";
 import {
   isDirectExecution,
   requiredEnvironment,
@@ -38,8 +42,10 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
   }
 
   const sql = postgres(databaseUrl, { prepare: false, max: 2 });
+  // A probe label, so `release:probes -- --cleanup-only` can remove it.
+  const runId = randomUUID();
   const household = await createFixtureHousehold(sql, {
-    label: `AgentCore smoke ${randomUUID()}`,
+    label: probeHomeLabels(runId)[0],
     tokenSecret,
     parties: [],
   });
@@ -48,6 +54,7 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
   // run row under the runtime's feet, so it is only removed once the run is
   // terminal.
   let reachedTerminal = false;
+  let queuedRun = false;
 
   try {
     const client = new AgentCoreClient(runtimeArn, region);
@@ -58,6 +65,7 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
       rawMessage,
       locale: "en",
     });
+    queuedRun = true;
     assert.equal(
       queued.status,
       "queued",
@@ -90,11 +98,12 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
     return terminal;
   } finally {
     try {
-      if (reachedTerminal) {
+      // Without a queued run nothing can still be writing to the household.
+      if (reachedTerminal || !queuedRun) {
         await household.cleanup();
       } else {
         console.warn(
-          `[AGENTCORE_SMOKE] run did not reach a terminal state; leaving fixture household "${household.homeName}" in place`,
+          `[AGENTCORE_SMOKE] run did not reach a terminal state; once it stops, remove the fixture with: ${cleanupCommand(runId)}`,
         );
       }
     } finally {

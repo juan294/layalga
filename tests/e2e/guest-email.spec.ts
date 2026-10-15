@@ -19,7 +19,8 @@ test.use({
 });
 
 /** A reconfirmation-pending visit whose guest enrolled an email contact. */
-async function enrolledGuest({ db, household }: OpenHousehold) {
+async function enrolledGuest(household: OpenHousehold) {
+  const { db } = household;
   const { homeId } = household;
   const { partyId, invitationId, token: originalToken } = household.parties[0]!;
   const visitId = randomUUID();

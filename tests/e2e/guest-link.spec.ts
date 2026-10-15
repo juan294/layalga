@@ -1,11 +1,12 @@
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect } from "@playwright/test";
 
-import { fixtureParty, test as householdTest } from "./helpers/household";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test as householdTest } from "./helpers/household";
 
 const test = householdTest.extend<{ vegaToken: string }>({
   vegaToken: async ({ household }, provide) => {
-    await provide(fixtureParty(household.household, "Familia Vega").token);
+    await provide(findFixtureGuest(household, "Familia Vega").token);
   },
 });
 

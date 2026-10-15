@@ -2,7 +2,8 @@ import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
 import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { fixtureParty, test } from "./helpers/household";
+import { findFixtureGuest } from "../../src/test-support/fixture-household";
+import { test } from "./helpers/household";
 
 /* The mobile-webkit project runs this at the iPhone 13 profile (390px), so the
    measurements below are real WebKit layout rather than a harness estimate.
@@ -95,9 +96,7 @@ test("@mobile every surface stays touch-safe at 390px", async ({
 }) => {
   await household.signIn(context);
 
-  await page.goto(
-    `/en/g/${fixtureParty(household.household, "The Parkers").token}`,
-  );
+  await page.goto(`/en/g/${findFixtureGuest(household, "The Parkers").token}`);
   await expect(page.getByTestId("guest-status")).toBeVisible();
   await expectTouchSafe(page, "guest ledger");
 

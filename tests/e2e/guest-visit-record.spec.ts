@@ -15,11 +15,11 @@ test.use({
 
 /** Records one visit in the given status and returns the guest's link token. */
 async function visitToken(
-  { db, household }: OpenHousehold,
+  household: OpenHousehold,
   status: VisitStatus,
 ): Promise<string> {
   const guest = household.parties[0]!;
-  await db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${randomUUID()},${household.homeId},${guest.partyId},${guest.invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
+  await household.db`insert into public.visits(id,home_id,party_id,invitation_id,stay,adults,children,pets,status) values(${randomUUID()},${household.homeId},${guest.partyId},${guest.invitationId},daterange(current_date+3,current_date+6,'[)'),2,0,1,${status})`;
   return guest.token;
 }
 

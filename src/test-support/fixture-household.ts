@@ -112,6 +112,10 @@ export const FIXTURE_ROOMS: readonly FixtureRoom[] = [
   },
 ];
 
+/** A host message the scripted model captures as "Familia Vega". */
+export const VEGA_CAPTURE_MESSAGE =
+  "Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios.";
+
 /**
  * Party names match the scripted model's capture fixtures
  * (`src/agent/scripted-model-selection.ts`), so local runs behave as the
@@ -122,8 +126,7 @@ export function fixtureParties(now = new Date()): FixtureParty[] {
     {
       familyName: "Familia Vega",
       locale: "es",
-      rawMessage:
-        "Oye, los Vega quieren venir a la casa un finde, son Marta y Xuan con los dos crios.",
+      rawMessage: VEGA_CAPTURE_MESSAGE,
       adults: 2,
       children: 2,
       pets: 0,
@@ -146,6 +149,17 @@ export function fixtureParties(now = new Date()): FixtureParty[] {
       roomAllocation: ["Garage conversion"],
     },
   ];
+}
+
+export function findFixtureGuest(
+  household: Pick<FixtureHousehold, "parties">,
+  familyName: string,
+): FixtureGuest {
+  const guest = household.parties.find(
+    (party) => party.familyName === familyName,
+  );
+  if (!guest) throw new Error(`Fixture party is missing: ${familyName}`);
+  return guest;
 }
 
 /** A stay starting `offsetDays` after the first Friday at least 21 days ahead. */
