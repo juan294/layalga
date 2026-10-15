@@ -128,11 +128,12 @@ export async function findOrphanedMemoryActors(
     a.localeCompare(b),
   )) {
     if (existingActors.has(actorId)) continue;
-    // AgentCore keeps listing an actor after its events are deleted, so an
-    // actor known only from ListActors counts only while it has a session.
+    // AgentCore keeps listing an actor and its sessions after their events
+    // are deleted, so an actor known only from ListActors counts only while
+    // one of its sessions still holds an event.
     if (
       !actorsWithRecords.has(actorId) &&
-      (await client.listSessions({ memoryId, actorId })).items.length === 0
+      !(await hasAnyEvent(client, memoryId, actorId))
     ) {
       continue;
     }
@@ -184,4 +185,19 @@ export async function forgetOrphanedMemory(
     deletedRecords,
     deletedEvents,
   };
+}
+
+async function hasAnyEvent(
+  client: MemoryInventoryClient,
+  memoryId: string,
+  actorId: string,
+): Promise<boolean> {
+  const sessionIds = await listAllPages((nextToken) =>
+    client.listSessions({ memoryId, actorId, nextToken }),
+  );
+  for (const sessionId of sessionIds) {
+    const page = await client.listEvents({ memoryId, actorId, sessionId });
+    if (page.items.length > 0) return true;
+  }
+  return false;
 }

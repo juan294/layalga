@@ -54,10 +54,9 @@ function fakeMemory(state: FakeMemoryState = {}) {
     };
   }
 
-  const sessionsOf = (actorId: string) =>
-    Object.keys(events[actorId] ?? {}).filter(
-      (sessionId) => (events[actorId]?.[sessionId] ?? []).length > 0,
-    );
+  // Like AgentCore, sessions (and so actors) stay listed after their
+  // events are deleted.
+  const sessionsOf = (actorId: string) => Object.keys(events[actorId] ?? {});
 
   const client: MemoryInventoryClient = {
     createEvent: vi.fn(async () => {
@@ -255,6 +254,25 @@ describe("findOrphanedMemoryActors", () => {
     const { client } = fakeMemory({
       extraActors: [actor(GONE_HOME, PARTY_A)],
       events: { [actor(GONE_HOME, PARTY_B)]: { s1: ["e1"] } },
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
+      { actorId: actor(GONE_HOME, PARTY_B), homeId: GONE_HOME },
+    ]);
+  });
+
+  it("skips an actor whose sessions no longer hold any event", async () => {
+    const { client } = fakeMemory({
+      events: {
+        [actor(GONE_HOME, PARTY_A)]: { s1: [], s2: [] },
+        [actor(GONE_HOME, PARTY_B)]: { s1: [], s2: ["e1"] },
+      },
     });
 
     const inventory = await findOrphanedMemoryActors(
