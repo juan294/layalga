@@ -2,7 +2,7 @@
 
 L’Ayalga helps you arrange a stay with a household. You choose dates and rooms; household rules protect availability; a host decides when an explicit request or an overflow arrangement needs approval.
 
-This v1.3.11 guide includes durable review-access visibility and safe structured run-result presentation, and describes broader behavior proven in production v1.3.2 at commit `90b68385` (11 September 2026). The protected production workflow verified the guided journey and all nine probes against that exact web and AgentCore release. For a reproducible synthetic visit, start with the [judge guide](../submission/judge-guide.md).
+This guide describes L’Ayalga for real household use, after the real-use launch removes the hackathon demo.
 
 ## 1. Open your invitation
 
@@ -19,7 +19,7 @@ An expired or revoked link cannot be recovered by changing the URL. Contact your
 3. Review the recommended room set, sleeping arrangements and capacity. You can change the selected rooms before submitting.
 4. If the party fits only with a documented overflow arrangement, explicitly accept that arrangement. A host must then approve it. A party above maximum capacity cannot proceed.
 
-Defaults use the household's date and timezone. Synthetic homes use their labeled demo clock. Valid future invitation dates are preserved; stale or invalid dates receive a usable future default.
+Defaults use the household's date and timezone. Valid future invitation dates are preserved; stale or invalid dates receive a usable future default.
 
 ### Remembered preferences
 
@@ -63,7 +63,7 @@ Real guests can optionally enable email reminders with explicit consent. Enter a
 
 A reminder's return link opens the authorized visit, including reconfirmation, changes and cancellation. Its capability is checked on every request. Changing the address, opting out, cancellation, revocation or expiry can invalidate old links. After an address update from an email session, use the new verification guidance rather than the old session.
 
-Use the preference panel to turn reminders off. Email delivery must be configured by the operator; the interface reports unavailable or failed delivery instead of promising an inbox message. An SES acceptance is not proof of receipt. Synthetic demo invitations do not enroll or email real guest addresses.
+Use the preference panel to turn reminders off. Email delivery must be configured by the operator; the interface reports unavailable or failed delivery instead of promising an inbox message. An SES acceptance is not proof of receipt.
 
 ## 7. Privacy and help
 

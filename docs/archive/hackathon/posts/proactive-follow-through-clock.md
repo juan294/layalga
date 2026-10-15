@@ -2,7 +2,7 @@
 
 Published on AWS Builder Center: [Proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.10 run-result presentation fix does not change the architecture discussed here.
 
-![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../../architecture/layalga-aws-blog-architecture.drawio.png)
 
 ## Booking is not the end of coordination
 
@@ -10,13 +10,13 @@ A confirmed visit can still leave a household uncertain. Are the guests coming? 
 
 L’Ayalga schedules a reconfirmation chase for 09:00 household time three days before arrival, or immediately if confirmation happens inside that window. An unanswered request can escalate after 24 hours. A guest answer cancels the escalation for the current cycle. Cancellation and rescheduling retire follow-up that no longer belongs to the visit's current state.
 
-The agent helps phrase the message. The [job engine](../../../src/core/reconfirmation/jobs.ts) owns due work, claims, leases, bounded retries and required-recipient fallback. A model omitting a notification tool call cannot silently remove the required in-app outcome.
+The agent helps phrase the message. The [job engine](https://github.com/juan294/layalga/blob/v1.3.11/src/core/reconfirmation/jobs.ts) owns due work, claims, leases, bounded retries and required-recipient fallback. A model omitting a notification tool call cannot silently remove the required in-app outcome.
 
 ## A demo shortcut should operate on real jobs
 
 A fixed “jump three days” button is fragile. The relevant visit may have changed, a job may be waiting for a retry, or a worker may still hold a live lease.
 
-Our [semantic clock service](../../../src/core/demo/advance-clock.ts) selects an eligible persisted chase or escalation and advances to its effective due/retry time. It preserves current-cycle and pre-arrival constraints. Queue claims, heartbeats, execution deadlines, and stale-run recovery use PostgreSQL wall time, so a synthetic household clock jump cannot reclaim a live worker. An exhausted shortcut says no eligible work remains. Custom household time moves forward only.
+Our [semantic clock service](https://github.com/juan294/layalga/blob/v1.3.11/src/core/demo/advance-clock.ts) selects an eligible persisted chase or escalation and advances to its effective due/retry time. It preserves current-cycle and pre-arrival constraints. Queue claims, heartbeats, execution deadlines, and stale-run recovery use PostgreSQL wall time, so a synthetic household clock jump cannot reclaim a live worker. An exhausted shortcut says no eligible work remains. Custom household time moves forward only.
 
 `DbDemoClock` substitutes time only for an enabled synthetic household. Guest defaults, room search and policy use that same household clock, so an expired demo hold does not remain falsely occupied in search. Real invitation and email capability authentication continue to use real expiry; the demonstration clock cannot extend guest authority.
 
@@ -34,12 +34,12 @@ Real guests can explicitly consent to reminders, verify their address, return to
 
 The delivery service rechecks consent, current visit/source cycle and cancellation before submission. It records an authorized attempt before calling SES. Known failure and an unknown provider outcome are distinct; the latter cannot safely be treated as a failed send and blindly retried. SES acceptance does not prove inbox receipt.
 
-Synthetic guest invitations never send guest email. The local evidence configuration uses `EMAIL=none`, and the UI reports unavailable delivery honestly. The pending [production readiness work](../../release/guest-email-readiness.md) is separate from demonstrating the scheduling state machine.
+Synthetic guest invitations never send guest email. The local evidence configuration uses `EMAIL=none`, and the UI reports unavailable delivery honestly. The pending [production readiness work](../../../release/guest-email-readiness.md) is separate from demonstrating the scheduling state machine.
 
 ## What we measure
 
 The [coordination evidence](../coordination-evidence.md) records actual automated interactions, persisted outcomes, automation wall time and simulated time separately, tied to an exact source revision and local configuration. Navigation, setup, demo clock moves and simulated user decisions are distinct categories.
 
-The [clock integration tests](../../../src/core/demo/advance-clock.integration.test.ts), [guest search clock tests](../../../src/core/booking/guest-clock.integration.test.ts) and [guided browser regression](../../../tests/e2e/guided-demo.spec.ts) cover the application behavior. These are not human time savings, live-model quality measurements or email receipt evidence. A separate [participant protocol](../participant-protocol.md) defines how to investigate human impact.
+The [clock integration tests](https://github.com/juan294/layalga/blob/v1.3.11/src/core/demo/advance-clock.integration.test.ts), [guest search clock tests](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/guest-clock.integration.test.ts) and [guided browser regression](https://github.com/juan294/layalga/blob/v1.3.11/tests/e2e/guided-demo.spec.ts) cover the application behavior. These are not human time savings, live-model quality measurements or email receipt evidence. A separate [participant protocol](../participant-protocol.md) defines how to investigate human impact.
 
 The clock is useful because it makes real persisted follow-through inspectable without pretending that a staged demonstration waited several days.

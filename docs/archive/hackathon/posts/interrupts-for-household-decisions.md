@@ -2,7 +2,7 @@
 
 Published on AWS Builder Center: [Durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.10 run-result presentation fix does not change the architecture discussed here.
 
-![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../../architecture/layalga-aws-blog-architecture.drawio.png)
 
 ## A person may answer after the process ends
 
@@ -14,7 +14,7 @@ L’Ayalga uses the Strands SDK's interruption and resumption to preserve the pe
 
 The SDK session snapshot preserves the paused execution. A pending-decision row presents the party, stay, request and proposed arrangement to the host. A resume run applies the saved response and records the result.
 
-[`installPolicyHook`](../../../src/agent/policy-hook.ts) calls `event.interrupt` before a guarded booking operation when an explicit request or overflow arrangement needs a host. The host action records approval or decline. [`run-task.ts`](../../../src/agent/run-task.ts) reconstructs trusted state and supplies `InterruptResponseContent` to resume the SDK execution.
+[`installPolicyHook`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/policy-hook.ts) calls `event.interrupt` before a guarded booking operation when an explicit request or overflow arrangement needs a host. The host action records approval or decline. [`run-task.ts`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/run-task.ts) reconstructs trusted state and supplies `InterruptResponseContent` to resume the SDK execution.
 
 An interrupted request does not necessarily hold rooms: the pause may happen before hold creation. The UI must describe the actual stage instead of implying that every waiting request already has a reservation.
 
@@ -30,7 +30,7 @@ This is a useful split: the SDK owns durable execution state, while the applicat
 
 The decision lifecycle includes cancellation as well as pending, approved and declined states. If a guest cancels while an agent is working, it is not enough to hide the calendar event. A worker must not subsequently persist a new decision or apply an old approval.
 
-The [cancellation service](../../../src/core/booking/cancellation.ts) serializes against current booking work and retires stale decisions, runs, follow-up jobs and queued delivery. Interruption persistence rechecks the invitation and run under the same household boundary. A cancelled decision cannot be resumed as if it were still pending.
+The [cancellation service](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/cancellation.ts) serializes against current booking work and retires stale decisions, runs, follow-up jobs and queued delivery. Interruption persistence rechecks the invitation and run under the same household boundary. A cancelled decision cannot be resumed as if it were still pending.
 
 The agent's `prepare_cancellation` tool can interpret a cancellation request and return a review instruction. It cannot execute the cancellation. The guest or host must review and explicitly confirm the current stay; a changed stay requires refreshed review. Unbooked invitations have an equivalent withdrawal path.
 
@@ -42,6 +42,6 @@ Database idempotency prevents duplicate application records and unauthorized rep
 
 ## Evidence
 
-See [policy refresh tests](../../../src/agent/policy-hook-refresh.test.ts), [cancellation race regressions](../../../src/core/booking/cancellation.integration.test.ts), [tenant authority tests](../../../src/agent/tenant-scope.test.ts) and the [guided browser journey](../../../tests/e2e/guided-demo.spec.ts). The [evidence report](../coordination-evidence.md) records actual local scripted operations with its own exact revision and configuration.
+See [policy refresh tests](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/policy-hook-refresh.test.ts), [cancellation race regressions](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/cancellation.integration.test.ts), [tenant authority tests](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/tenant-scope.test.ts) and the [guided browser journey](https://github.com/juan294/layalga/blob/v1.3.11/tests/e2e/guided-demo.spec.ts). The [evidence report](../coordination-evidence.md) records actual local scripted operations with its own exact revision and configuration.
 
 The demonstration is a fresh routine stay, then a separate explicit request and approval. It proves persisted application transitions under that configuration. Human savings, live-model interpretation quality and production email receipt remain separate questions.

@@ -2,46 +2,48 @@
 
 ## Status
 
-Release automation is implemented and has run for v0.4.0, v0.5.0, v1.0.0, v1.1.0, v1.2.0, v1.2.1, v1.3.0, v1.3.1, and v1.3.2. v1.3.2 (main `90b6838`, 2026-09-11) deployed to AgentCore runtime version 30 and passed the protected, exact-SHA production workflow with all nine probes, including runtime, email, memory, and cleanup assertions. v1.0.0 (main `0f1fcf2`, tagged 2026-09-05) was deployed to Vercel production and to AgentCore runtime `layalga_agent-mONXXjFms4` version 21 from the same commit, and all nine release probes passed against production with `--expect-runtime agentcore --expect-email --expect-memory`. v0.5.1 was merged to `main` (`f7e9236`) but never tagged or probed; its changes shipped in v1.0.0. v1.1.0 (main `4e2d733`, tagged 2026-09-09) deployed the same way to AgentCore runtime version 23, but did not complete a full clean nine-probe run -- see the historical decision below for what was verified instead and why. v1.2.0 (main `0545ac0`, tagged 2026-09-09) deployed to AgentCore runtime version 24 and passed all nine release probes cleanly on a second attempt, after an initial attempt hit a self-inflicted testing-cadence collision -- see the historical decision below. v1.2.1 (main `e1ddc1b`, tagged 2026-09-09) deployed to AgentCore runtime version 25; the product owner explicitly authorized proceeding without the automated nine-probe run because the operating environment could not export the production `DATABASE_URL` -- see the historical decision below for what was verified instead. v1.3.0 (main `02dbb35`, tagged 2026-09-10) deployed to AgentCore runtime version 26; a full nine-probe run again did not happen because the operating environment's permission classifier blocked reading the production `DATABASE_URL` pulled via `vercel env pull` (the same class of block as v1.2.1), but a real production `AgentCore` smoke run and direct browser verification substituted -- see the historical decision below. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
+Releases from v0.4.0 through v1.3.11 used the retired demo-based gate: a browser demo driver and nine probes that reset and drove the shared synthetic demo home. v1.3.2 (main `90b6838`, 2026-09-11) is the last release that passed that gate in full, on AgentCore runtime version 30. The historical decisions below record each release and the evidence that substituted when the full gate could not run.
 
-The September 5 completion (cancellation, stay-aligned access, notes, versioned policy, consented guest delivery, preference ranking and guided scenarios) is in production since v1.0.0; guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
+The real-use launch replaces that gate. Demo mode, the demo seed and the demo API routes are removed, so every probe now runs on fixture households that the probe creates and deletes. One probe script serves local CI and production, and `--target` selects the probe set. The new production gate has not run yet; its first run is part of real-use release 1, which needs owner authorization. No command in this playbook grants deployment, rollback, tag, publication, DNS, AWS, or GitHub mutation authority; each release obtains them at the named gates.
+
+Guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
 ## Project adaptation profile
 
-| Area                           | Project value                                                                                                                                                     |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Project                        | L’Ayalga                                                                                                                                                          |
-| Intended repository visibility | Public                                                                                                                                                            |
-| Product type                   | Web application with an agent runtime                                                                                                                             |
-| Package and build system       | pnpm 11 and Next.js 16                                                                                                                                            |
-| Integration branch             | `develop`                                                                                                                                                         |
-| Production branch              | `main`; promoted from `develop` by pull request                                                                                                                   |
-| Merge strategy                 | Squash pull requests                                                                                                                                              |
-| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                                                          |
-| Web deployment                 | Vercel production from `main`, deployed automatically on merge; v1.3.2 verified                                                                                   |
-| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                                                        |
-| Local target                   | Application, local Supabase, demo auth, and scripted model                                                                                                        |
-| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                                                     |
-| Staging target                 | None                                                                                                                                                              |
-| Production target              | `https://layalga.thecreativetoken.com`; v1.3.2 verified through the protected workflow with nine probes on AgentCore                                              |
-| Tests                          | Vitest, local Supabase integration tests, and Playwright                                                                                                          |
-| Primary datastore              | PostgreSQL through Supabase                                                                                                                                       |
-| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                                               |
-| Authentication                 | Invitation links, optional guest claims, Google hosts, and synthetic demo hosts                                                                                   |
-| Notifications                  | In-app reminders and host SES pings; consented guest email implemented locally, production activation pending. SES acceptance is distinct from inbox delivery     |
-| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6 (v1.3.2 evidence). v0.5.0 evidence used Sonnet 4.5; local tests and demo driver are scripted |
-| Release approver               | Product owner                                                                                                                                                     |
-| Rollback authority             | Product owner                                                                                                                                                     |
+| Area                           | Project value                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Project                        | L’Ayalga                                                                                                                              |
+| Intended repository visibility | Public                                                                                                                                |
+| Product type                   | Web application with an agent runtime                                                                                                 |
+| Package and build system       | pnpm 11 and Next.js 16                                                                                                                |
+| Integration branch             | `develop`                                                                                                                             |
+| Production branch              | `main`; promoted from `develop` by pull request                                                                                       |
+| Merge strategy                 | Squash pull requests                                                                                                                  |
+| Release artifact               | Exact Git commit plus matching web and agent deployments                                                                              |
+| Web deployment                 | Vercel production from `main`, deployed automatically on merge                                                                        |
+| Agent deployment               | AgentCore runtime `layalga_agent-mONXXjFms4`, bundle deployed per release by `scripts/deploy-agentcore.sh`                            |
+| Local target                   | Application, local Supabase, real local Supabase sessions on fixture households, and the scripted test model                          |
+| Preview target                 | Disabled for feature/develop branches; no preview deployments                                                                         |
+| Staging target                 | None                                                                                                                                  |
+| Production target              | `https://layalga.thecreativetoken.com`; production probe target on two fixture households                                             |
+| Tests                          | Vitest, local Supabase integration tests, Playwright, and the local release probe target                                              |
+| Primary datastore              | PostgreSQL through Supabase                                                                                                           |
+| Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                   |
+| Authentication                 | Google hosts admitted by `host_identity_claims`, invitation links, and optional guest claims                                          |
+| Notifications                  | In-app reminders and host SES pings; consented guest email implemented, production activation pending. SES acceptance is not delivery |
+| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6. Tests and the local probe target use the scripted model         |
+| Release approver               | Product owner                                                                                                                         |
+| Rollback authority             | Product owner                                                                                                                         |
 
 ## Environment truth
 
-| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                                                                                          |
-| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local       |              No |        Yes |             Yes |            No |          Yes | Google OAuth passed locally; normal evidence uses demo hosts and `MODEL=scripted`                                                                                                                                                                                                                   |
-| CI          |             Yes |         No |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase; no real auth or vendor calls                                                                                                                                                                                                                                |
-| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                                                                                                      |
-| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                                                                                                      |
-| Production  |             Yes |         No |             Yes |       Partial |          Yes | v1.3.2 bound the protected workflow and all nine probes to the exact commit with `--expect-runtime agentcore --expect-email --expect-memory`; Bedrock (Sonnet 4.6), AgentCore, host SES acceptance, and memory recall were verified; Google host sign-in and guest inbox delivery are not exercised |
+| Environment | Exact artifact? | Real auth? | Real datastore? | Real vendors? | Safe writes? | Limitation                                                                                                                                                                                                                   |
+| ----------- | --------------: | ---------: | --------------: | ------------: | -----------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local       |              No |    Partial |             Yes |            No |          Yes | Google OAuth works locally with a claim row; normal evidence uses local Supabase email sessions (`signInAsHost`) and `MODEL=scripted`                                                                                        |
+| CI          |             Yes |    Partial |             Yes |            No |          Yes | Exact checkout with ephemeral Supabase and local Supabase email sessions; no Google or vendor calls                                                                                                                          |
+| Preview     |              No |         No |             Yes |            No | Not verified | Preview deployment is disabled; no preview evidence is claimed                                                                                                                                                               |
+| Staging     |             N/A |        N/A |             N/A |           N/A |          N/A | No staging environment planned                                                                                                                                                                                               |
+| Production  |             Yes |         No |             Yes |       Partial |          Yes | The production probe target binds the exact commit and runs on fixture households through the internal agent route; Bedrock, AgentCore and memory recall are exercised; Google host sign-in and guest inbox delivery are not |
 
 ## Adopted scope
 
@@ -52,32 +54,50 @@ Wave A is mandatory once the application has a release candidate. It must enforc
 - Required checks cannot be excused by quarantine.
 - Evidence names one fixed candidate commit.
 - Web and agent deployment identities match that candidate.
-- Synthetic data cleanup is verified.
+- Fixture household cleanup is verified.
 - The product owner explicitly authorizes deployment and publication.
 - The release tag is the final action.
 
-Wave B exploratory charters are applicable after the first deployed candidate and remain separate Class D work. Waves C through H stay deferred for this deadline-bound hackathon build unless a named change in risk justifies promotion; historical production verification does not make every deferred wave mandatory.
+Wave B exploratory charters are applicable after the first deployed candidate and remain separate Class D work. Waves C through H stay deferred unless a named change in risk justifies promotion; historical production verification does not make every deferred wave mandatory.
 
-## Initial required probes
+## Release probes
 
-The first implementation plan must make these probes executable:
+`scripts/release-probes.ts` runs the probes for one target in order. Each run builds two fixture households from the shared builder (`src/test-support/fixture-household.ts`): `Release probe <run id>` with three rooms, and `Release probe conflict <run id>` with one contested room for the concurrency probe. Probes enqueue work through `POST /api/agent/run` with the `x-layalga-internal` header and drain it through `GET /api/ticks`. No probe uses a browser session or touches a real household.
 
-1. Public application health and deployed identity.
-2. Host capture queues one run, reaches a terminal result, and creates one synthetic tentative invitation.
-3. Guest confirmation creates one hold and one confirmed visit.
-4. A concurrent conflicting confirmation is rejected safely.
-5. A social exception pauses for host approval and resumes through a new queued run exactly once.
-6. Clock-driven reconfirmation follows policy and escalates a non-response.
-7. Unauthorized guest access is denied without exposing another guest.
-8. All run-owned synthetic records are removed.
+| Probe                 | Local | Production | Assertion                                                                                                                                       |
+| --------------------- | :---: | :--------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `health`              |  yes  |    yes     | `/api/health` is `ok`; for a non-local base, the reported commit equals the candidate                                                           |
+| `host-capture`        |  yes  |    yes     | A `host_capture` run for the fixture host completes and creates one tagged tentative invitation; optional runtime and memory assertions (below) |
+| `guest-confirmation`  |  yes  |    yes     | A `guest_submit` run on the captured invitation creates one hold and one confirmation audit                                                     |
+| `concurrent-conflict` |  yes  |    yes     | Two concurrent holds on the one contested room: exactly one wins and the other is rejected safely                                               |
+| `interrupt-resume`    |  yes  |     no     | A policy-triggering request pauses; a recorded host approval resumes it through a new queued run and applies once                               |
+| `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                          |
+| `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                          |
+| `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                   |
+| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                              |
 
-`scripts/release-probes.ts` executes these probes in order. It resets and drives the fixed demo home through the public HTTP surface, creates one probe home tagged with a random run ID for the concurrency check, and deletes only the tagged demo artifacts and that exact tagged probe home. Cleanup runs in `finally` and verifies that the run-owned invitations, runs, sessions, and probe home are gone.
+Cleanup runs in `finally`, also after a failed probe. A run ends in one of three states:
 
-The four-beat assertion is four notifications in total: two party reconfirmation chases and exactly two host escalation notifications. The owner approved this correction, and the plan and executable probe now use the same count.
+- `passed`: every probe for the target passed and cleanup verified zero remaining rows.
+- `PAUSED`: the environment failed (unreachable base, gateway status, dropped database connection, run timeout). The candidate is not disproved; repair the environment and run the same candidate again.
+- `BLOCKED`: an assertion failed on a completed run. The candidate needs a fix.
+
+On any failure the script exits with status 1 and prints the run ID and `pnpm run release:probes -- --cleanup-only <run id>`. That command deletes both fixture households of the run and their tagged artifacts, then exits. Use it when a run stops before its own cleanup finishes.
+
+Options:
+
+- `--target local|production` selects the probe set (default `local`).
+- `--base <url>` selects the application (default `APP_URL`, then `http://127.0.0.1:3008`).
+- `--commit <sha>`, or `EXPECTED_COMMIT_SHA`, is the candidate identity. A non-local base without it fails.
+- `--expect-runtime local|agentcore` asserts `executedOn` on the capture run and, locally, on the resume run.
+- `--expect-memory`, or `MEMORY=agentcore` in the probe environment, asserts a `search_memory` audit row on the capture run.
+- `--cleanup-only <run id>` only removes a run's fixture households.
+
+Omitting an assertion does not prove that the behavior did not happen; it only skips the assertion. The probes need `DATABASE_URL`, `LINK_TOKEN_SECRET`, `AGENT_ROUTE_SECRET` and `TICK_SECRET` for the target. Each probe re-drains the queue every 15 seconds for up to 90 seconds to absorb an AgentCore cold start, then polls the exact run IDs to a terminal state and checks the database. The probe output does not print private guest-link tokens.
 
 ## Executable local verification
 
-Start the local database with `pnpm run db:start`. Retrieve its local API URL and publishable key with `pnpm exec supabase status`; use the publishable key from that local stack, never a hosted project key. Replace the key placeholder below in each terminal. These explicit exports override any `.env.local` values Next.js loads. Email, memory, external scheduling and tracing are disabled for this local evidence path.
+Start the local database with `pnpm run db:start` and reset it with `pnpm run db:reset`. Retrieve its local API URL and publishable key with `pnpm exec supabase status`; use the publishable key from that local stack, never a hosted project key. Replace the key placeholder below in each terminal. These explicit exports override any `.env.local` values Next.js loads. Email, memory, external scheduling and tracing are disabled for this local evidence path.
 
 Start the application with the local runtime and scripted model in one terminal:
 
@@ -86,15 +106,13 @@ export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
 export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54621
 export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='<publishable key from local supabase status>'
 export LINK_TOKEN_SECRET=e2e-link-token-secret-at-least-32-bytes
-export DEMO_SESSION_SECRET=e2e-demo-session-secret-at-least-32-bytes
 export CALENDAR_FEED_SECRET=e2e-calendar-feed-secret-at-least-32-bytes
 export TICK_SECRET=e2e-tick-secret-at-least-32-bytes
 export AGENT_ROUTE_SECRET=e2e-agent-route-secret-at-least-32-bytes
 export CRON_SECRET=e2e-cron-secret-at-least-32-bytes
-export APP_URL=http://localhost:3008
+export APP_URL=http://127.0.0.1:3008
 export AGENT_RUNTIME=local
 export MODEL=scripted
-export DEMO_MODE=true
 export SCHEDULER=none
 export EMAIL=none
 export MEMORY=none
@@ -105,37 +123,18 @@ unset NODE_OPTIONS
 pnpm run dev
 ```
 
-Run the deterministic four-beat demo and all nine probes from another terminal:
+Run the browser tests and the local probe target from another terminal with the same exports:
 
 ```bash
-export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54622/postgres
-export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54621
-export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='<publishable key from local supabase status>'
-export LINK_TOKEN_SECRET=e2e-link-token-secret-at-least-32-bytes
-export DEMO_SESSION_SECRET=e2e-demo-session-secret-at-least-32-bytes
-export CALENDAR_FEED_SECRET=e2e-calendar-feed-secret-at-least-32-bytes
-export TICK_SECRET=e2e-tick-secret-at-least-32-bytes
-export AGENT_ROUTE_SECRET=e2e-agent-route-secret-at-least-32-bytes
-export CRON_SECRET=e2e-cron-secret-at-least-32-bytes
-export APP_URL=http://localhost:3008
-export AGENT_RUNTIME=local
-export MODEL=scripted
-export DEMO_MODE=true
-export SCHEDULER=none
-export EMAIL=none
-export MEMORY=none
-export OTEL_SDK_DISABLED=true
-export AWS_EC2_METADATA_DISABLED=true
-export AGENT_EXECUTION_RUNTIME=
-unset NODE_OPTIONS
-pnpm run demo:e2e -- --base http://localhost:3008
-pnpm run release:probes -- --base http://localhost:3008
+pnpm run test:e2e
+pnpm run release:probes -- --target local --base http://127.0.0.1:3008
 ```
 
-For production, use the manually dispatched `Production probes` workflow after
-the workflow exists on `main`. The `production-probes` environment must have the
-product owner as a required reviewer and an exact `main` deployment-branch
-policy. It holds these environment-scoped secrets:
+The CI `acceptance` job runs the same two commands against an exact checkout and an ephemeral Supabase stack.
+
+## Production gate
+
+The production gate is the manually dispatched `Production probes` workflow (`.github/workflows/production-probes.yml`). It runs `release:probes --target production --expect-runtime agentcore` against `https://layalga.thecreativetoken.com` with `MEMORY=agentcore`, so the memory assertion applies. The `production-probes` environment must have the product owner as a required reviewer and an exact `main` deployment-branch policy. It holds these environment-scoped secrets:
 
 | Secret                    | Exact source                                                          |
 | ------------------------- | --------------------------------------------------------------------- |
@@ -144,111 +143,48 @@ policy. It holds these environment-scoped secrets:
 | `PROD_AGENT_ROUTE_SECRET` | Vercel production `AGENT_ROUTE_SECRET`                                |
 | `PROD_TICK_SECRET`        | Vercel production `TICK_SECRET`                                       |
 
-Rotate the matching environment secret whenever one of those Vercel production
-values rotates. In particular, an outdated `PROD_LINK_TOKEN_SECRET` would make
-the cleanup step replace the demo guests' link hashes with values the deployed
-application cannot open.
+Rotate the matching environment secret whenever one of those Vercel production values rotates. An outdated `PROD_LINK_TOKEN_SECRET` makes the fixture guest-link hashes differ from what the deployed application expects, and an outdated route or tick secret makes the probes fail authentication.
 
 Dispatch the workflow from `main` with two inputs:
 
 - `commit`: the full 40-character SHA reported by the production health route.
-- `acknowledge`: the exact value `RESET DEMO DATA`.
+- `acknowledge`: the exact value `WRITE PROBE FIXTURE`.
 
-The run name and acknowledgement description state the blast radius before the
-required-reviewer decision. The workflow then validates the acknowledgement,
-the full SHA, the selected `main` ref, and the live production identity before
-it checks out or executes candidate code. It rechecks the healthy live identity
-immediately before the secret-bearing demo starts, closing the deployment-change
-window created by dependency and browser installation. It installs Chromium,
-runs the demo and all nine probes sequentially, and binds the assertions to
-AgentCore, SES, and AgentCore Memory. Only the final probe step receives the four
-production secrets.
-
-Once the workflow is present on `main`, dispatch it with:
+The acknowledgement states the blast radius before the required-reviewer decision: the run creates two fixture households, `Release probe <run id>` and `Release probe conflict <run id>`, and deletes them. It never reads or writes the real household, because every probe row lives under the fixture homes and cleanup deletes by exact ID and name. The workflow validates the acknowledgement, the full SHA, the selected `main` ref, and the live production identity before it checks out or executes candidate code. It checks the healthy live identity again immediately before the probe step, which is the only step that receives the four production secrets. It installs no browser.
 
 ```bash
 gh workflow run production-probes.yml \
   --ref main \
   -f commit=<candidate-sha> \
-  -f acknowledge='RESET DEMO DATA'
+  -f acknowledge='WRITE PROBE FIXTURE'
 ```
 
-The workflow first proved this contract for v1.3.2 in the authorized
-[production run](https://github.com/juan294/layalga/actions/runs/34583050263).
-It checked out the exact `main` candidate, ran the guided demo and all nine
-probes, and verified cleanup. The standing v1.3.1 follow-up is closed.
+If a run stops before cleanup, its log prints the run ID. `--cleanup-only` needs only the production `DATABASE_URL`. Running it from a workstation is a production write and needs owner authorization:
+
+```bash
+pnpm run release:probes -- --cleanup-only <run id>
+```
+
+Read a failed run's state before acting. `PAUSED` allows the same candidate to be dispatched again after the environment is repaired. `BLOCKED` needs a fixed candidate. The production `guest-confirmation` probe has so far run only against the scripted model; if Bedrock returns an `interrupted` result, examine the run before treating it as a candidate defect (review note P2-R6 in the [implementation notes](../plans/2026-10-15-real-use-launch-notes.md)).
+
+Open owner decision P2-R1: each production run writes AgentCore Memory events for its fixture parties. Database cleanup deletes the parties, but the long-term memory records extracted under `/parties/home-<fixture home>/party-<id>` remain; raw events expire after 30 days. About four actors accrue per run. They are scoped to the fixture homes, so the real household does not read them. The options are to accept them and forget probe actors periodically, to grant the workflow a narrow AWS role that forgets fixture parties before cleanup, or to run the production gate without the memory assertion. The decision is open; until it is taken, each production run adds these records.
 
 ### Production workflow release-system impact
 
-- **Risk class (A/B/C/D/E):** A and B. This makes the existing Wave A candidate
-  defect, exact-identity, and cleanup controls executable from a protected
-  environment. It adds no new probe or semantic release requirement.
-- **Unique production risk prevented:** A candidate cannot be published after
-  only local scripted-runtime coverage when its real AgentCore, SES, memory,
-  concurrency, policy, or cleanup behavior is defective, and the evidence cannot
-  silently describe a commit different from the live web and selected `main`
-  candidate.
-- **Existing controls that already cover part of this risk:** Pull-request CI
-  runs the same demo and probes against an exact checkout, ephemeral Supabase,
-  local agent runtime, and scripted model. Production health identity, AgentCore
-  smoke runs, direct browser checks, and datastore inspection supplied partial
-  evidence for the three releases where the workstation could not run the full
-  gate.
-- **Why this must be synchronous (if Class A/B):** The playbook already requires
-  Wave A after both production targets deploy and before tag publication. Earlier
-  production probe runs rejected real candidates for model and timeout defects
-  that local CI could not observe. Identity and cleanup are release-completion
-  facts rather than asynchronous monitoring signals.
-- **Added local critical-path time:** None during a release. Workflow lint and
-  bootstrap verification apply when its source changes, while local demo and
-  probe commands remain unchanged.
-- **Added remote critical-path time / workflows / deployments:** One manually
-  dispatched job per production candidate, with no added deployment. The existing
-  nine-probe portion has a measured 3-to-4-minute budget; dependency setup,
-  Chromium installation, and the standalone demo add unmeasured first-run time.
-  The complete job has a 30-minute hard timeout, and its first successful duration
-  must be recorded before claiming a percentile budget.
-- **Added external dependencies:** GitHub Actions, its protected environment and
-  hosted runner, Vercel production health, the production Supabase database,
-  AgentCore, SES, and AgentCore Memory.
-- **Added evidence objects:** One Actions run URL with immutable workflow inputs,
-  logs, job summary, nine probe results, and the probe script's cleanup assertion.
-- **Same-candidate recovery behavior if this gate fails:** A runner, CLI, network,
-  cold-start, or provider-observer failure is `PAUSED`; repair it, allow the
-  documented cooldown where needed, and resume the same candidate. A reproduced
-  candidate defect after promotion requires `ROLLED_BACK` and a new candidate. A
-  successful production proof whose tag or documentation update remains is
-  `PUBLICATION_PENDING` and must not redeploy.
-- **Control this replaces or consolidates, if any:** It replaces the workstation
-  production-secret invocation and the partial health, smoke, browser, and direct
-  datastore substitutes used for v1.2.1 through v1.3.1. It does not duplicate or
-  replace local CI because that lane proves a different datastore, runtime, model,
-  email, and memory configuration.
-
-The release probe refuses a non-local target without a commit identity. Both
-scripts require `DATABASE_URL` for authoritative final-state checks. Concurrent
-probe calls must receive distinct queued acknowledgements. The probe performs
-one authorized queue drain, re-draining every 15 seconds for up to 90 seconds
-to absorb an AgentCore cold start, polls those exact run IDs to terminal states,
-and then verifies the database result. The demo script does not print private
-guest-link tokens.
-
-Three flags assert facts the process cannot otherwise observe on a remote target, because the probe process does not share the deployed environment:
-
-- `--expect-runtime local|agentcore` asserts `executedOn` on the probe 5 resume run and the probe 2 capture run.
-- `--expect-email` asserts one `sent` `host_email_pings` row per host after the pending-decision beat and after the escalation beat (two hosts, so two rows each); omit it when `EMAIL=none` on the target.
-- `--expect-memory` asserts a `search_memory` `tool_call` audit row on the probe 2 capture run; omit it when `MEMORY=none` on the target.
-
-Omitting an assertion does not prove the corresponding behavior did not happen;
-it only skips that assertion. The production workflow sets `EMAIL=ses` and
-`MEMORY=agentcore` for their environment-driven assertions and passes
-`--expect-runtime agentcore` explicitly. Enable all three only when the target's
-environment is known to have `AGENT_RUNTIME=agentcore`, `EMAIL=ses`, and
-`MEMORY=agentcore` set.
+- **Risk class (A/B/C/D/E):** A for `host-capture`, `guest-confirmation`, `concurrent-conflict` and `guest-isolation`, each of which stops a candidate that breaks a core journey or exposes a guest. B for `health` (exact identity) and `cleanup` (recovery).
+- **Unique production risk prevented:** The production gate is the only layer that runs the candidate against AgentCore, Bedrock and the production database roles. A candidate cannot be published after only local scripted-runtime coverage, and the evidence cannot silently describe a commit different from the live web deployment and the selected `main` candidate.
+- **Existing controls that already cover part of this risk:** Pull-request CI runs Playwright and all nine local-target probes against an exact checkout, ephemeral Supabase, the local agent runtime and the scripted model. The interrupt-resume, reconfirmation and room-coordination probes stay in that local lane and in integration tests.
+- **Why this must be synchronous (if Class A/B):** Wave A requires it after both production targets deploy and before tag publication. Earlier production runs rejected real candidates for model and timeout defects that local CI could not observe.
+- **Added local critical-path time:** None.
+- **Added remote critical-path time / workflows / deployments:** One manually dispatched job per production candidate, with no added deployment. It is shorter than the retired gate, which drove a browser through the demo for about 8 minutes per run. The job has a 30-minute hard timeout; record the first measured duration before claiming a budget.
+- **Added external dependencies:** None beyond the retired gate. The workflow no longer needs Chromium.
+- **Added evidence objects:** One Actions run URL with immutable workflow inputs, logs, job summary and the probe report, including the cleanup assertion.
+- **Same-candidate recovery behavior if this gate fails:** `PAUSED` resumes the same candidate after repair. A reproduced candidate defect after promotion requires `ROLLED_BACK` and a new candidate. A successful production proof whose tag or documentation update remains is `PUBLICATION_PENDING` and must not redeploy.
+- **Control this replaces or consolidates, if any:** It replaces the nine-probe gate and the `demo:e2e` browser driver in `production-probes.yml`.
 
 ## Database runtime readiness
 
-Apply all migrations through `20260905000700_guest_delivery_recovery_indexes.sql` for the September 5 candidate before the web candidate starts. Follow [the runtime database and identity runbook](runtime-database-and-identity.md) to set unique passwords for `layalga_web` and `layalga_agent`, configure each deployment with its service-specific non-owner `DATABASE_URL`, and verify grants with `current_user`. A production URL that starts with the database owner is a release blocker.
+Follow [the runtime database and identity runbook](runtime-database-and-identity.md) to set unique passwords for `layalga_web` and `layalga_agent`, configure each deployment with its service-specific non-owner `DATABASE_URL`, and verify grants with `current_user`. A production URL that starts with the database owner is a release blocker.
 
 The queue recovers expired run leases and permits bounded attempts. Scheduled jobs retry after one minute and five minutes. A third failure changes the job to `quarantined`; inspect and replay it with the same runbook. Do not replay queued or running work.
 
@@ -257,20 +193,36 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 1. Obtain explicit release authorization.
 2. Confirm a clean worktree and the documented branch topology.
 3. Fix one candidate commit and record it in the release evidence.
-4. Run typecheck, lint, targeted tests, full tests, and build sequentially.
+4. Run typecheck, lint, targeted tests, full tests, integration tests, browser tests, the local probe target and build sequentially.
 5. Stop if no required check passed or any required check failed or skipped.
 6. Apply the candidate migrations (`supabase db push --linked`) and verify the separate runtime database roles. Do this before merging the release pull request into `main`: the merge itself deploys the web app, and a web candidate that starts before its migrations runs new code against the old schema (this happened for about four minutes during the v1.0.0 candidate 1 deploy).
 7. Deploy the exact candidate to both authorized production targets: merge to `main` for the Vercel web deployment, and build the AgentCore runtime bundle from the same commit with `scripts/deploy-agentcore.sh --profile archy`. A candidate whose agent bundle lags the web deployment is not one candidate. If branch protection reports the pull request head as not up to date, run `gh pr update-branch <number>` so GitHub merges `main` into `develop`, then wait for the checks again.
 8. Verify the deployed identity against the candidate.
-9. Dispatch the `Production probes` workflow from `main` for the exact deployed
-   candidate, approve its `production-probes` environment gate, and require all
-   nine probes plus synthetic cleanup to pass.
-10. Verify datastore state, queue completion, interrupt behavior, notification outcome, and cleanup.
+9. Dispatch the `Production probes` workflow from `main` for the exact deployed candidate with `WRITE PROBE FIXTURE`, approve its `production-probes` environment gate, and require every production probe, including cleanup, to pass.
+10. Verify the datastore state, queue completion and that no fixture household remains.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
 13. Create and push the named tag last through `/release`.
 
+## Real-use launch releases
+
+The real-use launch ([plan](../plans/2026-10-15-real-use-launch.md)) removes demo mode in two releases. Schema removal needs two steps because migrations run before the web deploy and AgentCore deploys separately: dropping `homes.demo` while the old web app or the old AgentCore bundle still reads it would break live requests. Neither release has run. Every production action in them needs explicit owner authorization at the time it runs.
+
+Release 1 (expand) follows the release procedure above, with these additional actions ([phase 5](../plans/2026-10-15-real-use-launch-phases/phase-5.md)):
+
+- Read-only preflight: repeat the household counts. Any visit, or any home other than `…0001`, stops the release and goes to the owner.
+- Confirm that the Google OAuth client is published "In production" and lists the Supabase callback URI.
+- Disable the email provider in hosted Supabase Auth, keep Google enabled, and check that `/auth/v1/settings` reports `email: false` and `google: true`.
+- Remove `DEMO_MODE` and `DEMO_SESSION_SECRET` from Vercel production.
+- Run `pnpm run forget-synthetic-memory` against the production AgentCore Memory store to remove the synthetic Vega and Parker records.
+- Apply the conversion migration with `supabase db push --linked` before the merge. Home `…0001` then has `demo = false`, no parties, invitations or rooms, two hosts and two claims.
+- After the deploy and the production gate, the owner signs in with Google and reaches the empty household dashboard.
+
+Release 2 (contract) starts only after release 1's AgentCore runtime version is recorded ([phase 6](../plans/2026-10-15-real-use-launch-phases/phase-6.md)). A preflight script refuses to continue unless the deployed runtime version matches that record. The contract migration fails while any home has `demo = true`. It redefines the retention function without its demo predicates and drops `homes.demo`, `demo_clock`, the demo mutation tables, `review_access_events` and `private.restore_demo_identity_claims()`. Release 2 then follows the normal procedure and production gate.
+
 ## Historical release decision
+
+These decisions describe releases made with the retired demo-based gate. They name the demo driver, the demo home and the nine probes as they existed at the time.
 
 RELEASED. v1.0.0 passed every gate on 2026-09-05 on the second candidate: CI green, both deployment identities on `0f1fcf2` (web on Vercel, AgentCore runtime version 21), migrations `20260905000100` through `20260905000700` applied during candidate 1, nine production probes passed with `--expect-runtime agentcore --expect-email --expect-memory`, cleanup verified, tag pushed last. Candidate 1 (`2641297`) was rejected by probe 2 for two Sonnet 4.6 behaviors found in CloudWatch traces: the model dropped the probe tag when restating the host message into `capture_invitation`, which broke the probe's `raw_message` matching, and it called `capture_invitation` again after a success, creating duplicate invitations. The harness now identifies invitations through the run payload and the capture audit row, and the tool reuses the run's existing invitation; both fixes shipped on `develop` before candidate 2. Full evidence: `docs/agents/release-v1.0.0-report.md` (local, gitignored).
 
@@ -342,12 +294,13 @@ aws bedrock-agentcore-control update-agent-runtime \
 
 `scripts/deploy-agentcore.sh --profile archy --s3-version-id <previous-version-id>` performs the same rollback without hand-building the artifact and lifecycle JSON, reusing the runtime env already in `.env.agentcore`. Record the target `versionId` from [ADR 0002](../decisions/0002-agent-runtime.md)'s per-release addenda before rolling back; each release records the prior bundle's S3 object version there.
 
-After either rollback, verify restored identity and probe 1 before any other probe:
+After either rollback, verify restored identity before any other probe. Then run the production probe target, preferably through the `Production probes` workflow; a direct run needs the four production values from the production gate section:
 
 ```bash
 curl --fail --silent --show-error \
   https://layalga.thecreativetoken.com/api/health
 pnpm run release:probes -- \
+  --target production \
   --base https://layalga.thecreativetoken.com \
   --commit <restored-candidate-sha>
 ```
@@ -439,7 +392,7 @@ budget as requiring the impact section above, not silent acceptance. No percenti
 - Pull request CI (unit, integration, acceptance, CodeQL, dependency review): 8 to 9 minutes per head; a `develop` → `main` release pull request ran it twice because `gh pr update-branch` created a new head.
 - Merge to `main` → Vercel production reports the new commit at `/api/health`: about 2 minutes.
 - `scripts/deploy-agentcore.sh` (bundle, upload, runtime update, READY): about 3 minutes.
-- One full nine-probe run against production: 3 to 4 minutes.
+- One full run of the retired nine-probe gate against production: 3 to 4 minutes.
 - Whole release, two candidates, from the version-bump pull request to the tag: about 3 hours 40 minutes, most of it the candidate-1 investigation.
 
 Serial remote workflows per candidate: two pull requests (fix or prep → `develop`, `develop` → `main`). Production deployment attempts: two candidates.

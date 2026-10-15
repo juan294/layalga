@@ -2,7 +2,7 @@
 
 Published on AWS Builder Center: [Deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent). The article describes behavior proven in production v1.3.2 commit `90b68385`; the v1.3.10 run-result presentation fix does not change the architecture discussed here.
 
-![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../../architecture/layalga-aws-blog-architecture.drawio.png)
 
 ## A booking needs more than a plausible answer
 
@@ -20,7 +20,7 @@ An explicit request or a documented overflow arrangement can require host review
 
 ## The Strands hook
 
-[`installPolicyHook`](../../../src/agent/policy-hook.ts) subscribes to SDK tool-call events for hold creation, confirmation and rescheduling. It loads the trusted draft and room selection, evaluates policy and writes an audit verdict. It can cancel the tool call on denial or use `event.interrupt` to pause for a host.
+[`installPolicyHook`](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/policy-hook.ts) subscribes to SDK tool-call events for hold creation, confirmation and rescheduling. It loads the trusted draft and room selection, evaluates policy and writes an audit verdict. It can cancel the tool call on denial or use `event.interrupt` to pause for a host.
 
 The model cannot provide its own `approvedBy`, silently replace the selected rooms, or invent consent. On resume, the application reloads the current state and checks the proposal again. A decision made against old policy or a room arrangement that has changed is not sufficient authority to book now.
 
@@ -36,8 +36,8 @@ Memory follows the same principle. Supported remembered preferences can rank val
 
 ## What the tests establish
 
-The [policy refresh tests](../../../src/agent/policy-hook-refresh.test.ts), [settings integration tests](../../../src/core/policy/settings.integration.test.ts), [tenant tests](../../../src/agent/tenant-scope.test.ts) and [guest preference integration tests](../../../src/core/booking/guest-preferences.integration.test.ts) exercise these boundaries. The [coordination evidence](../coordination-evidence.md) records actual local scripted workflow operations and outcomes.
+The [policy refresh tests](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/policy-hook-refresh.test.ts), [settings integration tests](https://github.com/juan294/layalga/blob/v1.3.11/src/core/policy/settings.integration.test.ts), [tenant tests](https://github.com/juan294/layalga/blob/v1.3.11/src/agent/tenant-scope.test.ts) and [guest preference integration tests](https://github.com/juan294/layalga/blob/v1.3.11/src/core/booking/guest-preferences.integration.test.ts) exercise these boundaries. The [coordination evidence](../coordination-evidence.md) records actual local scripted workflow operations and outcomes.
 
-These checks do not establish human time savings or live-model quality. Raw host and guest-change text can contain personal information, even though guest-submission fields and web-owned contact data have stricter boundaries. The [Strands guide](../strands-usage.md) and [data lifecycle](../../security/data-lifecycle.md) describe that distinction.
+These checks do not establish human time savings or live-model quality. Raw host and guest-change text can contain personal information, even though guest-submission fields and web-owned contact data have stricter boundaries. The [Strands guide](../strands-usage.md) and [data lifecycle](../../../security/data-lifecycle.md) describe that distinction.
 
 The practical lesson is to make policy a reusable service, connect it to the agent at the point of action, and test the race between a reasonable proposal and a changed world.

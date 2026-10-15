@@ -30,7 +30,7 @@ The Strands Agents TypeScript SDK supplies the agent loop, typed tools, a policy
 
 Next.js queues work and presents English/Spanish host and guest journeys. Each AgentCore invocation stays open until its claimed work settles. Operational claims, heartbeats, deadlines and recovery use PostgreSQL wall time, while the synthetic household clock drives only the visible visit scenario. Supabase PostgreSQL remains authoritative for rooms, invitations, bookings, policy versions, decisions, jobs and capabilities. Non-owner database roles separate web delivery authority from agent execution. The agent cannot read guest contact addresses or send guest email. SES delivery is implemented through a web-owned outbox with authorized attempt receipts.
 
-Raw host text can contain names and is processed by the model. Capture conversations are excluded from memory extraction. Guest-submission notes, arrival details and request prose stay out of assembled model prompts; memory recommendations use a bounded, party-scoped read. See the [privacy lifecycle](../security/data-lifecycle.md) for the boundaries and retention rules.
+Raw host text can contain names and is processed by the model. Capture conversations are excluded from memory extraction. Guest-submission notes, arrival details and request prose stay out of assembled model prompts; memory recommendations use a bounded, party-scoped read. See the [privacy lifecycle](../../security/data-lifecycle.md) for the boundaries and retention rules.
 
 ## Challenges and lessons
 
@@ -46,7 +46,7 @@ The [synthetic benchmark](coordination-evidence.md) records actual automated ope
 
 ## What comes next
 
-After the hackathon, the next major product direction is expanding the existing bounded WebMCP progressive enhancement so guests can coordinate through broader agent-facing experiences. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`, and all normal controls work without it. Other remaining work is guest-email activation with a consenting real-recipient proof and a measured participant study. The [guest email readiness checklist](../release/guest-email-readiness.md) identifies the unapplied permission and operational verification.
+After the hackathon, the next major product direction is expanding the existing bounded WebMCP progressive enhancement so guests can coordinate through broader agent-facing experiences. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`, and all normal controls work without it. Other remaining work is guest-email activation with a consenting real-recipient proof and a measured participant study. The [guest email readiness checklist](../../release/guest-email-readiness.md) identifies the unapplied permission and operational verification.
 
 Broader channels such as WhatsApp/SMS and changing rooms midway through a stay remain deferred ideas. Household policy configuration, consented guest reminders, cancellation and remembered room recommendations are already implemented and are not future roadmap promises.
 
@@ -55,7 +55,7 @@ Broader channels such as WhatsApp/SMS and changing rooms midway through a stay r
 - [Canonical judge guide](judge-guide.md): repository-only review and reproducible synthetic journey.
 - [Live site](https://layalga.thecreativetoken.com): v1.3.10 release; broader coordination behavior was proven with the v1.3.2 candidate at commit `90b68385`.
 - [Public repository](https://github.com/juan294/layalga): MIT licensed.
-- [Architecture](../architecture/README.md), [host manual](../guides/host-manual.md), [guest manual](../guides/guest-manual.md).
+- [Architecture](../../architecture/README.md), [host manual](../../guides/host-manual.md), [guest manual](../../guides/guest-manual.md).
 - AWS Builder Center: [deterministic household policy](https://builder.aws.com/content/3JDQAfyHGB6qjJ0jAxwcnaCdRUk/agents-for-humans-deterministic-household-policy-under-a-strands-agent), [durable interrupts](https://builder.aws.com/content/3JDQsaSl4Yucs12mbJpXOyRCj5b/agents-for-humans-durable-interrupts-for-household-decisions), and [proactive follow-through](https://builder.aws.com/content/3JDR9dE9hJBcB4SItqBUl0GqL01/agents-for-humans-testing-proactive-follow-through-with-an-honest-clock).
 - Audio overviews: [SoundCloud playlist](https://soundcloud.com/juan-gonzalez-72390307/sets/layalga).
 - [Public demo video](https://youtu.be/-D3GvJ88-40): 3 minutes 11 seconds, within the official five-minute limit.

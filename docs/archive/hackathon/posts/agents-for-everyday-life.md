@@ -4,7 +4,7 @@ This weekend, I’m submitting my newest project, [L’Ayalga](https://layalga.t
 
 L’Ayalga coordinates visits to shared homes. Hosts invite, guests choose suitable rooms, and everyone can track changes, requests and follow-up.
 
-![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../architecture/layalga-aws-blog-architecture.drawio.png)
+![L’Ayalga AWS architecture: a Next.js web app invokes AgentCore Runtime with Amazon Bedrock, AgentCore Memory, S3 deployment bundles, IAM, ADOT, CloudWatch, X-Ray, SES, and authoritative PostgreSQL state.](../../../architecture/layalga-aws-blog-architecture.drawio.png)
 
 But the bigger idea is not about guest rooms. It is about how agents can become useful in everyday life.
 
@@ -72,7 +72,7 @@ Everyday work continues after the first action. Plans need confirmation. Unanswe
 #### **6. [AWS Distro for OpenTelemetry](https://aws-otel.github.io/), [CloudWatch](https://aws.amazon.com/cloudwatch/) and [AWS X-Ray](https://aws.amazon.com/xray/)**
 
 - **Components used:** AWS Distro for OpenTelemetry automatic instrumentation, AgentCore CloudWatch log groups, [CloudWatch Transaction Search](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Transaction-Search.html) and X-Ray tracing.
-- **Value added:** The observability pipeline separates model time from tool execution, records token use and helps diagnose failed or slow runs. The [documented production trace](https://github.com/juan294/layalga/blob/main/docs/submission/assets/agentcore-trace.png) used 100% sampling and captured one host-invitation run with 10,538 total tokens. That is evidence from one traced operation, not a general token average.
+- **Value added:** The observability pipeline separates model time from tool execution, records token use and helps diagnose failed or slow runs. The [documented production trace](https://github.com/juan294/layalga/blob/main/docs/archive/hackathon/assets/agentcore-trace.png) used 100% sampling and captured one host-invitation run with 10,538 total tokens. That is evidence from one traced operation, not a general token average.
 
 ---
 

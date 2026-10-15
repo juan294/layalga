@@ -7,7 +7,7 @@ The application must not use the Supabase `postgres` owner credential outside th
 | Vercel web and local agent runtime | `layalga_web`   | `layalga_web_runtime`   |
 | AgentCore runtime                  | `layalga_agent` | `layalga_agent_runtime` |
 
-The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role can insert and delete host rows for the synthetic demo reset, but it can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
+The roles cannot create roles or databases, bypass RLS, replicate, use the `auth` schema, create objects in `public`, or run the retention function. The web role can read prepared host mappings and update only their `auth_user_id` and `claimed_at` claim-state columns. It cannot insert or delete mappings or update their email, host, or home columns. The web role still holds the insert and delete grants on host rows that the removed demo reset used (`20260831001100_secure_invitation_identity.sql`); no application code uses them. It can update only `hosts.auth_user_id`; the application claim transaction still verifies the immutable email-to-host mapping, and unique constraints reject duplicate user claims. The agent role has read-only host access. `src/core/db/client.ts` rejects a remote `postgres` or `postgres.<project-ref>` URL before opening a connection.
 
 Migration `20260831083526_agent_first_room_coordination.sql` narrows `layalga_agent_runtime`'s room access further: `select` on a restricted column subset of `rooms` (no `private_notes`), `select` and `delete` plus column-scoped `insert` on `visit_rooms`, and `select` and `insert` on `room_action_proposal_rooms`. It grants no access to `private_room_blocks` or write access to `room_availability_overrides` — those stay host-only through `layalga_web`. The agent can only ever create a pending room-action proposal; applying one still runs through a host-authenticated web action.
 
@@ -27,7 +27,7 @@ IAM documents govern what each identity can call outside the database:
 | `infra/iam/agentcore-runtime-trust.json` / `infra/iam/agentcore-runtime-execution.json` | `layalga-agentcore-runtime` (IAM role, assumed by the runtime) | The runtime's own Bedrock model invocation, X-Ray, and CloudWatch metrics permissions                                                                                                                                                                                                |
 | `infra/iam/web-ses-policy.json`                                                         | `layalga-web`                                                  | `ses:SendEmail`/`ses:SendRawEmail` on the `thecreativetoken.com` identity, conditioned on `ses:FromAddress = noreply@layalga.thecreativetoken.com` and `ses:Recipients` pinned to the two host addresses                                                                             |
 | `infra/iam/memory-data-plane.json`                                                      | `layalga-web` and inline on `layalga-agentcore-runtime`        | Memory data-plane actions on the single household resource; includes exact-party reads for deterministic room recommendations                                                                                                                                                        |
-| `infra/iam/web-ses-guest-policy.json` — prepared, not applied                           | `layalga-web` only, after separate authorization               | `ses:SendEmail` scoped to the existing verified identity and sender; application consent, verification, source and synthetic guards restrict guest eligibility                                                                                                                       |
+| `infra/iam/web-ses-guest-policy.json` — prepared, not applied                           | `layalga-web` only, after separate authorization               | `ses:SendEmail` scoped to the existing verified identity and sender; application consent, verification and source checks restrict guest eligibility                                                                                                                                  |
 
 The web IAM user can invoke the model/runtime and send host email; guest sender permission is prepared separately and remains unapplied by this implementation. It never holds an AgentCore workload identity token. The runtime role can call the model and write traces/metrics; it does not hold SES or guest-contact table rights. See [guest email readiness](guest-email-readiness.md) for activation and evidence boundaries.
 
@@ -99,7 +99,21 @@ where host.id = :'host_id'::uuid;
 
 Run this only through the administrative connection. The web role can read and claim a prepared mapping, but it cannot insert, delete, or redirect one. Existing claimed users are backfilled from `auth.users`. Duplicate user claims, conflicting emails, and missing mappings fail closed.
 
-Juan González and Jordan Lynn are the two stable host identities. The demo uses those same two host rows, so reminders still have exactly two recipients. The migration and every demo-reset path restore both email mappings and preserve an existing Google auth binding.
+Juan González and Jordan Lynn are the two stable host identities (`…0201` and `…0202`) of the real household, home `00000000-0000-4000-8000-000000000001`. The real-use conversion migration keeps both host rows, their claim rows and any existing Google auth binding; it deletes only the synthetic guests, invitations, rooms and demo clock. Host email pings reach only the two addresses that `infra/iam/web-ses-policy.json` allows.
+
+To add another host, insert a host row first, then provision its claim with the statement above. The display name must be unique in the household:
+
+```sql
+insert into public.hosts (home_id, display_name, locale)
+values (
+  '00000000-0000-4000-8000-000000000001'::uuid,
+  :'display_name',
+  'en'
+)
+returning id;
+```
+
+The person's first Google sign-in binds their auth user to the host row and the claim. A claim for a host that another auth user already holds fails closed with a claim conflict. For local development, insert a claim for your own Google email against one of the two local seed hosts; the seeded claims use placeholder `example.com` addresses.
 
 Verify the mapping without printing the email:
 
@@ -139,4 +153,4 @@ The statement must return exactly one row. The next cron invocation can claim th
 
 The host panel reports per-visit contact/delivery state separately from reply state. `sent` means the provider accepted a send; it does not prove inbox delivery. `unknown` means a send reached authorization but no reliable provider outcome was recorded. Inspect the exact outbox source and its `guest_email_attempts` receipts through an authorized operator connection without printing contact addresses or capabilities. Never reset an authorized/unknown attempt to queued merely to clear the panel. The dispatcher recovers accepted receipts without resending and reclaims expired claims only when they never reached authorization.
 
-Cancellation, contact changes and final send authorization share the home lock. Withdrawal suppresses future authorizations; an authorized in-flight email cannot be recalled. Before treating missing reminders as a scheduler fault, distinguish no contact, unverified consent, disabled email, invalid invitation access, not-yet-due work, provider failure and guest silence. Synthetic homes intentionally send no guest email, including verification.
+Cancellation, contact changes and final send authorization share the home lock. Withdrawal suppresses future authorizations; an authorized in-flight email cannot be recalled. Before treating missing reminders as a scheduler fault, distinguish no contact, unverified consent, disabled email, invalid invitation access, not-yet-due work, provider failure and guest silence.

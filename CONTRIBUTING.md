@@ -24,7 +24,7 @@ pnpm run test
 pnpm run build
 ```
 
-Database-backed tests, browser tests, the demo driver, and release probes require the local Supabase stack and synthetic demo seed. Follow `CLAUDE.md` for the exact commands and safety contracts. The [synthetic benchmark](docs/submission/coordination-evidence.md) records automation measurements separately from the [human participant protocol](docs/submission/participant-protocol.md).
+Database-backed tests, browser tests and release probes require the local Supabase stack. They create and delete their own fixture households; the release probes also need a running local dev server. Follow `CLAUDE.md` for the exact commands and safety contracts.
 
 Use lowercase Conventional Commits:
 
