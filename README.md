@@ -29,7 +29,7 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 
 The [documentation index](docs/README.md) lists every current document. The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates released work from the remaining steps. L’Ayalga began as an AWS Agents for Humans hackathon entry; the [hackathon archive](docs/archive/hackathon/README.md) keeps the submission material, which describes the judged demo as of 2026-10-14.
 
-Production runs v2.0.0 (2026-10-15), real-use release 1, at commit `e0cb4d1242c777b92a0e3a841081960b174afdbd` with AgentCore runtime version 38. Demo mode is gone: hosts sign in with Google, and the household starts with no rooms. The release passed the production probe gate on fixture households. Release 2, which drops the leftover demo schema, has not run. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
+Production runs v2.1.0 (2026-10-15) at commit `ed6c574a335124767ba91506d1c46a2e5ed50348` with AgentCore runtime version 39. Demo mode is gone: hosts sign in with Google, invited guests can sign in with the Google account that claimed their invitation, and the household starts with no rooms. The release passed the production probe gate on fixture households. Release 2, which drops the leftover demo schema, has not run. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
 
 [![Simplified L’Ayalga AWS architecture](docs/architecture/layalga-aws-blog-architecture.drawio.png)](docs/architecture/layalga-aws-blog-architecture.drawio)
 

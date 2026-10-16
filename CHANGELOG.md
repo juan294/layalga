@@ -4,6 +4,20 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-16
+
+Real-use launch, release 2 (contract): phase 6 of the [plan](docs/plans/2026-10-15-real-use-launch.md). It removes the demo schema that release 1 left in place.
+
+### Removed
+
+- The demo schema: `homes.demo`, `demo_clock`, `demo_mutation_leases`, `demo_mutation_limits`, `private.review_access_events` and `private.restore_demo_identity_claims()`. The migration stops if any home still has `demo = true`. The web runtime role loses `usage` on the `private` schema.
+- The demo predicates in the data retention function, which now applies the same thresholds to every home.
+- `pnpm run forget-synthetic-memory`, which was needed only for release 1.
+
+### Added
+
+- `pnpm run contract:preflight -- --runtime-id <id> --expected-version <n>`, which stops unless the AgentCore DEFAULT endpoint is READY and serves the expected runtime version.
+
 ## [2.1.0] - 2026-10-15
 
 Google sign-in for real use.

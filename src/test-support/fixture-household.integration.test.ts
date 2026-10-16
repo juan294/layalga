@@ -39,7 +39,7 @@ describe("fixture household", () => {
     await db.end({ timeout: 5 });
   });
 
-  it("builds a non-demo household with hashed guest tokens and cleans up to zero rows", async () => {
+  it("builds a household with hashed guest tokens and cleans up to zero rows", async () => {
     const label = `Fixture ${randomUUID()}`;
     const household = await createFixtureHousehold(db, {
       label,
@@ -48,10 +48,10 @@ describe("fixture household", () => {
     });
     let cleaned = false;
     try {
-      const [home] = await db<{ name: string; demo: boolean }[]>`
-        select name, demo from public.homes where id = ${household.homeId}
+      const [home] = await db<{ name: string }[]>`
+        select name from public.homes where id = ${household.homeId}
       `;
-      expect(home).toEqual({ name: label, demo: false });
+      expect(home).toEqual({ name: label });
       expect(household.roomIds).toHaveLength(3);
       expect(household.hostIds).toHaveLength(1);
       expect(household.parties.map((party) => party.familyName)).toEqual([

@@ -136,8 +136,37 @@ describe("state-aware data retention", () => {
       )
     `;
 
+    const [oldNotification] = await sql<{ id: string }[]>`
+      insert into public.notifications (
+        home_id, recipient_kind, recipient_id, visit_id, kind, body_en, body_es, created_at
+      ) values (
+        ${home.id}, 'party', ${party.id}, ${visit.id}, 'reconfirm_chase',
+        'Private reminder', 'Recordatorio privado', ${old}
+      ) returning id
+    `;
+    const [oldPing] = await sql<{ id: string }[]>`
+      insert into public.host_email_pings (
+        home_id, host_id, kind, source_id, to_address, subject, status, created_at
+      ) values (
+        ${home.id}, ${host.id}, 'pending_decision', ${randomUUID()},
+        'host@example.test', 'Private subject', 'sent', ${old}
+      ) returning id
+    `;
+    if (!oldNotification || !oldPing)
+      throw new Error("Failed to seed retention notification and ping");
+
     try {
       await applyDataRetention(sql, new Date("2026-08-31T00:00:00.000Z"));
+      const [expiredNotification] = await sql<
+        { body_en: string; body_es: string }[]
+      >`select body_en, body_es from public.notifications where id = ${oldNotification.id}`;
+      expect(expiredNotification).toEqual({
+        body_en: "[message expired]",
+        body_es: "[mensaje caducado]",
+      });
+      const pings =
+        await sql`select id from public.host_email_pings where id = ${oldPing.id}`;
+      expect(pings).toHaveLength(0);
       const [retainedNotes] =
         await sql`select guest_notes from public.visits where id = ${visit.id}`;
       expect(retainedNotes?.guest_notes).toBe("");

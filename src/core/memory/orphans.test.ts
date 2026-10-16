@@ -54,10 +54,9 @@ function fakeMemory(state: FakeMemoryState = {}) {
     };
   }
 
-  const sessionsOf = (actorId: string) =>
-    Object.keys(events[actorId] ?? {}).filter(
-      (sessionId) => (events[actorId]?.[sessionId] ?? []).length > 0,
-    );
+  // Like AgentCore, sessions (and so actors) stay listed after their
+  // events are deleted.
+  const sessionsOf = (actorId: string) => Object.keys(events[actorId] ?? {});
 
   const client: MemoryInventoryClient = {
     createEvent: vi.fn(async () => {
@@ -109,8 +108,25 @@ function fakeMemory(state: FakeMemoryState = {}) {
   return { client, records, deletedRecordIds, deletedEvents };
 }
 
-function homesDatabase(homeIds: string[]) {
-  return vi.fn().mockResolvedValue(homeIds.map((id) => ({ id })));
+/**
+ * The homes-and-parties read. By default every home has `PARTY_A` and
+ * `PARTY_B`, so only a missing home makes an actor orphaned; pass
+ * `parties` to choose each home's parties.
+ */
+function homesDatabase(
+  homeIds: string[],
+  parties: Record<string, string[]> = {},
+) {
+  return vi.fn().mockResolvedValue(
+    homeIds.flatMap(
+      (homeId): { home_id: string; party_id: string | null }[] => {
+        const partyIds = parties[homeId] ?? [PARTY_A, PARTY_B];
+        return partyIds.length === 0
+          ? [{ home_id: homeId, party_id: null }]
+          : partyIds.map((partyId) => ({ home_id: homeId, party_id: partyId }));
+      },
+    ),
+  );
 }
 
 const asDatabase = (database: ReturnType<typeof homesDatabase>) =>
@@ -155,6 +171,7 @@ describe("findOrphanedMemoryActors", () => {
     expect(inventory).toEqual({
       orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 1,
       unparsedRecords: 0,
     });
@@ -195,6 +212,99 @@ describe("findOrphanedMemoryActors", () => {
     ]);
     expect(client.listActors).toHaveBeenCalledTimes(2);
     expect(client.listMemoryRecords).toHaveBeenCalledTimes(2);
+  });
+
+  it("finds memory of a party that no longer exists in a home that does", async () => {
+    const { client } = fakeMemory({
+      records: [
+        {
+          id: "r1",
+          namespace: `/parties/${actor(REAL_HOUSEHOLD_HOME_ID, PARTY_A)}/facts`,
+        },
+        {
+          id: "r2",
+          namespace: `/parties/${actor(LIVE_HOME, PARTY_A)}/facts`,
+        },
+      ],
+      events: { [actor(REAL_HOUSEHOLD_HOME_ID, PARTY_B)]: { s1: ["e1"] } },
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(
+        homesDatabase(existingHomes, { [REAL_HOUSEHOLD_HOME_ID]: [] }),
+      ),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
+      {
+        actorId: actor(REAL_HOUSEHOLD_HOME_ID, PARTY_A),
+        homeId: REAL_HOUSEHOLD_HOME_ID,
+      },
+      {
+        actorId: actor(REAL_HOUSEHOLD_HOME_ID, PARTY_B),
+        homeId: REAL_HOUSEHOLD_HOME_ID,
+      },
+    ]);
+    expect(inventory.homesRead).toBe(2);
+  });
+
+  it("skips an actor AgentCore still lists after its events were deleted", async () => {
+    const { client } = fakeMemory({
+      extraActors: [actor(GONE_HOME, PARTY_A)],
+      events: { [actor(GONE_HOME, PARTY_B)]: { s1: ["e1"] } },
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
+      { actorId: actor(GONE_HOME, PARTY_B), homeId: GONE_HOME },
+    ]);
+  });
+
+  it("skips an actor whose sessions no longer hold any event", async () => {
+    const { client } = fakeMemory({
+      events: {
+        [actor(GONE_HOME, PARTY_A)]: { s1: [], s2: [] },
+        [actor(GONE_HOME, PARTY_B)]: { s1: [], s2: ["e1"] },
+      },
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(homesDatabase(existingHomes)),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
+      { actorId: actor(GONE_HOME, PARTY_B), homeId: GONE_HOME },
+    ]);
+  });
+
+  it("treats a party filed under another home as orphaned there", async () => {
+    const { client } = fakeMemory({
+      events: { [actor(LIVE_HOME, PARTY_A)]: { s1: ["e1"] } },
+    });
+
+    const inventory = await findOrphanedMemoryActors(
+      asDatabase(
+        homesDatabase(existingHomes, {
+          [REAL_HOUSEHOLD_HOME_ID]: [PARTY_A],
+          [LIVE_HOME]: [PARTY_B],
+        }),
+      ),
+      "memory-1",
+      client,
+    );
+
+    expect(inventory.orphans).toEqual([
+      { actorId: actor(LIVE_HOME, PARTY_A), homeId: LIVE_HOME },
+    ]);
   });
 
   it("reads the homes table only after both memory listings", async () => {
@@ -278,6 +388,7 @@ describe("findOrphanedMemoryActors", () => {
     expect(inventory).toEqual({
       orphans: [{ actorId: actor(GONE_HOME, PARTY_A), homeId: GONE_HOME }],
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 3,
       unparsedRecords: 2,
     });
@@ -328,6 +439,7 @@ describe("forgetOrphanedMemory", () => {
     ).resolves.toEqual({
       applied: false,
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 4,
       unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
@@ -350,6 +462,7 @@ describe("forgetOrphanedMemory", () => {
     ).resolves.toEqual({
       applied: true,
       homesRead: 2,
+      partiesRead: 4,
       recordsSeen: 4,
       unparsedRecords: 0,
       orphanActorIds: [actor(GONE_HOME, PARTY_A), actor(GONE_HOME, PARTY_B)],
