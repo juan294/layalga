@@ -32,3 +32,17 @@ minimumReleaseAgeExclude:
 overrides:
   qs: 6.16.0
   "@opentelemetry/propagator-jaeger": 2.11.0
+  # Patched releases for transitive production advisories (pnpm audit --prod,
+  # 2026-10-16). proxy-addr, fast-uri and @grpc/grpc-js sit on runtime paths
+  # (express and fastify under @strands-agents/sdk and bedrock-agentcore, the
+  # ADOT gRPC exporters); each override stays inside its major version.
+  "@grpc/grpc-js": 1.14.6
+  "brace-expansion@2": 2.1.7
+  "fast-uri@3": 3.1.8
+  "fast-uri@4": 4.2.2
+  proxy-addr: 2.0.8
+  source-map-js: 1.2.2
+  # simple-git arrives only through node-llama-cpp under @tobilu/qmd, which
+  # nothing here imports (see allowBuilds); the fix exists only in 4.x.
+  "@simple-git/argv-parser": 2.0.1
+  simple-git: 4.0.2
