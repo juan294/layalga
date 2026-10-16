@@ -130,7 +130,9 @@ export function requiredEnvironment(
     | "DATABASE_URL"
     | "LINK_TOKEN_SECRET"
     | "TICK_SECRET"
-    | "AGENTCORE_RUNTIME_ARN",
+    | "AGENTCORE_RUNTIME_ARN"
+    | "MEMORY_ID"
+    | "AWS_REGION",
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
   const value = env[name];

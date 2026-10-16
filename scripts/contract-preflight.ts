@@ -2,15 +2,16 @@ import { parseArgs } from "node:util";
 
 import {
   BedrockAgentCoreControlClient,
-  GetAgentRuntimeCommand,
+  GetAgentRuntimeEndpointCommand,
 } from "@aws-sdk/client-bedrock-agentcore-control";
 
 import { isDirectExecution, safeErrorMessage } from "./release-helpers";
 
 /**
  * Release 2 entry gate: the contract migration may run only while AgentCore
- * serves the release 1 bundle, which no longer reads the demo column. Compares
- * the deployed runtime version with the version recorded for release 1.
+ * serves a bundle that no longer reads the demo schema (release 1 or later).
+ * Compares the version the DEFAULT endpoint serves with the version the
+ * operator recorded for that bundle.
  */
 export interface RuntimeReader {
   read(runtimeId: string): Promise<{ status?: string; version?: string }>;
@@ -29,23 +30,29 @@ export async function contractPreflight(
   }
   if (runtime.version !== expectedVersion) {
     throw new Error(
-      `AgentCore runtime ${runtimeId} serves version ${runtime.version ?? "unknown"}, not the release 1 version ${expectedVersion}; do not apply the contract migration`,
+      `AgentCore runtime ${runtimeId} serves version ${runtime.version ?? "unknown"}, not the expected version ${expectedVersion}; do not apply the contract migration`,
     );
   }
-  return `AgentCore runtime ${runtimeId} serves release 1 version ${expectedVersion}`;
+  return `AgentCore runtime ${runtimeId} serves the expected version ${expectedVersion}`;
 }
 
-export function awsRuntimeReader(region: string): RuntimeReader {
-  const client = new BedrockAgentCoreControlClient({ region });
+interface EndpointClient {
+  send(
+    command: GetAgentRuntimeEndpointCommand,
+  ): Promise<{ status?: string; liveVersion?: string }>;
+}
+
+/** Reads the DEFAULT endpoint, which serves invocations, not the newest runtime version. */
+export function awsRuntimeReader(client: EndpointClient): RuntimeReader {
   return {
     async read(runtimeId) {
       const output = await client.send(
-        new GetAgentRuntimeCommand({ agentRuntimeId: runtimeId }),
+        new GetAgentRuntimeEndpointCommand({
+          agentRuntimeId: runtimeId,
+          endpointName: "DEFAULT",
+        }),
       );
-      return {
-        status: output.status,
-        version: output.agentRuntimeVersion,
-      };
+      return { status: output.status, version: output.liveVersion };
     },
   };
 }
@@ -66,7 +73,7 @@ export function parsePreflightArgs(argv: readonly string[]): {
   const expectedVersion = values["expected-version"];
   if (!runtimeId || !expectedVersion) {
     throw new Error(
-      "Usage: contract-preflight --runtime-id <id> --expected-version <release 1 runtime version>",
+      "Usage: contract-preflight --runtime-id <id> --expected-version <runtime version recorded for the deployed release>",
     );
   }
   return { runtimeId, expectedVersion };
@@ -79,7 +86,11 @@ if (isDirectExecution(import.meta.url, process.argv[1])) {
   contractPreflight(
     runtimeId,
     expectedVersion,
-    awsRuntimeReader(process.env.AWS_REGION?.trim() || "us-east-1"),
+    awsRuntimeReader(
+      new BedrockAgentCoreControlClient({
+        region: process.env.AWS_REGION?.trim() || "us-east-1",
+      }),
+    ),
   )
     .then((message) => console.log(message))
     .catch((error: unknown) => {
