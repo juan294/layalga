@@ -27,6 +27,9 @@ Plan: [2026-10-15-real-use-launch.md](2026-10-15-real-use-launch.md)
 | 6 | Acceptance grep returns nothing | The contract migration test must name the objects it drops | The only allowed hits are in `src/core/demo-schema-contract.integration.test.ts` | It asserts the removal |
 | 6 | The migration fails on a demo home and drops the objects | A plain `alter`/`drop` would fail if the migration is applied twice | The guard reads `homes.demo` only inside a nested branch taken when the column exists; drops use `if exists` | Safe re-application; tested |
 | 6 | `scripts/contract-preflight.ts` compares with "the release 1 record" | The repository keeps no machine-readable release record | The operator passes `--runtime-id` and `--expected-version` from the release 1 notes; the script reads `GetAgentRuntime` and requires `READY` and the same version | A newer deploy makes it fail closed |
+| 6 | Step 3 row 1: the preflight matches the release 1 runtime version | v2.1.0 shipped after release 1 and moved AgentCore from version 38 to 39 (`ed6c574`), which also never reads the demo schema (independent review of `ed6c574`) | Release 2 runs the preflight with `--expected-version 39`; the messages now say "expected version" | The preflight protects against an unknown bundle, and version 39 is the recorded v2.1.0 bundle |
+| 6 | The preflight reads `GetAgentRuntime` | `agentRuntimeVersion` is the newest runtime version, and the DEFAULT endpoint can serve another one | The preflight reads `GetAgentRuntimeEndpoint` for `DEFAULT` and compares `liveVersion` | It checks the bundle that actually serves invocations |
+| 6 | (merge with `develop`) | The branch had narrowed `requiredEnvironment` in `scripts/release-helpers.ts`; v2.1.0's `forget-orphaned-memory` needs `MEMORY_ID` and `AWS_REGION` again, and the merged tree failed typecheck | Kept the `develop` version of the file | The two changes were independent |
 
 ## Open decisions for the owner
 
