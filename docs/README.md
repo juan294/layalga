@@ -1,6 +1,6 @@
 # Documentation index
 
-Start with the root README, the [current roadmap](roadmap.md) and the user manuals below. Production still runs v1.3.11, the hackathon demo; the real-use launch removes demo mode and is not released yet. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, the hackathon archive, generated design-bundle copies, private inventory, and ignored agent reports. The public-site discovery index is [`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
+Start with the root README, the [current roadmap](roadmap.md) and the user manuals below. Production runs v2.0.0, real-use release 1, without demo mode. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, the hackathon archive, generated design-bundle copies, private inventory, and ignored agent reports. The public-site discovery index is [`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
 
 ## Real-use launch
 

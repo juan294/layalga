@@ -2,13 +2,15 @@
 
 L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
 
-This guide describes L’Ayalga for real household use, after the real-use launch removes the hackathon demo. Until that release reaches production, the live site still runs the v1.3.11 demo.
+This guide describes L’Ayalga for real household use. The live site runs it since v2.0.0 (2026-10-15).
 
 ## 1. Sign in with Google
 
 Open the sign-in page and choose **Continue with Google**. Google is the only way to sign in. The household keeps a list of host email addresses; your Google account must use one of them. The first time you sign in, the server binds your Google account to your host record. After that, only that Google account can sign in as you.
 
-If you see "This Google account is not on the host list for this house.", the account you chose is not on the list. You are signed out. Try again with the address the household recorded for you, or ask another host to add your address (see the next section). If you see "Google sign-in could not be completed", try again; if it continues, report it to the operator.
+If you see "This Google account is not on the host list for this house.", the account you chose is not on the list and has no linked invitation. You are signed out. Try again with the address the household recorded for you, or ask another host to add your address (see the next section). If you see "Google sign-in could not be completed", try again; if it continues, report it to the operator.
+
+Guests who linked an invitation to their Google account can also sign in from this page; they go to their visits, not to the host pages. Any Google account can reach the Google step, but only these two kinds of account get in. The public [privacy notice](https://layalga.thecreativetoken.com/en/privacy) explains what the app keeps.
 
 The server finds your household from your host record. Changing a home identifier in a request does not grant access to another household.
 

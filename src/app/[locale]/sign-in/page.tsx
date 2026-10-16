@@ -64,6 +64,9 @@ export default async function SignInPage({
               paisaxe.es
             </a>
           </p>
+          <p>
+            <a href={`/${locale}/privacy`}>{t("privacyLink")}</a>
+          </p>
         </footer>
       </section>
     </main>

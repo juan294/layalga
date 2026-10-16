@@ -38,6 +38,8 @@ jobs:
           set -o pipefail
           pnpm run test:coverage 2>&1 | tee coverage-output.txt
           METRICS=$(node scripts/coverage-metrics.mjs coverage-output.txt --discover .)
+          # Keep JavaScript template literals literal for Node.
+          # shellcheck disable=SC2016
           node -e '
             const m = JSON.parse(process.argv[1]);
             process.stdout.write([
