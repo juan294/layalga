@@ -20,6 +20,7 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 
 - Release 1 (phase 5): shipped as v2.0.0 on 2026-10-15 (main `e0cb4d1`, AgentCore runtime version 38). Email sign-in is off, the demo variables are gone from Vercel production, the conversion migration is applied, the new production gate passed, and the owner signed in with Google to the empty household. The synthetic Vega and Parker memory is forgotten. v2.1.0 followed the same day (main `ed6c574`, AgentCore runtime version 39): the public privacy notice, guest sign-in from the main page and the orphaned-memory sweep. The Google OAuth app is published.
 - Release 2 (phase 6): shipped as v2.2.0 on 2026-10-16 (main `3e433f1`, AgentCore runtime version 40). The demo schema is gone from production, and retention applies the same thresholds to every home.
+- v2.2.1: shipped 2026-10-17 (main `78ddbbc`, AgentCore runtime version 41). A dependency and security update with no migrations: it patches eight OpenTelemetry database instrumentations in the web workspace and the AgentCore bundle. `braces` (GHSA-vfj7-8cjw-p6xm) stays open because the advisory lists no patched release.
 
 ## Remaining owner and operational actions
 
