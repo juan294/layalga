@@ -4,6 +4,25 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-10-17
+
+Dependency and security update. It has no migrations and no feature changes.
+
+### Security
+
+- Raised eight `@opentelemetry/instrumentation-*` database packages (`cassandra-driver`, `knex`, `mongoose`, `mysql`, `mysql2`, `oracledb`, `pg`, `tedious`) to their first patched releases (GHSA-qqmp-wf37-98f9, the `db.user` span attribute). The overrides apply to the web workspace and to the AgentCore bundle, whose derived package is built by `scripts/build-agent-bundle.sh`.
+- Raised `brace-expansion` 1.x and 5.x to 1.1.21 and 5.0.12, and pinned patched transitive releases of `proxy-addr`, `fast-uri`, `@grpc/grpc-js`, `source-map-js` and `simple-git`. `pnpm audit --prod` went from 4 critical and 14 high findings to 1 high.
+
+### Changed
+
+- Applied the open Dependabot updates, among them `@strands-agents/sdk` 1.16.0 to 1.20.0, the ADOT distro 0.12.0 to 0.13.0, the AWS SDK clients 3.1127.0 to 3.1150.0, `next` 16.3.4 to 16.3.8, `react` 19.2.8 to 19.2.9 and `zod` 4.5.4 to 4.6.7. The AgentCore runtime moves from version 40 to 41 with this release.
+- Pinned `next` to 16.3.8 and `react` to 19.2.9, because `next` 16.4.0 and 16.4.1 hang server action streams.
+- CodeQL init and analyze actions move together.
+
+### Known issues
+
+- `braces` (GHSA-vfj7-8cjw-p6xm) stays open. The advisory lists no patched release and the registry's newest version is 3.0.3. It is reachable through `eslint-config-next` (development) and the unused `@tobilu/qmd` chain.
+
 ## [2.2.0] - 2026-10-16
 
 Real-use launch, release 2 (contract): phase 6 of the [plan](docs/plans/2026-10-15-real-use-launch.md). It removes the demo schema that release 1 left in place.
