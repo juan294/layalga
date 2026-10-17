@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextRequest } from "next/server";
 
 import { routing } from "@/i18n/routing";
+import { GOOGLE_AVATAR_DOMAIN } from "@/lib/auth/account-identity";
 import { updateSession } from "@/lib/supabase/proxy";
 
 const handleI18nRouting = createMiddleware(routing);
@@ -20,7 +21,7 @@ export function buildContentSecurityPolicy(
       environment === "development" ? " 'unsafe-eval'" : ""
     }`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `img-src 'self' data: blob: https://*.${GOOGLE_AVATAR_DOMAIN}`,
     "font-src 'self'",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
     "worker-src 'self' blob:",

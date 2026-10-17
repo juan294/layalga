@@ -160,7 +160,67 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 1.125rem;
+  min-inline-size: 0;
   row-gap: 0.5rem;
+}
+
+/* Signed-in account: avatar and email before Sign out. The monogram sits under
+   the photo, so a blocked or failed picture leaves the monogram visible. */
+.site-header__account {
+  align-items: center;
+  color: var(--graphite);
+  display: inline-flex;
+  font-family: var(--font-jetbrains-mono), monospace;
+  font-size: 0.75rem;
+  gap: 0.5rem;
+  max-inline-size: 16rem;
+  min-inline-size: 0;
+  position: relative;
+}
+
+.site-header__account-label {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.site-header__account-avatar {
+  align-items: center;
+  background: color-mix(in srgb, var(--teal) 14%, var(--sheet));
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  block-size: 2rem;
+  color: var(--ink);
+  display: inline-flex;
+  flex: none;
+  inline-size: 2rem;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.site-header__account-initial {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.site-header__account-photo {
+  block-size: 100%;
+  inline-size: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+}
+
+.site-header__account-email {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .site-header__signout {
@@ -453,6 +513,14 @@ body:has(.postcard) .site-header {
   .site-header__controls {
     flex-basis: 100%;
     justify-content: flex-end;
+  }
+
+  /* The chip takes its own row above the controls, so a full email stays
+     readable without pushing Sign out onto a ragged second line. */
+  .site-header__account {
+    flex: 1 0 100%;
+    max-inline-size: 100%;
+    order: -1;
   }
 }
 
