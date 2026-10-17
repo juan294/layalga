@@ -67,7 +67,7 @@ Status: code complete on local branch `feat/drop-demo-schema` (worktree removed 
 
 - [x] Step 1: `supabase/migrations/20261015084815_drop_demo_schema.sql` (fail-closed guard, retention body without demo predicates, drops, `revoke usage on schema private from layalga_web_runtime`).
 - [x] Step 2: `src/core/demo-schema-contract.integration.test.ts`; `src/core/data-retention.integration.test.ts` covers every threshold branch after the contract; other demo-schema test edits; `forget-synthetic-memory` and the conversion test deleted; `scripts/contract-preflight.ts` (`pnpm run contract:preflight -- --runtime-id <id> --expected-version <n>`).
-- [ ] Step 3 (release 2): not run; every action needs owner authorization, and the entry conditions (release 1 deployed on Vercel and AgentCore, runtime version recorded, memory forget done) are not met.
+- [x] Step 3 (release 2): shipped as v2.2.0 on 2026-10-16 (see the release handoff below and the playbook's v2.2.0 decision).
 - Gate on the branch with the contract applied to a reset local database (commit `2aa57c6`): typecheck, lint, `test` 743 passed, `test:integration` 174 passed, coverage, build, bootstrap, `test:e2e` 25 passed, `release:probes --target local` 9 of 9 passed. The review fixes after it change only tests and docs; their targeted tests pass (5 of 5).
 - To release: rebase or merge `feat/drop-demo-schema` onto `develop` after release 1, re-run the gate, then follow step 3.
 
@@ -78,3 +78,5 @@ Status: code complete on local branch `feat/drop-demo-schema` (worktree removed 
 - Gate on `27cbed8` with the contract applied to a reset local database: typecheck, lint, `test:integration` 178 passed, `test:coverage` 600 passed (56.42% statements), build, bootstrap, agent bundle, `test:e2e` 26 passed, `release:probes --target local` passed with cleanup. The acceptance grep returns only `src/core/demo-schema-contract.integration.test.ts`.
 - Production read before the release: no home has `demo = true`; `demo_clock` and both demo mutation tables are empty; `private.review_access_events` holds 5 hackathon review rows (2026-10-05 to 2026-10-15), which the migration deletes; `layalga_web_runtime` holds grants in `private` only on `review_access_events` and `restore_demo_identity_claims`.
 - `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version 39` passed; with `--expected-version 38` it stopped.
+- Release (each step owner-authorized): `supabase db push --linked` applied the contract migration; pull request #203 merged as `3e433f1`; Vercel serves `3e433f1`; AgentCore DEFAULT serves version 40; production probe run 38855885750 passed; tag `v2.2.0` published.
+- Open: the manual acceptance check of the next nightly retention run (03:17) in `cron.job_run_details`.

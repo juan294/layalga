@@ -113,9 +113,22 @@ NODE
 # with a single ADOT dependency and no lockfile on disk). A package-scoped
 # `overrides` entry in a workspace file local to the build dir sidesteps that
 # bug by removing only the one package we intend to drop.
+#
+# The same file raises the database instrumentations that ADOT's pinned
+# auto-instrumentations-node@0.77.0 would otherwise resolve to versions
+# affected by GHSA-qqmp-wf37-98f9 (db.user span attribute). Keep these in step
+# with the overrides in the root pnpm-workspace.yaml.
 cat > "$build_dir/pnpm-workspace.yaml" <<'WORKSPACE'
 overrides:
   "@tobilu/qmd": "false"
+  "@opentelemetry/instrumentation-cassandra-driver": 0.66.0
+  "@opentelemetry/instrumentation-knex": 0.65.0
+  "@opentelemetry/instrumentation-mongoose": 0.67.0
+  "@opentelemetry/instrumentation-mysql": 0.67.0
+  "@opentelemetry/instrumentation-mysql2": 0.67.0
+  "@opentelemetry/instrumentation-oracledb": 0.46.0
+  "@opentelemetry/instrumentation-pg": 0.73.0
+  "@opentelemetry/instrumentation-tedious": 0.40.0
 WORKSPACE
 
 pnpm --dir "$build_dir" install \
