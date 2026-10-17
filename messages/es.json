@@ -7,7 +7,8 @@
   "Brand": {
     "name": "L’Ayalga",
     "strapline": "El libro de huéspedes de la casa",
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "signedInAs": "Sesión iniciada como"
   },
   "LocaleSwitcher": {
     "label": "Idioma",
@@ -60,8 +61,8 @@
     "invierno": "invierno"
   },
   "Host": {
-    "eyebrow": "Libro de visitas del hogar",
-    "title": "Estancias de invitados",
+    "eyebrow": "Panel del anfitrión",
+    "title": "Libro del hogar",
     "welcome": "Te damos la bienvenida, {name}",
     "localeEnglish": "English",
     "localeSpanish": "Español",
@@ -273,7 +274,7 @@
       "title": "Información de los huéspedes"
     },
     "nav": {
-      "backToToday": "← Estancias de invitados"
+      "backToToday": "← Libro del hogar"
     },
     "hub": {
       "open": "Abrir →",

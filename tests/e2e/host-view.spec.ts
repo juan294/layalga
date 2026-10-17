@@ -4,6 +4,7 @@ import {
   expectRunStatus,
 } from "./helpers/async-actions";
 import { expect } from "@playwright/test";
+import type { Sql } from "postgres";
 
 import {
   findFixtureGuest,
@@ -13,8 +14,34 @@ import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
 
+const GOOGLE_PHOTO = "https://lh3.googleusercontent.com/a/e2e-photo=s96-c";
+// A 1x1 PNG, so the browser decodes a real image under the CSP.
+const PHOTO_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHnOcQAAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+let hostAccount: { userId: string; email: string };
+
+/** Gives the signed-in fixture user a Google identity, as the provider would. */
+async function addGoogleIdentity(db: Sql, userId: string, picture: string) {
+  await db`
+    insert into auth.identities (
+      provider_id, user_id, identity_data, provider,
+      last_sign_in_at, created_at, updated_at
+    )
+    values (
+      ${`google-${userId}`},
+      ${userId},
+      ${db.json({ sub: userId, picture })},
+      'google',
+      now(), now(), now()
+    )
+  `;
+}
+
 test.beforeEach(async ({ context, household, page }) => {
-  await household.signIn(context);
+  hostAccount = await household.signIn(context);
   await page.goto("/en");
   await expect(page.getByTestId("host-capture-form")).toBeVisible();
 });
@@ -79,11 +106,81 @@ test("switches the host view to Spanish", async ({ page }) => {
   );
 });
 
+test("the header shows the signed-in account as a monogram without a Google identity", async ({
+  page,
+}) => {
+  const chip = page.getByTestId("account-chip");
+
+  await expect(chip).toContainText(hostAccount.email);
+  await expect(chip).toContainText("Signed in as");
+  await expect(chip).toHaveAttribute("title", hostAccount.email);
+  await expect(chip.locator(".site-header__account-initial")).toHaveText("H");
+  await expect(chip.locator("img")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+});
+
+test("the header loads the Google avatar under the CSP and sends no referrer", async ({
+  household,
+  page,
+}) => {
+  await addGoogleIdentity(household.db, hostAccount.userId, GOOGLE_PHOTO);
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (/content security policy/i.test(message.text())) {
+      violations.push(message.text());
+    }
+  });
+  let photoRequestHeaders: Record<string, string> | undefined;
+  await page.route("https://*.googleusercontent.com/**", async (route) => {
+    photoRequestHeaders = await route.request().allHeaders();
+    await route.fulfill({ body: PHOTO_PNG, contentType: "image/png" });
+  });
+
+  await page.goto("/en");
+  const photo = page.getByTestId("account-chip").locator("img");
+
+  await expect(photo).toHaveAttribute("src", GOOGLE_PHOTO);
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+    .toBeGreaterThan(0);
+  expect(violations).toEqual([]);
+  expect(photoRequestHeaders, "the avatar was requested").toBeDefined();
+  expect(photoRequestHeaders).not.toHaveProperty("referer");
+});
+
+test("the monogram stays visible when the Google avatar is blocked", async ({
+  household,
+  page,
+}) => {
+  await addGoogleIdentity(household.db, hostAccount.userId, GOOGLE_PHOTO);
+  await page.route("https://*.googleusercontent.com/**", (route) =>
+    route.abort(),
+  );
+
+  await page.goto("/en");
+  const chip = page.getByTestId("account-chip");
+  const monogram = chip.locator(".site-header__account-initial");
+
+  await expect(monogram).toBeVisible();
+  await expect(monogram).toHaveText("H");
+  await expect(chip).toContainText(hostAccount.email);
+  await expect
+    .poll(() =>
+      chip.locator("img").evaluate((img: HTMLImageElement) => img.complete),
+    )
+    .toBe(true);
+  expect(
+    await chip
+      .locator("img")
+      .evaluate((img: HTMLImageElement) => img.naturalWidth),
+  ).toBe(0);
+});
+
 test("the Today overview links onward to the room ledger and visit calendar through the hub", async ({
   page,
 }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Guest stays",
+    "Household ledger",
   );
   const hub = page.getByTestId("hub-cards");
   await expect(
@@ -101,7 +198,9 @@ test("the Today overview links onward to the room ledger and visit calendar thro
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Room ledger",
   );
-  await expect(page.getByRole("link", { name: "← Guest stays" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "← Household ledger" }),
+  ).toBeVisible();
 });
 
 test("shows the room ledger with visible door states", async ({ page }) => {
@@ -112,6 +211,18 @@ test("shows the room ledger with visible door states", async ({ page }) => {
   await expect(
     roomLedger.locator('[data-door-state="withheld"]'),
   ).toContainText("Withheld");
+});
+
+test("names the host dashboard in Spanish", async ({ page }) => {
+  await page.goto("/es");
+
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Libro del hogar",
+  );
+  await page.goto("/es/rooms");
+  await expect(
+    page.getByRole("link", { name: "← Libro del hogar" }),
+  ).toBeVisible();
 });
 
 test("shows localized room states in Spanish", async ({ page }) => {
@@ -179,7 +290,7 @@ test.describe("an empty household", () => {
     page,
   }) => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-      "Guest stays",
+      "Household ledger",
     );
     await page.goto("/en/rooms");
     const ledger = page.getByTestId("room-ledger");

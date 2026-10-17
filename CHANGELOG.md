@@ -4,6 +4,23 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-17
+
+Sign-in identity: the header shows which Google account is signed in, Google always offers its account picker, and the host dashboard no longer reads as the guest view. It has no migrations. Plan: [host sign-in identity](docs/plans/2026-10-17-host-sign-in-identity.md).
+
+### Added
+
+- A header chip with the signed-in account's verified email and Google avatar, with a monogram when there is no avatar. The avatar comes from the Google identity data that the provider sets, never from user-editable metadata, and is limited to `https` hosts under `googleusercontent.com`. It loads without a referrer.
+- `img-src` in the content security policy allows `https://*.googleusercontent.com`, for the avatar only.
+- A locale parity test for the message files.
+
+### Changed
+
+- "Continue with Google" always shows Google's account picker (`prompt=select_account`) on the host sign-in page, the guest visits page and the invitation claim.
+- The host dashboard is titled "Household ledger" under a "Host dashboard" eyebrow (Spanish: "Libro del hogar" under "Panel del anfitrión"); the sub-page breadcrumb follows.
+- The layout, `getCurrentHost` and the guest visits and invitation pages share one Supabase Auth lookup per request instead of one each. Server actions and route handlers keep their own lookups.
+- On a phone the account chip takes its own row above the header controls.
+
 ## [2.2.1] - 2026-10-17
 
 Dependency and security update. It has no migrations and no feature changes.

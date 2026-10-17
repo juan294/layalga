@@ -9,6 +9,8 @@ Start with the root README, the [current roadmap](roadmap.md) and the user manua
 | [Demo mode removal and Google sign-in](research/2026-10-15-demo-mode-removal-and-google-login.md) | Research: every demo surface, the Google sign-in path, and the production state on 2026-10-15 |
 | [Real-use launch plan](plans/2026-10-15-real-use-launch.md)                                       | Six phases: test foundation, fixture probes, demo removal, documentation, two releases        |
 | [Real-use launch notes](plans/2026-10-15-real-use-launch-notes.md)                                | Implementation deviations, review dispositions and open owner decisions                       |
+| [Host sign-in identity plan](plans/2026-10-17-host-sign-in-identity.md)                           | Three phases: account chip in the header, Google account picker, host naming, release v2.3.0  |
+| [Host sign-in identity notes](plans/2026-10-17-host-sign-in-identity-notes.md)                    | Implementation evidence, review dispositions and deviations for phases 1 and 2                |
 | [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals     |
 
 ## Hackathon archive

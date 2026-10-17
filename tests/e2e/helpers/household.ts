@@ -17,7 +17,9 @@ export type HouseholdOptions = Partial<
 export interface OpenHousehold extends FixtureHousehold {
   db: Sql;
   /** Signs the first fixture host in through local Supabase Auth. */
-  signIn(context: Pick<BrowserContext, "addCookies">): Promise<void>;
+  signIn(
+    context: Pick<BrowserContext, "addCookies">,
+  ): Promise<{ userId: string; email: string }>;
   close(): Promise<void>;
 }
 
@@ -47,7 +49,7 @@ export async function openHousehold(
     ...household,
     db,
     async signIn(context) {
-      await signInAsHost(context, { sql: db, hostId: household.hostIds[0]! });
+      return signInAsHost(context, { sql: db, hostId: household.hostIds[0]! });
     },
     async close() {
       try {

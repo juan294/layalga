@@ -7,6 +7,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { AccountChip } from "@/components/account-chip";
 import { SeasonSync } from "@/components/season-sync";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
@@ -14,6 +15,7 @@ import { routing } from "@/i18n/routing";
 import { currentSeason } from "@/lib/season";
 import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
 import { getCurrentHost } from "@/lib/auth/current-host";
+import { getCurrentAccount } from "@/lib/auth/current-user";
 import { buildSiteMetadata } from "@/lib/site-metadata";
 
 // Stamps data-theme on <html> before first paint, so a user whose stored
@@ -76,9 +78,10 @@ export default async function LocaleLayout({
   const messages = await getMessages({ locale });
   const t = await getTranslations({ locale, namespace: "Brand" });
   const nonce = (await headers()).get("x-nonce") ?? undefined;
-  const [host, guest] = await Promise.all([
+  const [host, guest, account] = await Promise.all([
     getCurrentHost(),
     getCurrentGuestInvitation(),
+    getCurrentAccount(),
   ]);
   const signedIn = Boolean(host || guest);
 
@@ -113,6 +116,7 @@ export default async function LocaleLayout({
                   <LocaleSwitcher />
                 </Suspense>
                 <ThemeSwitcher />
+                <AccountChip identity={account} label={t("signedInAs")} />
                 {signedIn ? (
                   <form action="/auth/sign-out" method="post">
                     <input name="locale" type="hidden" value={locale} />

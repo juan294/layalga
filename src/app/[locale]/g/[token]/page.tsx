@@ -13,7 +13,7 @@ import { guestVisitPresentation } from "@/components/guest/guest-visit-presentat
 import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
 import { loadGuestInvitation } from "@/core/booking/guest-invitation";
 import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/current-user";
 
 import {
   cancelGuest,
@@ -73,10 +73,7 @@ export default async function GuestPage({
     invitation.homeId,
     invitation.structured,
   );
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   const claimed = user
     ? await partyIsClaimedByUser(invitation.partyId, user.id)
     : false;

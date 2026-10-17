@@ -37,6 +37,8 @@ export function SignInButton({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          // Without this Google silently reuses the one signed-in account.
+          queryParams: { prompt: "select_account" },
         },
       });
       if (authError) throw authError;

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import type { User } from "@supabase/supabase-js";
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -15,6 +16,7 @@ vi.mock("@/lib/supabase/proxy", () => ({
   updateSession: mocks.updateSession,
 }));
 
+import { toAccountIdentity } from "@/lib/auth/account-identity";
 import proxy, { buildContentSecurityPolicy, config } from "./proxy";
 
 describe("nonce content security policy", () => {
@@ -48,6 +50,39 @@ describe("nonce content security policy", () => {
     expect(policy).toContain(
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
     );
+  });
+
+  test("allows images only from self, data, blob and Google profile pictures", () => {
+    const imagePolicy = buildContentSecurityPolicy(
+      "test-nonce",
+      "production",
+    ).match(/img-src[^;]*/)?.[0];
+
+    expect(imagePolicy).toBe(
+      "img-src 'self' data: blob: https://*.googleusercontent.com",
+    );
+    expect(imagePolicy).not.toMatch(/\shttps:(\s|$)/);
+    expect(imagePolicy).not.toContain("*.com");
+  });
+
+  test("allows every avatar host that the account validator accepts", () => {
+    const user = {
+      email: "ana@example.com",
+      email_confirmed_at: "2026-10-17T10:00:00.000Z",
+      identities: [
+        {
+          provider: "google",
+          identity_data: { picture: "https://lh3.googleusercontent.com/a/x" },
+        },
+      ],
+    } as unknown as User;
+    const host = new URL(toAccountIdentity(user)!.avatarUrl!).hostname;
+    const imagePolicy = buildContentSecurityPolicy("n", "production").match(
+      /img-src[^;]*/,
+    )![0];
+    const source = imagePolicy.split(" ").find((entry) => entry.includes("*"))!;
+
+    expect(host.endsWith(source.replace("https://*", ""))).toBe(true);
   });
 
   test("keeps React development diagnostics available", () => {

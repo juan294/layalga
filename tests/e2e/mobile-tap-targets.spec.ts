@@ -123,3 +123,44 @@ test("@mobile every surface stays touch-safe at 390px", async ({
   await expect(page.getByTestId("run-status")).toBeVisible();
   await expectTouchSafe(page, "run status");
 });
+
+test("@mobile the account chip stays inside the header with a very long email", async ({
+  context,
+  household,
+  page,
+}) => {
+  const { userId } = await household.signIn(context);
+  const email = `${"a".repeat(60 - "@fixture.test".length)}@fixture.test`;
+  expect(email).toHaveLength(60);
+  await household.db`update auth.users set email = ${email} where id = ${userId}`;
+
+  await page.goto("/en");
+  const chip = page.getByTestId("account-chip");
+  await expect(chip).toContainText("aaaa");
+
+  const layout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const header = document
+      .querySelector(".site-header")!
+      .getBoundingClientRect();
+    const chipBox = document
+      .querySelector('[data-testid="account-chip"]')!
+      .getBoundingClientRect();
+    return {
+      scrollWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+      header: { left: header.left, right: header.right, bottom: header.bottom },
+      chip: {
+        left: chipBox.left,
+        right: chipBox.right,
+        bottom: chipBox.bottom,
+      },
+    };
+  });
+
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth);
+  expect(layout.chip.left).toBeGreaterThanOrEqual(layout.header.left);
+  expect(layout.chip.right).toBeLessThanOrEqual(layout.header.right);
+  expect(layout.chip.bottom).toBeLessThanOrEqual(layout.header.bottom);
+  await expect(chip).toHaveAttribute("title", email);
+});

@@ -7,7 +7,8 @@
   "Brand": {
     "name": "L’Ayalga",
     "strapline": "The house guest ledger",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "signedInAs": "Signed in as"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -60,8 +61,8 @@
     "invierno": "winter"
   },
   "Host": {
-    "eyebrow": "Household guest ledger",
-    "title": "Guest stays",
+    "eyebrow": "Host dashboard",
+    "title": "Household ledger",
     "welcome": "Welcome, {name}",
     "localeEnglish": "English",
     "localeSpanish": "Español",
@@ -273,7 +274,7 @@
       "title": "Guest information"
     },
     "nav": {
-      "backToToday": "← Guest stays"
+      "backToToday": "← Household ledger"
     },
     "hub": {
       "open": "Open →",

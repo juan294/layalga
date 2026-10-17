@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 
 import type { AppLocale } from "@/i18n/routing";
 import { getDatabaseConnection } from "@/core/db/client";
-import { createClient } from "@/lib/supabase/server";
 
+import { getAuthUser } from "./current-user";
 import { claimHostIdentity } from "./host-identity";
 
 export interface HostRecord {
@@ -27,11 +27,7 @@ interface HostRow {
 }
 
 export async function getCurrentHost(): Promise<HostRecord | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getAuthUser();
   return user ? findHostByAuthUserId(user.id) : null;
 }
 

@@ -85,6 +85,15 @@ describe("OAuth callback from the main sign-in page", () => {
     expect(auth.signOut).toHaveBeenCalledOnce();
   });
 
+  it("returns to sign-in with a retry message when Google sends no code, as after a dismissed picker", async () => {
+    const response = await GET(
+      new NextRequest("https://layalga.example/auth/callback?next=%2Fen"),
+    );
+
+    expect(location(response)).toBe("/en/sign-in?error=oauth_failed");
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+
   it("signs out an account that is neither a host nor an invited guest", async () => {
     const response = await GET(callback("/en"));
 

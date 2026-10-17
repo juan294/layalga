@@ -8,7 +8,7 @@ import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import { formatDateStay } from "@/components/frontend-utils";
 import { loadGuestAccountVisits } from "@/lib/auth/guest-account";
 import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/auth/current-user";
 import styles from "@/components/guest/guest-ledger.module.css";
 
 export default async function GuestAccountPage({
@@ -28,10 +28,7 @@ export default async function GuestAccountPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "GuestAccount" });
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   const cancellation = await searchParams;
   const accountError = (await searchParams).account === "not_found";
   const visits = user ? await loadGuestAccountVisits(user.id) : [];
