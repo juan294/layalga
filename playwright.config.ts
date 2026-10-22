@@ -53,5 +53,9 @@ export default defineConfig({
     env: e2eEnv,
     url: e2eBaseUrl,
     reuseExistingServer: false,
+    // Surface the dev server log in CI output so a stalled action response
+    // can be diagnosed from the run instead of reproduced locally.
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });
