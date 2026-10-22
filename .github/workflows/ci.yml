@@ -116,6 +116,13 @@ jobs:
           echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$publishable_key" >> "$GITHUB_ENV"
       - name: Run browser tests
         run: pnpm run test:e2e
+      - name: Upload acceptance traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: acceptance-test-results
+          path: test-results/
+          if-no-files-found: ignore
       - name: Run local release probes
         shell: bash
         run: |
