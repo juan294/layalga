@@ -79,6 +79,7 @@ require('node:fs').appendFileSync(process.env.CALL_LOG, JSON.stringify({tool:'pn
       {
         encoding: "utf8",
         env: {
+          NODE_ENV: "test",
           PATH: `${join(root, "bin")}:${process.env.PATH}`,
           TMPDIR: root,
           CALL_LOG: join(root, "calls.jsonl"),

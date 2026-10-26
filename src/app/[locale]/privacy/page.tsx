@@ -7,7 +7,7 @@ import styles from "@/components/guest/guest-ledger.module.css";
 import { routing } from "@/i18n/routing";
 
 /** Section keys of the `Privacy` messages, in reading order. */
-export const PRIVACY_SECTIONS = [
+const PRIVACY_SECTIONS = [
   "signIn",
   "household",
   "assistant",
