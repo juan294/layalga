@@ -23,7 +23,8 @@ vi.mock("@/lib/server/action-errors", () => ({
 vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => ({ db: { kind: "test-db" } }),
 }));
-vi.mock("@/core/rooms/operations", () => ({
+vi.mock("@/core/rooms/operations", async (original) => ({
+  ...(await original<object>()),
   applyRoomActionProposal: vi.fn(),
   cancelPrivateRoomBlock: vi.fn(),
   createPrivateRoomBlock: vi.fn(),
@@ -73,7 +74,9 @@ describe("host room actions", () => {
   });
 
   test("reauthenticates and derives home authority for every request", async () => {
-    await updateRoomInventoryAction(inventoryForm());
+    expect(await updateRoomInventoryAction(inventoryForm())).toEqual({
+      status: "saved",
+    });
     expect(mocks.requireHost).toHaveBeenCalledWith("en");
     expect(mocks.updateRoomInventory).toHaveBeenCalledWith(
       expect.anything(),
@@ -88,7 +91,10 @@ describe("host room actions", () => {
     mocks.updateRoomInventory.mockRejectedValueOnce(
       new Error("stale or cross-home room"),
     );
-    await updateRoomInventoryAction(inventoryForm());
+    expect(await updateRoomInventoryAction(inventoryForm())).toEqual({
+      status: "error",
+      error: "failed",
+    });
     expect(mocks.requireHost).toHaveBeenCalledTimes(2);
     expect(mocks.reportActionError).toHaveBeenCalledWith(
       "room_inventory_update_failed",

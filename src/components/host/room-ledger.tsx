@@ -15,6 +15,7 @@ import type {
 } from "@/app/[locale]/(host)/room-data";
 import { formatDateStay } from "@/components/frontend-utils";
 
+import { RoomActionForm, type RoomActionLabels } from "./room-action-form";
 import { CalendarFeedControls } from "./calendar-feed-controls";
 import { HostWebMcpRegistration } from "@/components/webmcp/host-registration";
 import styles from "./room-ledger.module.css";
@@ -89,6 +90,7 @@ export function RoomLedger({
               ) : null}
               <RoomInventoryForm
                 labels={labels.inventory}
+            feedback={labels.feedback}
                 locale={locale}
                 room={room}
                 stateLabels={labels.states}
@@ -100,6 +102,7 @@ export function RoomLedger({
           <summary>{labels.addRoom}</summary>
           <RoomInventoryForm
             labels={labels.inventory}
+            feedback={labels.feedback}
             locale={locale}
             stateLabels={labels.states}
           />
@@ -110,7 +113,8 @@ export function RoomLedger({
         <section className={styles.controlSection}>
           <h3>{labels.privateBlockTitle}</h3>
           <p>{labels.privateBlockHelp}</p>
-          <form
+          <RoomActionForm
+            labels={labels.feedback}
             action={createPrivateBlockAction}
             className={styles.stackForm}
             data-webmcp-host-block
@@ -135,7 +139,7 @@ export function RoomLedger({
               <textarea maxLength={2000} name="privateNote" rows={2} />
             </label>
             <button type="submit">{labels.createBlock}</button>
-          </form>
+          </RoomActionForm>
           <ul className={styles.compactList}>
             {data.blocks.map((block) => (
               <li key={block.id}>
@@ -149,11 +153,11 @@ export function RoomLedger({
                     <small>{block.privateNote}</small>
                   ) : null}
                 </span>
-                <form action={cancelPrivateBlockAction}>
+                <RoomActionForm labels={labels.feedback} action={cancelPrivateBlockAction}>
                   <input name="locale" type="hidden" value={locale} />
                   <input name="blockId" type="hidden" value={block.id} />
                   <button type="submit">{labels.cancel}</button>
-                </form>
+                </RoomActionForm>
               </li>
             ))}
           </ul>
@@ -162,7 +166,8 @@ export function RoomLedger({
         <section className={styles.controlSection}>
           <h3>{labels.dateControlTitle}</h3>
           <p>{labels.dateControlHelp}</p>
-          <form
+          <RoomActionForm
+            labels={labels.feedback}
             action={createRoomOverrideAction}
             className={styles.stackForm}
             data-webmcp-room-control
@@ -192,7 +197,7 @@ export function RoomLedger({
               <textarea maxLength={2000} name="privateNote" rows={2} />
             </label>
             <button type="submit">{labels.saveControl}</button>
-          </form>
+          </RoomActionForm>
           <ul className={styles.compactList}>
             {data.overrides.map((control) => (
               <li key={control.id}>
@@ -207,11 +212,11 @@ export function RoomLedger({
                     <small>{control.privateNote}</small>
                   ) : null}
                 </span>
-                <form action={removeRoomOverrideAction}>
+                <RoomActionForm labels={labels.feedback} action={removeRoomOverrideAction}>
                   <input name="locale" type="hidden" value={locale} />
                   <input name="overrideId" type="hidden" value={control.id} />
                   <button type="submit">{labels.remove}</button>
-                </form>
+                </RoomActionForm>
               </li>
             ))}
           </ul>
@@ -221,7 +226,8 @@ export function RoomLedger({
       <section className={styles.controlSection}>
         <h3>{labels.agentRequestTitle}</h3>
         <p>{labels.agentRequestHelp}</p>
-        <form
+        <RoomActionForm
+            labels={labels.feedback}
           action={requestRoomProposalAction}
           className={styles.stackForm}
           data-agent-room-request
@@ -238,7 +244,7 @@ export function RoomLedger({
             />
           </label>
           <button type="submit">{labels.agentRequestSubmit}</button>
-        </form>
+        </RoomActionForm>
       </section>
 
       <section className={styles.controlSection}>
@@ -257,7 +263,7 @@ export function RoomLedger({
                   </p>
                 </div>
                 <div className={styles.proposalActions}>
-                  <form action={applyRoomProposalAction}>
+                  <RoomActionForm labels={labels.feedback} action={applyRoomProposalAction}>
                     <input name="locale" type="hidden" value={locale} />
                     <input
                       name="proposalId"
@@ -265,8 +271,8 @@ export function RoomLedger({
                       value={proposal.id}
                     />
                     <button type="submit">{labels.apply}</button>
-                  </form>
-                  <form action={dismissRoomProposalAction}>
+                  </RoomActionForm>
+                  <RoomActionForm labels={labels.feedback} action={dismissRoomProposalAction}>
                     <input name="locale" type="hidden" value={locale} />
                     <input
                       name="proposalId"
@@ -274,7 +280,7 @@ export function RoomLedger({
                       value={proposal.id}
                     />
                     <button type="submit">{labels.dismiss}</button>
-                  </form>
+                  </RoomActionForm>
                 </div>
               </li>
             ))}
@@ -290,6 +296,7 @@ export function RoomLedger({
 }
 
 export interface RoomLedgerLabels {
+  feedback: RoomActionLabels;
   doorStripLabel: string;
   inventoryTitle: string;
   inventoryHelp: string;
@@ -357,14 +364,17 @@ function RoomInventoryForm({
   room,
   labels,
   stateLabels,
+  feedback,
 }: {
   locale: "en" | "es";
   room?: HostRoomLedgerData["rooms"][number];
   labels: InventoryLabels;
+  feedback: RoomActionLabels;
   stateLabels: Record<DoorState, string>;
 }) {
   return (
-    <form
+    <RoomActionForm
+      labels={feedback}
       action={room ? updateRoomInventoryAction : createRoomInventoryAction}
       className={styles.inventoryForm}
     >
@@ -471,7 +481,7 @@ function RoomInventoryForm({
         />
       </label>
       <button type="submit">{room ? labels.save : labels.create}</button>
-    </form>
+    </RoomActionForm>
   );
 }
 

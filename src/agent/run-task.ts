@@ -88,11 +88,9 @@ async function safeMemoryWrite(
  * (in particular a queue drain) could see it: `runId`/`sessionId`/`task`
  * describe the run, and `claimToken` is the same token
  * `executeClaimedAgentTask` would otherwise get from `claimQueuedRun`.
- * `claimToken` is `null` when this is a still-in-flight duplicate of an
- * existing intent that this call did not itself claim (see
- * `enqueueAgentTaskInternal`'s "in-flight replay" case) -- the caller falls
- * back to the normal `executeQueuedAgentRun` claim attempt for that case,
- * exactly as before this fix.
+ * `claimToken` is `null` for queued work, including an in-flight duplicate or
+ * a distinct task deferred behind its session owner. The caller uses the normal
+ * `executeQueuedAgentRun` claim attempt in those cases.
  */
 interface EnqueueStart {
   runId: string;
@@ -106,8 +104,7 @@ interface EnqueueStart {
  * or without claiming it in the same insert/update (`options.claimImmediately`).
  * Shared by `enqueueAgentTask` (never claims immediately, so its return
  * shape is unchanged for every existing caller) and `runAgentTask` (always
- * claims immediately, for a run this process is about to execute
- * synchronously -- see the module doc below).
+ * requests an immediate claim for a run this process can execute synchronously).
  */
 async function enqueueAgentTaskInternal(
   payload: AgentTask,
@@ -167,33 +164,11 @@ async function enqueueAgentTaskInternal(
 }
 
 /**
- * Runs a task to completion in this process. A synchronous caller (the
- * minute tick running due jobs, a Server Action awaiting its own
- * result) must never have its run sit visible as `queued` even for one
- * round trip: the queue drain (`drainAgentQueue`, `src/agent/queue.ts`)
- * polls `status = 'queued' and queue_available_at <= now` every minute, and
- * a run inserted `queued` then claimed a moment later by *this* call was,
- * in that moment, a legitimate drain target -- in production the drain won
- * that race, dispatched the tick to AgentCore, and the synchronous
- * execution here then lost its own claim and failed with "Agent run is no
- * longer active".
- *
- * The fix inserts (or restarts) the row already claimed -- `status`
- * `running`, `queue_claim_token` set, `queue_claimed_at`/`heartbeat_at`/
- * `deadline_at` populated, `execution_attempt_count` 1 -- in the same
- * statement that starts it (`enqueueAgentTaskInternal` with
- * `claimImmediately: true`), so it is never visible in `queued` state to
- * anything. Execution then proceeds directly against that held claim
- * (`runClaimedTask`), skipping `claimQueuedRun`/`executeQueuedAgentRun`
- * entirely for the common case. No schema change: every column this needs
- * already exists (`queue_claim_token`, `queue_claimed_at`, `heartbeat_at`,
- * `deadline_at`, `execution_attempt_count`).
- *
- * `enqueueAgentTask` and `AgentCoreClient`/`LocalAgentClient`'s
- * queued-then-dispatch callers are unaffected: they never set
- * `claimImmediately`, so their runs still start `queued` and get claimed
- * later by whichever process (this one, opportunistically, or the drain)
- * gets there first -- unchanged from before this fix.
+ * Claim an immediately executable task in the same transaction that creates it,
+ * so a queue drain cannot take it between persistence and execution. If another
+ * run owns this session, persist the new task as queued instead; its original
+ * session and intent survive until the owner finishes or its lease is recovered.
+ * All claim transactions end before invoking the model.
  */
 export async function runAgentTask(
   payload: AgentTask,
@@ -246,6 +221,9 @@ export async function executeQueuedAgentRun(
         existing.status,
         existing.result,
       );
+    }
+    if (existing.status === "queued") {
+      return queuedRunResult(runId, existing.session_id);
     }
     if (existing.status === "failed") {
       throw new Error("Agent run is in a terminal failed state");
@@ -594,15 +572,7 @@ interface StartRunInput {
   startedAt: Date;
   actorKey: string;
   intentKey: string;
-  /**
-   * Insert (or restart) the row already claimed -- `status` `running`,
-   * `queue_claim_token` set, `queue_claimed_at`/`heartbeat_at`/
-   * `deadline_at` populated, `execution_attempt_count` 1 -- in the same
-   * statement, so it is never visible to the queue drain in a `queued`
-   * state (see `runAgentTask`'s doc comment). `false` reproduces exactly
-   * today's insert/update (status `queued`, every claim column left at
-   * its default), unchanged for every caller but `runAgentTask`.
-   */
+  /** Claim at insertion/retry when the session is free; otherwise leave queued. */
   claimImmediately: boolean;
 }
 
@@ -623,11 +593,25 @@ async function claimQueuedRun(
   runId: string,
 ): Promise<ClaimedRunRow | undefined> {
   const claimToken = randomUUID();
-  const rows = await sql.begin(
-    (transaction) => transaction<ClaimedRunRow[]>`
+  const rows = await sql.begin(async (transaction) => {
+    const [run] = await transaction<{ home_id: string; session_id: string }[]>`
+      select home_id, session_id from public.runs where id = ${runId}
+    `;
+    if (!run) return [];
+    // Share startRun's short claim lock; model execution happens after commit.
+    await transaction`
+      select pg_advisory_xact_lock(hashtextextended(${run.home_id}::text, 0))
+    `;
+    return transaction<ClaimedRunRow[]>`
       with claimable as (
         select id from public.runs
         where id = ${runId}
+          and not exists (
+            select 1 from public.runs active
+            where active.home_id = ${run.home_id}
+              and active.session_id = ${run.session_id}
+              and active.status = 'running' and active.id <> ${runId}
+          )
           and execution_attempt_count < 3
           and (
             (status = 'queued' and queue_available_at <= now())
@@ -648,8 +632,8 @@ async function claimQueuedRun(
       where run.id = claimable.id
       returning run.id, run.home_id, run.session_id, run.payload,
         run.queue_claim_token
-    `,
-  );
+    `;
+  });
   return rows[0];
 }
 
@@ -684,30 +668,25 @@ function queuedRunResult(runId: string, sessionId: string): RunResult {
 }
 
 async function startRun(input: StartRunInput): Promise<StartRunResult> {
-  const {
-    sql,
-    task,
-    sessionId,
-    runPayload,
-    startedAt,
-    actorKey,
-    intentKey,
-    claimImmediately,
-  } = input;
-  // Reproduces exactly what `claimQueuedRun` would set a moment later, but
-  // in the same insert/update statement that starts the row, so it is never
-  // visible in `queued` state in between (see `runAgentTask`'s doc
-  // comment). `null`/`0` when not claiming immediately -- the same values
-  // an insert/update omitting these columns would leave -- so this is a
-  // no-op for every caller except `runAgentTask`.
-  const claimToken = claimImmediately ? randomUUID() : null;
-  const status = claimImmediately ? "running" : "queued";
-  const executionAttemptCount = claimImmediately ? 1 : 0;
-
+  const { sql, task, sessionId, runPayload, startedAt, actorKey, intentKey } =
+    input;
   return sql.begin(async (transaction) => {
     await transaction`
       select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))
     `;
+    const activeSession = input.claimImmediately
+      ? await transaction<{ id: string }[]>`
+          select id from public.runs
+          where home_id = ${task.homeId} and session_id = ${sessionId}
+            and status = 'running'
+          limit 1
+        `
+      : [];
+    const claimImmediately =
+      input.claimImmediately && activeSession.length === 0;
+    const claimToken = claimImmediately ? randomUUID() : null;
+    const status = claimImmediately ? "running" : "queued";
+    const executionAttemptCount = claimImmediately ? 1 : 0;
     const [existing] = await transaction<
       {
         id: string;

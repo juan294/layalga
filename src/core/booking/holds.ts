@@ -170,6 +170,16 @@ export async function createTemporaryHold(
       `;
       if (!activeInvitation) throw new Error("The invitation was cancelled");
       await expireHomeHolds(transaction, invitation.home_id, clock.now());
+      const [activeVisit] = await transaction`
+        select id from public.visits
+        where invitation_id = ${input.invitationId} and status <> 'cancelled'
+        limit 1
+      `;
+      if (activeVisit) {
+        throw new Error(
+          "This invitation already has an active visit. Use rescheduleVisit to change it.",
+        );
+      }
       const draft = toDraft(input);
       await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
       const allocation = await selectRoomAllocation(

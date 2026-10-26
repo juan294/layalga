@@ -75,6 +75,13 @@
       "escalated": "Requiere atención"
     },
     "rooms": {
+      "feedback": {
+        "pending": "Guardando…",
+        "saved": "Guardado.",
+        "invalid": "Revisa las fechas, las habitaciones y los datos obligatorios. La fecha final debe ser posterior a la inicial.",
+        "conflict": "Este cambio entra en conflicto con una reserva o restricción existente. Revisa el libro de habitaciones y vuelve a intentarlo.",
+        "failed": "No se pudo guardar el cambio. Vuelve a intentarlo."
+      },
       "eyebrow": "Plano de la casa",
       "title": "Libro de habitaciones",
       "doorStripLabel": "Estados de las habitaciones para el mes elegido",

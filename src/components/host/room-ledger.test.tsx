@@ -24,6 +24,11 @@ import { RoomLedger, type RoomLedgerLabels } from "./room-ledger";
    still proves that the withheld door state reached the markup - the same
    thing the previous translator mock proved, now through the props. */
 const LABELS: RoomLedgerLabels = {
+  feedback: {
+    pending: "pending",
+    saved: "saved",
+    errors: { invalid: "invalid", conflict: "conflict", failed: "failed" },
+  },
   doorStripLabel: "doorStripLabel",
   inventoryTitle: "inventoryTitle",
   inventoryHelp: "inventoryHelp",

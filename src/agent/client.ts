@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { after } from "next/server";
+
 import {
   BedrockAgentCoreClient as AwsBedrockAgentCoreClient,
   InvokeAgentRuntimeCommand,
@@ -16,12 +18,14 @@ import { parseServerEnvironment } from "@/lib/server/env";
 type AgentCoreInvoke = (request: unknown) => Promise<unknown>;
 
 interface AgentCoreClientOptions {
+  scheduleDispatch?: (work: () => Promise<void>) => void;
   invoke?: AgentCoreInvoke;
   depsForTask?: (task: AgentTask) => Promise<RunAgentDeps>;
   persist?: (task: AgentTask, deps: RunAgentDeps) => Promise<RunResult>;
 }
 
 export class AgentCoreClient implements AgentClient {
+  private readonly scheduleDispatch?: AgentCoreClientOptions["scheduleDispatch"];
   private readonly invoke: AgentCoreInvoke;
   private readonly depsForTask: (task: AgentTask) => Promise<RunAgentDeps>;
   private readonly persist: (
@@ -34,6 +38,7 @@ export class AgentCoreClient implements AgentClient {
     region: string,
     options: AgentCoreClientOptions = {},
   ) {
+    this.scheduleDispatch = options.scheduleDispatch;
     this.invoke = options.invoke ?? createAgentCoreInvoker(runtimeArn, region);
     this.depsForTask = options.depsForTask ?? runtimeDeps;
     this.persist = options.persist ?? enqueueAgentTask;
@@ -49,14 +54,20 @@ export class AgentCoreClient implements AgentClient {
   ): Promise<RunResult> {
     const result = await this.persist(payload, await this.depsForTask(payload));
     if (result.status === "queued" && options.opportunistic !== false) {
-      try {
-        await this.executeQueued(result.runId, payload);
-      } catch (error) {
-        console.error("[AGENTCORE_QUEUE_DISPATCH_FAILED]", {
-          runId: result.runId,
-          errorName: error instanceof Error ? error.name : "UnknownError",
-        });
-      }
+      const dispatch = async () => {
+        try {
+          await this.executeQueued(result.runId, payload);
+        } catch (error) {
+          console.error("[AGENTCORE_QUEUE_DISPATCH_FAILED]", {
+            runId: result.runId,
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+        }
+      };
+      // Next owns web dispatch after acknowledgement. CLI/runtime callers
+      // retain an awaited invocation rather than an unowned background promise.
+      if (this.scheduleDispatch) this.scheduleDispatch(dispatch);
+      else await dispatch();
     }
     return result;
   }
@@ -109,7 +120,9 @@ async function invokeAgentCore(
 export function getAgentClient(): AgentClient {
   const config = parseServerEnvironment();
   return config.agentRuntime === "agentcore"
-    ? new AgentCoreClient(config.agentcoreRuntimeArn!, config.awsRegion!)
+    ? new AgentCoreClient(config.agentcoreRuntimeArn!, config.awsRegion!, {
+        scheduleDispatch: after,
+      })
     : new LocalAgentClient();
 }
 

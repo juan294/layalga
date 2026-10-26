@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { FakeClock } from "../clock";
 import type { JobScheduler } from "../reconfirmation/jobs";
+import { withdrawInvitation } from "./cancellation";
 import {
   createPrivateRoomBlock,
   RoomOperationConflictError,
@@ -186,6 +187,102 @@ describe("createTemporaryHold concurrency", () => {
   it("lets the exclusion constraint reject a race without the home lock", async () => {
     await runRace(false);
   });
+
+  it.each(["hold", "confirmed"] as const)(
+    "rejects another hold for an invitation with a %s and preserves withdrawal",
+    async (status) => {
+      const fixture = await seedFixture(db);
+      const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+      const stay = ["2026-10-02", "2026-10-04"] as const;
+      const input = { invitationId: fixture.invitationIds[0], stay, adults: 2 };
+      try {
+        const first = await createTemporaryHold(db, clock, input);
+        if (status === "confirmed") await confirmVisit(db, clock, first.visitId);
+        // Different dates avoid the occupancy constraint: invitation identity
+        // must prevent this duplicate even when the room would be available.
+        const second = await Promise.allSettled([
+          createTemporaryHold(db, clock, {
+            ...input,
+            stay: ["2026-10-09", "2026-10-11"],
+          }),
+        ]);
+        expect.soft(second[0]?.status).toBe("rejected");
+        await expect(
+          withdrawInvitation(db, {
+            homeId: fixture.homeId,
+            invitationId: input.invitationId,
+            actor: { kind: "host", hostId: fixture.hostId },
+            expectedVisitId: first.visitId,
+            expectedStay: stay,
+          }),
+        ).resolves.toBeUndefined();
+        const visits = await db<{ status: string }[]>`
+          select status from public.visits where invitation_id = ${input.invitationId}
+        `;
+        expect(visits).toEqual([{ status: "cancelled" }]);
+      } finally {
+        await db`delete from public.homes where id = ${fixture.homeId}`;
+      }
+    },
+  );
+
+  it("serializes different-date holds for the same invitation", async () => {
+    const fixture = await seedFixture(db);
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+    try {
+      const results = await Promise.allSettled(
+        ([
+          ["2026-10-02", "2026-10-04"],
+          ["2026-10-09", "2026-10-11"],
+        ] as const).map((stay) =>
+          createTemporaryHold(db, clock, {
+            invitationId: fixture.invitationIds[0],
+            stay,
+            adults: 2,
+          }),
+        ),
+      );
+      expect(
+        results.filter((result) => result.status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter((result) => result.status === "rejected"),
+      ).toHaveLength(1);
+      const visits = await db`
+        select id from public.visits where invitation_id = ${fixture.invitationIds[0]}
+      `;
+      expect(visits).toHaveLength(1);
+    } finally {
+      await db`delete from public.homes where id = ${fixture.homeId}`;
+    }
+  });
+
+  it.each(["expired", "cancelled"] as const)(
+    "allows another hold after an invitation's previous hold is %s",
+    async (history) => {
+      const fixture = await seedFixture(db);
+      const clock = new FakeClock(new Date("2026-09-01T10:00:00.000Z"));
+      const input = {
+        invitationId: fixture.invitationIds[0],
+        stay: ["2026-10-02", "2026-10-04"] as const,
+        adults: 2,
+      };
+      try {
+        const previous = await createTemporaryHold(db, clock, input);
+        if (history === "expired") clock.advance(48 * 60 * 60 * 1_000);
+        else await cancelVisit(db, previous.visitId);
+        const next = await createTemporaryHold(db, clock, input);
+        expect(next.status).toBe("hold");
+        expect(next.visitId).not.toBe(previous.visitId);
+        const [row] = await db<{ status: string }[]>`
+          select status from public.visits where id = ${previous.visitId}
+        `;
+        expect(row?.status).toBe("cancelled");
+      } finally {
+        await db`delete from public.homes where id = ${fixture.homeId}`;
+      }
+    },
+  );
 
   it("confirms, reschedules, and cancels a held visit atomically", async () => {
     const fixture = await seedFixture(db);

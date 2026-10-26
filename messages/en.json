@@ -75,6 +75,13 @@
       "escalated": "Needs attention"
     },
     "rooms": {
+      "feedback": {
+        "pending": "Saving…",
+        "saved": "Saved.",
+        "invalid": "Check the dates, room selection and required details. The end date must be after the start date.",
+        "conflict": "This change conflicts with an existing booking or room restriction. Review the ledger and try again.",
+        "failed": "The change could not be saved. Try again."
+      },
       "eyebrow": "House plan",
       "title": "Room ledger",
       "doorStripLabel": "Room states for the selected month",

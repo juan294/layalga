@@ -18,10 +18,16 @@ import {
   createRoomInventory,
   dismissRoomActionProposal,
   removeRoomAvailabilityOverride,
+  RoomOperationConflictError,
   updateRoomInventory,
 } from "@/core/rooms/operations";
 import { requireHost } from "@/lib/auth/current-host";
 import { reportActionError } from "@/lib/server/action-errors";
+
+export type RoomActionState =
+  | { status: "idle" }
+  | { status: "saved" }
+  | { status: "error"; error: "invalid" | "conflict" | "failed" };
 
 const localeSchema = z.enum(["en", "es"]);
 const inventorySchema = z.object({
@@ -38,11 +44,13 @@ const inventorySchema = z.object({
   privateNotes: z.string().trim().max(2_000).optional(),
 });
 
-export async function createRoomInventoryAction(formData: FormData) {
+export async function createRoomInventoryAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const parsed = inventorySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return;
+  if (!parsed.success) return { status: "error", error: "invalid" };
   try {
     await createRoomInventory(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -50,18 +58,22 @@ export async function createRoomInventoryAction(formData: FormData) {
       ...parsed.data,
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_inventory_create_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function updateRoomInventoryAction(formData: FormData) {
+export async function updateRoomInventoryAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const parsed = inventorySchema
     .extend({ roomId: z.uuid() })
     .safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return;
+  if (!parsed.success) return { status: "error", error: "invalid" };
   try {
     await updateRoomInventory(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -69,12 +81,16 @@ export async function updateRoomInventoryAction(formData: FormData) {
       ...parsed.data,
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_inventory_update_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function createPrivateBlockAction(formData: FormData) {
+export async function createPrivateBlockAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const parsed = z
@@ -89,7 +105,8 @@ export async function createPrivateBlockAction(formData: FormData) {
       ...Object.fromEntries(formData),
       roomIds: formData.getAll("roomIds").map(String),
     });
-  if (!parsed.success || !validStay([parsed.data.from, parsed.data.to])) return;
+  if (!parsed.success || !validStay([parsed.data.from, parsed.data.to]))
+    return { status: "error", error: "invalid" };
   try {
     await createPrivateRoomBlock(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -101,16 +118,20 @@ export async function createPrivateBlockAction(formData: FormData) {
       idempotencyKey: randomUUID(),
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("private_room_block_create_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function cancelPrivateBlockAction(formData: FormData) {
+export async function cancelPrivateBlockAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const blockId = z.uuid().safeParse(formData.get("blockId"));
-  if (!blockId.success) return;
+  if (!blockId.success) return { status: "error", error: "invalid" };
   try {
     await cancelPrivateRoomBlock(
       getDatabaseConnection().db,
@@ -118,12 +139,16 @@ export async function cancelPrivateBlockAction(formData: FormData) {
       host.id,
     );
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("private_room_block_cancel_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function createRoomOverrideAction(formData: FormData) {
+export async function createRoomOverrideAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const parsed = z
@@ -135,7 +160,8 @@ export async function createRoomOverrideAction(formData: FormData) {
       privateNote: z.string().trim().max(2_000).optional(),
     })
     .safeParse(Object.fromEntries(formData));
-  if (!parsed.success || !validStay([parsed.data.from, parsed.data.to])) return;
+  if (!parsed.success || !validStay([parsed.data.from, parsed.data.to]))
+    return { status: "error", error: "invalid" };
   try {
     await createRoomAvailabilityOverride(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -147,16 +173,20 @@ export async function createRoomOverrideAction(formData: FormData) {
       idempotencyKey: randomUUID(),
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_override_create_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function removeRoomOverrideAction(formData: FormData) {
+export async function removeRoomOverrideAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const overrideId = z.uuid().safeParse(formData.get("overrideId"));
-  if (!overrideId.success) return;
+  if (!overrideId.success) return { status: "error", error: "invalid" };
   try {
     await removeRoomAvailabilityOverride(
       getDatabaseConnection().db,
@@ -164,16 +194,20 @@ export async function removeRoomOverrideAction(formData: FormData) {
       host.id,
     );
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_override_remove_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function applyRoomProposalAction(formData: FormData) {
+export async function applyRoomProposalAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const proposalId = z.uuid().safeParse(formData.get("proposalId"));
-  if (!proposalId.success) return;
+  if (!proposalId.success) return { status: "error", error: "invalid" };
   try {
     await applyRoomActionProposal(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -181,16 +215,20 @@ export async function applyRoomProposalAction(formData: FormData) {
       proposalId: proposalId.data,
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_proposal_apply_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function dismissRoomProposalAction(formData: FormData) {
+export async function dismissRoomProposalAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const proposalId = z.uuid().safeParse(formData.get("proposalId"));
-  if (!proposalId.success) return;
+  if (!proposalId.success) return { status: "error", error: "invalid" };
   try {
     await dismissRoomActionProposal(getDatabaseConnection().db, {
       homeId: host.homeId,
@@ -198,12 +236,16 @@ export async function dismissRoomProposalAction(formData: FormData) {
       proposalId: proposalId.data,
     });
     revalidatePath(`/${locale}/rooms`);
+    return { status: "saved" };
   } catch (error) {
     reportActionError("room_proposal_dismiss_failed", error);
+    return roomActionFailure(error);
   }
 }
 
-export async function requestRoomProposalAction(formData: FormData) {
+export async function requestRoomProposalAction(
+  formData: FormData,
+): Promise<RoomActionState> {
   const locale = localeValue(formData);
   const host = await requireHost(locale);
   const rawMessage = z
@@ -212,7 +254,7 @@ export async function requestRoomProposalAction(formData: FormData) {
     .min(1)
     .max(MAX_HOST_MESSAGE_LENGTH)
     .safeParse(formData.get("rawMessage"));
-  if (!rawMessage.success) return;
+  if (!rawMessage.success) return { status: "error", error: "invalid" };
 
   let runId: string;
   try {
@@ -226,7 +268,7 @@ export async function requestRoomProposalAction(formData: FormData) {
     runId = run.runId;
   } catch (error) {
     reportActionError("room_proposal_request_failed", error);
-    return;
+    return roomActionFailure(error);
   }
   redirect(
     `/${locale}/runs/${runId}/status?returnTo=${encodeURIComponent(`/${locale}/rooms`)}`,
@@ -239,4 +281,16 @@ function localeValue(formData: FormData): "en" | "es" {
 
 function validStay(stay: readonly [string, string]): boolean {
   return stay[0] < stay[1];
+}
+
+function roomActionFailure(error: unknown): RoomActionState {
+  return {
+    status: "error",
+    error:
+      error instanceof RoomOperationConflictError
+        ? "conflict"
+        : error instanceof RangeError
+          ? "invalid"
+          : "failed",
+  };
 }

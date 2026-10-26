@@ -43,6 +43,15 @@ function roomLedgerLabels(
   t: Awaited<ReturnType<typeof getTranslations>>,
 ): RoomLedgerLabels {
   return {
+    feedback: {
+      pending: t("rooms.feedback.pending"),
+      saved: t("rooms.feedback.saved"),
+      errors: {
+        invalid: t("rooms.feedback.invalid"),
+        conflict: t("rooms.feedback.conflict"),
+        failed: t("rooms.feedback.failed"),
+      },
+    },
     doorStripLabel: t("rooms.doorStripLabel"),
     inventoryTitle: t("rooms.inventoryTitle"),
     inventoryHelp: t("rooms.inventoryHelp"),

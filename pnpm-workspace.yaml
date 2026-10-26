@@ -40,8 +40,8 @@ overrides:
   "brace-expansion@1": 1.1.21
   "brace-expansion@2": 2.1.7
   "brace-expansion@5": 5.0.12
-  "fast-uri@3": 3.1.8
-  "fast-uri@4": 4.2.2
+  "fast-uri@3": 3.1.9
+  "fast-uri@4": 4.2.3
   proxy-addr: 2.0.8
   source-map-js: 1.2.2
   # GHSA-qqmp-wf37-98f9: the ADOT distro pins auto-instrumentations-node@0.77.0,
@@ -62,3 +62,8 @@ overrides:
   # nothing here imports (see allowBuilds); the fix exists only in 4.x.
   "@simple-git/argv-parser": 2.0.1
   simple-git: 4.0.2
+  # Compatible patches for the 2026-10-26 audit, including optional SDK tools.
+  "vite@8": 8.2.4
+  "@modelcontextprotocol/server@2": 2.3.0
+  "zod@4": 4.6.7
+  "body-parser@2": 2.4.0
