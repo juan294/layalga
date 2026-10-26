@@ -90,7 +90,7 @@ export function RoomLedger({
               ) : null}
               <RoomInventoryForm
                 labels={labels.inventory}
-            feedback={labels.feedback}
+                feedback={labels.feedback}
                 locale={locale}
                 room={room}
                 stateLabels={labels.states}
@@ -153,7 +153,10 @@ export function RoomLedger({
                     <small>{block.privateNote}</small>
                   ) : null}
                 </span>
-                <RoomActionForm labels={labels.feedback} action={cancelPrivateBlockAction}>
+                <RoomActionForm
+                  labels={labels.feedback}
+                  action={cancelPrivateBlockAction}
+                >
                   <input name="locale" type="hidden" value={locale} />
                   <input name="blockId" type="hidden" value={block.id} />
                   <button type="submit">{labels.cancel}</button>
@@ -212,7 +215,10 @@ export function RoomLedger({
                     <small>{control.privateNote}</small>
                   ) : null}
                 </span>
-                <RoomActionForm labels={labels.feedback} action={removeRoomOverrideAction}>
+                <RoomActionForm
+                  labels={labels.feedback}
+                  action={removeRoomOverrideAction}
+                >
                   <input name="locale" type="hidden" value={locale} />
                   <input name="overrideId" type="hidden" value={control.id} />
                   <button type="submit">{labels.remove}</button>
@@ -227,7 +233,7 @@ export function RoomLedger({
         <h3>{labels.agentRequestTitle}</h3>
         <p>{labels.agentRequestHelp}</p>
         <RoomActionForm
-            labels={labels.feedback}
+          labels={labels.feedback}
           action={requestRoomProposalAction}
           className={styles.stackForm}
           data-agent-room-request
@@ -263,7 +269,10 @@ export function RoomLedger({
                   </p>
                 </div>
                 <div className={styles.proposalActions}>
-                  <RoomActionForm labels={labels.feedback} action={applyRoomProposalAction}>
+                  <RoomActionForm
+                    labels={labels.feedback}
+                    action={applyRoomProposalAction}
+                  >
                     <input name="locale" type="hidden" value={locale} />
                     <input
                       name="proposalId"
@@ -272,7 +281,10 @@ export function RoomLedger({
                     />
                     <button type="submit">{labels.apply}</button>
                   </RoomActionForm>
-                  <RoomActionForm labels={labels.feedback} action={dismissRoomProposalAction}>
+                  <RoomActionForm
+                    labels={labels.feedback}
+                    action={dismissRoomProposalAction}
+                  >
                     <input name="locale" type="hidden" value={locale} />
                     <input
                       name="proposalId"

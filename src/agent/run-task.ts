@@ -593,7 +593,7 @@ async function claimQueuedRun(
   runId: string,
 ): Promise<ClaimedRunRow | undefined> {
   const claimToken = randomUUID();
-  const rows = await sql.begin(async (transaction) => {
+  const rows = await sql.begin<ClaimedRunRow[]>(async (transaction) => {
     const [run] = await transaction<{ home_id: string; session_id: string }[]>`
       select home_id, session_id from public.runs where id = ${runId}
     `;
