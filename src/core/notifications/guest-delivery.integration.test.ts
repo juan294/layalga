@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { FakeClock } from "../clock";
+import { EmailNotSentError } from "./ses-client";
 import {
   registerGuestContact,
   loadGuestContact,
@@ -54,6 +55,167 @@ async function chase(f: Awaited<ReturnType<typeof fixture>>, now: Date) {
 }
 
 describe("consented guest delivery", () => {
+  it.each(["verification", "reconfirm_chase"] as const)(
+    "quarantines a provider-accepted %s whose response was lost without resending",
+    async (kind) => {
+      const f = await fixture(),
+        time = clock();
+      emailEnv();
+      try {
+        await registerGuestContact(
+          db,
+          {
+            ...f,
+            email: "unknown@example.test",
+            locale: "en",
+            consent: true,
+            verifiedGoogle: kind === "reconfirm_chase",
+          },
+          time,
+          secret,
+        );
+        const source =
+          kind === "reconfirm_chase" ? await chase(f, time.now()) : null;
+        let accepted = 0;
+        const send = vi.fn(async () => {
+          accepted++;
+          throw Object.assign(new Error("response lost after acceptance"), {
+            code: "ECONNRESET",
+          });
+        });
+        await dispatchGuestEmailPings(db, time, send);
+        const [row] =
+          await db`select status,attempts,error_name from public.guest_email_outbox where home_id=${f.homeId}`;
+        expect(row).toEqual({
+          status: "failed",
+          attempts: 1,
+          error_name: "UnknownDelivery",
+        });
+        const [receipt] =
+          await db`select status,message_id from public.guest_email_attempts where home_id=${f.homeId}`;
+        expect(receipt).toEqual({ status: "unknown", message_id: null });
+        if (source)
+          expect(await loadGuestDeliveryFacts(db, f.homeId, time)).toEqual([
+            { visitId: source.visitId, status: "unknown", sentAt: null },
+          ]);
+        time.advance(60 * 60_000);
+        await dispatchGuestEmailPings(db, time, send);
+        expect(accepted).toBe(1);
+        expect(send).toHaveBeenCalledTimes(1);
+        // A later confirmed acceptance receipt reconciles state without resend.
+        await db`update public.guest_email_attempts set status='accepted',message_id='confirmed-later',accepted_at=${time.now().toISOString()} where home_id=${f.homeId}`;
+        await dispatchGuestEmailPings(db, time, send);
+        expect(send).toHaveBeenCalledTimes(1);
+        const [recovered] =
+          await db`select status,message_id from public.guest_email_outbox where home_id=${f.homeId}`;
+        expect(recovered).toEqual({
+          status: "sent",
+          message_id: "confirmed-later",
+        });
+      } finally {
+        await db`delete from public.homes where id=${f.homeId}`;
+      }
+    },
+  );
+
+  it.each(["verify", "request"])(
+    "shows unknown verification until the guest chooses to %s",
+    async (choice) => {
+      const f = await fixture(),
+        time = clock();
+      emailEnv();
+      try {
+        const enrollment = {
+          ...f,
+          email: "retry@example.test",
+          locale: "en" as const,
+          consent: true as const,
+        };
+        await registerGuestContact(db, enrollment, time, secret);
+        let originalCapability = "";
+        const lost = vi.fn(async (message: { text: string }) => {
+          originalCapability = new URL(
+            message.text.match(/https:\/\/\S+/)![0],
+          ).searchParams.get("capability")!;
+          throw new Error("accepted response lost");
+        });
+        await dispatchGuestEmailPings(db, time, lost);
+        expect(await loadGuestContact(db, f, time)).toMatchObject({
+          status: "unverified",
+          deliveryUnknown: true,
+          deliveryFailed: false,
+        });
+        await dispatchGuestEmailPings(db, time, lost);
+        expect(lost).toHaveBeenCalledTimes(1);
+        if (choice === "verify") {
+          expect(
+            await verifyGuestContact(db, originalCapability, time, secret),
+          ).not.toBeNull();
+          const verified = await loadGuestContact(db, f, time);
+          expect(verified.status).toBe("enabled");
+          expect(verified.deliveryUnknown).not.toBe(true);
+          return;
+        }
+        // Only a new consented form request grants a fresh generation/send.
+        await registerGuestContact(db, enrollment, time, secret);
+        expect((await loadGuestContact(db, f, time)).deliveryUnknown).not.toBe(
+          true,
+        );
+        expect(
+          await inspectGuestVerification(db, originalCapability, time, secret),
+        ).toBeNull();
+        const send = vi
+          .fn()
+          .mockResolvedValue({ messageId: "explicit-new-verification" });
+        await dispatchGuestEmailPings(db, time, send);
+        await dispatchGuestEmailPings(db, time, send);
+        expect(send).toHaveBeenCalledTimes(1);
+        const rows =
+          await db`select generation,status,error_name from public.guest_email_outbox where home_id=${f.homeId} order by generation`;
+        expect(rows).toEqual([
+          { generation: 1, status: "cancelled", error_name: "ContactChanged" },
+          { generation: 2, status: "sent", error_name: null },
+        ]);
+        await disableGuestContact(db, f, time);
+        expect(await loadGuestContact(db, f, time)).toMatchObject({
+          status: "disabled",
+        });
+        expect((await loadGuestContact(db, f, time)).deliveryUnknown).not.toBe(
+          true,
+        );
+      } finally {
+        await db`delete from public.homes where id=${f.homeId}`;
+      }
+    },
+  );
+
+  it("retries a preparation failure that never called the provider", async () => {
+    const f = await fixture(),
+      time = clock();
+    emailEnv();
+    try {
+      await registerGuestContact(
+        db,
+        { ...f, email: "presend@example.test", locale: "en", consent: true },
+        time,
+        secret,
+      );
+      vi.stubEnv("LINK_TOKEN_SECRET", "");
+      const send = vi.fn().mockResolvedValue({ messageId: "prepared-later" });
+      await dispatchGuestEmailPings(db, time, send);
+      expect(send).not.toHaveBeenCalled();
+      const [receipt] =
+        await db`select status from public.guest_email_attempts where home_id=${f.homeId}`;
+      expect(receipt.status).toBe("failed");
+      vi.stubEnv("LINK_TOKEN_SECRET", secret);
+      time.advance(5 * 60_000);
+      expect((await dispatchGuestEmailPings(db, time, send)).sent).toBe(1);
+      expect(send).toHaveBeenCalledTimes(1);
+    } finally {
+      await db`delete from public.homes where id=${f.homeId}`;
+    }
+  });
+
   it.each(["authorized", "accepted_after_sweep"] as const)(
     "never reclaims an indeterminate send when a lease expires after the startup sweep (%s)",
     async (mode) => {
@@ -190,7 +352,7 @@ describe("consented guest delivery", () => {
       );
       await chase(f, time.now());
       time.set(new Date("2026-09-12T22:00:00Z"));
-      const send = vi.fn().mockRejectedValue(new Error("retry"));
+      const send = vi.fn().mockRejectedValue(new EmailNotSentError("retry"));
       await dispatchGuestEmailPings(db, time, send);
       expect(send).not.toHaveBeenCalled();
       time.set(new Date("2026-09-10T09:00:00Z"));
@@ -224,7 +386,7 @@ describe("consented guest delivery", () => {
         );
         const source = await chase(f, time.now());
         await dispatchGuestEmailPings(db, time, async () => {
-          throw new Error("failed first");
+          throw new EmailNotSentError("failed first");
         });
         const token = randomUUID();
         const [row] = await db<
@@ -347,7 +509,7 @@ describe("consented guest delivery", () => {
       );
       await chase(f, time.now());
       await dispatchGuestEmailPings(db, time, async () => {
-        throw new Error("first failed");
+        throw new EmailNotSentError("first failed");
       });
       await db`update public.guest_email_outbox set status='sending',claim_token=${randomUUID()},lease_until=${new Date(time.now().getTime() - 1).toISOString()},available_at=${time.now().toISOString()} where home_id=${f.homeId}`;
       const send = vi.fn(async () => {
@@ -456,7 +618,7 @@ describe("consented guest delivery", () => {
       );
       await chase(f, time.now());
       const send = vi.fn().mockRejectedValue(
-        Object.assign(new Error("private@example.test"), {
+        Object.assign(new EmailNotSentError("private@example.test"), {
           name: "private@example.test",
         }),
       );
@@ -501,7 +663,7 @@ describe("consented guest delivery", () => {
           secret,
         );
         const source = await chase(f, time.now());
-        const send = vi.fn().mockRejectedValue(new Error("retry"));
+        const send = vi.fn().mockRejectedValue(new EmailNotSentError("retry"));
         await dispatchGuestEmailPings(db, time, send);
         if (change === "optout") await disableGuestContact(db, f, time);
         else

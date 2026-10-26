@@ -22,9 +22,45 @@ const message = {
   html: "<p>HTML</p>",
 };
 
-beforeEach(() => mocks.send.mockReset());
+beforeEach(() => {
+  mocks.send.mockReset();
+});
 
 describe("SES email adapter", () => {
+  it.each([
+    { name: "TooManyRequestsException", $metadata: { httpStatusCode: 429 } },
+    { name: "MessageRejected", $metadata: { httpStatusCode: 400 } },
+    { name: "Error", code: "ECONNREFUSED" },
+    { name: "Error", code: "EAI_AGAIN" },
+    { name: "CredentialsProviderError" },
+  ])(
+    "identifies definite rejection or pre-send failure: $name $code",
+    async (details) => {
+      mocks.send.mockRejectedValue(
+        Object.assign(new Error("private detail"), details),
+      );
+      await expect(
+        sesSend(message, { AWS_REGION: "us-east-1" }),
+      ).rejects.toMatchObject({ name: "EmailNotSentError" });
+    },
+  );
+
+  it.each([
+    { name: "TimeoutError" },
+    { name: "Error", code: "ECONNRESET" },
+    { name: "InternalServerError", $metadata: { httpStatusCode: 500 } },
+    { name: "RequestTimeout", $metadata: { httpStatusCode: 400 } },
+  ])(
+    "does not call an ambiguous outcome definitely unsent: $name $code",
+    async (details) => {
+      const error = Object.assign(new Error("response unavailable"), details);
+      mocks.send.mockRejectedValue(error);
+      await expect(sesSend(message, { AWS_REGION: "us-east-1" })).rejects.toBe(
+        error,
+      );
+    },
+  );
+
   it("requires a configured region", async () => {
     await expect(sesSend(message, {})).rejects.toThrow(
       "SES_REGION or AWS_REGION is required",

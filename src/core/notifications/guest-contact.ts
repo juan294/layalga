@@ -13,6 +13,7 @@ export interface GuestContactAuthority {
 }
 export interface GuestContactState {
   deliveryFailed?: boolean;
+  deliveryUnknown?: boolean;
   status: "no_contact" | "unverified" | "enabled" | "disabled";
   email: string | null;
 }
@@ -212,13 +213,20 @@ export async function loadGuestContact(
     GuestContactRow[]
   >`select * from public.guest_contacts where invitation_id=${authority.invitationId} and home_id=${authority.homeId} and party_id=${authority.partyId}`;
   const [failure] = row
-    ? await sql<{ failed: boolean }[]>`
-    select status='failed' and error_name<>'UnknownDelivery' as failed
+    ? await sql<{ failed: boolean; unknown: boolean }[]>`
+    select status='failed' and error_name<>'UnknownDelivery' as failed,
+      status='failed' and error_name='UnknownDelivery' and kind='verification' as unknown
     from public.guest_email_outbox where contact_id=${row.id} and generation=${row.generation}
     order by created_at desc,id desc limit 1
   `
     : [];
-  return { ...state(row), deliveryFailed: failure?.failed ?? false };
+  return {
+    ...state(row),
+    deliveryFailed: failure?.failed ?? false,
+    ...(row?.consent && !row.verified_at && failure?.unknown
+      ? { deliveryUnknown: true }
+      : {}),
+  };
 }
 export async function registerGuestContact(
   database: DatabaseClient,

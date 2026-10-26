@@ -14,10 +14,49 @@ export interface EmailSendResult {
 
 export type EmailSender = (message: EmailMessage) => Promise<EmailSendResult>;
 
+/** The provider did not accept this attempt; the durable outbox may retry it. */
+export class EmailNotSentError extends Error {
+  override name = "EmailNotSentError";
+}
+
+const SES_REJECTIONS = new Set([
+  "AccountSuspendedException",
+  "BadRequestException",
+  "LimitExceededException",
+  "MailFromDomainNotVerifiedException",
+  "MessageRejected",
+  "NotFoundException",
+  "SendingPausedException",
+  "TooManyRequestsException",
+]);
+
+function definitelyNotSent(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const failure = error as Error & {
+    code?: string;
+    $metadata?: { httpStatusCode?: number };
+  };
+  // DNS, refused connection, and credential resolution fail before SES receives
+  // the request. Resets/timeouts and unspecified 4xx/5xx remain ambiguous.
+  if (
+    ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED"].includes(failure.code ?? "") ||
+    failure.name === "CredentialsProviderError"
+  )
+    return true;
+  const status = failure.$metadata?.httpStatusCode;
+  return (
+    status !== undefined &&
+    status >= 400 &&
+    status < 500 &&
+    SES_REJECTIONS.has(failure.name)
+  );
+}
+
 let client: SESv2Client | undefined;
 
 function sesClient(region: string): SESv2Client {
-  client ??= new SESv2Client({ region });
+  // SendEmail has no idempotency token; only the durable outbox may retry.
+  client ??= new SESv2Client({ region, maxAttempts: 1 });
   return client;
 }
 
@@ -32,24 +71,34 @@ export async function sesSend(
 ): Promise<EmailSendResult> {
   const region = env.SES_REGION ?? env.AWS_REGION;
   if (!region) {
-    throw new Error("SES_REGION or AWS_REGION is required to send email");
+    throw new EmailNotSentError(
+      "SES_REGION or AWS_REGION is required to send email",
+    );
   }
 
-  const response = await sesClient(region).send(
-    new SendEmailCommand({
-      FromEmailAddress: message.fromAddress,
-      Destination: { ToAddresses: [message.toAddress] },
-      Content: {
-        Simple: {
-          Subject: { Data: message.subject, Charset: "UTF-8" },
-          Body: {
-            Text: { Data: message.text, Charset: "UTF-8" },
-            Html: { Data: message.html, Charset: "UTF-8" },
+  let response;
+  try {
+    response = await sesClient(region).send(
+      new SendEmailCommand({
+        FromEmailAddress: message.fromAddress,
+        Destination: { ToAddresses: [message.toAddress] },
+        Content: {
+          Simple: {
+            Subject: { Data: message.subject, Charset: "UTF-8" },
+            Body: {
+              Text: { Data: message.text, Charset: "UTF-8" },
+              Html: { Data: message.html, Charset: "UTF-8" },
+            },
           },
         },
-      },
-    }),
-  );
+      }),
+    );
+  } catch (error) {
+    if (definitelyNotSent(error)) {
+      throw new EmailNotSentError("Email was not sent", { cause: error });
+    }
+    throw error;
+  }
   if (!response.MessageId) {
     throw new Error("SES accepted the request without a message ID");
   }

@@ -74,7 +74,11 @@ export async function AuthorizedGuestEmailPreferences({
     >
       <summary className={styles.cancellationToggle}>{t("title")}</summary>
       <p>{t("body")}</p>
-      <p role="status">{t(state.status, { email: state.email ?? "" })}</p>
+      {state.deliveryUnknown ? (
+        <p role="alert">{t("deliveryUnknown")}</p>
+      ) : (
+        <p role="status">{t(state.status, { email: state.email ?? "" })}</p>
+      )}
       {state.deliveryFailed ? <p role="alert">{t("deliveryFailed")}</p> : null}
       {error ? <p role="alert">{t(error)}</p> : null}
       {unavailable ? (

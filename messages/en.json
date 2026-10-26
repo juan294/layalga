@@ -552,6 +552,7 @@
     "verify": "Verify email and enable reminders",
     "openAccount": "Open guest account",
     "preferencesTitle": "Email preferences updated",
+    "deliveryUnknown": "We cannot confirm whether the verification email was sent. Check your inbox and spam folder before requesting another verification email. A new verification request replaces the earlier link.",
     "deliveryFailed": "The last email could not be sent. You can update your address or turn reminders off.",
     "deliveryUnavailable": "Email delivery is currently unavailable. Your booking is unaffected.",
     "deliveryPending": "Your email is waiting to be sent."
