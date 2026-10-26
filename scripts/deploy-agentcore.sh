@@ -98,7 +98,7 @@ if [[ "$skip_bundle" != "true" ]]; then
   (cd "$repository_root" && pnpm run agent:bundle)
 fi
 
-if [[ ! -f "$bundle_zip" ]]; then
+if [[ -z "$s3_version_id" && ! -f "$bundle_zip" ]]; then
   echo "Error: deployment package not found at $bundle_zip" >&2
   exit 1
 fi
