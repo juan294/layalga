@@ -87,6 +87,8 @@ The real-use launch ships in two releases, because migrations run before the web
 
 The production gate is the `Production probes` workflow, dispatched from `main` with the exact deployed commit and the acknowledgement `WRITE PROBE FIXTURE`. It runs `pnpm run release:probes -- --target production` against two fixture households that it creates and deletes; it never reads or writes the real household. Apply migrations with `supabase db push --linked` before merging a release into `main`, because the merge deploys the web app. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
+v2.3.1 is prepared locally for the reliability fixes recorded in `CHANGELOG.md`. It has no migrations and requires matching web and AgentCore deployment; the production state above remains the last verified deployment until promotion completes.
+
 ## Agent Behavior
 
 Exhaust CLI and browser automation before asking the user to perform operations. Preserve phase gates and external-action authorization boundaries.
@@ -107,6 +109,8 @@ Exhaust CLI and browser automation before asking the user to perform operations.
 | Hackathon archive    | `docs/archive/hackathon/`                                            | Hackathon demo as of 2026-10-14; not current state   |
 | Docs index           | `docs/README.md`                                                     | One line per document                                |
 | Agent reports        | `docs/agents/*-report.md`                                            | Gitignored because the intended repository is public |
+
 <!-- rpi:claude-import:start -->
+
 @AGENTS.md
 <!-- rpi:claude-import:end -->

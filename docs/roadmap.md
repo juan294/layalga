@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [hackathon archive](archive/hackathon/README.md) keeps the submission material. Production runs v2.0.0, real-use release 1 (2026-10-15), without demo mode. The next step is release 2, which drops the leftover demo schema. Dated research and earlier plans record the decisions that led here; they are not a current backlog.
+Updated October 27, 2026. Production runs v2.3.0 with the Next.js 16.4.2 security hotfix at `339b62a`; v2.3.1 is being prepared. Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
 
 ## Implemented in the completion
 
@@ -36,3 +36,7 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 Per-night room packing, room photography, two-way Google/iCloud calendar writes, a remote OAuth MCP service, and messaging-channel integrations remain outside this completion. WhatsApp and Twilio remain excluded. These would add product and authorization scope before the booking lifecycle has real household use.
 
 The main remaining uncertainty is evidence from real people using the product.
+
+## Prepared release
+
+v2.3.1 prepares the completed pre-launch reliability fixes for production, with no migrations. Local remediation and its hosted integration checks passed on `14d5d45`; release preparation, exact deployed identities and production probes are separate evidence. Guest email activation remains separate.

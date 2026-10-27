@@ -4,9 +4,9 @@
 [![CodeQL](https://github.com/juan294/layalga/actions/workflows/codeql.yml/badge.svg?branch=develop&event=push)](https://github.com/juan294/layalga/actions/workflows/codeql.yml?query=branch%3Adevelop+event%3Apush)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-24-43853D?logo=node.js&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16.3.4-000000?logo=next.js&logoColor=white)
-![React](https://img.shields.io/badge/React-19.2.8-61DAFB?logo=react&logoColor=black)
-[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.16.0-232F3E)](https://strandsagents.com/)
+![Next.js](https://img.shields.io/badge/Next.js-16.4.2-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19.2.9-61DAFB?logo=react&logoColor=black)
+[![Strands Agents](https://img.shields.io/badge/Strands_Agents-1.20.0-232F3E)](https://strandsagents.com/)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AgentCore Runtime](https://img.shields.io/badge/AgentCore-Runtime-00A88F?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/bedrock/agentcore/)
@@ -30,6 +30,8 @@ Two hosts share a rural home, but invitations arrive as informal messages and ov
 The [documentation index](docs/README.md) lists every current document. The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates released work from the remaining steps. L’Ayalga began as an AWS Agents for Humans hackathon entry; the [hackathon archive](docs/archive/hackathon/README.md) keeps the submission material, which describes the judged demo as of 2026-10-14.
 
 Production runs v2.3.0 with the Next.js 16.4.2 security hotfix (2026-10-22) at commit `339b62a9370dd097b0ca929176bff24c0f424b5a`, with AgentCore runtime version 42 from v2.3.0. Demo mode is gone: hosts sign in with Google (the header shows which account is signed in, and Google always offers its account picker), invited guests can sign in with the Google account that claimed their invitation, and the household starts with no rooms. The release passed the production probe gate on fixture households. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
+
+Release preparation: v2.3.1 contains the reliability fixes in [CHANGELOG.md](CHANGELOG.md#231---2026-10-27), with no migrations. Production promotion and matching AgentCore deployment are pending release verification.
 
 [![Simplified L’Ayalga AWS architecture](docs/architecture/layalga-aws-blog-architecture.drawio.png)](docs/architecture/layalga-aws-blog-architecture.drawio)
 

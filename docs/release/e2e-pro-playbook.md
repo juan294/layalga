@@ -214,7 +214,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 
 ## Real-use launch releases
 
-The real-use launch ([plan](../plans/2026-10-15-real-use-launch.md)) removes demo mode in two releases. Schema removal needs two steps because migrations run before the web deploy and AgentCore deploys separately: dropping `homes.demo` while the old web app or the old AgentCore bundle still reads it would break live requests. Release 1 shipped as v2.0.0 on 2026-10-15. Release 2 has not run. Every production action in it needs explicit owner authorization at the time it runs.
+The real-use launch ([plan](../plans/2026-10-15-real-use-launch.md)) removes demo mode in two releases. Schema removal needs two steps because migrations run before the web deploy and AgentCore deploys separately: dropping `homes.demo` while the old web app or the old AgentCore bundle still reads it would break live requests. Release 1 shipped as v2.0.0 on 2026-10-15. Release 2 shipped as v2.2.0 on 2026-10-16; the steps below are retained as rollout history. Every future production action needs explicit owner authorization at the time it runs.
 
 Release 1 (expand) follows the release procedure above, with these additional actions ([phase 5](../plans/2026-10-15-real-use-launch-phases/phase-5.md)):
 
