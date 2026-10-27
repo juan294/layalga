@@ -1,3 +1,8 @@
+import { MAX_ADULTS, MAX_CHILDREN, MAX_PETS } from "@/agent/task-limits";
+import {
+  MAX_OPTION_WINDOW_DAYS,
+  optionWindowIsAllowed,
+} from "@/core/booking/option-window";
 import { MAX_GUEST_ROOM_INVENTORY } from "@/core/rooms/limits";
 
 import type { WebMcpTool } from "./types";
@@ -76,11 +81,16 @@ export function createGuestWebMcpTools(input: {
         type: "object",
         properties: {
           from: { type: "string", format: "date", maxLength: 10 },
-          to: { type: "string", format: "date", maxLength: 10 },
+          to: {
+            type: "string",
+            format: "date",
+            maxLength: 10,
+            description: `After from and at most ${MAX_OPTION_WINDOW_DAYS} days later.`,
+          },
           nights: { type: "integer", minimum: 1, maximum: 30 },
-          adults: { type: "integer", minimum: 1, maximum: 30 },
-          children: { type: "integer", minimum: 0, maximum: 30 },
-          pets: { type: "integer", minimum: 0, maximum: 20 },
+          adults: { type: "integer", minimum: 1, maximum: MAX_ADULTS },
+          children: { type: "integer", minimum: 0, maximum: MAX_CHILDREN },
+          pets: { type: "integer", minimum: 0, maximum: MAX_PETS },
         },
         required: ["from", "to", "nights", "adults", "children", "pets"],
         additionalProperties: false,
@@ -129,14 +139,18 @@ export function createGuestWebMcpTools(input: {
 
 function guestSearch(raw: Record<string, unknown>): PreparedGuestSearch {
   const value = {
-    from: dateValue(raw.from),
-    to: dateValue(raw.to),
-    nights: integer(raw.nights, 1, 30),
-    adults: integer(raw.adults, 1, 30),
-    children: integer(raw.children, 0, 30),
-    pets: integer(raw.pets, 0, 20),
+    from: searchDate(raw.from, "from"),
+    to: searchDate(raw.to, "to"),
+    nights: integer(raw.nights, 1, 30, "nights"),
+    adults: integer(raw.adults, 1, MAX_ADULTS, "adults"),
+    children: integer(raw.children, 0, MAX_CHILDREN, "children"),
+    pets: integer(raw.pets, 0, MAX_PETS, "pets"),
   };
-  if (value.from >= value.to) throw new TypeError("Invalid guest search range");
+  if (!optionWindowIsAllowed(value.from, value.to)) {
+    throw new TypeError(
+      `Choose to after from and within ${MAX_OPTION_WINDOW_DAYS} days of from.`,
+    );
+  }
   return value;
 }
 
@@ -161,13 +175,30 @@ function guestBooking(
   return { stay, roomIds, acceptOverflow: raw.acceptOverflow };
 }
 
-function integer(value: unknown, minimum: number, maximum: number): number {
+function searchDate(value: unknown, field: "from" | "to"): string {
+  try {
+    return dateValue(value);
+  } catch {
+    throw new TypeError(
+      `Invalid date for ${field}. Use a real date in YYYY-MM-DD format.`,
+    );
+  }
+}
+
+function integer(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+  field: string,
+): number {
   if (
     !Number.isInteger(value) ||
     Number(value) < minimum ||
     Number(value) > maximum
   ) {
-    throw new TypeError("Invalid integer");
+    throw new TypeError(
+      `Set ${field} to a whole number from ${minimum} to ${maximum}.`,
+    );
   }
   return Number(value);
 }

@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated October 15, 2026. The hackathon period closed on 2026-10-14, and the [hackathon archive](archive/hackathon/README.md) keeps the submission material. Production runs v2.0.0, real-use release 1 (2026-10-15), without demo mode. The next step is release 2, which drops the leftover demo schema. Dated research and earlier plans record the decisions that led here; they are not a current backlog.
+Updated October 27, 2026. Production runs v2.3.0 with the Next.js 16.4.2 security hotfix at `339b62a`; v2.3.1 is being prepared. Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
 
 ## Implemented in the completion
 
@@ -21,6 +21,8 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 - Release 1 (phase 5): shipped as v2.0.0 on 2026-10-15 (main `e0cb4d1`, AgentCore runtime version 38). Email sign-in is off, the demo variables are gone from Vercel production, the conversion migration is applied, the new production gate passed, and the owner signed in with Google to the empty household. The synthetic Vega and Parker memory is forgotten. v2.1.0 followed the same day (main `ed6c574`, AgentCore runtime version 39): the public privacy notice, guest sign-in from the main page and the orphaned-memory sweep. The Google OAuth app is published.
 - Release 2 (phase 6): shipped as v2.2.0 on 2026-10-16 (main `3e433f1`, AgentCore runtime version 40). The demo schema is gone from production, and retention applies the same thresholds to every home.
 - v2.2.1: shipped 2026-10-17 (main `78ddbbc`, AgentCore runtime version 41). A dependency and security update with no migrations: it patches eight OpenTelemetry database instrumentations in the web workspace and the AgentCore bundle. `braces` (GHSA-vfj7-8cjw-p6xm) stays open because the advisory lists no patched release.
+- v2.3.0: shipped 2026-10-17 (main `af82880`, AgentCore runtime version 42). Sign-in identity, with no migrations: the header shows the signed-in Google account (verified email and avatar, monogram fallback), Google always offers its account picker, and the host dashboard is titled "Household ledger". The owner check on the real Google account (picker, avatar field) is still open.
+- Next.js 16.4.2 security hotfix: shipped 2026-10-22 (main `339b62a`, pull request #211, no version bump; AgentCore stays on runtime version 42). It patches CVE-2026-96889 (Image Optimization RCE), GHSA-673q-mjm6-r5xr (`use cache` RCE) and GHSA-p3m5-59mp-jv5r (Server Actions DoS). Production probe run 39753158349 passed. The local browser repeat on `next dev` still shows the server action stream hang that 16.4.0 and 16.4.1 had (3 of 64 runs); its effect on production is unknown.
 
 ## Remaining owner and operational actions
 
@@ -34,3 +36,7 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 Per-night room packing, room photography, two-way Google/iCloud calendar writes, a remote OAuth MCP service, and messaging-channel integrations remain outside this completion. WhatsApp and Twilio remain excluded. These would add product and authorization scope before the booking lifecycle has real household use.
 
 The main remaining uncertainty is evidence from real people using the product.
+
+## Prepared release
+
+v2.3.1 prepares the completed pre-launch reliability fixes for production, with no migrations. Local remediation and its hosted integration checks passed on `14d5d45`; release preparation, exact deployed identities and production probes are separate evidence. Guest email activation remains separate.

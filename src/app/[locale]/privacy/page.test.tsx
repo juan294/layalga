@@ -20,7 +20,17 @@ vi.mock("next/navigation", () => ({
 
 import en from "../../../../messages/en.json";
 import es from "../../../../messages/es.json";
-import PrivacyPage, { generateMetadata, PRIVACY_SECTIONS } from "./page";
+import PrivacyPage, { generateMetadata } from "./page";
+
+// Assert the required content independently of the page's private section list.
+const EXPECTED_SECTIONS = [
+  "signIn",
+  "household",
+  "assistant",
+  "services",
+  "retention",
+  "choices",
+] as const;
 
 describe("privacy page", () => {
   it("renders every section and a way back to sign-in", async () => {
@@ -30,7 +40,7 @@ describe("privacy page", () => {
 
     expect(html).toContain("<h1");
     expect(html).toContain("Privacy.title");
-    for (const section of PRIVACY_SECTIONS) {
+    for (const section of EXPECTED_SECTIONS) {
       expect(html).toContain(`Privacy.${section}Title`);
       expect(html).toContain(`Privacy.${section}Body`);
     }
@@ -53,7 +63,7 @@ describe("privacy page", () => {
     expect(Object.keys(es.Privacy).sort()).toEqual(
       Object.keys(en.Privacy).sort(),
     );
-    for (const section of PRIVACY_SECTIONS) {
+    for (const section of EXPECTED_SECTIONS) {
       expect(en.Privacy).toHaveProperty(`${section}Title`);
       expect(en.Privacy).toHaveProperty(`${section}Body`);
     }

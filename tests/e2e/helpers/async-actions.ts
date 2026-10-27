@@ -2,7 +2,11 @@ import { expect, type Page } from "@playwright/test";
 
 export const ASYNC_COMPLETION_TIMEOUT = 30_000;
 
-/** Wait for the server action before asserting the resulting UI. */
+/**
+ * Correlate the action POST and reject HTTP errors. Callers then await the
+ * visible result or exact run status: a streamed RSC response can stay open
+ * after the action has completed, so transport EOF is not a completion signal.
+ */
 export async function clickAndWaitForPost(page: Page, testId: string) {
   const current = new URL(page.url());
   const completed = page.waitForResponse(
@@ -19,7 +23,6 @@ export async function clickAndWaitForPost(page: Page, testId: string) {
   await page.getByTestId(testId).click();
   const response = await completed;
   expect(response.status()).toBeLessThan(400);
-  expect(await response.finished()).toBeNull();
 }
 
 /** Queued work is polled with backoff; require the exact terminal outcome. */

@@ -39,6 +39,7 @@ class GatedModel extends Model<BaseModelConfig> {
   constructor(
     private readonly inner: ScriptedModel,
     private readonly gate: Promise<void>,
+    private readonly onStream: () => void = () => {},
   ) {
     super();
   }
@@ -55,6 +56,7 @@ class GatedModel extends Model<BaseModelConfig> {
     messages: Message[],
     options?: StreamOptions,
   ): AsyncIterable<ModelStreamEvent> {
+    this.onStream();
     await this.gate;
     yield* this.inner.stream(messages, options);
   }
@@ -79,6 +81,88 @@ async function waitForRunStatus(
 
 describe("durable agent queue", () => {
   afterAll(() => sql.end());
+
+  it.each([
+    ["immediate", "immediate"],
+    ["immediate", "queued"],
+    ["queued", "immediate"],
+    ["queued", "queued"],
+  ])(
+    "defers a %s session owner against a distinct %s request",
+    async (firstPath, secondPath) => {
+      const fixture = await seedHost();
+      const [otherHost] = await sql<{ id: string }[]>`
+      insert into public.hosts (home_id, display_name, locale)
+      values (${fixture.homeId}, 'Other host', 'en') returning id
+    `;
+      const other = { homeId: fixture.homeId, hostId: otherHost!.id };
+      const gate = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      const model = new GatedModel(
+        new ScriptedModel([{ text: "First finished." }]),
+        gate.promise,
+        entered.resolve,
+      );
+      let firstExecution: Promise<unknown> | undefined;
+      try {
+        const firstTask = hostTask(fixture, "First invitation.");
+        firstExecution =
+          firstPath === "immediate"
+            ? runAgentTask(firstTask, deps(model))
+            : executeQueuedAgentRun(
+                (await enqueueAgentTask(firstTask, deps(model))).runId,
+                deps(model),
+              );
+        await entered.promise;
+        const secondTask = hostTask(fixture, "Second distinct invitation.");
+        const secondDeps = deps(
+          new ScriptedModel([{ text: "Second finished." }]),
+        );
+        const deferred =
+          secondPath === "immediate"
+            ? await runAgentTask(secondTask, secondDeps)
+            : await executeQueuedAgentRun(
+                (await enqueueAgentTask(secondTask, secondDeps)).runId,
+                secondDeps,
+              );
+
+        // The first SDK session has already loaded its messages and is still
+        // inside stream(). A completed second run here overwrites that session.
+        expect(deferred.status).toBe("queued");
+        const [waiting] = await sql<
+          { status: string; execution_attempt_count: number }[]
+        >`
+        select status, execution_attempt_count from public.runs where id = ${deferred.runId}
+      `;
+        expect(waiting).toEqual({
+          status: "queued",
+          execution_attempt_count: 0,
+        });
+        const replay = await enqueueAgentTask(secondTask, secondDeps);
+        expect(replay.runId).toBe(deferred.runId);
+
+        // Another session must finish while the first session is still gated.
+        await expect(
+          runAgentTask(
+            hostTask(other, "Unrelated invitation."),
+            deps(new ScriptedModel([{ text: "Unrelated finished." }])),
+          ),
+        ).resolves.toMatchObject({ status: "completed" });
+        gate.resolve();
+        await firstExecution;
+        await expect(
+          executeQueuedAgentRun(deferred.runId, secondDeps),
+        ).resolves.toMatchObject({
+          runId: deferred.runId,
+          status: "completed",
+        });
+      } finally {
+        gate.resolve();
+        await firstExecution;
+        await cleanup(fixture.homeId);
+      }
+    },
+  );
 
   it("is never visible to the drain after runAgentTask starts it (sync-claim race)", async () => {
     const fixture = await seedHost();
@@ -131,11 +215,14 @@ describe("durable agent queue", () => {
       // in this exact window would have claimed it.
       const runId = await waitForRunStatus(fixture.homeId, "running");
 
-      const drained = await drainAgentQueue(sql, new SystemClock(), (candidateId) =>
-        executeQueuedAgentRun(
-          candidateId,
-          deps(new ScriptedModel([{ text: "Must not run." }]), clock),
-        ),
+      const drained = await drainAgentQueue(
+        sql,
+        new SystemClock(),
+        (candidateId) =>
+          executeQueuedAgentRun(
+            candidateId,
+            deps(new ScriptedModel([{ text: "Must not run." }]), clock),
+          ),
       );
       expect(drained.claimedRunIds).toEqual([]);
 
@@ -187,10 +274,8 @@ describe("durable agent queue", () => {
         hostTask(fixture, "Invite another family."),
         deps(new ScriptedModel([]), clock),
       );
-      const drained = await drainAgentQueue(
-        sql,
-        new SystemClock(),
-        (runId) => Promise.resolve({ status: "accepted", runId }),
+      const drained = await drainAgentQueue(sql, new SystemClock(), (runId) =>
+        Promise.resolve({ status: "accepted", runId }),
       );
 
       expect(drained.claimedRunIds).not.toContain(queued.runId);
@@ -364,10 +449,16 @@ describe("durable agent queue", () => {
         { concurrency: 2 },
       );
 
-      expect(drained.claimedRunIds.sort()).toEqual(
-        [first.runId, second.runId].sort(),
+      expect(drained.claimedRunIds).toEqual([first.runId]);
+      expect(drained.completed).toBe(1);
+      const nextDrain = await drainAgentQueue(sql, clock, (runId) =>
+        executeQueuedAgentRun(
+          runId,
+          deps(new ScriptedModel([{ text: "Recovered." }]), clock),
+        ),
       );
-      expect(drained.completed).toBe(2);
+      expect(nextDrain.claimedRunIds).toEqual([second.runId]);
+      expect(nextDrain.completed).toBe(1);
       expect(drained.failed).toBe(0);
       const rows = await sql<{ id: string; status: string }[]>`
         select id, status from public.runs

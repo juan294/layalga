@@ -4,6 +4,27 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-10-27
+
+Reliability fixes for agent execution, booking, guest email and household controls. No database migrations. The release updates both the web app and AgentCore runtime; guest email activation remains separate.
+
+### Fixed
+
+- Serialize runs that share an agent session so concurrent work cannot overwrite session state; independent sessions can still run concurrently.
+- Return queued AgentCore work promptly while keeping runtime invocation consumption within the background dispatch lifetime.
+- Prevent a second active visit for one invitation, preserving an unambiguous cancellation target.
+- Show room-management errors and a recovery action, while preserving entered values.
+- Validate guest room-search tool criteria before invoking the server and return actionable correction messages.
+- Keep theme switching usable when browser storage is unavailable.
+- Stop automatic guest email resends when SES acceptance is uncertain; retain bounded retries for definite failures and show verification uncertainty with explicit recovery.
+- Allow AgentCore rollback to a recorded S3 object version without requiring a local bundle ZIP.
+- Wait for successful server-action responses and the resulting UI or exact run status without waiting for stream completion.
+
+### Security
+
+- Update locked dependencies and overrides to patched releases identified during the pre-launch audit.
+- Include the previously deployed Next.js 16.4.2 security hotfix in the versioned release history.
+
 ## [2.3.0] - 2026-10-17
 
 Sign-in identity: the header shows which Google account is signed in, Google always offers its account picker, and the host dashboard no longer reads as the guest view. It has no migrations. Plan: [host sign-in identity](docs/plans/2026-10-17-host-sign-in-identity.md).

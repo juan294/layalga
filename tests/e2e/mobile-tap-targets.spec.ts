@@ -122,6 +122,7 @@ test("@mobile every surface stays touch-safe at 390px", async ({
   ]);
   await expect(page.getByTestId("run-status")).toBeVisible();
   await expectTouchSafe(page, "run status");
+  await expectRunStatus(page, "completed");
 });
 
 test("@mobile the account chip stays inside the header with a very long email", async ({

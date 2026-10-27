@@ -1,9 +1,25 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import english from "../../../messages/en.json";
+import spanish from "../../../messages/es.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ load: vi.fn(), resolve: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  load: vi.fn(),
+  resolve: vi.fn(),
+  localized: false,
+}));
 vi.mock("server-only", () => ({}));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => key,
+  getTranslations:
+    async ({ locale }: { locale: "en" | "es" }) =>
+    (key: string) =>
+      mocks.localized
+        ? (
+            (locale === "en" ? english : spanish).GuestEmail as Record<
+              string,
+              string
+            >
+          )[key]
+        : key,
 }));
 vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => ({ db: "db" }),
@@ -26,6 +42,7 @@ import {
 describe("guest email preferences", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.localized = false;
     mocks.resolve.mockResolvedValue({
       authority: {
         invitationId: "invitation",
@@ -35,6 +52,40 @@ describe("guest email preferences", () => {
       verifiedEmail: null,
     });
   });
+  it.each(["en", "es"] as const)(
+    "shows uncertain verification and the existing explicit consented request in %s",
+    async (locale) => {
+      mocks.localized = true;
+      mocks.load.mockResolvedValue({
+        status: "unverified",
+        email: "guest@example.test",
+        deliveryFailed: false,
+        deliveryUnknown: true,
+      });
+      vi.stubEnv("EMAIL", "ses");
+      try {
+        const html = renderToStaticMarkup(
+          await GuestEmailPreferences({
+            locale,
+            context: { kind: "token", token: "fixture" },
+          }),
+        );
+        const messages = (locale === "en" ? english : spanish)
+          .GuestEmail as Record<string, string>;
+        expect(messages.deliveryUnknown).toMatch(
+          locale === "en" ? /cannot confirm/i : /no podemos confirmar/i,
+        );
+        expect(html).toContain(`role="alert">${messages.deliveryUnknown}`);
+        expect(html).toContain(messages.verifySend);
+        expect(html).toContain('name="consent"');
+        expect(html).not.toContain(messages.deliveryFailed);
+        expect(html).not.toContain(messages.unverified);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
   it("renders a safe unavailable notice for expired or revoked account invitation history", async () => {
     mocks.load.mockRejectedValue(new GuestContactError("unavailable"));
     const html = renderToStaticMarkup(

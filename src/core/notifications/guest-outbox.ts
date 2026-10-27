@@ -4,7 +4,7 @@ import { SystemClock, type Clock } from "../clock";
 import { parseServerEnvironment } from "@/lib/server/env";
 import { currentSeason, type Season } from "@/lib/season";
 import { renderEmailDocument } from "./email-template";
-import { sesSend, type EmailSender } from "./ses-client";
+import { EmailNotSentError, sesSend, type EmailSender } from "./ses-client";
 import {
   loadLiveGuestContact,
   mintGuestCapability,
@@ -73,11 +73,7 @@ async function currentRecipient(
   now: Date,
 ): Promise<GuestContactRow | null> {
   const contact = await loadLiveGuestContact(sql, ping.contact_id, now);
-  if (
-    !contact ||
-    !contact.consent ||
-    contact.generation !== ping.generation
-  )
+  if (!contact || !contact.consent || contact.generation !== ping.generation)
     return null;
   if (ping.kind === "verification")
     return !contact.verified_at &&
@@ -231,6 +227,7 @@ export async function dispatchGuestEmailPings(
     `;
     if (!ping) break;
     let acceptedMessageId: string | null = null;
+    let sendStarted = false;
     try {
       const contact = await sql.begin(async (transaction) => {
         // The same home lock orders final send authorization against booking,
@@ -268,6 +265,7 @@ export async function dispatchGuestEmailPings(
         currentSeason(clock.now()),
         config.sesFromAddress,
       );
+      sendStarted = true;
       const sent = await send({
         fromAddress: config.sesFromAddress,
         toAddress: contact.email,
@@ -279,7 +277,7 @@ export async function dispatchGuestEmailPings(
         await transaction`update public.guest_email_outbox set status='sent',sent_at=${clock.now().toISOString()},message_id=${sent.messageId},claim_token=null,lease_until=null where id=${ping.id} and claim_token=${token} and status='sending'`;
       });
       result.sent++;
-    } catch {
+    } catch (error) {
       if (acceptedMessageId) {
         // Provider acceptance is known even when its first persistence failed.
         // Never describe it as a rejected email or automatically send it again.
@@ -288,9 +286,17 @@ export async function dispatchGuestEmailPings(
         result.sent++;
         continue;
       }
-      await sql`update public.guest_email_attempts set status='failed' where claim_token=${token} and status='authorized'`;
-      await sql`update public.guest_email_outbox set status='failed',error_name='EmailSendFailed',claim_token=null,lease_until=null,available_at=${new Date(clock.now().getTime() + LEASE_MS * ping.attempts).toISOString()} where id=${ping.id} and claim_token=${token} and status='sending'`;
-      console.error("[GUEST_EMAIL_FAILED]", { id: ping.id });
+      const unknown = sendStarted && !(error instanceof EmailNotSentError);
+      // Authorization alone is not a send. Once the sender is invoked, only an
+      // explicit not-sent outcome makes retry safe; lost responses stay unknown.
+      await sql.begin(async (transaction) => {
+        await transaction`update public.guest_email_attempts set status=${unknown ? "unknown" : "failed"} where claim_token=${token} and status='authorized'`;
+        await transaction`update public.guest_email_outbox set status='failed',error_name=${unknown ? "UnknownDelivery" : "EmailSendFailed"},claim_token=null,lease_until=null,available_at=${new Date(clock.now().getTime() + LEASE_MS * ping.attempts).toISOString()} where id=${ping.id} and claim_token=${token} and status='sending'`;
+      });
+      console.error(
+        unknown ? "[GUEST_EMAIL_UNKNOWN]" : "[GUEST_EMAIL_FAILED]",
+        { id: ping.id },
+      );
       result.failed++;
     }
   }

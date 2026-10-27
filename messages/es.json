@@ -75,6 +75,13 @@
       "escalated": "Requiere atención"
     },
     "rooms": {
+      "feedback": {
+        "pending": "Guardando…",
+        "saved": "Guardado.",
+        "invalid": "Revisa las fechas, las habitaciones y los datos obligatorios. La fecha final debe ser posterior a la inicial.",
+        "conflict": "Este cambio entra en conflicto con una reserva o restricción existente. Revisa el libro de habitaciones y vuelve a intentarlo.",
+        "failed": "No se pudo guardar el cambio. Vuelve a intentarlo."
+      },
       "eyebrow": "Plano de la casa",
       "title": "Libro de habitaciones",
       "doorStripLabel": "Estados de las habitaciones para el mes elegido",
@@ -545,6 +552,7 @@
     "verify": "Verificar correo y activar recordatorios",
     "openAccount": "Abrir cuenta de huésped",
     "preferencesTitle": "Preferencias de correo actualizadas",
+    "deliveryUnknown": "No podemos confirmar si se envió el correo de verificación. Revisa tu bandeja de entrada y la carpeta de correo no deseado antes de solicitar otro correo de verificación. Una nueva solicitud de verificación sustituye el enlace anterior.",
     "deliveryFailed": "No se ha podido enviar el último correo. Puedes actualizar la dirección o desactivar los recordatorios.",
     "deliveryUnavailable": "El envío de correo no está disponible en este momento. Tu reserva no cambia.",
     "deliveryPending": "Tu correo está pendiente de envío."

@@ -7,6 +7,7 @@ const STORAGE_KEY = "layalga-theme";
 const CHANGE_EVENT = "layalga-theme-change";
 const OPTIONS = ["auto", "light", "dark"] as const;
 type ThemeOption = (typeof OPTIONS)[number];
+let pageChoice: ThemeOption | undefined;
 
 const ICON_PATHS: Record<ThemeOption, ReactNode> = {
   auto: (
@@ -29,15 +30,21 @@ function isStoredTheme(value: string | null): value is "light" | "dark" {
 }
 
 function subscribe(callback: () => void) {
-  window.addEventListener("storage", callback);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== STORAGE_KEY) return;
+    pageChoice = undefined;
+    callback();
+  };
+  window.addEventListener("storage", onStorage);
   window.addEventListener(CHANGE_EVENT, callback);
   return () => {
-    window.removeEventListener("storage", callback);
+    window.removeEventListener("storage", onStorage);
     window.removeEventListener(CHANGE_EVENT, callback);
   };
 }
 
 function getSnapshot(): string | null {
+  if (pageChoice !== undefined) return pageChoice;
   try {
     return window.localStorage.getItem(STORAGE_KEY);
   } catch {
@@ -54,12 +61,12 @@ function next(option: ThemeOption): ThemeOption {
 }
 
 function choose(option: ThemeOption) {
+  pageChoice = option;
   try {
     if (option === "auto") window.localStorage.removeItem(STORAGE_KEY);
     else window.localStorage.setItem(STORAGE_KEY, option);
   } catch {
-    // localStorage unavailable -- the dataset.theme effect below still
-    // applies the choice for this page load, just not future visits.
+    // The in-page choice still works when persistence is unavailable.
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }

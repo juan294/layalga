@@ -30,6 +30,99 @@ describe("AgentCoreClient", () => {
 });
 
 describe("AgentCoreClient durable queue", () => {
+  it("acknowledges persistence before post-response dispatch and owns its lifetime", async () => {
+    const persisted = Promise.withResolvers<import("./task").RunResult>();
+    const execution = Promise.withResolvers<unknown>();
+    let callback: (() => Promise<void>) | undefined;
+    const invoke = vi.fn(() => execution.promise);
+    const client = new AgentCoreClient("runtime", "eu-west-1", {
+      invoke,
+      depsForTask: async () => ({}) as RunAgentDeps,
+      persist: () => persisted.promise,
+      scheduleDispatch: (work) => {
+        callback = work;
+      },
+    });
+    let acknowledged = false;
+    const response = client.enqueue(task).then((result) => {
+      acknowledged = true;
+      return result;
+    });
+    await Promise.resolve();
+    expect(acknowledged).toBe(false);
+    expect(callback).toBeUndefined();
+    persisted.resolve({
+      runId,
+      status: "queued",
+      sessionId: "session",
+      pendingDecisionIds: [],
+      summary: "Queued",
+    });
+    // Resolve the network eventually even on RED, so no background task leaks.
+    const result = await Promise.race([
+      response,
+      new Promise<"blocked">((resolve) =>
+        setTimeout(() => resolve("blocked"), 100),
+      ),
+    ]);
+    if (result === "blocked") execution.resolve({ status: "accepted", runId });
+    await response;
+    expect(result).toMatchObject({ status: "queued", runId });
+    expect(invoke).not.toHaveBeenCalled();
+    let dispatchFinished = false;
+    const dispatch = callback!().then(() => {
+      dispatchFinished = true;
+    });
+    await Promise.resolve();
+    expect(invoke).toHaveBeenCalledWith({
+      operation: "execute_run",
+      runId,
+      task,
+    });
+    expect(dispatchFinished).toBe(false);
+    execution.resolve({ status: "accepted", runId });
+    await dispatch;
+    expect(dispatchFinished).toBe(true);
+  });
+
+  it("logs post-response failures while leaving the persisted run recoverable", async () => {
+    let callback: (() => Promise<void>) | undefined;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const invoke = vi.fn().mockRejectedValue(new Error("runtime unavailable"));
+    try {
+      const client = new AgentCoreClient("runtime", "eu-west-1", {
+        invoke,
+        depsForTask: async () => ({}) as RunAgentDeps,
+        persist: async () => ({
+          runId,
+          status: "queued",
+          sessionId: "session",
+          pendingDecisionIds: [],
+          summary: "Queued",
+        }),
+        scheduleDispatch: (work) => {
+          callback = work;
+        },
+      });
+      await expect(client.enqueue(task)).resolves.toMatchObject({
+        status: "queued",
+        runId,
+      });
+      await callback!();
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[AGENTCORE_QUEUE_DISPATCH_FAILED]",
+        { runId, errorName: "Error" },
+      );
+      invoke.mockResolvedValue({ status: "accepted", runId });
+      await expect(client.executeQueued(runId, task)).resolves.toEqual({
+        status: "accepted",
+        runId,
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("persists once and dispatches the same run ID", async () => {
     const persist = vi.fn(async () => ({
       runId,
@@ -162,8 +255,8 @@ describe("parseAgentCoreResponse", () => {
 
   it("rejects an empty SSE response", async () => {
     const { parseAgentCoreResponse } = await import("./client");
-    expect(() => parseAgentCoreResponse("event: done\n", "text/event-stream")).toThrow(
-      "empty SSE data",
-    );
+    expect(() =>
+      parseAgentCoreResponse("event: done\n", "text/event-stream"),
+    ).toThrow("empty SSE data");
   });
 });

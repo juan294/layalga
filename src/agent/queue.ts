@@ -33,6 +33,11 @@ export async function drainAgentQueue(
   const candidates = await sql<{ id: string; payload: unknown }[]>`
     select id, payload from public.runs
     where execution_attempt_count < 3
+      and not exists (
+        select 1 from public.runs active
+        where active.home_id = runs.home_id and active.session_id = runs.session_id
+          and active.status = 'running' and active.id <> runs.id
+      )
       and (
         (status = 'queued' and queue_available_at <= ${now.toISOString()})
         or (
@@ -77,6 +82,7 @@ export async function drainAgentQueue(
       }
       try {
         const result = await execute(candidate.id, parsed.data);
+        if (result.status === "queued") return;
         claimedRunIds.push(candidate.id);
         if (result.status === "completed") completed += 1;
         if (result.status === "interrupted") interrupted += 1;
