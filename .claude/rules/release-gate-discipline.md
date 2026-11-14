@@ -63,5 +63,5 @@ transient Coach CI/provider glitches into permanently stuck candidates.
 ## Duplication is a finding, not a feature
 
 If the same journey or probe already runs at another layer (normal CI,
-`/pre-launch`, `/explore-release`), a new release-gate copy of it needs a
+`/rpi-pre-launch`, `/rpi-explore-release`), a new release-gate copy of it needs a
 stated reason the existing layer doesn't cover, not just "more coverage."

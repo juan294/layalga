@@ -45,10 +45,10 @@ The real-use launch ([plan](docs/plans/2026-10-15-real-use-launch.md), [notes](d
 
 This project follows Research-Plan-Implement (RPI), with lightweight phases appropriate to the hackathon deadline.
 
-1. `/brainstorm` -- Turn the approved assessment into a design brief
-2. `/plan` -- Create a demo-led phased implementation spec
-3. `/implement` -- Execute one phase at a time with review gates
-4. `/validate` -- Verify implementation against the plan
+1. `/rpi-brainstorm` -- Turn the approved assessment into a design brief
+2. `/rpi-plan` -- Create a demo-led phased implementation spec
+3. `/rpi-implement` -- Execute one phase at a time with review gates
+4. `/rpi-validate` -- Verify implementation against the plan
 
 Each phase is its own conversation. STOP after each phase unless the user explicitly says to continue.
 

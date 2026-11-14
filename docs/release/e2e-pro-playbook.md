@@ -210,7 +210,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 10. Verify the datastore state, queue completion and that no fixture household remains.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
-13. Create and push the named tag last through `/release`.
+13. Create and push the named tag last through `/rpi-release`.
 
 ## Real-use launch releases
 
@@ -342,7 +342,7 @@ through a long sequence of individually reasonable hardening commits — see
 audit against that case study. The rules below exist to keep this playbook's
 Wave A/B/C-H structure from repeating that accretion as the project grows.
 They apply to every future change that proposes a new required check, probe,
-evidence artifact, or wave promotion — not only to `/release` itself.
+evidence artifact, or wave promotion — not only to `/rpi-release` itself.
 
 ### Risk classes
 
@@ -358,7 +358,7 @@ Classify every existing or proposed gate before it can block a release:
 
 Only Class A and Class B controls belong on the default mandatory path. Wave A
 today is Class A/B by design (required checks, identity match, cleanup proof).
-Wave B (`/explore-release`) is Class D and stays off the default path until the
+Wave B (`/rpi-explore-release`) is Class D and stays off the default path until the
 adopted-scope trigger is met. Waves C-H remain deferred per ADR 0001 and stay
 Class C/D/E until a specific, named risk promotes one.
 

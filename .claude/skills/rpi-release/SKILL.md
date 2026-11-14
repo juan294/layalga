@@ -16,6 +16,16 @@ fully verified candidate before any still-required publication approval. Read th
 release version and candidate evidence when resuming; a prior summary is not a
 new release authorization.
 
+## Project-specific procedure
+
+Before acting, read [`docs/release/e2e-pro-playbook.md`](../../../docs/release/e2e-pro-playbook.md)
+completely. It is the single project-specific release procedure, it may declare
+release blocked, and it replaces the generic `references/e2e-pro-playbook.md`
+template named below. This skill remains the only tagging and publication
+authority, but invoking it does not itself authorize deployment, push, tag
+creation or publication. Obtain each authorization the playbook requires at the
+named gate.
+
 ## Orientation and preparation
 
 1. Read the project's shared instructions, release topology, previous release,

@@ -29,6 +29,12 @@ example for code that runs unattended or destructively on users' machines.
 Documentation-, template- and prose-only releases never need it. When selected,
 run one round on the fixed candidate.
 
+## Project-specific procedure
+
+Read [`docs/release/e2e-pro-playbook.md`](../../../docs/release/e2e-pro-playbook.md)
+completely for the project-specific Wave B decision detail. It replaces the
+generic `references/e2e-pro-playbook.md` template named above.
+
 ## Input
 
 ```text

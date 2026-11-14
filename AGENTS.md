@@ -14,7 +14,7 @@ This project follows the cc-rpi methodology and is configured to work with both 
 When operating in Codex, treat these files as the source of truth:
 
 - `CLAUDE.md` -- project overview, workflow, commands, git, deployment, and safety contracts
-- `.claude/commands/*.md` -- workflow definitions for slash-style commands
+- `.claude/skills/rpi-*/SKILL.md` -- RPI workflow definitions (`/rpi-plan`, `/rpi-implement`, `/rpi-release` and the rest)
 - `.claude/rules/*.md` -- reusable rules and path-scoped constraints
 - `.claude/skills/*/SKILL.md` -- on-demand skills and domain procedures
 
@@ -27,8 +27,6 @@ references completely before acting. Use `/rpi-plan` in Claude Code or
 `$rpi-plan` in Codex for RPI planning; the other RPI workflows follow the
 same naming pattern. Native `/plan` and `/status` do not invoke RPI workflows.
 
-Retained project-specific commands in `.claude/commands/` apply only when
-explicitly invoked. Their presence does not replace the native RPI skills.
 If a workflow references a plan or research artifact, read it completely.
 
 ## Claude-to-Codex Translation
