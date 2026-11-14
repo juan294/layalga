@@ -12,15 +12,9 @@ fully verified candidate before any still-required publication approval. Read th
 release version and candidate evidence when resuming; a prior summary is not a
 new release authorization.
 
-## Project-specific procedure
+## Project overlay
 
-Before acting, read [`docs/release/e2e-pro-playbook.md`](../../../docs/release/e2e-pro-playbook.md)
-completely. It is the single project-specific release procedure, it may declare
-release blocked, and it replaces the generic `references/e2e-pro-playbook.md`
-template named below. This skill remains the only tagging and publication
-authority, but invoking it does not itself authorize deployment, push, tag
-creation or publication. Obtain each authorization the playbook requires at the
-named gate.
+If `.rpi/project/rpi-release.md` exists, read it completely before you start, together with the controlling instructions. It adds this project's procedure and checks and can make this workflow stricter. It cannot grant push, tag, merge, deployment or publication authority. It cannot relax a gate: a rule that blocks or permits a release, publication, merge, deployment or phase acceptance, or a safety or authorization rule. It can change other procedure detail only under a `## Declared overrides` heading that quotes the stock rule, gives the reason and names the owner decision. Name the overlay you read, and any declared override you applied, in the handoff.
 
 ## Orientation and preparation
 
