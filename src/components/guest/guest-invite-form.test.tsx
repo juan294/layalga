@@ -8,6 +8,8 @@ import {
   guestRoomReviewKey,
   guestSearchIsStale,
   guestSelectionCanSubmit,
+  overflowConsentGiven,
+  overflowSelectionKey,
 } from "./guest-invite-form";
 
 const defaults = {
@@ -24,8 +26,25 @@ describe("guest invitation form", () => {
   it("identifies stale searches across every search dimension", () => {
     const current = { ...defaults };
     expect(guestSearchIsStale(current, current)).toBe(false);
-    for (const field of ["from", "to", "nights", "adults", "children", "pets"] as const) {
-      const changed = { ...current, [field]: field === "nights" ? 3 : field === "from" ? "2026-09-13" : field === "to" ? "2026-09-17" : 4 };
+    for (const field of [
+      "from",
+      "to",
+      "nights",
+      "adults",
+      "children",
+      "pets",
+    ] as const) {
+      const changed = {
+        ...current,
+        [field]:
+          field === "nights"
+            ? 3
+            : field === "from"
+              ? "2026-09-13"
+              : field === "to"
+                ? "2026-09-17"
+                : 4,
+      };
       expect(guestSearchIsStale(current, changed)).toBe(true);
     }
   });
@@ -58,11 +77,26 @@ describe("guest invitation form", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(html).toContain('data-webmcp-guest-search');
+    expect(html).toContain("data-webmcp-guest-search");
     expect(html).toContain('data-hydrated="false"');
     expect(html).toContain('name="token"');
     expect(html).toContain('value="private-token"');
     expect(html).toContain("Find dates");
     expect(html).not.toContain('data-testid="guest-submit-form"');
+  });
+
+  it("ties overflow consent to the exact stay and room selection", () => {
+    const stay = "2026-09-12|2026-09-14";
+    const key = overflowSelectionKey(stay, ["room-b", "room-a"]);
+    expect(overflowSelectionKey(stay, ["room-a", "room-b"])).toBe(key);
+    expect(overflowSelectionKey(stay, ["room-a"])).not.toBe(key);
+    expect(
+      overflowSelectionKey("2026-09-13|2026-09-15", ["room-a", "room-b"]),
+    ).not.toBe(key);
+    expect(overflowConsentGiven(key, key)).toBe(true);
+    expect(
+      overflowConsentGiven(key, overflowSelectionKey(stay, ["room-a"])),
+    ).toBe(false);
+    expect(overflowConsentGiven(null, key)).toBe(false);
   });
 });
