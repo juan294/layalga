@@ -54,7 +54,10 @@ overrides:
   # security jobs cannot resolve a fix through the parent, so each package is
   # raised to its first patched release (pnpm audit, 2026-10-17). The AgentCore
   # bundle installs from its own derived package, so scripts/build-agent-bundle.sh
-  # repeats these eight entries; keep the two lists in step.
+  # repeats these eight entries and the advisory overrides at the top of this
+  # list (qs, systeminformation, instrumentation-http, glob@10, minimatch@9);
+  # keep those entries in step. minimatch@10 is a development-only path and
+  # stays out of the bundle.
   "@opentelemetry/instrumentation-cassandra-driver": 0.66.0
   "@opentelemetry/instrumentation-knex": 0.65.0
   "@opentelemetry/instrumentation-mongoose": 0.67.0
