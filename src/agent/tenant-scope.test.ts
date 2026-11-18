@@ -529,6 +529,58 @@ describe("agent task authority", () => {
     }
   });
 
+  it("rejects a visit that belongs to another invitation in the same home during a guest submission", async () => {
+    const fixture = await seedHome("Same-home visit scope");
+    try {
+      const [otherParty] = await sql<{ id: string }[]>`
+        insert into public.parties (home_id, family_name, locale, link_token)
+        values (${fixture.homeId}, 'Other party', 'en', ${crypto.randomUUID()})
+        returning id
+      `;
+      const [otherInvitation] = await sql<{ id: string }[]>`
+        insert into public.invitations (home_id, host_id, party_id, raw_message)
+        values (${fixture.homeId}, ${fixture.hostId}, ${otherParty!.id}, 'Other')
+        returning id
+      `;
+      const [otherVisit] = await sql<{ id: string }[]>`
+        insert into public.visits (
+          home_id, party_id, invitation_id, stay, adults, status
+        ) values (
+          ${fixture.homeId}, ${otherParty!.id}, ${otherInvitation!.id},
+          daterange('2026-12-02', '2026-12-04', '[)'), 1, 'hold'
+        ) returning id
+      `;
+      await sql`
+        insert into public.visit_rooms (visit_id, room_id, home_id, stay)
+        values (
+          ${otherVisit!.id}, ${fixture.roomId}, ${fixture.homeId},
+          daterange('2026-12-02', '2026-12-04', '[)')
+        )
+      `;
+      await runAgentTask(
+        guestSubmit(fixture),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "confirm_visit",
+                input: { visitId: otherVisit!.id },
+              },
+            },
+            { text: "The request could not be applied." },
+          ]),
+        ),
+      ).catch(() => undefined);
+
+      const [visit] = await sql<{ status: string }[]>`
+        select status from public.visits where id = ${otherVisit!.id}
+      `;
+      expect(visit?.status).toBe("hold");
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
   it("keeps raw bearer links out of agent transcripts", async () => {
     const fixture = await seedHome("Private link");
     const [host] = await sql<{ id: string }[]>`

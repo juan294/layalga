@@ -211,6 +211,45 @@ describe("agent tool scope helpers", () => {
     ).rejects.toThrow("Visit is outside the agent task scope");
   });
 
+  it("rejects a same-home visit that belongs to another invitation for an invitation-scoped task", async () => {
+    const otherInvitationId = "10000000-0000-4000-8000-000000000005";
+
+    mocks.sql.mockResolvedValueOnce([
+      { home_id: homeId, invitation_id: otherInvitationId },
+    ]);
+    await expect(
+      homeIdForVisit(deps({ homeId, invitationId }), visitId),
+    ).rejects.toThrow("Visit is outside the agent task invitation");
+
+    mocks.sql.mockResolvedValueOnce([
+      { home_id: homeId, invitation_id: invitationId },
+    ]);
+    await expect(
+      homeIdForVisit(deps({ homeId, invitationId }), visitId),
+    ).resolves.toBe(homeId);
+
+    mocks.sql.mockResolvedValueOnce([
+      {
+        home_id: homeId,
+        invitation_id: otherInvitationId,
+        stay_start: "2026-09-12",
+        stay_end: "2026-09-14",
+        adults: 2,
+        children: 0,
+        pets: 0,
+        special_requests: [],
+        approval_stay_hash: null,
+        room_ids: [],
+        uses_overflow: false,
+      },
+    ]);
+    await expect(
+      loadDraftForTool(deps({ homeId, invitationId }), "confirm_visit", {
+        visitId,
+      }),
+    ).rejects.toThrow("Visit is outside the agent task invitation");
+  });
+
   it("delegates house-state loading with the task clock", async () => {
     const state = { home: {}, rooms: [], visits: [] };
     mocks.loadCoreHouseState.mockResolvedValue(state);
