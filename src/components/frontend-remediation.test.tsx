@@ -30,6 +30,65 @@ describe("frontend remediation contracts", () => {
     );
   });
 
+  test("localizes every known internal return path on locale changes", () => {
+    const status = "/runs/run-id/status";
+    for (const [returnTo, expected] of [
+      ["/en/guest", "/es/guest"],
+      ["/en/rooms", "/es/rooms"],
+      ["/en", "/es"],
+      ["/en/g/private-token", "/es/g/private-token"],
+    ] as const) {
+      expect(
+        localeSwitchHref(status, new URLSearchParams({ returnTo }), "es"),
+      ).toBe(`${status}?returnTo=${encodeURIComponent(expected)}`);
+    }
+    expect(
+      localeSwitchHref(
+        status,
+        new URLSearchParams({ returnTo: "https://evil.example/en/guest" }),
+        "es",
+      ),
+    ).toBe(status);
+    expect(
+      localeSwitchHref(
+        status,
+        new URLSearchParams({ returnTo: "//evil.example" }),
+        "es",
+      ),
+    ).toBe(status);
+  });
+
+  test("keeps the verification capability only on the verification route", () => {
+    const query = new URLSearchParams({
+      capability: "signed-verification",
+      month: "2026-09",
+    });
+    expect(localeSwitchHref("/guest/verify", query, "es")).toBe(
+      "/guest/verify?capability=signed-verification",
+    );
+    expect(localeSwitchHref("/guest", query, "es")).toBe("/guest");
+    expect(localeSwitchHref("/runs/run-id/status", query, "es")).toBe(
+      "/runs/run-id/status",
+    );
+  });
+
+  test("keeps a valid calendar month and drops other calendar fields", () => {
+    expect(
+      localeSwitchHref(
+        "/calendar",
+        new URLSearchParams({ month: "2026-09", capability: "x" }),
+        "es",
+      ),
+    ).toBe("/calendar?month=2026-09");
+    expect(
+      localeSwitchHref(
+        "/calendar",
+        new URLSearchParams({ month: "september" }),
+        "es",
+      ),
+    ).toBe("/calendar");
+  });
+
   test("formats wall time in the household time zone", () => {
     expect(clockInputValue("2026-09-15T23:30:00.000Z", "Europe/Madrid")).toBe(
       "2026-09-16T01:30",

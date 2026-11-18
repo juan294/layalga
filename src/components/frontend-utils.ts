@@ -7,18 +7,24 @@ export function localeSwitchHref(
   searchParams: Pick<URLSearchParams, "get">,
   nextLocale: "en" | "es",
 ): string {
-  if (!/\/runs\/[^/]+\/status\/?$/.test(pathname)) return pathname;
-
   const approved = new URLSearchParams();
-  for (const key of ["token", "returnTo"] as const) {
-    const value = searchParams.get(key);
-    if (!value) continue;
-    approved.set(
-      key,
-      key === "returnTo"
-        ? value.replace(/^\/(?:en|es)(?=\/g\/)/, `/${nextLocale}`)
-        : value,
-    );
+  const setIf = (key: string, value: string | null | undefined) => {
+    if (value) approved.set(key, value);
+  };
+
+  if (/\/runs\/[^/]+\/status\/?$/.test(pathname)) {
+    setIf("token", searchParams.get("token"));
+    const returnTo = searchParams.get("returnTo");
+    if (returnTo && /^\/(?:en|es)(?:\/|$)/.test(returnTo)) {
+      setIf("returnTo", returnTo.replace(/^\/(?:en|es)/, `/${nextLocale}`));
+    }
+  } else if (/^\/guest\/verify\/?$/.test(pathname)) {
+    setIf("capability", searchParams.get("capability"));
+  } else if (/^\/calendar\/?$/.test(pathname)) {
+    const month = searchParams.get("month");
+    if (month && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
+      setIf("month", month);
+    }
   }
   const query = approved.toString();
   return query ? `${pathname}?${query}` : pathname;
