@@ -327,7 +327,7 @@ export async function removeProbeHouseholds(
   return homes.length;
 }
 
-async function probeHealth(options: ReleaseCliOptions): Promise<string> {
+export async function probeHealth(options: ReleaseCliOptions): Promise<string> {
   let health: { status: string; commit?: string };
   try {
     health = await responseJson(
@@ -671,11 +671,8 @@ async function probeRoomCoordination(context: ProbeContext): Promise<string> {
   return "the confirmed visit holds exactly the two chosen rooms";
 }
 
-async function probeGuestIsolation({
-  options,
-  household,
-  conflict,
-}: ProbeContext): Promise<string> {
+async function probeGuestIsolation(context: ProbeContext): Promise<string> {
+  const { sql, options, household, conflict } = context;
   const response = await fetch(`${options.baseUrl}/en/g/${"x".repeat(43)}`);
   assert.ok(response.ok, `invalid guest page returned HTTP ${response.status}`);
   const html = await response.text();
@@ -685,6 +682,34 @@ async function probeGuestIsolation({
       !html.includes(familyName),
       `the invalid guest page revealed "${familyName}"`,
     );
+  }
+  if (options.target === "local") {
+    const vega = findFixtureGuest(household, "Familia Vega");
+    const [fresh] = await runToTerminal(context, [
+      {
+        task: "host_capture_v2",
+        captureId: randomUUID(),
+        partyChoice: { kind: "new" },
+        homeId: household.homeId,
+        hostId: household.hostIds[0]!,
+        locale: "es",
+        rawMessage: VEGA_CAPTURE_MESSAGE + household.tag,
+      },
+    ]);
+    assert.equal(
+      fresh?.status,
+      "completed",
+      "the local same-name New capture must complete",
+    );
+    const [row] = await sql<
+      { party_id: string; family_name: string }[]
+    >`select i.party_id,p.family_name
+      from public.audit_events ae join public.invitations i on i.id::text=ae.payload->>'invitationId' and i.home_id=ae.home_id
+      join public.parties p on p.id=i.party_id and p.home_id=i.home_id
+      where ae.home_id=${household.homeId} and ae.run_id=${fresh.runId} and ae.kind='tool_call' and ae.payload->>'name'='capture_invitation'`;
+    assert.equal(row?.family_name, vega.familyName);
+    assert.notEqual(row.party_id, vega.partyId);
+    return "invalid link withheld private data and a same-name New capture created a separate party";
   }
   return "invalid token revealed no family identity";
 }

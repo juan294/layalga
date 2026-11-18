@@ -8,11 +8,40 @@ import {
   drainAndCollectTerminalRunResults,
   PROBES,
   ProbePausedError,
+  probeHealth,
   queuedRunIds,
 } from "./release-probes";
 
 const firstRunId = "11111111-1111-4111-8111-111111111111";
 const secondRunId = "22222222-2222-4222-8222-222222222222";
+
+describe("serving web identity before changing the party constraint", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const expectedCommit = "8f845859cdb44e8128378927339d43694c6c9fae";
+  const options = {
+    target: "production" as const,
+    expectMemory: false,
+    baseUrl: "https://fixture.example",
+    expectedCommit,
+  };
+  it.each([undefined, "03df6feb973f46e445c46bee0a818dffb0af323d"])(
+    "holds the migration for missing or stale serving evidence (%s)",
+    async (commit) => {
+      vi.stubGlobal("fetch", async () =>
+        Response.json({ status: "ok", commit }),
+      );
+      await expect(probeHealth(options)).rejects.toThrow(
+        "does not match the release candidate",
+      );
+    },
+  );
+  it("accepts an exact healthy serving commit", async () => {
+    vi.stubGlobal("fetch", async () =>
+      Response.json({ status: "ok", commit: expectedCommit }),
+    );
+    await expect(probeHealth(options)).resolves.toBe("health status is ok");
+  });
+});
 
 describe("durable release probe runs", () => {
   it("accepts completed conflict runs without depending on generated prose", () => {

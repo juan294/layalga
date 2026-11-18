@@ -7,6 +7,7 @@ import { hashLinkToken } from "@/core/booking/invitations";
 
 import {
   createFixtureHousehold,
+  FIXTURE_ROOMS,
   fixtureStay,
   type FixtureHousehold,
 } from "./fixture-household";
@@ -191,9 +192,12 @@ describe("fixture household", () => {
       createFixtureHousehold(db, {
         label,
         tokenSecret,
-        parties: [{ familyName: "Duplicate" }, { familyName: "Duplicate" }],
+        rooms: [FIXTURE_ROOMS[0]!, { ...FIXTURE_ROOMS[1]!, beds: 0 }],
       }),
-    ).rejects.toThrow(label);
+    ).rejects.toMatchObject({
+      message: expect.stringContaining(label),
+      cause: expect.objectContaining({ code: "23514" }),
+    });
     const [homes] = await db<{ count: number }[]>`
       select count(*)::int as count from public.homes where name = ${label}
     `;

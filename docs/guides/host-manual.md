@@ -36,6 +36,10 @@ Current outcomes distinguish held, confirmed, awaiting reconfirmation, reconfirm
 
 ## 3. Capture an invitation and send its link
 
+Choose **New party** for a first visit or whenever you cannot identify the returning group. Separate families can share the same displayed name. Choose **Returning party** only when you recognize the record. Check its last invitation and stay dates before submitting. The selected record carries the family's visit history, linked account and remembered preferences.
+
+For example, two families called Rivera may have visited in different months. If the dates do not identify the family, choose **New party**. If an older record appears to combine visits from both families, pause using that returning record and ask the household operator for a review of the existing invitations, accounts, visits and memory before making any corrections.
+
 Paste the invitation message, check the language, and capture it. The agent structures the party, counts, dates and explicit requests. The embedded progress view follows that exact run. Once it completes successfully, the page automatically prepares the private link through an authorized server action.
 
 Copying and sending the link are still your deliberate actions. If secure preparation fails, the page offers a retry. Reloading or duplicate completion renders must not repeatedly prepare it. Tokens are delivered outside the model transcript and are not exposed through the run-status API.

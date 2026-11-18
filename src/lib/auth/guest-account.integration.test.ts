@@ -4,7 +4,17 @@ import postgres from "postgres";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const auth = vi.hoisted(() => ({ userId: "" }));
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({
+    auth: { getUser: async () => ({ data: { user: { id: auth.userId } } }) },
+  }),
+}));
 
+import { claimPartyForUser } from "./party-claim";
+import { createFixtureHousehold } from "@/test-support/fixture-household";
+import { cancelAccountVisit } from "@/app/[locale]/visits/actions";
+import { findInvitationByToken } from "@/core/booking/invitations";
 import { closeDatabase } from "@/core/db/client";
 
 import {
@@ -23,6 +33,77 @@ describe("guest account visit retrieval", () => {
   afterAll(async () => {
     await closeDatabase();
     await sql.end({ timeout: 5 });
+  });
+
+  it("keeps claims, links, private visit notes and cancellation separate for two equal names", async () => {
+    const home = await createFixtureHousehold(sql, {
+      label: `Equal guest labels ${randomUUID()}`,
+      tokenSecret: process.env.LINK_TOKEN_SECRET!,
+      parties: [{ familyName: "Rivera" }, { familyName: "Rivera" }],
+    });
+    const users = [randomUUID(), randomUUID()];
+    try {
+      const visitIds: string[] = [];
+      for (const [index, guest] of home.parties.entries()) {
+        const user = users[index]!;
+        await sql`insert into auth.users (id, email, aud, role) values (${user}, ${user + "@fixture.test"}, 'authenticated', 'authenticated')`;
+        expect(await claimPartyForUser(guest.token, user)).toBe(true);
+        expect((await findInvitationByToken(sql, guest.token))?.partyId).toBe(
+          guest.partyId,
+        );
+        const [visit] = await sql<{ id: string }[]>`insert into public.visits
+          (home_id, party_id, invitation_id, stay, adults, status, guest_notes)
+          values (${home.homeId},${guest.partyId},${guest.invitationId},'[2027-01-10,2027-01-12)',2,'confirmed',${`Private note ${index}`}) returning id`;
+        visitIds.push(visit!.id);
+      }
+      for (const [index, user] of users.entries()) {
+        const other = 1 - index;
+        expect(await claimPartyForUser(home.parties[other]!.token, user)).toBe(
+          false,
+        );
+        expect(await loadGuestAccountVisits(user)).toEqual([
+          expect.objectContaining({
+            id: visitIds[index],
+            partyName: "Rivera",
+            guestNotes: `Private note ${index}`,
+          }),
+        ]);
+        auth.userId = user;
+        const form = new FormData();
+        form.set("confirmed", "yes");
+        form.set("expectedVisitId", visitIds[other]!);
+        form.set("expectedStay", "2027-01-10|2027-01-12");
+        form.set("invitationId", home.parties[other]!.invitationId);
+        await cancelAccountVisit(form);
+        const [preserved] =
+          await sql`select status from public.visits where id=${visitIds[other]!}`;
+        expect(preserved?.status).toBe("confirmed");
+        expect(
+          (await findInvitationByToken(sql, home.parties[other]!.token))?.id,
+        ).toBe(home.parties[other]!.invitationId);
+      }
+      auth.userId = users[0]!;
+      const ownVisit = new FormData();
+      ownVisit.set("confirmed", "yes");
+      ownVisit.set("expectedVisitId", visitIds[0]!);
+      ownVisit.set("expectedStay", "2027-01-10|2027-01-12");
+      ownVisit.set("invitationId", home.parties[0]!.invitationId);
+      await expect(cancelAccountVisit(ownVisit)).rejects.toThrow(
+        "NEXT_REDIRECT",
+      );
+      const [cancelled] =
+        await sql`select status from public.visits where id=${visitIds[0]!}`;
+      const [unchanged] =
+        await sql`select status from public.visits where id=${visitIds[1]!}`;
+      expect(cancelled?.status).toBe("cancelled");
+      expect(unchanged?.status).toBe("confirmed");
+      expect(
+        await findInvitationByToken(sql, home.parties[1]!.token),
+      ).toMatchObject({ id: home.parties[1]!.invitationId });
+    } finally {
+      await home.cleanup();
+      await sql`delete from auth.users where id in ${sql(users)}`;
+    }
   });
 
   it("returns only visits for parties claimed by the authenticated user", async () => {

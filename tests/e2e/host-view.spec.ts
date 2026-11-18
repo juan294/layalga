@@ -122,29 +122,53 @@ test("a removed returning selection keeps the draft and accepts a new choice", a
   });
 });
 
-test("New capture explains a bridge name collision and keeps the draft for a fresh invitation", async ({
+test("New permits a shared name and Returning uses the selected dated history", async ({
   household,
   page,
 }) => {
-  const message = page.getByTestId("host-capture-message");
+  const prior = findFixtureGuest(household, "Familia Vega");
+  await household.db`update public.invitations set created_at='2025-06-11T12:00:00Z' where id=${prior.invitationId}`;
   await expect(page.getByLabel("Invited party")).toHaveValue("new");
-  await message.fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await page
+    .getByTestId("host-capture-message")
+    .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
-  await expect(page.getByTestId("run-status")).toHaveAttribute(
-    "data-status",
-    "failed",
-    { timeout: ASYNC_COMPLETION_TIMEOUT },
-  );
-  await expect(page.getByText(/This name is already in use/)).toBeVisible();
-  await expect(message).toHaveValue(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
-  await message.fill(`Invite Cedar friends for a weekend. ${household.tag}`);
-  await page.getByRole("button", { name: "Submit as a new capture" }).click();
   await expect(page.getByTestId("guest-link")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });
-  expect(
-    await household.db`select id from public.parties where home_id = ${household.homeId} and family_name = 'Cedar friends'`,
-  ).toHaveLength(1);
+  const [created] = await household.db<
+    { id: string }[]
+  >`select id from public.parties where home_id=${household.homeId}
+    and family_name='Familia Vega' and id<>${prior.partyId}`;
+  expect(created).toBeDefined();
+  await page.reload();
+  await page.getByLabel("Invited party").selectOption("returning");
+  const choices = page.locator("#capture-party");
+  await expect(choices).toHaveValue("");
+  const matching = choices.getByRole("option", { name: /Familia Vega/ });
+  await expect(matching).toHaveCount(2);
+  expect(new Set(await matching.allTextContents()).size).toBe(2);
+  await choices.selectOption(prior.partyId);
+  await expect(page.locator("#capture-party-history")).toContainText(
+    "Jun 11, 2025",
+  );
+  await page
+    .getByTestId("host-capture-message")
+    .fill(`Return visit for our friends ${household.tag}`);
+  await clickAndWaitForPost(page, "host-capture-submit");
+  await expect(page.getByTestId("guest-link")).toBeVisible({
+    timeout: ASYNC_COMPLETION_TIMEOUT,
+  });
+  const counts = await household.db<
+    { party_id: string; count: number }[]
+  >`select party_id,count(*)::int as count from public.invitations
+    where home_id=${household.homeId} and party_id in (${prior.partyId}, ${created!.id}) group by party_id`;
+  expect(counts).toEqual(
+    expect.arrayContaining([
+      { party_id: prior.partyId, count: 2 },
+      { party_id: created!.id, count: 1 },
+    ]),
+  );
 });
 
 test("a special request waits for a host and resumes after approval", async ({

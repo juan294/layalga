@@ -4,6 +4,10 @@ import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { runAgentTask } from "@/agent/run-task";
+import { TaskScriptedModel } from "@/agent/scripted-model-selection";
+import { NoopScheduler } from "@/agent/scheduler";
+import { createFixtureHousehold } from "@/test-support/fixture-household";
 import { FakeClock } from "../clock";
 import { confirmVisit, createTemporaryHold, rescheduleVisit } from "./holds";
 
@@ -22,6 +26,104 @@ const db = postgres(connectionUrl, { max: 2, prepare: false });
 describe("invitation persistence", () => {
   afterAll(async () => {
     await db.end({ timeout: 5 });
+  });
+
+  it("creates distinct parties for concurrent same-name New captures and reuses only the chosen returning record", async () => {
+    const home = await createFixtureHousehold(db, {
+      label: `Concurrent captures ${randomUUID()}`,
+      tokenSecret: "synthetic-capture-secret",
+      hosts: 2,
+      parties: [],
+    });
+    const deps = {
+      db,
+      clock: new FakeClock(new Date()),
+      scheduler: new NoopScheduler(),
+      appUrl: "http://localhost:3008",
+      locale: "en" as const,
+    };
+    const tasks = home.hostIds.map((hostId) => ({
+      task: "host_capture_v2" as const,
+      homeId: home.homeId,
+      hostId,
+      captureId: randomUUID(),
+      partyChoice: { kind: "new" as const },
+      locale: "en" as const,
+      rawMessage: "Invite Cedar family for a weekend",
+    }));
+    try {
+      const outcomes = await Promise.allSettled(
+        tasks.map((task) =>
+          runAgentTask(task, {
+            ...deps,
+            model: new TaskScriptedModel(task, deps),
+          }),
+        ),
+      );
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") throw outcome.reason;
+        expect(outcome.value.status).toBe("completed");
+      }
+      const rows = await db<
+        { id: string; family_name: string }[]
+      >`select p.id, p.family_name from public.parties p
+        join public.invitations i on i.party_id=p.id and i.home_id=p.home_id where p.home_id=${home.homeId} order by p.id`;
+      expect(rows.map((row) => row.family_name)).toEqual([
+        "Cedar family",
+        "Cedar family",
+      ]);
+      expect(rows[0]!.id).not.toBe(rows[1]!.id);
+      const returning = {
+        ...tasks[0]!,
+        captureId: randomUUID(),
+        rawMessage: "Invite other guests for a weekend",
+        partyChoice: { kind: "returning" as const, partyId: rows[1]!.id },
+      };
+      const result = await runAgentTask(returning, {
+        ...deps,
+        model: new TaskScriptedModel(returning, deps),
+      });
+      const [captured] =
+        await db`select i.party_id, p.family_name from public.invitations i join public.parties p on p.id=i.party_id
+        join public.audit_events ae on ae.payload->>'invitationId'=i.id::text and ae.home_id=i.home_id
+        where ae.run_id=${result.runId} and ae.kind='tool_call' and ae.payload->>'name'='capture_invitation'`;
+      expect(captured).toEqual({
+        party_id: rows[1]!.id,
+        family_name: "Cedar family",
+      });
+    } finally {
+      await home.cleanup();
+    }
+  });
+
+  it("preserves the application roles and denies anonymous or signed-in browser roles party access", async () => {
+    for (const role of ["anon", "authenticated"] as const) {
+      for (const operation of ["read", "write"] as const) {
+        await expect(
+          db.begin(async (tx) => {
+            await tx`set local role ${tx(role)}`;
+            if (operation === "read")
+              return tx`select id from public.parties limit 0`;
+            return tx`update public.parties set family_name=family_name where false`;
+          }),
+        ).rejects.toMatchObject({ code: "42501" });
+      }
+    }
+    for (const role of ["layalga_web_runtime", "layalga_agent_runtime"]) {
+      const [privileges] =
+        await db`select has_table_privilege(${role}, 'public.parties','select') as read,
+        has_table_privilege(${role}, 'public.parties','insert') as create,
+        has_table_privilege(${role}, 'public.parties','update') as change,
+        has_table_privilege(${role}, 'public.parties','delete') as remove,
+        has_table_privilege(${role}, 'public.parties','truncate') as truncate`;
+      expect(privileges).toEqual({
+        read: true,
+        create: true,
+        change: true,
+        remove: true,
+        truncate: false,
+      });
+    }
   });
 
   it("backfills upcoming booked links without changing revoked, cancelled or unbooked access", async () => {

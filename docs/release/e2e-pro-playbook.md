@@ -8,6 +8,19 @@ The real-use launch replaces that gate. Demo mode, the demo seed and the demo AP
 
 Guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
+## Invitation identity cutover
+
+The bridge commit `8f845859cdb44e8128378927339d43694c6c9fae` supports explicit returning parties and treats older capture tasks as new parties. Ship the bridge independently. Keep the existing name constraint until the bridge web app and worker both serve traffic and have passed fixture captures.
+
+Before applying `20261118000100_allow_shared_party_names.sql` in an authorized release, complete these checks in order.
+
+1. Verify `/api/health` reports the exact web commit released with bridge support. Record the web deployment and source commit. Verify the worker build source and bundle identity from the corresponding deployment and record its runtime version.
+2. Run `pnpm run contract:preflight -- --runtime-id "$AGENTCORE_RUNTIME_ID" --expected-version "$BRIDGE_RUNTIME_VERSION"` using the version from the verified compatible build. The preflight checks the **DEFAULT** endpoint and requires it to be ready and serving that version.
+3. Use the existing authorized production probe workflow with the exact web commit and expected runtime `agentcore` on the bridge schema. The tagged host capture uses a selected fixture party and checks the invitation belongs to that ID. Retain its run ID, the local fallback capture evidence, the old queued-task result and the old runtime's refusal of a persisted v2 task. Recheck both serving identities if either deployment changes before the migration.
+4. With missing, stale or failed evidence, keep the bridge schema. Hosts can select a known returning record or supply a distinct display label for a new group until both writers are verified.
+
+After duplicate names exist, a rollback must keep the bridge's explicit-ID behavior on both web and worker. A writer that looks up parties by name can assign a visit or its memory to another family. Reinstating the old constraint would conflict with valid data. Keep the duplicates and use a compatible build or a forward fix. Historical account or memory repairs require a separate owner review.
+
 ## Project adaptation profile
 
 | Area                           | Project value                                                                                                                         |

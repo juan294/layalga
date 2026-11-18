@@ -18,3 +18,13 @@ Bootstrap, typecheck, lint, 678 unit tests with coverage, all 874 tests, product
 
 - Phase 1 expected the old worker to terminate an unsupported task. Its outer request parser rejected v2 before claim. The dispatch envelope uses a legacy-compatible initialization hint. Both worker versions still read the authoritative stored task. This preserves version refusal and transport retry semantics.
 - Phase 1 keeps per-host queue serialization and isolates conversation snapshots by capture run. This prevents unrelated invitations from inheriting conversational context.
+
+## Phase 2. Allow shared names
+
+Accepted on source tree `8cb56525050e57fde4d14a23aba5fa71bf39f473`. The bridge commit is `8f84585`. Concurrent New captures failed before migration 20261118000100. After removing the single household name constraint, the same submissions produced distinct parties. A pre-migration fixture kept its party, user binding, invitation hash and expiry, visit, note, memory audit and snapshot. Grants and all other indexes and constraints matched. Fresh replay on the same disposable stack applied all 32 migrations. The CLI replaced the database container and volume during reset. The ownership record includes both inventories and the verified workdir, mounts, network and consumers.
+
+The role tests exercised anon and authenticated access restrictions and checked web and agent grants. Two guest accounts claimed their respective same-name parties and could act only on their own visits. The localized host guide and release playbook describe the historical review and bridge rollback boundary. The preflight rehearsal covered missing and stale runtime evidence. The live web and AgentCore identities must be verified when a release is authorized.
+
+Independent review approved the implementation and the final rollback regression. Its old fixture forced failure with duplicate names. The revised fixture inserts a valid room, then triggers the existing positive-bed check and verifies the household rolls back. The full gate's original failure and the passing rerun are retained in phase2 and phase2-accepted. The simplify review found no further change.
+
+Bootstrap, typecheck, lint, 682 unit tests with coverage (54.61% statements), all 881 tests, production build, 39 browser tests and nine local release probes passed. Coverage, browser and probe inputs were unchanged by the final integration-test-only repair. The visual charter confirmed two Rivera records with distinguishable dates and two real local guest sessions with separate histories and cancellation controls. The stack remains assigned to Phase 3.
