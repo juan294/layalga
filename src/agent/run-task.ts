@@ -398,6 +398,7 @@ async function executeClaimedAgentTask(
       homeId: task.homeId,
       model: deps.model,
       captureRunId: isCaptureTask(task) ? run.id : undefined,
+      sessionLease: { runId: run.id, claimToken: run.claimToken },
     });
     const invokeArgs =
       task.task === "resume"
@@ -406,13 +407,17 @@ async function executeClaimedAgentTask(
               new InterruptResponseContent({ interruptId, response }),
           )
         : await buildPrompt(task, deps);
-    await sql`
+    const [lease] = await sql<{ remaining_ms: number | null }[]>`
       update public.runs set heartbeat_at = now()
       where id = ${run.id} and status = 'running'
+        and queue_claim_token = ${run.claimToken}
+      returning floor(extract(epoch from (deadline_at - now())) * 1000)::int
+        as remaining_ms
     `;
+    if (!lease) throw new Error(`Agent run is no longer active: ${run.id}`);
     const result = await agent.invoke(invokeArgs, {
       invocationState: { runId: run.id },
-      cancelSignal: AbortSignal.timeout(240_000),
+      cancelSignal: AbortSignal.timeout(workerBudgetMs(lease.remaining_ms)),
     });
     if (captureFailure) throw captureFailure;
     if (result.stopReason === "cancelled") {
@@ -604,6 +609,20 @@ interface ClaimedRunRow {
   session_id: string;
   payload: unknown;
   queue_claim_token: string;
+}
+
+/** Longest a worker may run; recovery reclaims the run at its 4-minute deadline. */
+const WORKER_BUDGET_MS = 240_000;
+/** The worker stops this long before the deadline so recovery never overlaps it. */
+const DEADLINE_MARGIN_MS = 5_000;
+
+/** Time the worker may use, bounded by what remains of its recovery deadline. */
+export function workerBudgetMs(remainingMs: number | null): number {
+  if (remainingMs === null) return WORKER_BUDGET_MS;
+  return Math.max(
+    0,
+    Math.min(WORKER_BUDGET_MS, remainingMs - DEADLINE_MARGIN_MS),
+  );
 }
 
 async function claimQueuedRun(

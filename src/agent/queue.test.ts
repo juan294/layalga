@@ -509,6 +509,51 @@ describe("durable agent queue", () => {
     }
   });
 
+  it("does not let a worker that lost its lease overwrite session state", async () => {
+    const fixture = await seedHost();
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00Z"));
+    const gate = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    const model = new GatedModel(
+      new ScriptedModel([{ text: "Late answer." }]),
+      gate.promise,
+      entered.resolve,
+    );
+    try {
+      const slow = runAgentTask(
+        hostTask(fixture, "Invite a slow family."),
+        deps(model, clock),
+      );
+      const slowOutcome = slow.then(
+        () => "completed",
+        (error: Error) => error.message,
+      );
+      await entered.promise;
+      const before = await sql`
+        select key, data from public.agent_sessions
+        where session_id = ${`capture_${fixture.hostId}`} order by key
+      `;
+      expect(before.length).toBeGreaterThan(0);
+
+      // Recovery gave the lease to a replacement worker while this one waited.
+      await sql`
+        update public.runs set queue_claim_token = ${randomUUID()}
+        where home_id = ${fixture.homeId}
+      `;
+      gate.resolve();
+
+      expect(await slowOutcome).toMatch(/Failed to write .* to storage/);
+      const after = await sql`
+        select key, data from public.agent_sessions
+        where session_id = ${`capture_${fixture.hostId}`} order by key
+      `;
+      expect(after).toEqual(before);
+    } finally {
+      gate.resolve();
+      await cleanup(fixture.homeId);
+    }
+  });
+
   it("does not reclaim a live rollout lease before its deadline", async () => {
     const fixture = await seedHost();
     const clock = new FakeClock(new Date("2026-09-01T10:00:00Z"));
