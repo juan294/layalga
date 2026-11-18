@@ -4,6 +4,7 @@ import {
   MAX_ADULTS,
   MAX_ARRIVAL_TIME_LENGTH,
   MAX_CHILDREN,
+  MAX_GUEST_MESSAGE_LENGTH,
   MAX_GUEST_NOTES_LENGTH,
   MAX_PETS,
   MAX_SPECIAL_REQUEST_LENGTH,
@@ -54,4 +55,22 @@ export function guestSubmitFormValue(formData: FormData) {
     roomIds: formData.getAll("roomIds").map(String),
     overflowConsent: formData.get("overflowConsent") === "on",
   };
+}
+
+export type GuestChangeState =
+  { status: "idle" } | { status: "error"; error: "empty" | "too_long" };
+
+export type GuestChangeAction = (
+  previous: GuestChangeState,
+  formData: FormData,
+) => Promise<GuestChangeState>;
+
+export function guestChangeMessage(
+  formData: FormData,
+): { message: string } | Extract<GuestChangeState, { status: "error" }> {
+  const message = String(formData.get("message") ?? "").trim();
+  if (!message) return { status: "error", error: "empty" };
+  if (message.length > MAX_GUEST_MESSAGE_LENGTH)
+    return { status: "error", error: "too_long" };
+  return { message };
 }

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import type { GuestChangeAction } from "@/core/booking/guest-action-input";
 import type { GuestFormAction } from "@/core/booking/guest-actions";
 import type { GuestVisit } from "@/core/booking/guest-invitation";
 
@@ -11,7 +12,7 @@ import { guestVisitPresentation } from "./guest-visit-presentation";
 interface GuestVisitRecordProps {
   locale: "en" | "es";
   reconfirmAction: GuestFormAction;
-  requestChangeAction: GuestFormAction;
+  requestChangeAction: GuestChangeAction;
   token?: string;
   visit: GuestVisit;
 }

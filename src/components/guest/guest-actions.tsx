@@ -1,16 +1,18 @@
 import { getTranslations } from "next-intl/server";
 
+import type { GuestChangeAction } from "@/core/booking/guest-action-input";
 import type { GuestFormAction } from "@/core/booking/guest-actions";
 
 import styles from "./guest-ledger.module.css";
 import { GuestActionButton } from "./guest-action-button";
+import { GuestChangeForm } from "./guest-change-form";
 
 interface GuestActionsProps {
   token?: string;
   locale: "en" | "es";
   canReconfirm?: boolean;
   reconfirmAction: GuestFormAction;
-  requestChangeAction: GuestFormAction;
+  requestChangeAction: GuestChangeAction;
 }
 
 export async function GuestActions({
@@ -36,26 +38,11 @@ export async function GuestActions({
           />
         </form>
       ) : null}
-      <form action={requestChangeAction} className={styles.changeForm}>
-        {token ? <input name="token" type="hidden" value={token} /> : null}
-        <input name="locale" type="hidden" value={locale} />
-        <label className={styles.field} htmlFor="guest-change-message">
-          <span>{t("requestChangeTitle")}</span>
-          <textarea
-            id="guest-change-message"
-            name="message"
-            placeholder={t("requestChangePlaceholder")}
-            required
-            rows={3}
-          />
-        </label>
-        <GuestActionButton
-          className={styles.secondaryButton}
-          label={t("requestChange")}
-          pendingLabel={t("requestingChange")}
-          testId="request-change"
-        />
-      </form>
+      <GuestChangeForm
+        action={requestChangeAction}
+        locale={locale}
+        token={token}
+      />
     </div>
   );
 }
