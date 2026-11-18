@@ -184,7 +184,9 @@ describe("guest room actions", () => {
     form.set("locale", "es");
     form.set("message", "Necesitamos llegar un día después");
 
-    await expect(requestGuestChange(form)).rejects.toMatchObject({
+    await expect(
+      requestGuestChange({ status: "idle" }, form),
+    ).rejects.toMatchObject({
       digest: "NEXT_REDIRECT;test",
     });
     expect(mocks.enqueue).toHaveBeenCalledWith({
@@ -197,6 +199,25 @@ describe("guest room actions", () => {
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/es/runs/run-change/status?returnTo=%2Fes%2Fg%2Fguest-token&token=guest-token",
     );
+  });
+
+  test("returns a field error for empty or overlong change requests without queuing", async () => {
+    for (const [message, error] of [
+      ["   ", "empty"],
+      ["x".repeat(2_001), "too_long"],
+    ] as const) {
+      const form = new FormData();
+      form.set("token", "guest-token");
+      form.set("locale", "en");
+      form.set("message", message);
+
+      await expect(
+        requestGuestChange({ status: "idle" }, form),
+      ).resolves.toEqual({ status: "error", error });
+    }
+    expect(mocks.loadGuestInvitation).not.toHaveBeenCalled();
+    expect(mocks.enqueue).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   test("answers a pending reconfirmation with a change request", async () => {
@@ -212,7 +233,9 @@ describe("guest room actions", () => {
     form.set("locale", "en");
     form.set("message", "We need different dates");
 
-    await expect(requestGuestChange(form)).rejects.toMatchObject({
+    await expect(
+      requestGuestChange({ status: "idle" }, form),
+    ).rejects.toMatchObject({
       digest: "NEXT_REDIRECT;test",
     });
     expect(mocks.enqueue).toHaveBeenCalledWith({

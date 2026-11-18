@@ -112,7 +112,9 @@ describe("guest session actions", () => {
     form.set("locale", "es");
     form.set("message", "Llegaremos un día después");
 
-    await expect(requestGuestChangeSession(form)).rejects.toMatchObject({
+    await expect(
+      requestGuestChangeSession({ status: "idle" }, form),
+    ).rejects.toMatchObject({
       digest: "NEXT_REDIRECT;test",
     });
 
@@ -128,6 +130,24 @@ describe("guest session actions", () => {
     expect(mocks.redirect).toHaveBeenCalledWith(
       "/es/runs/run-change/status?returnTo=%2Fes%2Fguest",
     );
+  });
+
+  it("returns a field error for empty or overlong change requests without queuing", async () => {
+    for (const [message, error] of [
+      ["   ", "empty"],
+      ["x".repeat(2_001), "too_long"],
+    ] as const) {
+      const form = new FormData();
+      form.set("locale", "en");
+      form.set("message", message);
+
+      await expect(
+        requestGuestChangeSession({ status: "idle" }, form),
+      ).resolves.toEqual({ status: "error", error });
+    }
+    expect(mocks.loadGuestInvitation).not.toHaveBeenCalled();
+    expect(mocks.requestGuestChangeCore).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it("reconfirms and returns to the session route", async () => {
@@ -156,8 +176,8 @@ describe("guest session actions", () => {
       submitGuestVisitSession({ status: "idle" }, submitForm()),
     ).resolves.toEqual({ status: "error", error: "not_found" });
     await expect(
-      requestGuestChangeSession(new FormData()),
-    ).resolves.toBeUndefined();
+      requestGuestChangeSession({ status: "idle" }, new FormData()),
+    ).resolves.toEqual({ status: "idle" });
     await expect(
       reconfirmGuestSession(new FormData()),
     ).resolves.toBeUndefined();

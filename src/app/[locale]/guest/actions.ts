@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { CancellationChangedError } from "@/core/booking/cancellation-error";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
 
-import { MAX_GUEST_MESSAGE_LENGTH } from "@/agent/task-limits";
 import {
+  guestChangeMessage,
+  type GuestChangeState,
   guestSessionOptionInput,
   guestSessionSubmitInput,
   guestSubmitFormValue,
@@ -94,22 +95,27 @@ export async function submitGuestVisitSession(
 }
 
 export async function requestGuestChangeSession(
+  previous: GuestChangeState,
   formData: FormData,
-): Promise<void> {
+): Promise<GuestChangeState> {
   const session = await getCurrentGuestInvitation();
-  if (!session) return;
+  if (!session) return previous;
 
   const locale = formData.get("locale") === "es" ? "es" : "en";
-  const message = String(formData.get("message") ?? "").trim();
-  if (!message || message.length > MAX_GUEST_MESSAGE_LENGTH) return;
+  const checked = guestChangeMessage(formData);
+  if ("status" in checked) return checked;
   try {
     const invitation = await loadGuestInvitation(
       { invitationId: session.invitationId },
       locale,
     );
-    if (!invitation) return;
-    const result = await requestGuestChangeCore(invitation, message, locale);
-    if (!result) return;
+    if (!invitation) return previous;
+    const result = await requestGuestChangeCore(
+      invitation,
+      checked.message,
+      locale,
+    );
+    if (!result) return previous;
     if (result.cancellationRequested)
       redirect(`/${locale}/guest?cancel=review#cancel-request`);
     redirect(

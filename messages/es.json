@@ -395,6 +395,9 @@
     "requestChangePlaceholder": "Explica al hogar qué debe cambiar.",
     "requestChange": "Solicitar cambio",
     "requestingChange": "Enviando solicitud…",
+    "requestChangeLimit": "Hasta {max} caracteres.",
+    "requestChangeEmpty": "Escribe qué debe cambiar antes de enviar.",
+    "requestChangeTooLong": "Acorta tu solicitud a {max} caracteres o menos.",
     "status": {
       "invited": "Invitado",
       "hold": "En espera",

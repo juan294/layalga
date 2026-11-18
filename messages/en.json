@@ -395,6 +395,9 @@
     "requestChangePlaceholder": "Tell the household what needs to change.",
     "requestChange": "Request change",
     "requestingChange": "Sending request…",
+    "requestChangeLimit": "Up to {max} characters.",
+    "requestChangeEmpty": "Write what needs to change before sending.",
+    "requestChangeTooLong": "Shorten your request to {max} characters or fewer.",
     "status": {
       "invited": "Invited",
       "hold": "On hold",
