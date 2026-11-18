@@ -45,6 +45,19 @@ test("@mobile guest link reaches a touch-safe host decision", async ({
     .fill(`Invite Ana and Luis for a weekend next month. ${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
   await expect(page.getByTestId("capture-queued")).toBeVisible();
+  const status = (await page
+    .getByTestId("capture-status-link")
+    .getAttribute("href"))!;
+  await page.goto(status.replace(/^\/en\//, "/es/"));
+  const reveal = page.getByRole("button", {
+    name: "Mostrar enlace de invitación",
+  });
+  await expect(reveal).toBeVisible({ timeout: ASYNC_COMPLETION_TIMEOUT });
+  // The Next development badge floats over this button in iPhone WebKit.
+  await page.addStyleTag({
+    content: "nextjs-portal { display: none !important; }",
+  });
+  await reveal.tap();
   await expect(page.getByTestId("structured-invitation")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });

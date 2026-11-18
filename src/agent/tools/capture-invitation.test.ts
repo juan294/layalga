@@ -180,12 +180,13 @@ describe("captureInvitationTool", () => {
   it("reuses the invitation this run already captured instead of creating a second one", async () => {
     const fixture = await seedHost(sql, `Capture idempotent ${randomUUID()}`);
     const runId = randomUUID();
+    const claimToken = randomUUID();
     try {
       await sql`
-        insert into public.runs (id, home_id, session_id, task, status, payload)
+        insert into public.runs (id, home_id, session_id, task, status, queue_claim_token, payload)
         values (
           ${runId}, ${fixture.homeId}, ${`capture_${fixture.hostId}`},
-          'host_capture', 'running',
+          'host_capture', 'running', ${claimToken},
           ${JSON.stringify({
             task: "host_capture",
             homeId: fixture.homeId,
@@ -196,6 +197,7 @@ describe("captureInvitationTool", () => {
         )
       `;
       const deps = agentDeps(fixture.homeId, fixture.hostId);
+      deps.captureLease = { runId, claimToken };
       const input = {
         partyName: "Rivera",
         partyLocale: "en" as const,
@@ -207,13 +209,30 @@ describe("captureInvitationTool", () => {
         rawMessage: "Invite the Riveras for a weekend in October.",
       };
       const context = { invocationState: { runId } } as never;
-      const first = await captureInvitationTool(deps).invoke(input, context);
+      const [first, simultaneous] = await Promise.all([
+        captureInvitationTool(deps).invoke(input, context),
+        captureInvitationTool(deps).invoke(input, context),
+      ]);
+      expect(simultaneous).toEqual(first);
+      expect(Object.keys(first).sort()).toEqual(["invitationId", "partyId"]);
+      const [bound] =
+        await sql`select capture_run_id,link_scheme from public.invitations where id=${first.invitationId}`;
+      expect(bound).toMatchObject({ capture_run_id: runId, link_scheme: 1 });
+      // Simulate interruption between the invitation commit and the timeline write.
+      await sql`delete from public.audit_events where run_id=${runId}`;
       const second = await captureInvitationTool(deps).invoke(
         { ...input, adults: 3 },
         context,
       );
 
       expect(second.invitationId).toBe(first.invitationId);
+      expect(
+        await sql`select id from public.parties where home_id=${fixture.homeId}`,
+      ).toHaveLength(1);
+      deps.captureLease = { runId, claimToken: randomUUID() };
+      await expect(
+        captureInvitationTool(deps).invoke(input, context),
+      ).rejects.toThrow("Capture run authority");
       const [invitations] = await sql<{ count: number }[]>`
         select count(*)::integer as count from public.invitations
         where home_id = ${fixture.homeId}

@@ -1,4 +1,4 @@
-import type { CaptureInputError } from "@/core/booking/invitations";
+import type { CaptureLease } from "@/core/booking/invitations";
 import type { Clock } from "@/core/clock";
 import type { DatabaseClient } from "@/core/db/client";
 import type { MemoryClient } from "@/core/memory/client";
@@ -8,13 +8,14 @@ import type { Scheduler } from "./scheduler";
 export type ExecutionRuntime = "local" | "agentcore";
 
 export interface AgentDeps {
+  captureLease?: CaptureLease;
   db: DatabaseClient;
   clock: Clock;
   scheduler: Scheduler;
   appUrl: string;
   locale: "en" | "es";
   authority?: AgentAuthority;
-  onCaptureFailure?: (error: CaptureInputError) => void;
+  onCaptureFailure?: (error: Error) => void;
   /** Injectable recall client; production uses the existing AgentCore client. */
   memoryClient?: MemoryClient;
 }

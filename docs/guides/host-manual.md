@@ -40,9 +40,13 @@ Choose **New party** for a first visit or whenever you cannot identify the retur
 
 For example, two families called Rivera may have visited in different months. If the dates do not identify the family, choose **New party**. If an older record appears to combine visits from both families, pause using that returning record and ask the household operator for a review of the existing invitations, accounts, visits and memory before making any corrections.
 
-Paste the invitation message, check the language, and capture it. The agent structures the party, counts, dates and explicit requests. The embedded progress view follows that exact run. Once it completes successfully, the page automatically prepares the private link through an authorized server action.
+Paste the invitation message, check the language, and capture it. The agent structures the party, counts, dates and explicit requests. The embedded progress view follows that exact run. When it finishes, select **Show guest link** and then **Copy link**. If copying fails, select the displayed address and copy it manually.
 
-Copying and sending the link are still your deliberate actions. If secure preparation fails, the page offers a retry. Reloading or duplicate completion renders must not repeatedly prepare it. Tokens are delivered outside the model transcript and are not exposed through the run-status API.
+After leaving the page or signing in again, open **Your recent captures** on the dashboard and choose the run. Use **Older captures** to find an earlier one. You can also use the run’s status page. The host who created it can show the same active link again, in its original language. For an older invitation, the page explains that its original link cannot be recovered. **Keep the existing link** leaves it usable. **Replace the guest link** invalidates the old URL and any email links based on it, so share the replacement with the guest.
+
+If the app cannot verify which older invitation belongs to the run, keep any working link and check the guest’s record before creating a fresh invitation. For an expired, revoked or cancelled invitation, start a new capture if the visit is still intended.
+
+If a capture fails, use **Retry this capture** to continue the original request when available. If the retry limit is reached or its details have expired, review the run reference and the guest's existing invitations before creating another invitation.
 
 A new unbooked invitation normally lasts 30 days. Confirming or rescheduling extends a valid, unrevoked invitation through checkout plus seven days where needed. Revoked or cancelled invitations are never revived by this extension.
 

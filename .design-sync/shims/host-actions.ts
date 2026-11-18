@@ -25,4 +25,10 @@ export async function revealCapturedInvitationAction(
   return { status: "idle" };
 }
 
+export async function retryCapturedInvitationAction(
+  _formData: FormData,
+): Promise<"queued" | "unavailable" | "error"> {
+  return "unavailable";
+}
+
 export async function decideAction(_formData: FormData): Promise<void> {}

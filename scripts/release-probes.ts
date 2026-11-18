@@ -387,6 +387,18 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
     where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
   `;
   assert.ok(captured, "the captured invitation must be tentative");
+  const [metadata] =
+    await sql`select exists (select from information_schema.columns
+    where table_schema='public' and table_name='invitations' and column_name='capture_run_id') as upgraded`;
+  if (metadata?.upgraded) {
+    const [bound] =
+      await sql`select id from public.invitations where id=${captured.id}
+      and capture_run_id=${result.runId} and link_scheme=1 and link_generation is not null and link_locale is not null`;
+    assert.ok(
+      bound,
+      "the serving writer must persist the exact capture run and recovery metadata",
+    );
+  }
   context.capturedInvitationId = captured.id;
   if (options.expectMemory) {
     const [row] = await sql<{ count: number }[]>`

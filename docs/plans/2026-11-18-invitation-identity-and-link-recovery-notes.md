@@ -28,3 +28,23 @@ The role tests exercised anon and authenticated access restrictions and checked 
 Independent review approved the implementation and the final rollback regression. Its old fixture forced failure with duplicate names. The revised fixture inserts a valid room, then triggers the existing positive-bed check and verifies the household rolls back. The full gate's original failure and the passing rerun are retained in phase2 and phase2-accepted. The simplify review found no further change.
 
 Bootstrap, typecheck, lint, 682 unit tests with coverage (54.61% statements), all 881 tests, production build, 39 browser tests and nine local release probes passed. Coverage, browser and probe inputs were unchanged by the final integration-test-only repair. The visual charter confirmed two Rivera records with distinguishable dates and two real local guest sessions with separate histories and cancellation controls. The stack remains assigned to Phase 3.
+
+## Phase 3. Recover the exact completed invitation link
+
+The final application candidate is Git tree `7fde4bf3688ccfc1831ef4006e8d3b7d4986e7d6`, based on `6d51a60`. Fresh local Supabase replay applied all 33 migrations through 20261118000200. The fixture owner drove the tests on PostgreSQL 17.12. The role rehearsal performed a leased capture as layalga_agent_runtime and a completed reveal as layalga_web_runtime. It also checked the all-or-none metadata constraint and private column grants.
+
+The new writer locks the exact claimed run, verifies household, host, task and selected party, and binds the invitation before the transaction commits. Concurrent writes and a replay after a missing capture audit return one party and invitation. The fault-injection regression made the actual audit insert fail after commit. Before repair the SDK could mark the run complete. The repaired worker fails the run, and the host's bounded retry restores the audit for the original invitation. The derivation is versioned and uses an independent random generation and fixed issuance locale. The guest reader continues to verify the stored hash.
+
+The final independent review confirmed the retained v2 choice uses the same strict parser as enqueue, legacy rows with contradictory choices fail closed, and the fresh guest browser verifies the expected family and active invitation.
+
+The creator explicitly reveals the link from progress or paginated dashboard history. Legacy replacement requires confirmation and preserves the active expiry, including a stay extension. Integration checks cover competing confirmations, repeat reveals, retained and scrubbed run data, old and current guest email capabilities, integrity mismatch, ambiguous audit matches, cancellation, expiry and revocation. The release playbook records the web-first cutover and rollback minimum.
+
+Browser tests and a visual charter covered creator and other-host visibility, dashboard reopening, fresh guest access, transient failure, denied clipboard access, legacy confirmation and cancellation, English desktop and Spanish at 390 px. The warning controls now have an 8 px gap when they wrap. A request-log regression removed guest capability URLs from the Next.js incoming request log. The desktop and mobile checks used real local Supabase Auth sessions.
+
+Bootstrap, typecheck, lint, 692 unit tests with coverage (53.60% statements), all 895 tests, production build, 42 Chromium and mobile WebKit tests, and nine local release probes passed. Next.js stopped initial build and dev commands with the advisory on the pinned version. Their supported retries passed with the same dependency lock. The AgentCore deployment package built locally with SHA-256 `5ded88b73db47f0c78645dd43dc7bf843371258cbb07719d02769d5b5adb41dd`. The local gate used scripted execution. Provider execution and deployment remain release-time checks.
+
+## Local acceptance and cleanup
+
+All three phases passed independent review and local acceptance. SE-H1 and FE-H1 are resolved for new captures. BE-M1 is addressed at the capture write and retry boundary. Historical identity repair, dependency upgrades and production rollout remain outside the approved scope.
+
+The coordinator disposed of project `layalga_invite_8frycro7` on Docker context `desktop-linux` after checking its recorded daemon, workdir, resource IDs, consumers and listeners. Post-cleanup inspection confirmed the four containers, network and database volume were removed. The temporary local evidence directory is `/private/tmp/layalga-invitation-gates-8frycro7`. It contains the ownership receipt, screenshots, final gate logs and AgentCore package.

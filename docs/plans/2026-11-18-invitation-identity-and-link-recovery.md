@@ -1,6 +1,7 @@
 # Invitation identity and link recovery
 
-**Status** Planned for owner review  
+**Status** Implemented and verified locally across all three phases. See 2026-11-18-invitation-identity-and-link-recovery-notes.md for the tested candidates, checks and rollout sequence.
+
 **Baseline** `develop` at `03df6feb973f46e445c46bee0a818dffb0af323d` in `/Users/juan/code/layalga`, with a pre-existing `AGENTS.md` edit (blob `f7edb62a6189e9704f6ee68f0032b5d4a241c051`).
 
 ## Outcome and scope
@@ -38,6 +39,6 @@ Start every behavior change with a focused failing test and retain its matching 
 
 Manual acceptance in the phase files covers visual clarity and native interaction where browser assertions alone cannot judge the result. Production Google account and inbox delivery were not verified in the visitor review. They are outside this acceptance run. The prior audit recorded 680 unit, 192 integration, 37 browser tests and nine local release probes for the baseline. Those counts are historical and do not qualify a changed candidate.
 
-## Durable handoff
+## Planning handoff at baseline
 
 The two findings are open. The design selects explicit identity, phased rollout ahead of the schema change, and stable recovery with confirmed legacy replacement. Existing party relationships and credentials are preserved. The historical audit could not determine whether a real household has prior misgrouping. Record a separate owner review for any suspected legacy identity before a repair is planned. No production lookup, worktree or local stack was allocated during planning. The repository has no rpi-plan overlay. No application code or deployment configuration changed. The acceptance boundary is review of this plan. Before Phase 1, recheck the actual checkout, preserve pre-existing changes, open an isolated implementation branch and verify the phase's relevant migration baseline.

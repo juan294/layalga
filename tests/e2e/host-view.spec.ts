@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   ASYNC_COMPLETION_TIMEOUT,
   clickAndWaitForPost,
@@ -47,6 +48,7 @@ test.beforeEach(async ({ context, household, page }) => {
 });
 
 test("captures an invitation and exposes its private guest link", async ({
+  browser,
   household,
   page,
 }) => {
@@ -84,6 +86,15 @@ test("captures an invitation and exposes its private guest link", async ({
   await clickAndWaitForPost(page, "host-capture-submit");
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
+  await page.getByTestId("capture-status-link").click();
+  await expect(page.getByTestId("capture-reveal")).toBeVisible({
+    timeout: ASYNC_COMPLETION_TIMEOUT,
+  });
+  await expect(page.getByTestId("guest-link")).toHaveCount(0);
+  const runId = new URL(page.url()).pathname.split("/").at(-2)!;
+  const snapshot = await page.request.get(`/api/runs/${runId}`);
+  expect(await snapshot.text()).not.toMatch(/\/g\/[A-Za-z0-9_-]{43}/);
+  await clickAndWaitForPost(page, "capture-reveal");
   await expect(page.getByTestId("structured-invitation")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });
@@ -92,8 +103,213 @@ test("captures an invitation and exposes its private guest link", async ({
     "href",
     /\/g\/[A-Za-z0-9_-]{43}$/,
   );
+  const original = (await page.getByTestId("guest-link").getAttribute("href"))!;
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByTestId("copy-guest-link").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("copy-guest-link")).toHaveText("Copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    original,
+  );
+  await page.goto("/es");
+  await page
+    .locator("#capture-history")
+    .getByRole("link", { name: new RegExp(runId) })
+    .click();
+  await page.reload();
+  await expect(page.getByTestId("guest-link")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Mostrar enlace de invitación" })
+    .click();
+  await expect(page.getByTestId("guest-link")).toHaveAttribute(
+    "href",
+    original,
+  );
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error("denied");
+        },
+      },
+    }),
+  );
+  await page.getByTestId("copy-guest-link").click();
+  const manual = page.locator("input[readonly]");
+  await expect(manual).toHaveValue(original);
+  await manual.focus();
+  expect(
+    await manual.evaluate((el) => (el as HTMLInputElement).selectionEnd),
+  ).toBe(original.length);
+  const guest = await browser.newContext();
+  try {
+    const other = await guest.newPage();
+    await other.goto(original);
+    await expect(other.getByTestId("guest-status")).toHaveAttribute(
+      "data-status",
+      "invited",
+    );
+    await expect(other.getByTestId("guest-status")).toContainText(
+      "Familia Vega",
+    );
+    await expect(other.getByTestId("capture-reveal")).toHaveCount(0);
+  } finally {
+    await guest.close();
+  }
 });
 
+test("legacy capture progress waits for confirmation and preserves the original until replacement", async ({
+  household,
+  page,
+  browser,
+}) => {
+  const fixture = findFixtureGuest(household, "Familia Vega");
+  const runId = randomUUID(),
+    hostId = household.hostIds[0]!;
+  const task = {
+    task: "host_capture",
+    homeId: household.homeId,
+    hostId,
+    locale: "en",
+    rawMessage: "Synthetic legacy capture",
+  };
+  await household.db`insert into public.runs(id,home_id,task,session_id,status,payload) values
+   (${runId},${household.homeId},'host_capture',${"capture_" + hostId},'queued',${household.db.json(task)})`;
+  const path = `/en/runs/${runId}/status`;
+  await page.goto(path);
+  await expect(page.getByTestId("run-status")).toHaveAttribute(
+    "data-status",
+    "queued",
+  );
+  await expect(page.getByTestId("capture-reveal")).toHaveCount(0);
+  await page.reload();
+  await household.db.begin(async (tx) => {
+    await tx`insert into public.audit_events(home_id,run_id,actor,kind,payload) values
+   (${household.homeId},${runId},'agent','tool_call',${tx.json({ name: "capture_invitation", invitationId: fixture.invitationId })})`;
+    await tx`update public.runs set status='completed', finished_at=now() where id=${runId}`;
+  });
+  await page
+    .getByTestId("capture-reveal")
+    .click({ timeout: ASYNC_COMPLETION_TIMEOUT });
+  await expect(page.getByText(/Replacing it will invalidate/)).toBeVisible();
+  const prior =
+    await household.db`select link_token,link_token_expires_at from public.invitations where id=${fixture.invitationId}`;
+  await page.getByRole("button", { name: "Keep the existing link" }).click();
+  await expect(page.getByTestId("capture-reveal")).toBeVisible();
+  expect(
+    await household.db`select link_token,link_token_expires_at from public.invitations where id=${fixture.invitationId}`,
+  ).toEqual(prior);
+  const guest = await browser.newContext();
+  try {
+    const visitor = await guest.newPage();
+    await visitor.goto(new URL(`/es/g/${fixture.token}`, page.url()).href);
+    await expect(visitor.getByTestId("guest-status")).toHaveAttribute(
+      "data-status",
+      "invited",
+    );
+    await expect(visitor.getByTestId("guest-status")).toContainText(
+      fixture.familyName,
+    );
+    await page.getByTestId("capture-reveal").click();
+    await page.getByRole("button", { name: "Replace the guest link" }).click();
+    const link = page.getByTestId("guest-link");
+    await expect(link).toBeVisible();
+    const issued = (await link.getAttribute("href"))!;
+    await visitor.reload();
+    await expect(visitor.getByTestId("guest-status")).toHaveAttribute(
+      "data-status",
+      "invalid",
+    );
+    await visitor.goto(issued);
+    await expect(visitor.getByTestId("guest-status")).toHaveAttribute(
+      "data-status",
+      "invited",
+    );
+    await expect(visitor.getByTestId("guest-status")).toContainText(
+      fixture.familyName,
+    );
+    await visitor.goto(new URL(path, page.url()).href);
+    await expect(visitor.getByTestId("capture-reveal")).toHaveCount(0);
+  } finally {
+    await guest.close();
+  }
+});
+
+test("only the original host can retry a failed capture from its status", async ({
+  browser,
+  household,
+  page,
+}) => {
+  const id = randomUUID(),
+    hostId = household.hostIds[0]!;
+  const retryTask = {
+    task: "host_capture_v2",
+    hostId,
+    homeId: household.homeId,
+    captureId: randomUUID(),
+    partyChoice: { kind: "new" },
+    locale: "en",
+    rawMessage: "Invite Willow family for a weekend " + household.tag,
+  };
+  await household.db`insert into public.runs(id,home_id,task,session_id,status,payload) values
+ (${id},${household.homeId},'host_capture_v2',${"capture_" + hostId},'failed',${household.db.json(retryTask)})`;
+  const [cohost] = await household.db<
+    { id: string }[]
+  >`insert into public.hosts(home_id,display_name,locale) values (${household.homeId},'Co-host','en') returning id`;
+  const other = await browser.newContext();
+  const path = `/en/runs/${id}/status`;
+  try {
+    const { signInAsHost } =
+      await import("../../src/test-support/host-session");
+    await signInAsHost(other, { sql: household.db, hostId: cohost!.id });
+    const peer = await other.newPage();
+    await peer.goto(new URL(path, page.url()).href);
+    await expect(peer.getByTestId("run-status")).toHaveAttribute(
+      "data-status",
+      "failed",
+    );
+    await expect(
+      peer.getByRole("button", { name: "Retry this capture" }),
+    ).toHaveCount(0);
+    await expect(peer.getByTestId("capture-reveal")).toHaveCount(0);
+    await page.goto(path);
+    await page.getByRole("button", { name: "Retry this capture" }).click();
+    await page
+      .getByTestId("capture-reveal")
+      .click({ timeout: ASYNC_COMPLETION_TIMEOUT });
+    await expect(page.getByTestId("guest-link")).toBeVisible();
+    const records =
+      await household.db`select id,status,request_attempt_count from public.runs where home_id=${household.homeId}`;
+    expect(records).toEqual([
+      { id, status: "completed", request_attempt_count: 2 },
+    ]);
+    await peer.reload();
+    await expect(peer.getByTestId("run-status")).toHaveAttribute(
+      "data-status",
+      "completed",
+    );
+    await expect(peer.getByTestId("capture-reveal")).toHaveCount(0);
+  } finally {
+    await other.close();
+  }
+});
+test("an exhausted capture shows its reference and a way back to the dashboard", async ({
+  household,
+  page,
+}) => {
+  const id = randomUUID(),
+    hostId = household.hostIds[0]!;
+  await household.db`insert into public.runs(id,home_id,task,session_id,status,request_attempt_count,payload) values
+ (${id},${household.homeId},'host_capture',${"capture_" + hostId},'failed',3,${household.db.json({ task: "host_capture", homeId: household.homeId, hostId, locale: "en", rawMessage: "Fixture invitation" })})`;
+  await page.goto(`/es/runs/${id}/status`);
+  await expect(page.getByText(id)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Volver a crear invitaciones" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("capture-reveal")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reintentar" })).toHaveCount(0);
+});
 test("a removed returning selection keeps the draft and accepts a new choice", async ({
   household,
   page,
@@ -117,6 +333,9 @@ test("a removed returning selection keeps the draft and accepts a new choice", a
     .locator("#capture-party")
     .selectOption(findFixtureGuest(household, "Familia Vega").partyId);
   await clickAndWaitForPost(page, "host-capture-submit");
+  await page
+    .getByTestId("capture-reveal")
+    .click({ timeout: ASYNC_COMPLETION_TIMEOUT });
   await expect(page.getByTestId("guest-link")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });
@@ -133,6 +352,9 @@ test("New permits a shared name and Returning uses the selected dated history", 
     .getByTestId("host-capture-message")
     .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
+  await page
+    .getByTestId("capture-reveal")
+    .click({ timeout: ASYNC_COMPLETION_TIMEOUT });
   await expect(page.getByTestId("guest-link")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });
@@ -156,6 +378,9 @@ test("New permits a shared name and Returning uses the selected dated history", 
     .getByTestId("host-capture-message")
     .fill(`Return visit for our friends ${household.tag}`);
   await clickAndWaitForPost(page, "host-capture-submit");
+  await page
+    .getByTestId("capture-reveal")
+    .click({ timeout: ASYNC_COMPLETION_TIMEOUT });
   await expect(page.getByTestId("guest-link")).toBeVisible({
     timeout: ASYNC_COMPLETION_TIMEOUT,
   });

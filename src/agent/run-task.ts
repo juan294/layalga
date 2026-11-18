@@ -7,7 +7,7 @@ import {
 } from "@strands-agents/sdk";
 import type { TransactionSql } from "postgres";
 
-import { sqlClient } from "@/core/db/client";
+import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
 import {
   completeDispatchedJob,
@@ -382,12 +382,13 @@ async function executeClaimedAgentTask(
       }
     }
 
-    let captureFailure: CaptureInputError | undefined;
+    let captureFailure: Error | undefined;
     const agent = buildAgent({
       sessionId,
       deps: isCaptureTask(task)
         ? {
             ...deps,
+            captureLease: { runId: run.id, claimToken: run.claimToken },
             onCaptureFailure: (error) => {
               captureFailure = error;
             },
@@ -682,6 +683,48 @@ function queuedRunResult(runId: string, sessionId: string): RunResult {
     pendingDecisionIds: [],
     summary: "Your request is queued.",
   };
+}
+
+/** Resume the persisted capture, including legacy intents whose time bucket has elapsed. */
+export async function retryHostCaptureRun(
+  database: DatabaseClient,
+  host: { id: string; homeId: string },
+  runId: string,
+): Promise<AgentTask | null> {
+  return sqlClient(database).begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtextextended(${host.homeId}::text, 0))`;
+    const [row] = await tx<{ task: string; payload: unknown }[]>`
+      select r.task,r.payload from public.runs r join public.hosts h
+        on h.id=${host.id} and h.home_id=r.home_id
+      where r.id=${runId} and r.home_id=${host.homeId}
+        and r.session_id=${"capture_" + host.id} and r.task in ('host_capture','host_capture_v2')
+        and r.status='failed' and r.request_attempt_count < 3 for update of r`;
+    const parsed = agentTaskSchema.safeParse(row?.payload);
+    if (!parsed.success || !isCaptureTask(parsed.data)) return null;
+    const task = parsed.data;
+    if (
+      task.task !== row?.task ||
+      task.hostId !== host.id ||
+      task.homeId !== host.homeId
+    )
+      return null;
+    if (
+      task.task === "host_capture_v2" &&
+      task.partyChoice.kind === "returning"
+    ) {
+      const [party] =
+        await tx`select id from public.parties where home_id=${host.homeId} and id=${task.partyChoice.partyId}`;
+      if (!party) return null;
+    }
+    const now = new Date();
+    const actor = actorKeyForTask(task);
+    assertRequestLimit(task, await loadRequestUsage(tx, task, actor, now));
+    await tx`update public.runs set status='queued', started_at=${now.toISOString()}, finished_at=null, result=null,
+      actor_key=${actor}, queue_available_at=now(), queue_claimed_at=null, queue_claim_token=null,
+      deadline_at=null, heartbeat_at=null, execution_attempt_count=0,last_error=null,
+      request_attempt_count=request_attempt_count+1 where id=${runId}`;
+    return task;
+  });
 }
 
 async function startRun(input: StartRunInput): Promise<StartRunResult> {

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { partyChoiceSchema } from "@/core/booking/party-choice";
+export { partyChoiceSchema } from "@/core/booking/party-choice";
 
 import type { ExecutionRuntime } from "./ports";
 import { staySchema } from "./schemas";
@@ -27,11 +29,6 @@ const captureFields = {
   rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
   locale,
 };
-
-export const partyChoiceSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("new") }),
-  z.strictObject({ kind: z.literal("returning"), partyId: z.uuid() }),
-]);
 
 export const agentTaskSchema = z.discriminatedUnion("task", [
   z.object({ task: z.literal("host_capture"), ...captureFields }),

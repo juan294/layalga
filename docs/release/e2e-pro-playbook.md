@@ -21,6 +21,16 @@ Before applying `20261118000100_allow_shared_party_names.sql` in an authorized r
 
 After duplicate names exist, a rollback must keep the bridge's explicit-ID behavior on both web and worker. A writer that looks up parties by name can assign a visit or its memory to another family. Reinstating the old constraint would conflict with valid data. Keep the duplicates and use a compatible build or a forward fix. Historical account or memory repairs require a separate owner review.
 
+### Recoverable invitation links
+
+After the identity cutover above, deploy link recovery in this order during an authorized release.
+
+1. Apply the additive migration `20261118000200_invitation_link_recovery.sql`. Check that the existing hash-only invitations still resolve through the guest entry point and that older writers can still insert rows.
+2. Serve the new web reader and reveal action first. Verify the exact serving web commit at `/api/health`. With an authorized synthetic capture, confirm its creator sees the legacy replacement warning and can keep the existing URL. Web and AgentCore must use the same existing `LINK_TOKEN_SECRET` for this deployment.
+3. Deploy the matching AgentCore writer. Verify the serving DEFAULT version against the recorded bundle using the contract preflight above. Trace one synthetic capture to its completed run and bound invitation, reveal it twice from the status page and dashboard, and open the original URL in the guest fixture. Record the run and deployment identities without including the URL.
+
+Once the first recoverable link has been issued, keep the web reader that shows the same active token. If restoring a web version that rotates links on reveal is unavoidable, pause host capture and reveal before rollback, or forward-fix the web app. Keep guest access by hash available. Before restoring a worker that lacks same-run replay, drain new capture writes and verify their terminal runs and associated invitations. Continue to honor the explicit-party rollback minimum after shared names exist.
+
 ## Project adaptation profile
 
 | Area                           | Project value                                                                                                                         |

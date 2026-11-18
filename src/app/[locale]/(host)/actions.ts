@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { retryHostCaptureRun } from "@/agent/run-task";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -15,9 +17,11 @@ import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
 import { configuredScheduler } from "@/agent/scheduler";
 import {
-  CaptureInputError,
-  reissueInvitationLink,
-} from "@/core/booking/invitations";
+  recoverCaptureLink,
+  type CaptureLinkResult,
+} from "@/core/booking/capture-links";
+
+import { CaptureInputError } from "@/core/booking/invitations";
 import { recordHostDecision } from "@/core/decisions/host-decision";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
@@ -38,13 +42,7 @@ export type CaptureState =
     };
 
 export type CaptureResultState =
-  | { status: "idle" }
-  | {
-      status: "success";
-      guestLink: string;
-      structured: unknown;
-    }
-  | { status: "error" };
+  { status: "idle" } | CaptureLinkResult | { status: "error" };
 
 export async function captureInvitationAction(
   _previous: CaptureState,
@@ -100,46 +98,43 @@ export async function revealCapturedInvitationAction(
 
   try {
     const connection = getDatabaseConnection();
-    const sql = sqlClient(connection.db);
-    const [capture] = await sql<
-      { invitation_id: string; structured: unknown }[]
-    >`
-      select i.id as invitation_id, i.structured
-      from public.runs r
-      join public.audit_events ae
-        on ae.run_id = r.id
-       and ae.home_id = r.home_id
-       and ae.kind = 'tool_call'
-       and ae.payload->>'name' = 'capture_invitation'
-      join public.invitations i
-        on i.id::text = ae.payload->>'invitationId'
-       and i.home_id = r.home_id
-       and i.host_id = ${host.id}
-      where r.id = ${parsedRunId.data}
-        and r.home_id = ${host.homeId}
-        and r.task in ('host_capture', 'host_capture_v2')
-        and r.status = 'completed'
-        and r.payload->>'task' = r.task
-        and r.payload->>'hostId' = ${host.id}
-        and r.session_id = ${`capture_${host.id}`}
-      order by ae.created_at desc
-      limit 1
-    `;
-    if (!capture) return { status: "error" };
-
-    const guestLink = await reissueInvitationLink(
+    return await recoverCaptureLink(
       connection.db,
-      capture.invitation_id,
-      { appUrl: parseServerEnvironment().appUrl },
+      host,
+      parsedRunId.data,
+      formData.get("confirmReplacement") === "yes",
+      parseServerEnvironment().appUrl,
     );
-    return {
-      status: "success",
-      guestLink,
-      structured: capture.structured,
-    };
   } catch (error) {
     reportActionError("host_capture_failed", error);
     return { status: "error" };
+  }
+}
+
+export async function retryCapturedInvitationAction(
+  formData: FormData,
+): Promise<"queued" | "unavailable" | "error"> {
+  const host = await requireHost(localeValue(formData));
+  const id = z.uuid().safeParse(formData.get("runId"));
+  if (!id.success) return "unavailable";
+  try {
+    const task = await retryHostCaptureRun(
+      getDatabaseConnection().db,
+      host,
+      id.data,
+    );
+    if (!task) return "unavailable";
+    after(async () => {
+      try {
+        await getAgentClient().executeQueued(id.data, task);
+      } catch (error) {
+        reportActionError("host_capture_failed", error);
+      }
+    });
+    return "queued";
+  } catch (error) {
+    reportActionError("host_capture_failed", error);
+    return "error";
   }
 }
 

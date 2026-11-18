@@ -28,3 +28,27 @@ describe("content security policy", () => {
     expect(nextConfig.experimental?.sri).toBeUndefined();
   });
 });
+
+test("omits capability-bearing requests from development request logs and keeps ordinary routes visible", () => {
+  const incoming = nextConfig.logging && nextConfig.logging.incomingRequests;
+  const ignored = typeof incoming === "object" ? incoming.ignore : [];
+  const matches = (path: string) =>
+    ignored?.some((pattern) => pattern.test(path)) ?? false;
+  for (const path of [
+    "/es/g/sample-bearer",
+    "/en/g/sample-bearer?x=1",
+    "/en/runs/run/status?returnTo=%2Fen%2Fg%2Fsample-bearer",
+    "/api/runs/run?token=sample-bearer",
+    "/en/guest/verify?capability=verification",
+    "/es/guest/return?capability=email",
+  ])
+    expect(matches(path), path).toBe(true);
+  for (const path of [
+    "/en",
+    "/en/guests",
+    "/es/runs/run/status?returnTo=%2Fes",
+    "/api/runs/run",
+    "/en/guest/verify?invalid=1",
+  ])
+    expect(matches(path), path).toBe(false);
+});

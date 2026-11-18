@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import {
-  startTransition,
   useActionState,
   useCallback,
   useEffect,
@@ -12,12 +11,12 @@ import {
 
 import {
   captureInvitationAction,
+  retryCapturedInvitationAction,
   revealCapturedInvitationAction,
   type CaptureResultState,
   type CaptureState,
 } from "@/app/[locale]/(host)/actions";
 import ledgerStyles from "./room-ledger.module.css";
-import { scriptedOutcome } from "@/agent/scripted-outcomes";
 import { copyText } from "@/components/frontend-utils";
 import { RunStatusPoller } from "@/components/runs/run-status-poller";
 import type { RunSnapshot } from "@/app/api/runs/run-data";
@@ -29,6 +28,7 @@ import {
   graphite,
   ink,
   labelStyle,
+  quietButtonStyle,
   rule,
   teal,
   visuallyHiddenStyle,
@@ -38,39 +38,13 @@ interface CaptureInvitationFormProps {
   locale: "en" | "es";
   timeZone: string;
   parties: { id: string; label: string }[];
-  labels: {
-    partyKind: string;
-    newParty: string;
-    returningParty: string;
-    selectParty: string;
-    partyError: string;
-    changedError: string;
-    scrubbedError: string;
-    newSubmission: string;
-    retrySubmission: string;
-    runtimeFailure: string;
-    message: string;
-    placeholder: string;
-    submit: string;
-    pending: string;
-    result: string;
-    structured: string;
-    remembered: string;
-    guestLink: string;
-    copy: string;
-    copied: string;
-    copyFailed: string;
-    emptyError: string;
-    failedError: string;
-    queued: string;
-    statusLink: string;
-    reveal: string;
-    revealing: string;
-    completionFailed: string;
-  };
+  labels: CaptureLabels;
 }
 
-type CaptureLabels = CaptureInvitationFormProps["labels"];
+export type CaptureLabels =
+  typeof import("../../../messages/en.json").Host.capture & {
+    remembered: string;
+  };
 
 export function CaptureInvitationForm({
   locale,
@@ -85,10 +59,7 @@ export function CaptureInvitationForm({
   const captureId = useRef<string | null>(null);
   const partySelect = useRef<HTMLSelectElement>(null);
   const [attempt, setAttempt] = useState(0);
-  const [terminal, setTerminal] = useState<{
-    id: string;
-    success: boolean;
-  } | null>(null);
+  const [terminalRunId, setTerminalRunId] = useState<string | null>(null);
   const [state, action, pending] = useActionState(
     async (previous: CaptureState, form: FormData): Promise<CaptureState> => {
       if (!captureId.current || form.get("intent") === "new")
@@ -102,7 +73,7 @@ export function CaptureInvitationForm({
             : null,
         );
         if (next.status === "queued") {
-          setTerminal(null);
+          setTerminalRunId(null);
           setAttempt((count) => count + 1);
         }
         return next;
@@ -113,19 +84,12 @@ export function CaptureInvitationForm({
     { status: "idle" } as CaptureState,
   );
   const queuedRunId = state.status === "queued" ? state.runId : null;
-  const disabled = captureSubmitDisabled(
-    pending,
-    queuedRunId,
-    terminal?.id ?? null,
-  );
-  const markTerminal = useCallback((id: string, success: boolean) => {
-    setTerminal({ id, success });
-  }, []);
-  const finished = !!queuedRunId && terminal?.id === queuedRunId;
+  const disabled = captureSubmitDisabled(pending, queuedRunId, terminalRunId);
+  const finished = !!queuedRunId && terminalRunId === queuedRunId;
   const needsNew =
     state.status === "error" &&
     (state.error === "changed" || state.error === "scrubbed");
-  const newSubmission = needsNew || (finished && terminal?.success);
+  const newSubmission = needsNew || finished;
   const partyError =
     kind === "returning" &&
     invalidPartyId === partyId &&
@@ -241,12 +205,9 @@ export function CaptureInvitationForm({
                 ? labels.queued
                 : newSubmission
                   ? labels.newSubmission
-                  : finished
-                    ? labels.retrySubmission
-                    : labels.submit}
+                  : labels.submit}
           </button>
-          {((finished && !terminal?.success) ||
-            (state.status === "error" && state.error === "failed")) && (
+          {state.status === "error" && state.error === "failed" && (
             <button
               type="submit"
               name="intent"
@@ -287,7 +248,7 @@ export function CaptureInvitationForm({
             key={`${queuedRunId}-${attempt}`}
             labels={labels}
             locale={locale}
-            onTerminal={markTerminal}
+            onTerminal={setTerminalRunId}
             runId={queuedRunId}
             timeZone={timeZone}
           />
@@ -324,70 +285,116 @@ export function CaptureFormBoundary({
   );
 }
 
-function CaptureQueuedPanel({
+export function CaptureQueuedPanel({
   labels,
   locale,
   onTerminal,
   runId,
   timeZone,
+  initial,
+  retryable = true,
+  statusPage = false,
+  deadlineMs = null,
 }: {
   labels: CaptureLabels;
   locale: "en" | "es";
-  onTerminal: (runId: string, success: boolean) => void;
+  onTerminal?: (id: string) => void;
   runId: string;
   timeZone: string;
+  initial?: RunSnapshot;
+  retryable?: boolean;
+  statusPage?: boolean;
+  deadlineMs?: number | null;
 }) {
-  const initial: RunSnapshot = {
+  const queued: RunSnapshot = {
     id: runId,
     status: "queued",
-    summary: null,
     finishedAt: null,
+    summary: null,
     events: [],
   };
-  const [snapshot, setSnapshot] = useState<RunSnapshot>(initial);
+  const [snapshot, setSnapshot] = useState(initial ?? queued);
+  const [attempt, setAttempt] = useState(0);
+  const [retryState, retry, pending] = useActionState(
+    async (_prev: string, form: FormData) => {
+      try {
+        const result = await retryCapturedInvitationAction(form);
+        if (result === "queued") {
+          setSnapshot(queued);
+          setAttempt((count) => count + 1);
+        }
+        return result;
+      } catch {
+        return "error";
+      }
+    },
+    "idle",
+  );
   const handleSnapshot = useCallback(
     (next: RunSnapshot) => {
       if (next.id !== runId) return;
       setSnapshot(next);
-      if (next.status !== "queued" && next.status !== "running") {
-        onTerminal(next.id, next.status === "completed");
-      }
+      if (next.status !== "queued" && next.status !== "running")
+        onTerminal?.(next.id);
     },
     [onTerminal, runId],
   );
-
   return (
     <section
       data-testid="capture-queued"
       style={{
         borderTop: `1px solid ${rule}`,
-        marginTop: "1.2rem",
         paddingTop: "1rem",
+        marginTop: "1rem",
       }}
     >
-      <CaptureSuccessAnnouncement label={labels.queued} />
-      <a
-        data-testid="capture-status-link"
-        href={captureStatusHref(locale, runId)}
-      >
-        {labels.statusLink}
-      </a>
+      {!statusPage && (
+        <a
+          data-testid="capture-status-link"
+          href={captureStatusHref(locale, runId)}
+        >
+          {labels.statusLink}
+        </a>
+      )}
       <RunStatusPoller
-        deadlineMs={null}
-        initial={initial}
+        key={attempt}
+        deadlineMs={deadlineMs}
+        initial={attempt ? queued : (initial ?? queued)}
         locale={locale}
         onSnapshot={handleSnapshot}
         returnTo={`/${locale}`}
-        showReturnLink={false}
+        showReturnLink={statusPage}
         timeZone={timeZone}
       />
-      {snapshot.status === "failed" &&
-        snapshot.summary !== scriptedOutcome("captureNameUsed") && (
-          <p role="status">{labels.runtimeFailure}</p>
-        )}
-      {snapshot.id === runId && snapshot.status === "completed" ? (
+      {snapshot.status === "completed" && (
         <CaptureCompletionForm labels={labels} locale={locale} runId={runId} />
-      ) : null}
+      )}
+      {(snapshot.status === "queued" || snapshot.status === "running") && (
+        <p role="status">{labels.awaitCompletion}</p>
+      )}
+      {(snapshot.status === "failed" || snapshot.status === "interrupted") && (
+        <div>
+          <p>{labels.retryExhausted}</p>
+          <p style={{ overflowWrap: "anywhere" }}>
+            {labels.reference} <code>{runId}</code>
+          </p>
+          {snapshot.status === "failed" &&
+            retryable &&
+            retryState !== "unavailable" && (
+              <form action={retry}>
+                <input type="hidden" name="runId" value={runId} />
+                <input type="hidden" name="locale" value={locale} />
+                <button type="submit" style={buttonStyle} disabled={pending}>
+                  {pending ? labels.retrying : labels.retrySubmission}
+                </button>
+              </form>
+            )}
+          {retryState === "error" && (
+            <p role="alert">{labels.runtimeFailure}</p>
+          )}
+          <a href={`/${locale}#capture-invitation`}>{labels.openCapture}</a>
+        </div>
+      )}
     </section>
   );
 }
@@ -401,46 +408,72 @@ export function CaptureCompletionForm({
   locale: "en" | "es";
   runId: string;
 }) {
-  const initial: CaptureResultState = { status: "idle" };
   const [state, action, pending] = useActionState(
-    revealCapturedInvitationAction,
-    initial,
+    async (
+      _previous: CaptureResultState,
+      form: FormData,
+    ): Promise<CaptureResultState> => {
+      if (form.get("keepLink") === "yes") return { status: "idle" };
+      try {
+        return await revealCapturedInvitationAction({ status: "idle" }, form);
+      } catch {
+        return { status: "error" };
+      }
+    },
+    { status: "idle" } as CaptureResultState,
   );
-  const attemptedRun = useRef<string | null>(null);
-  useEffect(() => {
-    if (attemptedRun.current === runId) return;
-    attemptedRun.current = runId;
-    const formData = new FormData();
-    formData.set("locale", locale);
-    formData.set("runId", runId);
-    startTransition(() => action(formData));
-  }, [action, locale, runId]);
-
   return (
     <form action={action} data-testid="capture-completion-form">
       <input name="locale" type="hidden" value={locale} />
       <input name="runId" type="hidden" value={runId} />
+      {pending && <p role="status">{labels.revealing}</p>}
       {state.status === "success" ? (
         <CaptureResult labels={labels} state={state} />
-      ) : (
+      ) : state.status === "legacy" ? (
         <>
-          {state.status === "error" ? (
-            <p role="alert" style={{ color: ink, fontWeight: 700 }}>
-              {labels.completionFailed}
-            </p>
-          ) : null}
-          {state.status === "error" ? (
+          <p role="status">{labels.legacyWarning}</p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
             <button
-              data-testid="capture-reveal"
+              style={buttonStyle}
               disabled={pending}
-              style={{ ...buttonStyle, opacity: pending ? 0.55 : 1 }}
+              name="confirmReplacement"
+              value="yes"
               type="submit"
             >
-              {pending ? labels.revealing : labels.reveal}
+              {labels.replaceLink}
             </button>
-          ) : (
-            <p role="status">{labels.revealing}</p>
+            <button
+              style={quietButtonStyle}
+              disabled={pending}
+              name="keepLink"
+              value="yes"
+              type="submit"
+            >
+              {labels.keepLink}
+            </button>
+          </div>
+        </>
+      ) : state.status === "unavailable" ? (
+        <div role="status">
+          <p>{labels[state.reason]}</p>
+          <p style={{ overflowWrap: "anywhere" }}>
+            {labels.reference} <code>{runId}</code>
+          </p>
+          <a href={`/${locale}#capture-invitation`}>{labels.openCapture}</a>
+        </div>
+      ) : (
+        <>
+          {state.status === "error" && (
+            <p role="alert">{labels.completionFailed}</p>
           )}
+          <button
+            data-testid="capture-reveal"
+            disabled={pending}
+            style={buttonStyle}
+            type="submit"
+          >
+            {state.status === "error" ? labels.retryReveal : labels.reveal}
+          </button>
         </>
       )}
     </form>
@@ -556,6 +589,15 @@ function GuestLinkCopy({
           {copyButtonLabel(copyState, copyLabel, copiedLabel)}
         </button>
       </div>
+      {copyState === "failed" && (
+        <input
+          aria-label={label}
+          readOnly
+          value={value}
+          style={fieldStyle}
+          onFocus={(event) => event.currentTarget.select()}
+        />
+      )}
       <CopyFeedback
         copiedLabel={copiedLabel}
         failedLabel={failedLabel}
