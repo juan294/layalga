@@ -42,12 +42,14 @@ export interface PreparedGuestBooking {
 
 export function createGuestWebMcpTools(input: {
   options: readonly GuestWebMcpOption[] | (() => readonly GuestWebMcpOption[]);
+  /** Booking preparation needs visible room options; default true. */
+  bookingAvailable?: boolean;
   prepareSearch: (value: PreparedGuestSearch) => void;
   prepareBooking: (value: PreparedGuestBooking) => void;
 }): WebMcpTool[] {
   const currentOptions = () =>
     typeof input.options === "function" ? input.options() : input.options;
-  return [
+  const tools: WebMcpTool[] = [
     {
       name: "layalga.guest.read_room_options",
       title: "Read visible guest room options",
@@ -102,6 +104,10 @@ export function createGuestWebMcpTools(input: {
         return { prepared: true, submitted: false };
       },
     },
+  ];
+  if (input.bookingAvailable === false) return tools;
+  return [
+    ...tools,
     {
       name: "layalga.guest.prepare_booking",
       title: "Prepare an exact room choice",
@@ -158,6 +164,11 @@ function guestBooking(
   raw: Record<string, unknown>,
   options: readonly GuestWebMcpOption[],
 ): PreparedGuestBooking {
+  if (options.length === 0) {
+    throw new TypeError(
+      "No room options are visible. Run the room search first (use layalga.guest.prepare_search, then ask the guest to find options), then read the visible options.",
+    );
+  }
   const stay = textValue(raw.stay, 21);
   const option = options.find((candidate) => candidate.stay.join("|") === stay);
   const roomIds = stringArray(raw.roomIds);
