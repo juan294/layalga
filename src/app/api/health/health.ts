@@ -7,7 +7,15 @@ export interface OperationsHealth {
   staleRuns: number;
   staleJobs: number;
   retryingJobs: number;
+  /** Age of the oldest claimable queued run or due job that no tick has taken. */
+  oldestUnclaimedWorkSeconds: number;
 }
+
+/**
+ * Cron runs every minute and a drain takes at most two runs, each running up
+ * to four minutes. Work older than ten minutes means ticks are not draining.
+ */
+export const QUEUE_STALL_SECONDS = 600;
 
 export function healthStatus(
   configuration: EnvironmentReadiness,
@@ -42,7 +50,23 @@ export async function checkDatabaseHealth(
         (
           select count(*)::int from public.scheduled_jobs
           where status = 'scheduled' and last_error is not null
-        ) as retrying_jobs
+        ) as retrying_jobs,
+        (
+          select coalesce(
+            floor(extract(epoch from now() - min(ready_at)))::int, 0
+          )
+          from (
+            select queue_available_at as ready_at
+            from public.runs
+            where status = 'queued' and execution_attempt_count < 3
+              and queue_available_at <= now()
+            union all
+            select due_at
+            from public.scheduled_jobs
+            where status = 'scheduled'
+              and due_at <= now() and available_at <= now()
+          ) as unclaimed
+        ) as oldest_unclaimed_work_seconds
     `;
   },
   timeoutMs = 2_000,
@@ -76,6 +100,9 @@ function operationsFromResult(result: unknown): OperationsHealth {
     staleRuns: healthCount(values.stale_runs),
     staleJobs: healthCount(values.stale_jobs),
     retryingJobs: healthCount(values.retrying_jobs),
+    oldestUnclaimedWorkSeconds: healthCount(
+      values.oldest_unclaimed_work_seconds,
+    ),
   };
 }
 
@@ -88,5 +115,10 @@ function healthCount(value: unknown): number {
 }
 
 function hasOperationalFailures(operations: OperationsHealth): boolean {
-  return Object.values(operations).some((count) => count > 0);
+  return (
+    operations.staleRuns > 0 ||
+    operations.staleJobs > 0 ||
+    operations.retryingJobs > 0 ||
+    operations.oldestUnclaimedWorkSeconds > QUEUE_STALL_SECONDS
+  );
 }
