@@ -162,6 +162,18 @@
       "visitCount": "{count, plural, =0 {No visits this month} one {# visit this month} other {# visits this month}}"
     },
     "capture": {
+      "partyKind": "Invited party",
+      "newParty": "New party",
+      "returningParty": "Returning party",
+      "selectParty": "Choose a returning party",
+      "lastInvite": "Last invited {date}",
+      "lastStay": "Last stay {date}",
+      "partyError": "Choose a current party from this household or select New party.",
+      "changedError": "This submission already has different details. Submit the edited draft as a new capture.",
+      "scrubbedError": "The original request details have expired. Submit this draft as a new capture.",
+      "newSubmission": "Submit as a new capture",
+      "runtimeFailure": "The capture failed. Retry this submission or review the party choice and submit a new capture.",
+      "retrySubmission": "Retry this capture",
       "eyebrow": "New invitation",
       "title": "Capture a guest request",
       "message": "Invitation message",
@@ -459,6 +471,7 @@
       "failed": "Failed"
     },
     "outcomes": {
+      "captureNameUsed": "This name is already in use. Choose the returning party if it is the same family. For a new party, give the invitation a distinct display name.",
       "invitationReady": "The private guest link is ready.",
       "visitConfirmed": "The visit is confirmed.",
       "ledgerUpdated": "The household ledger is up to date.",

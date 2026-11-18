@@ -1,7 +1,10 @@
 import { tool } from "@strands-agents/sdk";
 import { z } from "zod";
 
-import { captureInvitation } from "@/core/booking/invitations";
+import {
+  CaptureInputError,
+  captureInvitation,
+} from "@/core/booking/invitations";
 import { sqlClient } from "@/core/db/client";
 import { foldText } from "@/lib/text-fold";
 
@@ -22,6 +25,7 @@ import {
 import { audit, requireAuthority } from "./shared";
 
 export function captureInvitationTool(deps: AgentDeps) {
+  let failure: CaptureInputError | undefined;
   return tool({
     name: "capture_invitation",
     description:
@@ -63,6 +67,7 @@ export function captureInvitationTool(deps: AgentDeps) {
       rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
     }),
     callback: async (input, context) => {
+      if (failure) throw failure;
       const authority = requireAuthority(deps);
       if (!authority.hostId) {
         throw new Error("Host capture authority is required");
@@ -102,7 +107,9 @@ export function captureInvitationTool(deps: AgentDeps) {
           };
         }
       }
-      const rememberedContext = (input.rememberedContext ?? [])
+      const rememberedContext = (
+        authority.partyId ? (input.rememberedContext ?? []) : []
+      )
         .slice(0, MAX_REMEMBERED_CONTEXT)
         .map((entry) => entry.slice(0, MAX_REMEMBERED_CONTEXT_LENGTH));
       // Deterministic guard: a specialRequest that only echoes a recalled
@@ -121,6 +128,7 @@ export function captureInvitationTool(deps: AgentDeps) {
         homeId: authority.homeId,
         hostId: authority.hostId,
         partyName: input.partyName,
+        returningPartyId: authority.partyId,
         partyLocale: input.partyLocale,
         rawMessage: input.rawMessage,
         structured: {
@@ -134,6 +142,12 @@ export function captureInvitationTool(deps: AgentDeps) {
         },
         appUrl: deps.appUrl,
         now: deps.clock.now(),
+      }).catch((error: unknown) => {
+        if (error instanceof CaptureInputError) {
+          failure = error;
+          deps.onCaptureFailure?.(error);
+        }
+        throw error;
       });
       await audit(deps, authority.homeId, context, "tool_call", {
         name: "capture_invitation",

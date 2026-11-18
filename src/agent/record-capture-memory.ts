@@ -14,7 +14,7 @@ interface CapturedInvitationRow {
  * After a completed `host_capture`, writes one deterministic `CreateEvent`
  * with the invitation facts — party size, dates text, arrival time, special
  * requests, pets — but never the family name (D7), so household memory is
- * seeded from the very first invitation even when no pre-match existed and
+ * seeded from the very first invitation even for a new party when
  * the task's `MemoryManager` therefore attached no writable store. A no-op
  * when `MEMORY` is not `agentcore`, or when this run never actually
  * captured an invitation (the model didn't call `capture_invitation`, or

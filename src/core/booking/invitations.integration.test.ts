@@ -311,6 +311,7 @@ describe("invitation persistence", () => {
         now: new Date("2099-08-31T10:00:00.000Z"),
       });
       const second = await captureInvitation(db, {
+        returningPartyId: first.partyId,
         homeId: home.id,
         hostId: host.id,
         partyName: "Returning family",

@@ -4,6 +4,7 @@ export type ScriptedOutcomeKey =
   | "escalationSent"
   | "followUpUnavailable"
   | "guestReconfirmationSent"
+  | "captureNameUsed"
   | "invitationReady"
   | "ledgerUpdated"
   | "visitConfirmed";
@@ -12,6 +13,7 @@ const OUTCOMES = new Set<ScriptedOutcomeKey>([
   "escalationSent",
   "followUpUnavailable",
   "guestReconfirmationSent",
+  "captureNameUsed",
   "invitationReady",
   "ledgerUpdated",
   "visitConfirmed",

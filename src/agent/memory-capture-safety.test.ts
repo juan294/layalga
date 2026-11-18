@@ -42,7 +42,9 @@ describe("memory write safety: capture", () => {
     try {
       const result = await runAgentTask(
         {
-          task: "host_capture",
+          task: "host_capture_v2",
+          captureId: crypto.randomUUID(),
+          partyChoice: { kind: "new" },
           homeId: home!.id,
           hostId: host!.id,
           rawMessage: "Invite the Vega family for a weekend.",

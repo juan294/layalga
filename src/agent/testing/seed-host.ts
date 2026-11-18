@@ -6,7 +6,7 @@ export interface HostFixture {
 }
 
 /**
- * Seeds a home and a host, ready for a `host_capture` agent run. `homeName`
+ * Seeds a home and a host, ready for a host capture run. `homeName`
  * should embed a random suffix (e.g. `randomUUID()`) so concurrent test
  * runs don't collide on the same home.
  */

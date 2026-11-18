@@ -147,3 +147,20 @@ describe("agent task business limits", () => {
     ).toBe(true);
   });
 });
+
+it("preserves an explicit returning selection and the capture submission identity", () => {
+  const task = {
+    task: "host_capture_v2",
+    homeId,
+    hostId: invitationId,
+    captureId: visitId,
+    partyChoice: { kind: "returning", partyId: visitId },
+    rawMessage: "Invite our friends",
+    locale: "en",
+  };
+  expect(agentTaskSchema.parse(task)).toEqual(task);
+  expect(
+    agentTaskSchema.safeParse({ ...task, partyChoice: { kind: "returning" } })
+      .success,
+  ).toBe(false);
+});

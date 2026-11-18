@@ -164,7 +164,7 @@ export async function taggedInvitationIds(
       on invitation.id::text = audit.payload->>'invitationId'
      and invitation.home_id = run.home_id
     where run.home_id = ${homeId}
-      and run.task = 'host_capture'
+      and run.task in ('host_capture', 'host_capture_v2')
       and right(run.payload->>'rawMessage', length(${suffix})) = ${suffix}
   `;
   return rows.map(({ id }) => id);

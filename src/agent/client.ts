@@ -79,7 +79,18 @@ export class AgentCoreClient implements AgentClient {
     const request: ExecuteAgentRunRequest = {
       operation: "execute_run",
       runId,
-      task: payload,
+      // Both runtime generations claim and reparse the persisted payload by runId.
+      // A v1 runtime must reach that claim to fail an unsupported v2 task durably.
+      task:
+        payload.task === "host_capture_v2"
+          ? {
+              task: "host_capture",
+              homeId: payload.homeId,
+              hostId: payload.hostId,
+              locale: payload.locale,
+              rawMessage: payload.rawMessage,
+            }
+          : payload,
     };
     const response = (await this.invoke(request)) as Partial<AgentRunAccepted>;
     if (response.status !== "accepted" || response.runId !== runId) {

@@ -162,6 +162,18 @@
       "visitCount": "{count, plural, =0 {No hay visitas este mes} one {# visita este mes} other {# visitas este mes}}"
     },
     "capture": {
+      "partyKind": "Grupo invitado",
+      "newParty": "Grupo nuevo",
+      "returningParty": "Grupo conocido",
+      "selectParty": "Elige un grupo conocido",
+      "lastInvite": "Última invitación: {date}",
+      "lastStay": "Última estancia: {date}",
+      "partyError": "Elige un grupo actual de esta casa o selecciona Grupo nuevo.",
+      "changedError": "Este envío ya contiene otros datos. Envía el borrador modificado como una invitación nueva.",
+      "scrubbedError": "Los datos del envío original han caducado. Envía el borrador como una invitación nueva.",
+      "newSubmission": "Enviar como una invitación nueva",
+      "runtimeFailure": "La invitación ha fallado. Reintenta este envío o revisa el grupo y envía una invitación nueva.",
+      "retrySubmission": "Reintentar esta invitación",
       "eyebrow": "Nueva invitación",
       "title": "Registra una solicitud de visita",
       "message": "Mensaje de invitación",
@@ -459,6 +471,7 @@
       "failed": "Fallida"
     },
     "outcomes": {
+      "captureNameUsed": "Este nombre ya está en uso. Si es la misma familia, elige el grupo conocido. Si es un grupo nuevo, usa otro nombre en el mensaje.",
       "invitationReady": "El enlace privado del huésped está listo.",
       "visitConfirmed": "La visita está confirmada.",
       "ledgerUpdated": "El libro del hogar está actualizado.",

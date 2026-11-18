@@ -66,7 +66,7 @@ export default async function HostTodayPage({
   const currentMonth = householdMonth(timeZone);
   const monthWindow = calendarMonthWindow(currentMonth);
 
-  const [decisionRows, hubStatuses] = await Promise.all([
+  const [decisionRows, hubStatuses, parties] = await Promise.all([
     sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
@@ -111,12 +111,25 @@ export default async function HostTodayPage({
         )
       order by pd.created_at
     `,
-    loadHubStatuses(
-      getDatabaseConnection().db,
-      host.homeId,
-      host.id,
-      [monthWindow.from, monthWindow.to],
-    ),
+    loadHubStatuses(getDatabaseConnection().db, host.homeId, host.id, [
+      monthWindow.from,
+      monthWindow.to,
+    ]),
+    sql<
+      {
+        id: string;
+        family_name: string;
+        last_invite: string | null;
+        last_stay: string | null;
+      }[]
+    >`
+      select p.id, p.family_name,
+        (select max(i.created_at)::text from public.invitations i where i.party_id = p.id and i.home_id = p.home_id) as last_invite,
+        (select max(lower(v.stay))::text from public.visits v where v.party_id = p.id
+          and v.home_id = p.home_id and v.status = 'confirmed' and lower(v.stay) <= current_date) as last_stay
+      from public.parties p where p.home_id = ${host.homeId}
+      order by p.family_name, last_invite desc nulls last, p.id
+    `,
   ]);
 
   const decisions: PendingDecisionItem[] = decisionRows.map((decision) => {
@@ -261,7 +274,41 @@ export default async function HostTodayPage({
           <p style={labelStyle}>{t("capture.eyebrow")}</p>
           <h2 style={headingStyle}>{t("capture.title")}</h2>
           <CaptureInvitationForm
+            parties={parties.map((party) => ({
+              id: party.id,
+              label: [
+                party.family_name,
+                party.last_invite &&
+                  t("capture.lastInvite", {
+                    date: formatHouseholdDate(
+                      party.last_invite,
+                      safeLocale,
+                      timeZone,
+                    ),
+                  }),
+                party.last_stay &&
+                  t("capture.lastStay", {
+                    date: formatHouseholdDate(
+                      party.last_stay + "T12:00:00Z",
+                      safeLocale,
+                      "UTC",
+                    ),
+                  }),
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            }))}
             labels={{
+              partyKind: t("capture.partyKind"),
+              newParty: t("capture.newParty"),
+              returningParty: t("capture.returningParty"),
+              selectParty: t("capture.selectParty"),
+              partyError: t("capture.partyError"),
+              changedError: t("capture.changedError"),
+              scrubbedError: t("capture.scrubbedError"),
+              newSubmission: t("capture.newSubmission"),
+              retrySubmission: t("capture.retrySubmission"),
+              runtimeFailure: t("capture.runtimeFailure"),
               message: t("capture.message"),
               placeholder: t("capture.placeholder"),
               submit: t("capture.submit"),
@@ -305,7 +352,6 @@ export default async function HostTodayPage({
       </div>
 
       <HubCards cards={hubCards} openLabel={t("hub.open")} />
-
     </>
   );
 }

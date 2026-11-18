@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { seedHost, cleanupHost } from "../testing/seed-host";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -52,6 +54,37 @@ function trackingRegistry(): {
 
 describe("handleAgentCoreRequest", () => {
   afterAll(() => sql.end());
+
+  it("captures for the selected returning party when the wording names a different family", async () => {
+    const fixture = await seedHost(sql, `Returning handler ${randomUUID()}`);
+    try {
+      const [party] = await sql<{ id: string }[]>`insert into public.parties
+        (home_id, family_name, locale) values (${fixture.homeId}, 'Chosen family', 'es') returning id`;
+      const task = {
+        task: "host_capture_v2",
+        ...fixture,
+        captureId: randomUUID(),
+        partyChoice: { kind: "returning", partyId: party!.id },
+        rawMessage: "Invite the Parkers for a weekend",
+        locale: "en",
+      };
+      const result = await handleAgentCoreRequest(
+        task,
+        silentLog,
+        silentRegistry(),
+        localRuntimeDeps,
+      );
+      expect(result).toMatchObject({
+        status: "completed",
+        executedOn: "agentcore",
+      });
+      const rows =
+        await sql`select p.id, p.family_name from public.invitations i join public.parties p on p.id = i.party_id where i.home_id = ${fixture.homeId}`;
+      expect(rows).toEqual([{ id: party!.id, family_name: "Chosen family" }]);
+    } finally {
+      await cleanupHost(sql, fixture);
+    }
+  });
 
   it("executes a bare tick task directly instead of re-claiming through runJob", async () => {
     const now = new Date();

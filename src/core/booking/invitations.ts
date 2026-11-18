@@ -4,6 +4,12 @@ import type { JSONValue, TransactionSql } from "postgres";
 
 import { sqlClient, type DatabaseClient } from "../db/client";
 
+export class CaptureInputError extends Error {
+  constructor(readonly reason: "name" | "party" | "changed" | "scrubbed") {
+    super(`Capture unavailable: ${reason}`);
+  }
+}
+
 export interface LinkToken {
   token: string;
   hash: string;
@@ -12,6 +18,7 @@ export interface LinkToken {
 export interface CaptureInvitationInput {
   homeId: string;
   hostId: string;
+  returningPartyId?: string;
   partyName: string;
   partyLocale: "en" | "es";
   rawMessage: string;
@@ -117,39 +124,26 @@ export async function captureInvitation(
     `;
     if (!host) throw new Error("Host does not belong to the invitation home");
 
-    const existingParties = await transaction<{ id: string }[]>`
-      select id
-      from public.parties
-      where home_id = ${input.homeId}
-        and family_name = ${input.partyName}
-      for update
-    `;
-
-    let partyId = existingParties[0]?.id;
-    if (partyId) {
-      await transaction`
-        update public.parties
-        set locale = ${input.partyLocale}
-        where id = ${partyId}
+    let partyId: string;
+    let locale = input.partyLocale;
+    if (input.returningPartyId) {
+      const [party] = await transaction<{ id: string; locale: "en" | "es" }[]>`
+        select id, locale from public.parties
+        where id = ${input.returningPartyId} and home_id = ${input.homeId}
+        for update
       `;
+      if (!party) throw new CaptureInputError("party");
+      partyId = party.id;
+      locale = party.locale;
     } else {
-      const parties = await transaction<{ id: string }[]>`
-        insert into public.parties (
-          home_id,
-          family_name,
-          locale
-        )
-        values (
-          ${input.homeId},
-          ${input.partyName},
-          ${input.partyLocale}
-        )
-        returning id
+      const [created] = await transaction<{ id: string }[]>`
+        insert into public.parties (home_id, family_name, locale)
+        values (${input.homeId}, ${input.partyName}, ${input.partyLocale})
+        on conflict do nothing returning id
       `;
-      partyId = parties[0]?.id;
+      if (!created) throw new CaptureInputError("name");
+      partyId = created.id;
     }
-
-    if (!partyId) throw new Error("Failed to create or load the invited party");
 
     const invitations = await transaction<{ id: string }[]>`
       insert into public.invitations (
@@ -180,7 +174,7 @@ export async function captureInvitation(
     return {
       invitationId,
       partyId,
-      guestLink: `${appUrl}/${input.partyLocale}/g/${link.token}`,
+      guestLink: `${appUrl}/${locale}/g/${link.token}`,
     };
   });
 }

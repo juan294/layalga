@@ -27,7 +27,11 @@ vi.mock("@/lib/server/action-errors", () => ({
   reportedActionError: (code: string) => new Error(code),
 }));
 
-import { forgetPartyMemoryAction, updateEmailPingsAction } from "./actions";
+import {
+  captureInvitationAction,
+  forgetPartyMemoryAction,
+  updateEmailPingsAction,
+} from "./actions";
 
 const host = {
   id: "00000000-0000-4000-8000-000000000201",
@@ -169,5 +173,20 @@ describe("forgetPartyMemoryAction", () => {
       expect.any(Error),
     );
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("captureInvitationAction", () => {
+  it("keeps a missing returning selection a field error", async () => {
+    mocks.requireHost.mockResolvedValue(host);
+    const form = new FormData();
+    form.set("captureId", crypto.randomUUID());
+    form.set("locale", "es");
+    form.set("partyKind", "returning");
+    form.set("rawMessage", "Invite our friends");
+    expect(await captureInvitationAction({ status: "idle" }, form)).toEqual({
+      status: "error",
+      error: "party",
+    });
   });
 });

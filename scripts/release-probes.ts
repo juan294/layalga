@@ -357,10 +357,13 @@ async function probeHealth(options: ReleaseCliOptions): Promise<string> {
 
 async function probeHostCapture(context: ProbeContext): Promise<string> {
   const { sql, household, options } = context;
+  const vega = findFixtureGuest(household, "Familia Vega");
   const rawMessage = `${VEGA_CAPTURE_MESSAGE}${household.tag}`;
   const [result] = await runToTerminal(context, [
     {
-      task: "host_capture",
+      task: "host_capture_v2",
+      captureId: randomUUID(),
+      partyChoice: { kind: "returning", partyId: vega.partyId },
       homeId: household.homeId,
       hostId: household.hostIds[0]!,
       rawMessage,
@@ -381,7 +384,7 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
   );
   const [captured] = await sql<{ id: string }[]>`
     select id from public.invitations
-    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative'
+    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
   `;
   assert.ok(captured, "the captured invitation must be tentative");
   context.capturedInvitationId = captured.id;
@@ -390,10 +393,11 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
       select count(*)::int as count from public.audit_events
       where run_id = ${result.runId}
         and kind = 'tool_call' and payload->>'name' = 'search_memory'
+        and payload->>'partyId' = ${vega.partyId}
     `;
     assert.ok(
       (row?.count ?? 0) > 0,
-      "the matched Vega capture run must call search_memory",
+      "the returning capture must search the selected fixture party memory",
     );
   }
   return [

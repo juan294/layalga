@@ -22,6 +22,7 @@ export interface BuildAgentOptions {
   deps: AgentDeps;
   task: AgentTask["task"];
   homeId: string;
+  captureRunId?: string;
   model?: Model<BaseModelConfig>;
 }
 
@@ -30,6 +31,7 @@ export function buildAgent({
   deps,
   task,
   homeId,
+  captureRunId,
   model,
 }: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
@@ -47,7 +49,7 @@ export function buildAgent({
     sessionManager: new SessionManager({
       sessionId,
       storage: new PostgresStorage(sqlClient(deps.db), sessionId).namespace(
-        "session",
+        captureRunId ? `session/capture/${captureRunId}` : "session",
       ),
       saveLatestOn: "message",
     }),

@@ -16,6 +16,8 @@ import {
   type CaptureResultState,
   type CaptureState,
 } from "@/app/[locale]/(host)/actions";
+import ledgerStyles from "./room-ledger.module.css";
+import { scriptedOutcome } from "@/agent/scripted-outcomes";
 import { copyText } from "@/components/frontend-utils";
 import { RunStatusPoller } from "@/components/runs/run-status-poller";
 import type { RunSnapshot } from "@/app/api/runs/run-data";
@@ -35,7 +37,18 @@ import {
 interface CaptureInvitationFormProps {
   locale: "en" | "es";
   timeZone: string;
+  parties: { id: string; label: string }[];
   labels: {
+    partyKind: string;
+    newParty: string;
+    returningParty: string;
+    selectParty: string;
+    partyError: string;
+    changedError: string;
+    scrubbedError: string;
+    newSubmission: string;
+    retrySubmission: string;
+    runtimeFailure: string;
     message: string;
     placeholder: string;
     submit: string;
@@ -63,24 +76,139 @@ export function CaptureInvitationForm({
   locale,
   labels,
   timeZone,
+  parties,
 }: CaptureInvitationFormProps) {
-  const initialCaptureState: CaptureState = { status: "idle" };
+  const [kind, setKind] = useState("new");
+  const [partyId, setPartyId] = useState("");
+  const [invalidPartyId, setInvalidPartyId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const captureId = useRef<string | null>(null);
+  const partySelect = useRef<HTMLSelectElement>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [terminal, setTerminal] = useState<{
+    id: string;
+    success: boolean;
+  } | null>(null);
   const [state, action, pending] = useActionState(
-    captureInvitationAction,
-    initialCaptureState,
+    async (previous: CaptureState, form: FormData): Promise<CaptureState> => {
+      if (!captureId.current || form.get("intent") === "new")
+        captureId.current = crypto.randomUUID();
+      form.set("captureId", captureId.current);
+      try {
+        const next = await captureInvitationAction(previous, form);
+        setInvalidPartyId(
+          next.status === "error" && next.error === "party"
+            ? String(form.get("partyId") ?? "")
+            : null,
+        );
+        if (next.status === "queued") {
+          setTerminal(null);
+          setAttempt((count) => count + 1);
+        }
+        return next;
+      } catch {
+        return { status: "error", error: "failed" };
+      }
+    },
+    { status: "idle" } as CaptureState,
   );
-  const [terminalRunId, setTerminalRunId] = useState<string | null>(null);
   const queuedRunId = state.status === "queued" ? state.runId : null;
-  const disabled = captureSubmitDisabled(pending, queuedRunId, terminalRunId);
-  const markTerminal = useCallback((runId: string) => {
-    setTerminalRunId(runId);
+  const disabled = captureSubmitDisabled(
+    pending,
+    queuedRunId,
+    terminal?.id ?? null,
+  );
+  const markTerminal = useCallback((id: string, success: boolean) => {
+    setTerminal({ id, success });
   }, []);
+  const finished = !!queuedRunId && terminal?.id === queuedRunId;
+  const needsNew =
+    state.status === "error" &&
+    (state.error === "changed" || state.error === "scrubbed");
+  const newSubmission = needsNew || (finished && terminal?.success);
+  const partyError =
+    kind === "returning" &&
+    invalidPartyId === partyId &&
+    state.status === "error" &&
+    state.error === "party";
+  const selectedParty =
+    kind === "returning" && parties.find((party) => party.id === partyId);
+
+  useEffect(() => {
+    if (partyError) partySelect.current?.focus();
+  }, [partyError, state]);
 
   return (
     <CaptureFormBoundary
       captureForm={
-        <form action={action} data-testid="host-capture-form">
+        <form
+          action={action}
+          data-testid="host-capture-form"
+          onReset={(event) => event.preventDefault()}
+        >
           <input name="locale" type="hidden" value={locale} />
+          <label htmlFor="capture-party-kind" style={labelStyle}>
+            {labels.partyKind}
+          </label>
+          <select
+            id="capture-party-kind"
+            name="partyKind"
+            value={kind}
+            onChange={(event) => {
+              setKind(event.target.value);
+              setInvalidPartyId(null);
+            }}
+            className={ledgerStyles.touchSelect}
+          >
+            <option value="new">{labels.newParty}</option>
+            <option value="returning">{labels.returningParty}</option>
+          </select>
+          {kind === "returning" && (
+            <>
+              <label htmlFor="capture-party" style={labelStyle}>
+                {labels.selectParty}
+              </label>
+              <select
+                id="capture-party"
+                ref={partySelect}
+                name="partyId"
+                value={partyId}
+                aria-invalid={partyError || undefined}
+                aria-describedby={
+                  partyError
+                    ? "capture-error"
+                    : selectedParty
+                      ? "capture-party-history"
+                      : undefined
+                }
+                onChange={(event) => {
+                  setPartyId(event.target.value);
+                  setInvalidPartyId(null);
+                }}
+                aria-required="true"
+                className={ledgerStyles.touchSelect}
+              >
+                <option value="">{labels.selectParty}</option>
+                {parties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.label}
+                  </option>
+                ))}
+              </select>
+              {selectedParty && (
+                <p
+                  id="capture-party-history"
+                  style={{
+                    color: graphite,
+                    overflowWrap: "anywhere",
+                    margin: "0.35rem 0 0.75rem",
+                  }}
+                >
+                  {selectedParty.label}
+                </p>
+              )}
+            </>
+          )}
           <label htmlFor="capture-message" style={labelStyle}>
             {labels.message}
           </label>
@@ -88,6 +216,8 @@ export function CaptureInvitationForm({
             data-testid="host-capture-message"
             id="capture-message"
             name="rawMessage"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
             placeholder={labels.placeholder}
             required
             rows={7}
@@ -98,6 +228,8 @@ export function CaptureInvitationForm({
             }}
           />
           <button
+            name="intent"
+            value={newSubmission ? "new" : "retry"}
             data-testid="host-capture-submit"
             disabled={disabled}
             style={{ ...buttonStyle, opacity: disabled ? 0.55 : 1 }}
@@ -105,16 +237,46 @@ export function CaptureInvitationForm({
           >
             {pending
               ? labels.pending
-              : queuedRunId && terminalRunId !== queuedRunId
+              : queuedRunId && !finished
                 ? labels.queued
-                : labels.submit}
+                : newSubmission
+                  ? labels.newSubmission
+                  : finished
+                    ? labels.retrySubmission
+                    : labels.submit}
           </button>
-          {state.status === "error" ? (
+          {((finished && !terminal?.success) ||
+            (state.status === "error" && state.error === "failed")) && (
+            <button
+              type="submit"
+              name="intent"
+              value="new"
+              disabled={pending}
+              style={buttonStyle}
+            >
+              {labels.newSubmission}
+            </button>
+          )}
+          {state.status === "error" &&
+          (state.error !== "party" || partyError) ? (
             <p
+              id="capture-error"
               role="alert"
               style={{ color: ink, margin: "0.85rem 0 0", fontWeight: 700 }}
             >
-              {state.error === "empty" ? labels.emptyError : labels.failedError}
+              {
+                labels[
+                  (
+                    {
+                      empty: "emptyError",
+                      party: "partyError",
+                      changed: "changedError",
+                      scrubbed: "scrubbedError",
+                      failed: "failedError",
+                    } as const
+                  )[state.error]
+                ]
+              }
             </p>
           ) : null}
         </form>
@@ -122,7 +284,7 @@ export function CaptureInvitationForm({
       resultPanel={
         queuedRunId ? (
           <CaptureQueuedPanel
-            key={queuedRunId}
+            key={`${queuedRunId}-${attempt}`}
             labels={labels}
             locale={locale}
             onTerminal={markTerminal}
@@ -171,7 +333,7 @@ function CaptureQueuedPanel({
 }: {
   labels: CaptureLabels;
   locale: "en" | "es";
-  onTerminal: (runId: string) => void;
+  onTerminal: (runId: string, success: boolean) => void;
   runId: string;
   timeZone: string;
 }) {
@@ -188,7 +350,7 @@ function CaptureQueuedPanel({
       if (next.id !== runId) return;
       setSnapshot(next);
       if (next.status !== "queued" && next.status !== "running") {
-        onTerminal(next.id);
+        onTerminal(next.id, next.status === "completed");
       }
     },
     [onTerminal, runId],
@@ -219,6 +381,10 @@ function CaptureQueuedPanel({
         showReturnLink={false}
         timeZone={timeZone}
       />
+      {snapshot.status === "failed" &&
+        snapshot.summary !== scriptedOutcome("captureNameUsed") && (
+          <p role="status">{labels.runtimeFailure}</p>
+        )}
       {snapshot.id === runId && snapshot.status === "completed" ? (
         <CaptureCompletionForm labels={labels} locale={locale} runId={runId} />
       ) : null}

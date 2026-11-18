@@ -1,7 +1,10 @@
 import { expect } from "@playwright/test";
 
 import { clickAndWaitForPost, expectRunStatus } from "./helpers/async-actions";
-import { VEGA_CAPTURE_MESSAGE } from "../../src/test-support/fixture-household";
+import {
+  VEGA_CAPTURE_MESSAGE,
+  findFixtureGuest,
+} from "../../src/test-support/fixture-household";
 import { test } from "./helpers/household";
 
 test.setTimeout(90_000);
@@ -16,6 +19,10 @@ test("the host capture poller keeps its visible card and status pulse", async ({
   await page
     .getByTestId("host-capture-message")
     .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await page.getByLabel("Invited party").selectOption("returning");
+  await page
+    .locator("#capture-party")
+    .selectOption(findFixtureGuest(household, "Familia Vega").partyId);
   await clickAndWaitForPost(page, "host-capture-submit");
   await expectRunStatus(page, "completed");
 

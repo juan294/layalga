@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { partyChoiceSchema } from "@/agent/task";
 import { getAgentClient } from "@/agent/client";
 import {
   MAX_DECISION_NOTE_LENGTH,
@@ -13,7 +14,10 @@ import { CancellationChangedError } from "@/core/booking/cancellation-error";
 import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
 import { configuredScheduler } from "@/agent/scheduler";
-import { reissueInvitationLink } from "@/core/booking/invitations";
+import {
+  CaptureInputError,
+  reissueInvitationLink,
+} from "@/core/booking/invitations";
 import { recordHostDecision } from "@/core/decisions/host-decision";
 import { sqlClient } from "@/core/db/client";
 import { getDatabaseConnection } from "@/core/db/client";
@@ -28,7 +32,10 @@ import {
 export type CaptureState =
   | { status: "idle" }
   | { status: "queued"; runId: string }
-  | { status: "error"; error: "empty" | "failed" };
+  | {
+      status: "error";
+      error: "empty" | "failed" | "party" | "changed" | "scrubbed";
+    };
 
 export type CaptureResultState =
   | { status: "idle" }
@@ -51,9 +58,20 @@ export async function captureInvitationAction(
     return { status: "error", error: "failed" };
   }
 
+  const captureId = z.uuid().safeParse(formData.get("captureId"));
+  if (!captureId.success) return { status: "error", error: "failed" };
+  const kind = formData.get("partyKind");
+  const choice = partyChoiceSchema.safeParse(
+    kind === "returning"
+      ? { kind, partyId: formData.get("partyId") }
+      : { kind },
+  );
+  if (!choice.success) return { status: "error", error: "party" };
   try {
     const result = await getAgentClient().enqueue({
-      task: "host_capture",
+      task: "host_capture_v2",
+      captureId: captureId.data,
+      partyChoice: choice.data,
       homeId: host.homeId,
       hostId: host.id,
       rawMessage,
@@ -64,6 +82,8 @@ export async function captureInvitationAction(
       runId: result.runId,
     };
   } catch (error) {
+    if (error instanceof CaptureInputError && error.reason !== "name")
+      return { status: "error", error: error.reason };
     reportActionError("host_capture_failed", error);
     return { status: "error", error: "failed" };
   }
@@ -97,9 +117,9 @@ export async function revealCapturedInvitationAction(
        and i.host_id = ${host.id}
       where r.id = ${parsedRunId.data}
         and r.home_id = ${host.homeId}
-        and r.task = 'host_capture'
+        and r.task in ('host_capture', 'host_capture_v2')
         and r.status = 'completed'
-        and r.payload->>'task' = 'host_capture'
+        and r.payload->>'task' = r.task
         and r.payload->>'hostId' = ${host.id}
         and r.session_id = ${`capture_${host.id}`}
       order by ae.created_at desc

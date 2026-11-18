@@ -28,27 +28,14 @@ const SEARCH_MEMORY_DESCRIPTION =
  *
  * - `MEMORY=none` or a `host_room_request` task never gets a store (room
  *   requests must not reintroduce a family name into memory).
- * - A host task with no `partyId` (no deterministic pre-match) reads a
- *   read-only store over the whole home subtree (`/parties/home-<homeId>`),
- *   never writable.
+ * - New and legacy captures have no recall. Returning captures use only the selected party.
  * - A party-scoped task reads (and, for `guest_submit` and `guest_change`,
  *   writes) only its own party's subtree
  *   (`/parties/home-<homeId>/party-<partyId>`), never another party's.
  *
- * `host_capture` is never extraction-backed, matched party or not (D7):
- * extraction with `InvocationTrigger` reads the *whole* conversation, and a
- * host_capture conversation contains the host's raw message verbatim,
- * which names the family, plus the `capture_invitation` tool result's raw
- * invitation and party ids -- neither belongs in long-term memory. The
- * store stays read-only for host_capture unconditionally; the only write
- * path for what a capture teaches the household is the deterministic,
- * name-free `recordCaptureMemory` event (`src/agent/record-capture-memory.ts`),
- * which calls `CreateEvent` directly and never goes through this store.
- *
- * The actor id is `home-<homeId>` or `home-<homeId>/party-<partyId>`,
- * matching the `[a-zA-Z0-9][a-zA-Z0-9-_/]*` AgentCore actor id pattern; the
- * session id is the task's own Strands session id, so events land under the
- * session the run already produces.
+ * Returning captures read the verified party namespace. Their host transcript
+ * is excluded from extraction. The bounded capture event is recorded separately
+ * for the party on the persisted invitation by `recordCaptureMemory`.
  */
 export function memoryStoresForTask(
   task: AgentTask["task"],
@@ -57,32 +44,14 @@ export function memoryStoresForTask(
   config: MemoryTaskConfig = parseServerEnvironment(),
 ): AgentCoreMemoryStore[] {
   if (config.memory !== "agentcore" || !config.memoryId) return [];
-  if (task === "host_room_request") return [];
-  if (!authority?.homeId) return [];
+  if (task === "host_room_request" || task === "host_capture") return [];
+  if (!authority?.homeId || !authority.partyId) return [];
 
   const memoryId = config.memoryId;
   const region = config.awsRegion;
   const home = `home-${authority.homeId}`;
 
-  if (!authority.partyId) {
-    if (task !== "host_capture") return [];
-    return [
-      new AgentCoreMemoryStore({
-        memoryId,
-        region,
-        actorId: home,
-        sessionId,
-        namespacePath: `/parties/${home}`,
-        name: "household",
-        writable: false,
-      }),
-    ];
-  }
-
   const actorId = `${home}/party-${authority.partyId}`;
-  // host_capture is deliberately excluded: it is never extraction-backed
-  // (see the function doc above), so it is always read-only here, matched
-  // party or not.
   const writable = task === "guest_submit" || task === "guest_change";
   return [
     new AgentCoreMemoryStore({
@@ -141,8 +110,11 @@ export function memoryConfigForTask(
 export function installMemorySearchAudit(agent: Agent, deps: AgentDeps): void {
   agent.addHook(AfterToolCallEvent, async (event) => {
     if (event.toolUse.name !== "search_memory" || event.error) return;
-    const homeId = deps.authority?.homeId;
-    if (!homeId) return;
-    await audit(deps, homeId, event, "tool_call", { name: "search_memory" });
+    const authority = deps.authority;
+    if (!authority?.partyId) return;
+    await audit(deps, authority.homeId, event, "tool_call", {
+      name: "search_memory",
+      partyId: authority.partyId,
+    });
   });
 }

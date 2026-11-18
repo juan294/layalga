@@ -50,9 +50,37 @@ test("captures an invitation and exposes its private guest link", async ({
   household,
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page
     .getByTestId("host-capture-message")
     .fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await page.getByLabel("Invited party").selectOption("returning");
+  const returning = page.locator("#capture-party");
+  await page.getByTestId("host-capture-submit").click();
+  await expect(
+    page.getByTestId("host-capture-form").getByRole("alert"),
+  ).toHaveText(
+    "Choose a current party from this household or select New party.",
+  );
+  await expect(returning).toBeFocused();
+  await expect(page.getByLabel("Invited party")).toHaveValue("returning");
+  await expect(page.getByTestId("host-capture-message")).toHaveValue(
+    `${VEGA_CAPTURE_MESSAGE}${household.tag}`,
+  );
+  await returning.press("f");
+  await expect(returning).toHaveValue(
+    findFixtureGuest(household, "Familia Vega").partyId,
+  );
+  await expect(returning).not.toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByTestId("host-capture-form").getByRole("alert"),
+  ).toHaveCount(0);
+  const history = page.locator("#capture-party-history");
+  await expect(history).toContainText("Familia Vega");
+  await expect(history).toContainText("Last invited");
+  const bounds = await history.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
   await clickAndWaitForPost(page, "host-capture-submit");
 
   await expect(page.getByTestId("capture-queued")).toBeVisible();
@@ -64,6 +92,59 @@ test("captures an invitation and exposes its private guest link", async ({
     "href",
     /\/g\/[A-Za-z0-9_-]{43}$/,
   );
+});
+
+test("a removed returning selection keeps the draft and accepts a new choice", async ({
+  household,
+  page,
+}) => {
+  const [stale] = await household.db<
+    { id: string }[]
+  >`insert into public.parties (home_id, family_name, locale)
+    values (${household.homeId}, 'Grupo temporal', 'es') returning id`;
+  await page.goto("/es");
+  await page.locator("#capture-party-kind").selectOption("returning");
+  await page.locator("#capture-party").selectOption(stale!.id);
+  const message = page.getByTestId("host-capture-message");
+  await message.fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await household.db`delete from public.parties where id = ${stale!.id} and home_id = ${household.homeId}`;
+  await clickAndWaitForPost(page, "host-capture-submit");
+  await expect(
+    page.getByTestId("host-capture-form").getByRole("alert"),
+  ).toHaveText("Elige un grupo actual de esta casa o selecciona Grupo nuevo.");
+  await expect(message).toHaveValue(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await page
+    .locator("#capture-party")
+    .selectOption(findFixtureGuest(household, "Familia Vega").partyId);
+  await clickAndWaitForPost(page, "host-capture-submit");
+  await expect(page.getByTestId("guest-link")).toBeVisible({
+    timeout: ASYNC_COMPLETION_TIMEOUT,
+  });
+});
+
+test("New capture explains a bridge name collision and keeps the draft for a fresh invitation", async ({
+  household,
+  page,
+}) => {
+  const message = page.getByTestId("host-capture-message");
+  await expect(page.getByLabel("Invited party")).toHaveValue("new");
+  await message.fill(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await clickAndWaitForPost(page, "host-capture-submit");
+  await expect(page.getByTestId("run-status")).toHaveAttribute(
+    "data-status",
+    "failed",
+    { timeout: ASYNC_COMPLETION_TIMEOUT },
+  );
+  await expect(page.getByText(/This name is already in use/)).toBeVisible();
+  await expect(message).toHaveValue(`${VEGA_CAPTURE_MESSAGE}${household.tag}`);
+  await message.fill(`Invite Cedar friends for a weekend. ${household.tag}`);
+  await page.getByRole("button", { name: "Submit as a new capture" }).click();
+  await expect(page.getByTestId("guest-link")).toBeVisible({
+    timeout: ASYNC_COMPLETION_TIMEOUT,
+  });
+  expect(
+    await household.db`select id from public.parties where home_id = ${household.homeId} and family_name = 'Cedar friends'`,
+  ).toHaveLength(1);
 });
 
 test("a special request waits for a host and resumes after approval", async ({

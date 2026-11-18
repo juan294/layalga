@@ -82,6 +82,44 @@ async function waitForRunStatus(
 describe("durable agent queue", () => {
   afterAll(() => sql.end());
 
+  it("replays only an unchanged capture UUID and shares the legacy capture budget", async () => {
+    const fixture = await seedHost();
+    const runtime = deps(new ScriptedModel([]));
+    const legacy = hostTask(fixture, "Same invitation");
+    const task = {
+      ...legacy,
+      task: "host_capture_v2" as const,
+      captureId: randomUUID(),
+      partyChoice: { kind: "new" as const },
+    };
+    try {
+      const first = await enqueueAgentTask(task, runtime);
+      expect((await enqueueAgentTask(task, runtime)).runId).toBe(first.runId);
+      await expect(
+        enqueueAgentTask({ ...task, rawMessage: "Changed" }, runtime),
+      ).rejects.toMatchObject({ reason: "changed" });
+      const second = await enqueueAgentTask(
+        { ...task, captureId: randomUUID() },
+        runtime,
+      );
+      expect(second.runId).not.toBe(first.runId);
+      await sql`update public.runs set payload = '{}'::jsonb where id = ${first.runId}`;
+      await expect(enqueueAgentTask(task, runtime)).rejects.toMatchObject({
+        reason: "scrubbed",
+      });
+      for (let index = 0; index < 3; index++)
+        await enqueueAgentTask(
+          { ...legacy, rawMessage: `Legacy ${index}` },
+          runtime,
+        );
+      await expect(
+        enqueueAgentTask({ ...task, captureId: randomUUID() }, runtime),
+      ).rejects.toThrow("request limit");
+    } finally {
+      await cleanup(fixture.homeId);
+    }
+  });
+
   it.each([
     ["immediate", "immediate"],
     ["immediate", "queued"],
