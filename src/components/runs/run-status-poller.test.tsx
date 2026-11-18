@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { scriptedOutcome } from "@/agent/scripted-outcomes";
 import en from "../../../messages/en.json";
 
 import {
+  fetchRunSnapshot,
   localizedSummary,
+  pollDeadlineDelay,
   pollStopAt,
   RunStatusPoller,
   summaryForDisplay,
@@ -46,9 +48,15 @@ describe("localizedSummary", () => {
   });
 
   test("localizes completed summaries but omits empty results", () => {
-    expect(summaryForDisplay("completed", null, echoTranslate as never)).toBeNull();
     expect(
-      summaryForDisplay("completed", "ordinary summary", echoTranslate as never),
+      summaryForDisplay("completed", null, echoTranslate as never),
+    ).toBeNull();
+    expect(
+      summaryForDisplay(
+        "completed",
+        "ordinary summary",
+        echoTranslate as never,
+      ),
     ).toBe("ordinary summary");
   });
 });
@@ -66,6 +74,91 @@ describe("pollStopAt", () => {
   test("falls back to the default poll deadline when the server sent none", () => {
     const sixMinutes = 6 * 60_000;
     expect(pollStopAt(clientNow, null)).toBe(clientNow + sixMinutes);
+  });
+});
+
+describe("fetchRunSnapshot", () => {
+  afterEach(() => vi.useRealTimers());
+  const snapshot = {
+    id: "10000000-0000-4000-8000-000000000001",
+    status: "running",
+    summary: null,
+    finishedAt: null,
+  };
+
+  test("parses a snapshot returned before the timeout", async () => {
+    const fetchImpl = vi.fn(async () => Response.json(snapshot));
+    const result = await fetchRunSnapshot(
+      "/api/runs/x",
+      new AbortController().signal,
+      1_000,
+      fetchImpl as never,
+    );
+    expect(result.status).toBe("running");
+    expect(result.events).toEqual([]);
+  });
+
+  test("rejects a request that never answers once the timeout passes", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn(() => new Promise<Response>(() => {}));
+    const settled = fetchRunSnapshot(
+      "/api/runs/x",
+      new AbortController().signal,
+      1_000,
+      fetchImpl as never,
+    ).then(
+      () => "resolved",
+      (error: Error) => error.message,
+    );
+    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(settled).resolves.toBe("run_poll_aborted");
+  });
+
+  test("rejects when the response body read stalls", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: () => new Promise(() => {}),
+    }));
+    const settled = fetchRunSnapshot(
+      "/api/runs/x",
+      new AbortController().signal,
+      1_000,
+      fetchImpl as never,
+    ).then(
+      () => "resolved",
+      (error: Error) => error.message,
+    );
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(settled).resolves.toBe("run_poll_aborted");
+  });
+
+  test("aborts the request when the poller is torn down", async () => {
+    const parent = new AbortController();
+    const fetchImpl = vi.fn(() => new Promise<Response>(() => {}));
+    const settled = fetchRunSnapshot(
+      "/api/runs/x",
+      parent.signal,
+      60_000,
+      fetchImpl as never,
+    ).then(
+      () => "resolved",
+      (error: Error) => error.message,
+    );
+    parent.abort();
+    await expect(settled).resolves.toBe("run_poll_aborted");
+  });
+});
+
+describe("pollDeadlineDelay", () => {
+  test("fires when the deadline is reached, independent of any request", () => {
+    expect(pollDeadlineDelay(1_000, 61_000, false)).toBe(60_000);
+    expect(pollDeadlineDelay(70_000, 61_000, false)).toBe(0);
+  });
+
+  test("lets a manual retry run one request before a past deadline stops it", () => {
+    expect(pollDeadlineDelay(70_000, 61_000, true)).toBeGreaterThan(0);
   });
 });
 
