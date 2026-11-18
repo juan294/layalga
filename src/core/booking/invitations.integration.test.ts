@@ -31,15 +31,17 @@ describe("invitation persistence", () => {
   });
 
   it("writes and reveals recoverable links with the deployed database roles", async () => {
-    const agent = postgres(connectionUrl, {
+    const localAdmin = new URL(connectionUrl);
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(localAdmin.hostname))
+      throw new Error("Role rehearsal requires local Supabase");
+    // The default postgres login is a member of the runtime roles without the
+    // SET option, so both rehearsals switch roles from the local admin login.
+    localAdmin.username = "supabase_admin";
+    const agent = postgres(localAdmin.toString(), {
       max: 1,
       prepare: false,
       connection: { role: "layalga_agent_runtime" },
     });
-    const localAdmin = new URL(connectionUrl);
-    if (!["127.0.0.1", "localhost", "[::1]"].includes(localAdmin.hostname))
-      throw new Error("Role rehearsal requires local Supabase");
-    localAdmin.username = "supabase_admin";
     const web = postgres(localAdmin.toString(), {
       max: 1,
       prepare: false,
