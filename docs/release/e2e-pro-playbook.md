@@ -23,16 +23,51 @@ After duplicate names exist, a rollback must keep the bridge's explicit-ID behav
 
 ### v2.4.0 rollout order
 
-v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place it refuses a duplicate new name and asks for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release:
+v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place, a New capture with a name already in use fails with `captureNameUsed` and the host is asked for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release. For v2.4.0 it replaces step 6 of the release procedure below, which applies every migration before the merge. Run each `supabase` command from the primary checkout at the candidate commit, because only that checkout holds the project link in `supabase/.temp`.
 
-1. Apply only `20261118000200_invitation_link_recovery.sql`, from a temporary copy of the candidate's `supabase/` directory without `20261119000100`, with `supabase db push --linked`. v2.3.1 still serves both targets. Check that `supabase migration list --linked` shows `20261118000200` applied and `20261119000100` pending, and that `/api/health` stays `ok`.
-2. Merge the release pull request into `main`. Verify the exact web commit at `/api/health`. Until AgentCore is updated, the old runtime refuses the new `host_capture_v2` task, so the hosts do not capture invitations in this window.
-3. Deploy AgentCore from a clean checkout of the same commit and run `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version <new version>`.
-4. Dispatch the production probes for the exact commit. `host-capture` asserts the selected returning party and, because `capture_run_id` exists, the bound run and recovery metadata.
-5. Apply `20261119000100_allow_shared_party_names.sql` with `supabase db push --linked` from the candidate checkout. Confirm that `parties_home_id_family_name_key` is gone and that `supabase migration list --linked` shows no pending migration.
-6. Dispatch the production probes again for the same commit, then run the orphaned-memory sweep.
+1. Apply only `20261118000200_invitation_link_recovery.sql` while v2.3.1 still serves both targets:
 
-The production probes do not drive the browser reveal or the legacy replacement warning: fixture households have no Google host who can sign in. Browser tests cover those surfaces locally and in CI. A production check of the reveal on the real household needs a separate owner decision, because tests never write to the real household.
+   ```bash
+   STAGE=$(mktemp -d)
+   cp -R supabase "$STAGE/"
+   rm "$STAGE/supabase/migrations/20261119000100_allow_shared_party_names.sql"
+   supabase db push --linked --workdir "$STAGE" --dry-run   # must list only 20261118000200
+   supabase db push --linked --workdir "$STAGE"
+   rm -rf "$STAGE"
+   ```
+
+   Check that `supabase migration list --linked` shows `20261118000200` applied and `20261119000100` pending, and that `/api/health` stays `ok`.
+
+2. Merge the release pull request into `main`. Verify the exact web commit at `/api/health`. Until AgentCore is updated, the old runtime refuses the new `host_capture_v2` task, so the hosts do not capture invitations in this window. If a capture is refused, record its run ID as the old-runtime refusal evidence.
+3. Deploy AgentCore from a clean checkout of the same commit with `scripts/deploy-agentcore.sh --profile archy`. Pass the runtime version it reports to `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version <reported version>`.
+4. Dispatch the production probes for the exact commit. The workflow passes `--expect-runtime agentcore` and `MEMORY=agentcore`. `host-capture` asserts the selected returning party, the bound run and recovery metadata, and that the stored link hash matches a link derived with the web `LINK_TOKEN_SECRET` (the probe receives the Vercel production value). A mismatch means that AgentCore and Vercel hold different link secrets, and no new link could be revealed.
+5. Apply `20261119000100_allow_shared_party_names.sql`: `supabase db push --linked --dry-run` must list only that migration, then run `supabase db push --linked`. Confirm that `parties_home_id_family_name_key` is gone and that `supabase migration list --linked` shows no pending migration.
+6. Dispatch the production probes again for the same commit, then run the orphaned-memory sweep. The production probe set has no same-name capture, so this run proves that the constraint drop did not break the core journeys. The local release probes and integration tests cover two parties with one name.
+
+Checks from the two cutovers above that this order replaces:
+
+| Cutover check                                                                   | v2.4.0 evidence                                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Separate bridge release and fixture captures on the bridge schema               | Local rehearsal with the database reset to `20261118000200`: the production probe set passed, and a same-name New capture failed with `captureNameUsed`; then production probes in step 4 |
+| Old runtime refusal of a persisted v2 task                                      | Phase 1 local evidence; any refusal seen in step 2                                                                                                                                        |
+| Synthetic capture that shows the legacy replacement warning and keeps the URL   | Chromium and mobile WebKit browser tests on the candidate, locally and in CI                                                                                                              |
+| Reveal twice from status and dashboard, then open the original URL as the guest | The same browser tests                                                                                                                                                                    |
+| Same `LINK_TOKEN_SECRET` on web and AgentCore                                   | The `host-capture` hash assertion in step 4                                                                                                                                               |
+
+The production probes do not drive the browser reveal: fixture households have no Google host who can sign in. A production check of the reveal on the real household needs a separate owner decision, because tests never write to the real household.
+
+#### Release-system impact of the link hash assertion
+
+- **Risk class (A/B/C/D/E):** A.
+- **Unique production risk prevented:** AgentCore and Vercel read `LINK_TOKEN_SECRET` from different sources (`.env.agentcore` and the Vercel environment). A mismatch makes every new invitation link unrecoverable for its host. Local and CI runs use one environment for both, so only production can show it.
+- **Existing controls that already cover part of this risk:** None. The browser tests and local probes share one secret.
+- **Why this must be synchronous (if Class A/B):** A mismatch breaks the host's only way to obtain a new guest link.
+- **Added local critical-path time:** None.
+- **Added remote critical-path time / workflows / deployments:** None; one query and one HMAC inside the existing `host-capture` probe.
+- **Added external dependencies:** None.
+- **Added evidence objects:** None beyond the probe detail.
+- **Same-candidate recovery behavior if this gate fails:** `BLOCKED` for the configuration, not the code: correct the AgentCore or Vercel secret, redeploy the same candidate and dispatch the probes again.
+- **Control this replaces or consolidates, if any:** The manual `LINK_TOKEN_SECRET` parity check in "Recoverable invitation links" step 2.
 
 ### Recoverable invitation links
 
@@ -100,17 +135,17 @@ Wave B exploratory charters are applicable after the first deployed candidate an
 
 `scripts/release-probes.ts` runs the probes for one target in order. Each run builds two fixture households from the shared builder (`src/test-support/fixture-household.ts`): `Release probe <run id>` with three rooms, and `Release probe conflict <run id>` with one contested room for the concurrency probe. Probes enqueue work through `POST /api/agent/run` with the `x-layalga-internal` header and drain it through `GET /api/ticks`. No probe uses a browser session or touches a real household.
 
-| Probe                 | Local | Production | Assertion                                                                                                                                       |
-| --------------------- | :---: | :--------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `health`              |  yes  |    yes     | `/api/health` is `ok`; for a non-local base, the reported commit equals the candidate                                                           |
-| `host-capture`        |  yes  |    yes     | A `host_capture` run for the fixture host completes and creates one tagged tentative invitation; optional runtime and memory assertions (below) |
-| `guest-confirmation`  |  yes  |    yes     | A `guest_submit` run on the captured invitation creates one hold and one confirmation audit                                                     |
-| `concurrent-conflict` |  yes  |    yes     | Two concurrent holds on the one contested room: exactly one wins and the other is rejected safely                                               |
-| `interrupt-resume`    |  yes  |     no     | A policy-triggering request pauses; a recorded host approval resumes it through a new queued run and applies once                               |
-| `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                          |
-| `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                          |
-| `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                   |
-| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                              |
+| Probe                 | Local | Production | Assertion                                                                                                                                                                                                                                                                                              |
+| --------------------- | :---: | :--------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `health`              |  yes  |    yes     | `/api/health` is `ok`; for a non-local base, the reported commit equals the candidate                                                                                                                                                                                                                  |
+| `host-capture`        |  yes  |    yes     | A `host_capture_v2` run for a selected fixture party completes and creates one tagged tentative invitation for that party; with link recovery applied, the run binding, recovery metadata and a link hash that matches the probe's `LINK_TOKEN_SECRET`; optional runtime and memory assertions (below) |
+| `guest-confirmation`  |  yes  |    yes     | A `guest_submit` run on the captured invitation creates one hold and one confirmation audit                                                                                                                                                                                                            |
+| `concurrent-conflict` |  yes  |    yes     | Two concurrent holds on the one contested room: exactly one wins and the other is rejected safely                                                                                                                                                                                                      |
+| `interrupt-resume`    |  yes  |     no     | A policy-triggering request pauses; a recorded host approval resumes it through a new queued run and applies once                                                                                                                                                                                      |
+| `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                                                                                                                                                                                 |
+| `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                                                                                                                                                                                 |
+| `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                                                                                                                                                                          |
+| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                                                                                                                                                                                     |
 
 Cleanup runs in `finally`, also after a failed probe. A run ends in one of three states:
 

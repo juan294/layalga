@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { parseStoredRunResult, type AgentTask } from "../src/agent/task";
+import { deriveCaptureLink } from "../src/core/booking/link-tokens";
 import { recordHostDecision } from "../src/core/decisions/host-decision";
 import {
   createFixtureHousehold,
@@ -98,8 +99,27 @@ export interface ProbeContext {
   conflict: FixtureHousehold;
   agentRouteSecret: string;
   tickSecret: string;
+  /** The web app's LINK_TOKEN_SECRET; the reveal action derives links with it. */
+  tokenSecret: string;
   now: Date;
   capturedInvitationId?: string;
+}
+
+/**
+ * The web reveal derives the guest link with its own LINK_TOKEN_SECRET and
+ * compares it with the hash the capture writer stored. A writer configured
+ * with another secret makes every new link unrecoverable.
+ */
+export function assertRecoverableLinkHash(
+  row: { id: string; linkGeneration: string; linkToken: string },
+  tokenSecret: string,
+): void {
+  const { hash } = deriveCaptureLink(tokenSecret, row.id, row.linkGeneration);
+  assert.equal(
+    row.linkToken,
+    hash,
+    "the capture writer must derive the stored link hash with the web LINK_TOKEN_SECRET",
+  );
 }
 
 export type ProbeFn = (context: ProbeContext) => Promise<string>;
@@ -257,6 +277,7 @@ export async function runReleaseProbes(
       conflict,
       agentRouteSecret,
       tickSecret,
+      tokenSecret,
       now,
     };
     for (const probe of PROBES[options.target]) {
@@ -391,12 +412,21 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
     await sql`select exists (select from information_schema.columns
     where table_schema='public' and table_name='invitations' and column_name='capture_run_id') as upgraded`;
   if (metadata?.upgraded) {
-    const [bound] =
-      await sql`select id from public.invitations where id=${captured.id}
+    const [bound] = await sql<
+      { id: string; link_generation: string; link_token: string }[]
+    >`select id, link_generation, link_token from public.invitations where id=${captured.id}
       and capture_run_id=${result.runId} and link_scheme=1 and link_generation is not null and link_locale is not null`;
     assert.ok(
       bound,
       "the serving writer must persist the exact capture run and recovery metadata",
+    );
+    assertRecoverableLinkHash(
+      {
+        id: bound.id,
+        linkGeneration: bound.link_generation,
+        linkToken: bound.link_token,
+      },
+      context.tokenSecret,
     );
   }
   context.capturedInvitationId = captured.id;

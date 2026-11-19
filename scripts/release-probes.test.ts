@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RunResult } from "../src/agent/task";
+import { deriveCaptureLink } from "../src/core/booking/link-tokens";
 import {
   assertConcurrentRunsCompleted,
+  assertRecoverableLinkHash,
   classifyProbeFailure,
   cleanupCommand,
   drainAndCollectTerminalRunResults,
@@ -276,3 +278,33 @@ function terminalRow(runId: string, status: "completed", summary: string) {
     result: { summary },
   };
 }
+
+describe("recoverable link written by the serving capture writer", () => {
+  const webSecret = "web-link-token-secret-0123456789abcdef";
+  const invitationId = "33333333-3333-4333-8333-333333333333";
+  const generation = "44444444-4444-4444-8444-444444444444";
+
+  it("accepts a stored hash derived with the web link secret", () => {
+    const { hash } = deriveCaptureLink(webSecret, invitationId, generation);
+    expect(() =>
+      assertRecoverableLinkHash(
+        { id: invitationId, linkGeneration: generation, linkToken: hash },
+        webSecret,
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects a stored hash derived with a different writer secret", () => {
+    const { hash } = deriveCaptureLink(
+      "agent-link-token-secret-0123456789abcdef",
+      invitationId,
+      generation,
+    );
+    expect(() =>
+      assertRecoverableLinkHash(
+        { id: invitationId, linkGeneration: generation, linkToken: hash },
+        webSecret,
+      ),
+    ).toThrow(/LINK_TOKEN_SECRET/);
+  });
+});
