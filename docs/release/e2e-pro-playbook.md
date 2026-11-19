@@ -23,24 +23,34 @@ After duplicate names exist, a rollback must keep the bridge's explicit-ID behav
 
 ### v2.4.0 rollout order
 
-v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place, a New capture with a name already in use fails with `captureNameUsed` and the host is asked for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release. For v2.4.0 it replaces step 6 of the release procedure below, which applies every migration before the merge. Run each `supabase` command from the primary checkout at the candidate commit, because only that checkout holds the project link in `supabase/.temp`.
+v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place, a New capture with a name already in use fails with `captureNameUsed` and the host is asked for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release. For v2.4.0 it replaces step 6 of the release procedure below, which applies every migration before the merge. Run each `supabase` command from the primary checkout, because only that checkout holds the project link in `supabase/.temp`. Step 5 also needs that checkout at the candidate commit.
 
-1. Apply only `20261118000200_invitation_link_recovery.sql` while v2.3.1 still serves both targets:
+1. Apply only `20261118000200_invitation_link_recovery.sql` while v2.3.1 still serves both targets. Build the stage from the candidate commit and take only the link files from the primary checkout. Run the block in bash (it uses `compgen`):
 
    ```bash
-   STAGE=$(mktemp -d)
-   cp -R supabase "$STAGE/"
-   rm "$STAGE/supabase/migrations/20261119000100_allow_shared_party_names.sql"
-   supabase db push --linked --workdir "$STAGE" --dry-run   # must list only 20261118000200
-   supabase db push --linked --workdir "$STAGE"
-   rm -rf "$STAGE"
+   (
+     set -euo pipefail
+     CANDIDATE=<candidate-sha>
+     STAGE=$(mktemp -d)
+     git archive "$CANDIDATE" supabase | tar -x -C "$STAGE"
+     cp -R supabase/.temp "$STAGE/supabase/"
+     rm "$STAGE/supabase/migrations/20261119000100_allow_shared_party_names.sql"
+     if compgen -G "$STAGE/supabase/migrations/*allow_shared_party_names*" >/dev/null; then
+       echo "the constraint drop is still staged" >&2; exit 1
+     fi
+     supabase db push --linked --workdir "$STAGE" --dry-run   # must list only 20261118000200
+     read -r -p "Dry run lists only 20261118000200? Type yes: " answer
+     [ "$answer" = yes ]
+     supabase db push --linked --workdir "$STAGE"
+     rm -rf "$STAGE"
+   )
    ```
 
    Check that `supabase migration list --linked` shows `20261118000200` applied and `20261119000100` pending, and that `/api/health` stays `ok`.
 
 2. Merge the release pull request into `main`. Verify the exact web commit at `/api/health`. Until AgentCore is updated, the old runtime refuses the new `host_capture_v2` task, so the hosts do not capture invitations in this window. If a capture is refused, record its run ID as the old-runtime refusal evidence.
 3. Deploy AgentCore from a clean checkout of the same commit with `scripts/deploy-agentcore.sh --profile archy`. Pass the runtime version it reports to `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version <reported version>`.
-4. Dispatch the production probes for the exact commit. The workflow passes `--expect-runtime agentcore` and `MEMORY=agentcore`. `host-capture` asserts the selected returning party, the bound run and recovery metadata, and that the stored link hash matches a link derived with the web `LINK_TOKEN_SECRET` (the probe receives the Vercel production value). A mismatch means that AgentCore and Vercel hold different link secrets, and no new link could be revealed.
+4. Dispatch the production probes for the exact commit. The workflow passes `--expect-runtime agentcore` and `MEMORY=agentcore`. `host-capture` asserts the selected returning party and the bound run and recovery metadata. It then derives the guest link with the probe's `LINK_TOKEN_SECRET` (`PROD_LINK_TOKEN_SECRET`), checks that it matches the hash AgentCore stored, and opens it against the serving web app, which must accept it. Together these prove that AgentCore, Vercel and the GitHub copy hold the same link secret. A failure means that a new link could not be revealed.
 5. Apply `20261119000100_allow_shared_party_names.sql`: `supabase db push --linked --dry-run` must list only that migration, then run `supabase db push --linked`. Confirm that `parties_home_id_family_name_key` is gone and that `supabase migration list --linked` shows no pending migration.
 6. Dispatch the production probes again for the same commit, then run the orphaned-memory sweep. The production probe set has no same-name capture, so this run proves that the constraint drop did not break the core journeys. The local release probes and integration tests cover two parties with one name.
 
@@ -52,7 +62,7 @@ Checks from the two cutovers above that this order replaces:
 | Old runtime refusal of a persisted v2 task                                      | Phase 1 local evidence; any refusal seen in step 2                                                                                                                                        |
 | Synthetic capture that shows the legacy replacement warning and keeps the URL   | Chromium and mobile WebKit browser tests on the candidate, locally and in CI                                                                                                              |
 | Reveal twice from status and dashboard, then open the original URL as the guest | The same browser tests                                                                                                                                                                    |
-| Same `LINK_TOKEN_SECRET` on web and AgentCore                                   | The `host-capture` hash assertion in step 4                                                                                                                                               |
+| Same `LINK_TOKEN_SECRET` on web and AgentCore                                   | The `host-capture` hash assertion and guest page check in step 4                                                                                                                          |
 
 The production probes do not drive the browser reveal: fixture households have no Google host who can sign in. A production check of the reveal on the real household needs a separate owner decision, because tests never write to the real household.
 
@@ -63,10 +73,10 @@ The production probes do not drive the browser reveal: fixture households have n
 - **Existing controls that already cover part of this risk:** None. The browser tests and local probes share one secret.
 - **Why this must be synchronous (if Class A/B):** A mismatch breaks the host's only way to obtain a new guest link.
 - **Added local critical-path time:** None.
-- **Added remote critical-path time / workflows / deployments:** None; one query and one HMAC inside the existing `host-capture` probe.
+- **Added remote critical-path time / workflows / deployments:** None; one query, one HMAC and one guest page request inside the existing `host-capture` probe.
 - **Added external dependencies:** None.
 - **Added evidence objects:** None beyond the probe detail.
-- **Same-candidate recovery behavior if this gate fails:** `BLOCKED` for the configuration, not the code: correct the AgentCore or Vercel secret, redeploy the same candidate and dispatch the probes again.
+- **Same-candidate recovery behavior if this gate fails:** The candidate code is not disproved. A hash mismatch points to the AgentCore or GitHub copy, a rejected link to Vercel. Correct that secret, redeploy only the affected target from the same candidate and dispatch the probes again.
 - **Control this replaces or consolidates, if any:** The manual `LINK_TOKEN_SECRET` parity check in "Recoverable invitation links" step 2.
 
 ### Recoverable invitation links

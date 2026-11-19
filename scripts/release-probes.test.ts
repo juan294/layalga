@@ -286,12 +286,13 @@ describe("recoverable link written by the serving capture writer", () => {
 
   it("accepts a stored hash derived with the web link secret", () => {
     const { hash } = deriveCaptureLink(webSecret, invitationId, generation);
-    expect(() =>
+    const { token } = deriveCaptureLink(webSecret, invitationId, generation);
+    expect(
       assertRecoverableLinkHash(
         { id: invitationId, linkGeneration: generation, linkToken: hash },
         webSecret,
       ),
-    ).not.toThrow();
+    ).toBe(token);
   });
 
   it("rejects a stored hash derived with a different writer secret", () => {

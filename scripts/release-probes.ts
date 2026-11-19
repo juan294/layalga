@@ -108,18 +108,24 @@ export interface ProbeContext {
 /**
  * The web reveal derives the guest link with its own LINK_TOKEN_SECRET and
  * compares it with the hash the capture writer stored. A writer configured
- * with another secret makes every new link unrecoverable.
+ * with another secret makes every new link unrecoverable. Returns the derived
+ * bearer token; callers must never print it.
  */
 export function assertRecoverableLinkHash(
   row: { id: string; linkGeneration: string; linkToken: string },
   tokenSecret: string,
-): void {
-  const { hash } = deriveCaptureLink(tokenSecret, row.id, row.linkGeneration);
+): string {
+  const { token, hash } = deriveCaptureLink(
+    tokenSecret,
+    row.id,
+    row.linkGeneration,
+  );
   assert.equal(
     row.linkToken,
     hash,
-    "the capture writer must derive the stored link hash with the web LINK_TOKEN_SECRET",
+    "the capture writer must derive the stored link hash with the probe LINK_TOKEN_SECRET",
   );
+  return token;
 }
 
 export type ProbeFn = (context: ProbeContext) => Promise<string>;
@@ -413,14 +419,19 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
     where table_schema='public' and table_name='invitations' and column_name='capture_run_id') as upgraded`;
   if (metadata?.upgraded) {
     const [bound] = await sql<
-      { id: string; link_generation: string; link_token: string }[]
-    >`select id, link_generation, link_token from public.invitations where id=${captured.id}
+      {
+        id: string;
+        link_generation: string;
+        link_token: string;
+        link_locale: string;
+      }[]
+    >`select id, link_generation, link_token, link_locale from public.invitations where id=${captured.id}
       and capture_run_id=${result.runId} and link_scheme=1 and link_generation is not null and link_locale is not null`;
     assert.ok(
       bound,
       "the serving writer must persist the exact capture run and recovery metadata",
     );
-    assertRecoverableLinkHash(
+    const token = assertRecoverableLinkHash(
       {
         id: bound.id,
         linkGeneration: bound.link_generation,
@@ -428,8 +439,26 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
       },
       context.tokenSecret,
     );
+    // The serving web app must accept the derived link, which proves that its
+    // own LINK_TOKEN_SECRET matches the writer's. The guest page only reads.
+    const response = await fetch(
+      `${options.baseUrl}/${bound.link_locale}/g/${token}`,
+    );
+    assert.ok(
+      response.ok,
+      `the derived guest link returned HTTP ${response.status}`,
+    );
+    const html = await response.text();
+    assert.ok(
+      /data-testid="guest-status"/.test(html) &&
+        !/data-status="invalid"/.test(html),
+      "the serving web app must accept the guest link derived from the stored metadata",
+    );
   }
   context.capturedInvitationId = captured.id;
+  const linkDetail = metadata?.upgraded
+    ? "the stored link hash matched and the serving web app accepted the derived link"
+    : null;
   if (options.expectMemory) {
     const [row] = await sql<{ count: number }[]>`
       select count(*)::int as count from public.audit_events
@@ -444,6 +473,7 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
   }
   return [
     "one tagged tentative invitation created",
+    linkDetail,
     options.expectedRuntime ? `executed on ${options.expectedRuntime}` : null,
     options.expectMemory ? "the capture run searched memory" : null,
   ]
