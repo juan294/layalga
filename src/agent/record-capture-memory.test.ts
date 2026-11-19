@@ -257,7 +257,7 @@ async function seedCapturedInvitation(structured: Record<string, unknown>) {
   const sessionId = `capture_${host!.id}`;
   const [run] = await sql<{ id: string }[]>`
     insert into public.runs (home_id, session_id, task)
-    values (${homeId}, ${sessionId}, 'host_capture')
+    values (${homeId}, ${sessionId}, 'host_capture_v2')
     returning id
   `;
   await sql`

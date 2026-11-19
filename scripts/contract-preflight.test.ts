@@ -25,6 +25,14 @@ describe("contractPreflight", () => {
     ).rejects.toThrow("serves version 30, not the expected version 31");
   });
 
+  it("holds a capture migration when DEFAULT has no recorded serving version", async () => {
+    await expect(
+      contractPreflight("runtime-1", "31", {
+        read: async () => ({ status: "READY" }),
+      }),
+    ).rejects.toThrow("serves version unknown");
+  });
+
   it("stops while the runtime is not ready", async () => {
     await expect(
       contractPreflight("runtime-1", "31", reader("UPDATING", "31")),

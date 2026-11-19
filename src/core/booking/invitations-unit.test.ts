@@ -65,45 +65,53 @@ describe("invitation token boundaries", () => {
     expect(link.token).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(link.hash).toBe(hashLinkToken(link.token, secret));
     expect(() => hashLinkToken("", secret)).toThrow("Link token is required");
-    expect(() => hashLinkToken("token", "")).toThrow("LINK_TOKEN_SECRET is required");
+    expect(() => hashLinkToken("token", "")).toThrow(
+      "LINK_TOKEN_SECRET is required",
+    );
   });
 
-  it("captures an invitation for an existing party and refreshes its locale", async () => {
+  it("captures for the explicitly selected party and uses its existing locale", async () => {
     const fake = fakeDatabase([
       [{ id: hostId }],
-      [{ id: partyId }],
-      [],
+      [{ id: partyId, locale: "en" }],
       [{ id: invitationId }],
     ]);
 
-    await expect(captureInvitation(fake.database, input)).resolves.toMatchObject({
+    await expect(
+      captureInvitation(fake.database, { ...input, returningPartyId: partyId }),
+    ).resolves.toMatchObject({
       invitationId,
       partyId,
-      guestLink: expect.stringMatching(/^https:\/\/example\.test\/es\/g\//),
+      guestLink: expect.stringMatching(/^https:\/\/example\.test\/en\/g\//),
     });
-    expect(fake.transaction).toHaveBeenCalledTimes(4);
+    expect(fake.transaction).toHaveBeenCalledTimes(3);
   });
 
   it("creates a new party and rejects missing persisted ids", async () => {
     const created = fakeDatabase([
       [{ id: hostId }],
-      [],
       [{ id: partyId }],
       [{ id: invitationId }],
     ]);
-    await expect(captureInvitation(created.database, input)).resolves.toMatchObject({
+    await expect(
+      captureInvitation(created.database, input),
+    ).resolves.toMatchObject({
       partyId,
       invitationId,
     });
 
-    const noParty = fakeDatabase([[{ id: hostId }], [], []]);
-    await expect(captureInvitation(noParty.database, input)).rejects.toThrow(
-      "Failed to create or load the invited party",
-    );
-    const noInvitation = fakeDatabase([[{ id: hostId }], [{ id: partyId }], [], []]);
-    await expect(captureInvitation(noInvitation.database, input)).rejects.toThrow(
-      "Failed to create the invitation",
-    );
+    const noParty = fakeDatabase([[{ id: hostId }], []]);
+    await expect(
+      captureInvitation(noParty.database, input),
+    ).rejects.toMatchObject({ reason: "name" });
+    const noInvitation = fakeDatabase([
+      [{ id: hostId }],
+      [{ id: partyId }],
+      [],
+    ]);
+    await expect(
+      captureInvitation(noInvitation.database, input),
+    ).rejects.toThrow("Failed to create the invitation");
     const noHost = fakeDatabase([[]]);
     await expect(captureInvitation(noHost.database, input)).rejects.toThrow(
       "Host does not belong to the invitation home",
@@ -144,7 +152,9 @@ describe("invitation token boundaries", () => {
     const found = fakeDatabase();
     const sql = found.database as unknown as ReturnType<typeof vi.fn>;
     sql.mockResolvedValueOnce([invitationRow]);
-    await expect(findInvitationByToken(found.database, "token", secret)).resolves.toEqual({
+    await expect(
+      findInvitationByToken(found.database, "token", secret),
+    ).resolves.toEqual({
       id: invitationId,
       homeId,
       hostId,
@@ -158,13 +168,19 @@ describe("invitation token boundaries", () => {
     });
 
     sql.mockResolvedValueOnce([]);
-    await expect(findInvitationByToken(found.database, "token", secret)).resolves.toBeNull();
+    await expect(
+      findInvitationByToken(found.database, "token", secret),
+    ).resolves.toBeNull();
     sql.mockResolvedValueOnce([invitationRow]);
-    await expect(findInvitationById(found.database, invitationId)).resolves.toMatchObject({
+    await expect(
+      findInvitationById(found.database, invitationId),
+    ).resolves.toMatchObject({
       id: invitationId,
       partyName: "The Vega family",
     });
     sql.mockResolvedValueOnce([]);
-    await expect(findInvitationById(found.database, invitationId)).resolves.toBeNull();
+    await expect(
+      findInvitationById(found.database, invitationId),
+    ).resolves.toBeNull();
   });
 });

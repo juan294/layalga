@@ -19,6 +19,7 @@ import styles from "./run-status.module.css";
 const TERMINAL = new Set(["completed", "interrupted", "failed"]);
 const POLL_INTERVAL_MS = 1_500;
 const FALLBACK_POLL_DEADLINE_MS = 6 * 60_000;
+const POLL_REQUEST_TIMEOUT_MS = 10_000;
 const runTimelineEventSchema = z.object({
   at: z.iso.datetime(),
   kind: z.enum(["tool_call", "policy_verdict", "decision_applied"]),
@@ -101,12 +102,10 @@ export function RunStatusPoller({
       polling = true;
       try {
         const query = token ? `?token=${encodeURIComponent(token)}` : "";
-        const response = await fetch(`/api/runs/${run.id}${query}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("run_poll_failed");
-        const next = runSnapshotSchema.parse(await response.json());
+        const next = await fetchRunSnapshot(
+          `/api/runs/${run.id}${query}`,
+          controller.signal,
+        );
         if (!active) return;
         setRun(next);
         setPollFailed(false);
@@ -130,11 +129,24 @@ export function RunStatusPoller({
       else clearTimeout(timer);
     }
 
+    // The deadline fires on its own clock so a stalled request cannot hide the
+    // retry action.
+    const deadlineTimer = setTimeout(
+      () => {
+        if (!active) return;
+        clearTimeout(timer);
+        controller.abort();
+        setPollStopped(true);
+      },
+      pollDeadlineDelay(startedAt, stopAt, pollCycle > 0),
+    );
+
     document.addEventListener("visibilitychange", resumeWhenVisible);
     schedule(pollCycle ? 0 : POLL_INTERVAL_MS, pollCycle > 0);
     return () => {
       active = false;
       clearTimeout(timer);
+      clearTimeout(deadlineTimer);
       controller.abort();
       document.removeEventListener("visibilitychange", resumeWhenVisible);
     };
@@ -212,6 +224,60 @@ export function RunStatusPoller({
         </a>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Fetches one run snapshot. The timeout covers the response headers and the
+ * body read, so a stalled connection cannot leave the poller waiting forever.
+ * Aborting `parentSignal` cancels the request as well.
+ */
+export async function fetchRunSnapshot(
+  url: string,
+  parentSignal: AbortSignal,
+  timeoutMs = POLL_REQUEST_TIMEOUT_MS,
+  fetchImpl: typeof fetch = fetch,
+): Promise<z.infer<typeof runSnapshotSchema>> {
+  const request = new AbortController();
+  const abort = () => request.abort();
+  if (parentSignal.aborted) abort();
+  parentSignal.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(abort, timeoutMs);
+  const aborted = new Promise<never>((_resolve, reject) => {
+    const fail = () => reject(new Error("run_poll_aborted"));
+    if (request.signal.aborted) fail();
+    else request.signal.addEventListener("abort", fail, { once: true });
+  });
+  try {
+    const read = (async () => {
+      const response = await fetchImpl(url, {
+        cache: "no-store",
+        signal: request.signal,
+      });
+      if (!response.ok) throw new Error("run_poll_failed");
+      return runSnapshotSchema.parse(await response.json());
+    })();
+    return await Promise.race([read, aborted]);
+  } finally {
+    clearTimeout(timer);
+    parentSignal.removeEventListener("abort", abort);
+  }
+}
+
+/**
+ * Delay before the deadline timer stops the poll loop. A manual retry may
+ * run one request even when the server deadline is already past, so it waits
+ * one request timeout before the deadline can stop it again.
+ */
+export function pollDeadlineDelay(
+  startedAt: number,
+  stopAt: number,
+  allowPastDeadline: boolean,
+): number {
+  return Math.max(
+    0,
+    stopAt - startedAt,
+    allowPastDeadline ? POLL_REQUEST_TIMEOUT_MS : 0,
   );
 }
 

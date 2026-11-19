@@ -7,7 +7,7 @@ import {
 } from "@strands-agents/sdk";
 import type { TransactionSql } from "postgres";
 
-import { sqlClient } from "@/core/db/client";
+import { sqlClient, type DatabaseClient } from "@/core/db/client";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
 import {
   completeDispatchedJob,
@@ -19,7 +19,8 @@ import { parseServerEnvironment } from "@/lib/server/env";
 
 import { buildAgent } from "./agent";
 import type { AgentAuthority, AgentDeps, ExecutionRuntime } from "./deps";
-import { matchFamilyNameInMessage } from "./party-match";
+import { CaptureInputError } from "@/core/booking/invitations";
+import { scriptedOutcome } from "./scripted-outcomes";
 import { recordCaptureMemory } from "./record-capture-memory";
 import {
   resumedRunSummary,
@@ -28,6 +29,7 @@ import {
 } from "./resume-summary";
 import {
   agentTaskSchema,
+  isCaptureTask,
   parseStoredRunResult,
   type AgentTask,
   type RunResult,
@@ -380,12 +382,23 @@ async function executeClaimedAgentTask(
       }
     }
 
+    let captureFailure: Error | undefined;
     const agent = buildAgent({
       sessionId,
-      deps,
+      deps: isCaptureTask(task)
+        ? {
+            ...deps,
+            captureLease: { runId: run.id, claimToken: run.claimToken },
+            onCaptureFailure: (error) => {
+              captureFailure = error;
+            },
+          }
+        : deps,
       task: task.task,
       homeId: task.homeId,
       model: deps.model,
+      captureRunId: isCaptureTask(task) ? run.id : undefined,
+      sessionLease: { runId: run.id, claimToken: run.claimToken },
     });
     const invokeArgs =
       task.task === "resume"
@@ -394,14 +407,19 @@ async function executeClaimedAgentTask(
               new InterruptResponseContent({ interruptId, response }),
           )
         : await buildPrompt(task, deps);
-    await sql`
+    const [lease] = await sql<{ remaining_ms: number | null }[]>`
       update public.runs set heartbeat_at = now()
       where id = ${run.id} and status = 'running'
+        and queue_claim_token = ${run.claimToken}
+      returning floor(extract(epoch from (deadline_at - now())) * 1000)::int
+        as remaining_ms
     `;
+    if (!lease) throw new Error(`Agent run is no longer active: ${run.id}`);
     const result = await agent.invoke(invokeArgs, {
       invocationState: { runId: run.id },
-      cancelSignal: AbortSignal.timeout(240_000),
+      cancelSignal: AbortSignal.timeout(workerBudgetMs(lease.remaining_ms)),
     });
+    if (captureFailure) throw captureFailure;
     if (result.stopReason === "cancelled") {
       throw new Error("Agent execution budget exceeded");
     }
@@ -487,7 +505,7 @@ async function executeClaimedAgentTask(
     if (task.task === "tick") {
       await completeDispatchedJob(deps.db, task.jobId, run.id);
     }
-    if (task.task === "host_capture") {
+    if (isCaptureTask(task)) {
       await safeMemoryWrite(run.id, "capture", () =>
         recordCaptureMemory(deps, run.id, sessionId, task.homeId),
       );
@@ -514,7 +532,12 @@ async function executeClaimedAgentTask(
     await sql`
       update public.runs set status = 'failed', result = ${JSON.stringify({
         ...AGENT_EXECUTION_FAILURE,
-        ...terminalResultJson(AGENT_EXECUTION_FAILURE.summary, executedOn),
+        ...terminalResultJson(
+          error instanceof CaptureInputError && error.reason === "name"
+            ? scriptedOutcome("captureNameUsed")
+            : AGENT_EXECUTION_FAILURE.summary,
+          executedOn,
+        ),
       })}::text::jsonb,
         finished_at = ${deps.clock.now().toISOString()},
         queue_claim_token = null, queue_claimed_at = null,
@@ -586,6 +609,20 @@ interface ClaimedRunRow {
   session_id: string;
   payload: unknown;
   queue_claim_token: string;
+}
+
+/** Longest a worker may run; recovery reclaims the run at its 4-minute deadline. */
+const WORKER_BUDGET_MS = 240_000;
+/** The worker stops this long before the deadline so recovery never overlaps it. */
+const DEADLINE_MARGIN_MS = 5_000;
+
+/** Time the worker may use, bounded by what remains of its recovery deadline. */
+export function workerBudgetMs(remainingMs: number | null): number {
+  if (remainingMs === null) return WORKER_BUDGET_MS;
+  return Math.max(
+    0,
+    Math.min(WORKER_BUDGET_MS, remainingMs - DEADLINE_MARGIN_MS),
+  );
 }
 
 async function claimQueuedRun(
@@ -667,9 +704,52 @@ function queuedRunResult(runId: string, sessionId: string): RunResult {
   };
 }
 
+/** Resume the persisted capture, including legacy intents whose time bucket has elapsed. */
+export async function retryHostCaptureRun(
+  database: DatabaseClient,
+  host: { id: string; homeId: string },
+  runId: string,
+): Promise<AgentTask | null> {
+  return sqlClient(database).begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtextextended(${host.homeId}::text, 0))`;
+    const [row] = await tx<{ task: string; payload: unknown }[]>`
+      select r.task,r.payload from public.runs r join public.hosts h
+        on h.id=${host.id} and h.home_id=r.home_id
+      where r.id=${runId} and r.home_id=${host.homeId}
+        and r.session_id=${"capture_" + host.id} and r.task in ('host_capture','host_capture_v2')
+        and r.status='failed' and r.request_attempt_count < 3 for update of r`;
+    const parsed = agentTaskSchema.safeParse(row?.payload);
+    if (!parsed.success || !isCaptureTask(parsed.data)) return null;
+    const task = parsed.data;
+    if (
+      task.task !== row?.task ||
+      task.hostId !== host.id ||
+      task.homeId !== host.homeId
+    )
+      return null;
+    if (
+      task.task === "host_capture_v2" &&
+      task.partyChoice.kind === "returning"
+    ) {
+      const [party] =
+        await tx`select id from public.parties where home_id=${host.homeId} and id=${task.partyChoice.partyId}`;
+      if (!party) return null;
+    }
+    const now = new Date();
+    const actor = actorKeyForTask(task);
+    assertRequestLimit(task, await loadRequestUsage(tx, task, actor, now));
+    await tx`update public.runs set status='queued', started_at=${now.toISOString()}, finished_at=null, result=null,
+      actor_key=${actor}, queue_available_at=now(), queue_claimed_at=null, queue_claim_token=null,
+      deadline_at=null, heartbeat_at=null, execution_attempt_count=0,last_error=null,
+      request_attempt_count=request_attempt_count+1 where id=${runId}`;
+    return task;
+  });
+}
+
 async function startRun(input: StartRunInput): Promise<StartRunResult> {
   const { sql, task, sessionId, runPayload, startedAt, actorKey, intentKey } =
     input;
+  const payloadJson = JSON.stringify(runPayload);
   return sql.begin(async (transaction) => {
     await transaction`
       select pg_advisory_xact_lock(hashtextextended(${task.homeId}::text, 0))
@@ -693,13 +773,22 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
         status: "queued" | "running" | "completed" | "interrupted" | "failed";
         result: unknown;
         request_attempt_count: number;
+        matches_payload: boolean;
+        has_payload: boolean;
       }[]
     >`
-      select id, status, result, request_attempt_count
+      select id, status, result, request_attempt_count,
+        payload = ${payloadJson}::text::jsonb as matches_payload,
+        coalesce(payload ? 'task', false) as has_payload
       from public.runs
       where home_id = ${task.homeId} and intent_key = ${intentKey}
     `;
     if (existing) {
+      if (task.task === "host_capture_v2" && !existing.matches_payload) {
+        throw new CaptureInputError(
+          existing.has_payload ? "changed" : "scrubbed",
+        );
+      }
       if (existing.status === "queued" || existing.status === "running") {
         return {
           replay: true,
@@ -731,7 +820,7 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
             queue_claim_token = ${claimToken},
             execution_attempt_count = ${executionAttemptCount},
             last_error = null,
-            payload = ${JSON.stringify(runPayload)}::text::jsonb,
+            payload = ${payloadJson}::text::jsonb,
             request_attempt_count = request_attempt_count + ${interactiveRetry ? 1 : 0}
           where id = ${existing.id} and status = ${existing.status}
           returning id
@@ -764,7 +853,7 @@ async function startRun(input: StartRunInput): Promise<StartRunResult> {
         execution_attempt_count
       ) values (
         ${task.homeId}, ${sessionId}, ${task.task}, ${status},
-        ${JSON.stringify(runPayload)}::text::jsonb, now(),
+        ${payloadJson}::text::jsonb, now(),
         ${actorKey}, ${intentKey},
         ${startedAt.toISOString()},
         case when ${claimImmediately} then now() else null end,
@@ -799,7 +888,7 @@ async function loadRequestUsage(
     select
       coalesce(sum(request_attempt_count) filter (
         where actor_key = ${actorKey}
-          and task = ${task.task}
+          and task in ${transaction(isCaptureTask(task) ? ["host_capture", "host_capture_v2"] : [task.task])}
           and started_at >= ${windowStart.toISOString()}
       ), 0)::int as actor_requests,
       count(*) filter (
@@ -855,7 +944,7 @@ async function storedRunResult(
 
 function actorKeyForTask(task: AgentTask): string {
   const actor =
-    task.task === "host_capture" || task.task === "host_room_request"
+    isCaptureTask(task) || task.task === "host_room_request"
       ? `host:${task.hostId}`
       : task.task === "resume"
         ? `host:${task.responses
@@ -875,6 +964,9 @@ async function intentKeyForTask(
   sql: ReturnType<typeof sqlClient>,
   startedAt: Date,
 ): Promise<string> {
+  if (task.task === "host_capture_v2") {
+    return digest(JSON.stringify([task.task, task.hostId, task.captureId]));
+  }
   let state: unknown = null;
   if (task.task === "guest_change" || task.task === "guest_reconfirm") {
     const [visit] = await sql<
@@ -969,21 +1061,23 @@ async function authorityForTask(
   deps: AgentDeps,
 ): Promise<AgentAuthority> {
   const sql = sqlClient(deps.db);
-  if (task.task === "host_capture" || task.task === "host_room_request") {
+  if (isCaptureTask(task) || task.task === "host_room_request") {
     const [host] = await sql<{ id: string }[]>`
       select id from public.hosts
       where id = ${task.hostId} and home_id = ${task.homeId}
     `;
     if (!host) throw new Error("Host does not belong to the task home");
-    if (task.task === "host_room_request") {
-      return { homeId: task.homeId, hostId: task.hostId };
+    if (
+      task.task === "host_capture_v2" &&
+      task.partyChoice.kind === "returning"
+    ) {
+      const [party] = await sql<{ id: string }[]>`
+        select id from public.parties where home_id = ${task.homeId} and id = ${task.partyChoice.partyId}
+      `;
+      if (!party) throw new CaptureInputError("party");
+      return { homeId: task.homeId, hostId: host.id, partyId: party.id };
     }
-    const partyId = await matchedPartyIdForCapture(
-      sql,
-      task.homeId,
-      task.rawMessage,
-    );
-    return { homeId: task.homeId, hostId: task.hostId, partyId };
+    return { homeId: task.homeId, hostId: host.id };
   }
   if (task.task === "guest_submit") {
     const [invitation] = await sql<
@@ -1105,28 +1199,6 @@ async function authorityForTask(
   throw new Error("Unsupported agent session scope");
 }
 
-/**
- * Deterministic pre-match for a `host_capture` task (D7 / A7): scopes the
- * task's memory authority to an existing party of the home only when its
- * family name already appears in the raw message, so a matched capture can
- * recall that party's remembered preferences before the model has run
- * `capture_invitation`. An unmatched capture (a brand-new family, or
- * wording that does not name an existing party) keeps `partyId` undefined
- * and falls back to a read-only whole-home memory scope.
- */
-export async function matchedPartyIdForCapture(
-  sql: ReturnType<typeof sqlClient>,
-  homeId: string,
-  rawMessage: string,
-): Promise<string | undefined> {
-  const parties = await sql<{ id: string; family_name: string }[]>`
-    select id, family_name from public.parties where home_id = ${homeId}
-  `;
-  return parties.find((party) =>
-    matchFamilyNameInMessage(party.family_name, rawMessage),
-  )?.id;
-}
-
 function canonicalGuestSubmission(
   task: Extract<AgentTask, { task: "guest_submit" }>,
   structured: unknown,
@@ -1228,7 +1300,7 @@ async function buildPrompt(
 ): Promise<string> {
   const sql = sqlClient(deps.db);
   const memoryEnabled = parseServerEnvironment().memory === "agentcore";
-  if (task.task === "host_capture") {
+  if (isCaptureTask(task)) {
     // The host's display name never enters the prompt (D7): the minimizer's
     // "pasted this invitation" regex is now a no-op for this text, kept for
     // the older shape any in-flight session snapshot may still carry.

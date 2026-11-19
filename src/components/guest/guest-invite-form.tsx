@@ -281,6 +281,8 @@ function GuestRoomReview({
   );
   const needsOverflow =
     standardCapacity < partySize && maximumCapacity >= partySize;
+  const selectionKey = overflowSelectionKey(selectedStay, selectedIds);
+  const [consentKey, setConsentKey] = useState<string | null>(null);
   const selectionCanSubmit = guestSelectionCanSubmit(
     selectedIds.length,
     maximumCapacity,
@@ -413,7 +415,15 @@ function GuestRoomReview({
       ) : null}
       {needsOverflow ? (
         <label className={styles.consent}>
-          <input name="overflowConsent" required type="checkbox" />
+          <input
+            checked={overflowConsentGiven(consentKey, selectionKey)}
+            name="overflowConsent"
+            onChange={(event) =>
+              setConsentKey(event.target.checked ? selectionKey : null)
+            }
+            required
+            type="checkbox"
+          />
           <span>{t("overflowConsent")}</span>
         </label>
       ) : null}
@@ -501,6 +511,20 @@ export function guestRoomReviewKey(
     criteria,
     options.map((option) => [option.stay, option.recommendedRoomIds]),
   ]);
+}
+
+export function overflowSelectionKey(
+  stay: string,
+  roomIds: readonly string[],
+): string {
+  return JSON.stringify([stay, [...roomIds].sort()]);
+}
+
+export function overflowConsentGiven(
+  consentKey: string | null,
+  selectionKey: string,
+): boolean {
+  return consentKey === selectionKey;
 }
 
 export function guestSelectionCanSubmit(

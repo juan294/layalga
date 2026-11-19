@@ -1,7 +1,7 @@
 import { HostOutcomes } from "@/components/host/host-outcomes";
 import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
-import { getTranslations } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 import { after } from "next/server";
 
 import { verifiedHostDecisionContext } from "@/agent/host-decision-context";
@@ -19,7 +19,11 @@ import {
   householdMonth,
 } from "@/components/frontend-utils";
 import { householdSeason, SEASON_LABEL } from "@/lib/season";
-import { CaptureInvitationForm } from "@/components/host/capture-invitation-form";
+import { captureHistory } from "./capture-history";
+import {
+  CaptureQueuedPanel,
+  CaptureInvitationForm,
+} from "@/components/host/capture-invitation-form";
 import { HubCards, type HubCard } from "@/components/host/hub-cards";
 import { TodayHero } from "@/components/host/today-hero";
 import { cancelHostInvitation } from "./actions";
@@ -38,7 +42,12 @@ import {
 
 interface HostPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ cancel?: string; invitation?: string }>;
+  searchParams: Promise<{
+    cancel?: string;
+    invitation?: string;
+    capturePage?: string;
+    captureRun?: string;
+  }>;
 }
 
 interface DecisionRow {
@@ -63,10 +72,16 @@ export default async function HostTodayPage({
   );
   const t = await getTranslations({ locale: safeLocale, namespace: "Host" });
   const sql = sqlClient(getDatabaseConnection().db);
+  const messages = await getMessages({ locale: safeLocale });
+  const captureLabels = {
+    ...messages.Host.capture,
+    remembered: t("memory.remembered"),
+  };
   const currentMonth = householdMonth(timeZone);
   const monthWindow = calendarMonthWindow(currentMonth);
 
-  const [decisionRows, hubStatuses] = await Promise.all([
+  const query = await searchParams;
+  const [decisionRows, hubStatuses, parties, history] = await Promise.all([
     sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
@@ -111,13 +126,32 @@ export default async function HostTodayPage({
         )
       order by pd.created_at
     `,
-    loadHubStatuses(
-      getDatabaseConnection().db,
-      host.homeId,
-      host.id,
-      [monthWindow.from, monthWindow.to],
-    ),
+    loadHubStatuses(getDatabaseConnection().db, host.homeId, host.id, [
+      monthWindow.from,
+      monthWindow.to,
+    ]),
+    sql<
+      {
+        id: string;
+        family_name: string;
+        last_invite: string | null;
+        last_stay: string | null;
+      }[]
+    >`
+      select p.id, p.family_name,
+        (select max(i.created_at)::text from public.invitations i where i.party_id = p.id and i.home_id = p.home_id) as last_invite,
+        (select max(lower(v.stay))::text from public.visits v where v.party_id = p.id
+          and v.home_id = p.home_id and v.status = 'confirmed' and lower(v.stay) <= current_date) as last_stay
+      from public.parties p where p.home_id = ${host.homeId}
+      order by p.family_name, last_invite desc nulls last, p.id
+    `,
+    captureHistory(host, query.capturePage),
   ]);
+  const selected = history.rows.find((row) => row.id === query.captureRun);
+  const statusLabel = await getTranslations({
+    locale: safeLocale,
+    namespace: "Runs.status",
+  });
 
   const decisions: PendingDecisionItem[] = decisionRows.map((decision) => {
     const context = verifiedHostDecisionContext(decision.reason);
@@ -261,29 +295,86 @@ export default async function HostTodayPage({
           <p style={labelStyle}>{t("capture.eyebrow")}</p>
           <h2 style={headingStyle}>{t("capture.title")}</h2>
           <CaptureInvitationForm
-            labels={{
-              message: t("capture.message"),
-              placeholder: t("capture.placeholder"),
-              submit: t("capture.submit"),
-              pending: t("capture.pending"),
-              result: t("capture.result"),
-              structured: t("capture.structured"),
-              remembered: t("memory.remembered"),
-              guestLink: t("capture.guestLink"),
-              copy: t("capture.copy"),
-              copied: t("capture.copied"),
-              copyFailed: t("capture.copyFailed"),
-              emptyError: t("capture.emptyError"),
-              failedError: t("capture.failedError"),
-              queued: t("capture.queued"),
-              statusLink: t("capture.statusLink"),
-              reveal: t("capture.reveal"),
-              revealing: t("capture.revealing"),
-              completionFailed: t("capture.completionFailed"),
-            }}
+            parties={parties.map((party) => ({
+              id: party.id,
+              label: [
+                party.family_name,
+                party.last_invite &&
+                  t("capture.lastInvite", {
+                    date: formatHouseholdDate(
+                      party.last_invite,
+                      safeLocale,
+                      timeZone,
+                    ),
+                  }),
+                party.last_stay &&
+                  t("capture.lastStay", {
+                    date: formatHouseholdDate(
+                      party.last_stay + "T12:00:00Z",
+                      safeLocale,
+                      "UTC",
+                    ),
+                  }),
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            }))}
+            labels={captureLabels}
             locale={safeLocale}
             timeZone={timeZone}
           />
+          {(history.rows.length > 0 || history.page > 0) && (
+            <section
+              id="capture-history"
+              style={{ overflowWrap: "anywhere" }}
+              aria-label={captureLabels.history}
+            >
+              <h3>{captureLabels.history}</h3>
+              <ul>
+                {history.rows.map((row) => (
+                  <li key={row.id}>
+                    <a
+                      href={`?capturePage=${history.page}&captureRun=${row.id}#capture-history`}
+                    >
+                      {formatHouseholdDateTime(
+                        new Date(row.started_at).toISOString(),
+                        safeLocale,
+                        timeZone,
+                      )}{" "}
+                      · {statusLabel(row.status)} · {row.id}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              {history.page > 0 && (
+                <a href={`?capturePage=${history.page - 1}#capture-history`}>
+                  {captureLabels.newer}
+                </a>
+              )}{" "}
+              {history.more && (
+                <a href={`?capturePage=${history.page + 1}#capture-history`}>
+                  {captureLabels.older}
+                </a>
+              )}
+              {selected && (
+                <CaptureQueuedPanel
+                  key={selected.id}
+                  runId={selected.id}
+                  labels={captureLabels}
+                  locale={safeLocale}
+                  timeZone={timeZone}
+                  retryable={selected.retryable}
+                  initial={{
+                    id: selected.id,
+                    status: selected.status,
+                    finishedAt: null,
+                    summary: null,
+                    events: [],
+                  }}
+                />
+              )}
+            </section>
+          )}
         </section>
       </div>
 
@@ -305,7 +396,6 @@ export default async function HostTodayPage({
       </div>
 
       <HubCards cards={hubCards} openLabel={t("hub.open")} />
-
     </>
   );
 }

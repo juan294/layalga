@@ -10,7 +10,11 @@ import { FakeClock } from "@/core/clock";
 
 import { NoopScheduler } from "./deps";
 import { memoryStoresForTask } from "./memory";
-import { matchedPartyIdForCapture, runAgentTask } from "./run-task";
+import {
+  enqueueAgentTask,
+  executeQueuedAgentRun,
+  runAgentTask,
+} from "./run-task";
 import { ScriptedModel } from "./scripted-model";
 
 const url =
@@ -525,6 +529,58 @@ describe("agent task authority", () => {
     }
   });
 
+  it("rejects a visit that belongs to another invitation in the same home during a guest submission", async () => {
+    const fixture = await seedHome("Same-home visit scope");
+    try {
+      const [otherParty] = await sql<{ id: string }[]>`
+        insert into public.parties (home_id, family_name, locale, link_token)
+        values (${fixture.homeId}, 'Other party', 'en', ${crypto.randomUUID()})
+        returning id
+      `;
+      const [otherInvitation] = await sql<{ id: string }[]>`
+        insert into public.invitations (home_id, host_id, party_id, raw_message)
+        values (${fixture.homeId}, ${fixture.hostId}, ${otherParty!.id}, 'Other')
+        returning id
+      `;
+      const [otherVisit] = await sql<{ id: string }[]>`
+        insert into public.visits (
+          home_id, party_id, invitation_id, stay, adults, status
+        ) values (
+          ${fixture.homeId}, ${otherParty!.id}, ${otherInvitation!.id},
+          daterange('2026-12-02', '2026-12-04', '[)'), 1, 'hold'
+        ) returning id
+      `;
+      await sql`
+        insert into public.visit_rooms (visit_id, room_id, home_id, stay)
+        values (
+          ${otherVisit!.id}, ${fixture.roomId}, ${fixture.homeId},
+          daterange('2026-12-02', '2026-12-04', '[)')
+        )
+      `;
+      await runAgentTask(
+        guestSubmit(fixture),
+        agentDeps(
+          new ScriptedModel([
+            {
+              toolUse: {
+                name: "confirm_visit",
+                input: { visitId: otherVisit!.id },
+              },
+            },
+            { text: "The request could not be applied." },
+          ]),
+        ),
+      ).catch(() => undefined);
+
+      const [visit] = await sql<{ status: string }[]>`
+        select status from public.visits where id = ${otherVisit!.id}
+      `;
+      expect(visit?.status).toBe("hold");
+    } finally {
+      await cleanup(fixture);
+    }
+  });
+
   it("keeps raw bearer links out of agent transcripts", async () => {
     const fixture = await seedHome("Private link");
     const [host] = await sql<{ id: string }[]>`
@@ -624,41 +680,39 @@ describe("agent task authority", () => {
     }
   });
 
-  it("only matches an existing party's family name within its own home (A7)", async () => {
-    const [homeA, homeB] = await Promise.all([
-      seedHome("Memory scope A"),
-      seedHome("Memory scope B"),
-    ]);
+  it("validates explicit party membership before enqueue and after a queued selection disappears", async () => {
+    const home = await seedHome("Returning scope");
+    const other = await seedHome("Unrelated family");
     try {
-      await sql`
-        update public.parties set family_name = 'Familia Vega' where id in (
-          select party_id from public.invitations where id = ${homeA.invitationId}
-        )
-      `;
-      await sql`
-        update public.parties set family_name = 'The Parkers' where id in (
-          select party_id from public.invitations where id = ${homeB.invitationId}
-        )
-      `;
-      const [vegaPartyId] = await sql<{ party_id: string }[]>`
-        select party_id from public.invitations where id = ${homeA.invitationId}
-      `;
-
-      // homeA's raw message names a party that only exists in homeB: no match.
+      const deps = agentDeps(new ScriptedModel([]));
+      const task = {
+        task: "host_capture_v2" as const,
+        homeId: home.homeId,
+        hostId: home.hostId,
+        locale: "en" as const,
+        rawMessage: "Invite the other family",
+        captureId: crypto.randomUUID(),
+        partyChoice: { kind: "returning" as const, partyId: other.partyId },
+      };
+      await expect(enqueueAgentTask(task, deps)).rejects.toMatchObject({
+        reason: "party",
+      });
+      const [selected] = await sql<{ id: string }[]>`insert into public.parties
+        (home_id, family_name, locale) values (${home.homeId}, 'Selected', 'en') returning id`;
+      const accepted = await enqueueAgentTask(
+        { ...task, partyChoice: { kind: "returning", partyId: selected!.id } },
+        deps,
+      );
+      await sql`delete from public.parties where id = ${selected!.id}`;
       await expect(
-        matchedPartyIdForCapture(
-          sql,
-          homeA.homeId,
-          "Inviting the Parkers for a visit",
-        ),
-      ).resolves.toBeUndefined();
-
-      // homeA's raw message names its own party: matches, scoped to homeA.
-      await expect(
-        matchedPartyIdForCapture(sql, homeA.homeId, "Oye, los Vega vienen"),
-      ).resolves.toBe(vegaPartyId!.party_id);
+        executeQueuedAgentRun(accepted.runId, deps),
+      ).rejects.toMatchObject({ reason: "party" });
+      expect(
+        await sql`select id from public.audit_events where run_id = ${accepted.runId}`,
+      ).toHaveLength(0);
     } finally {
-      await sql`delete from public.homes where id in (${homeA.homeId}, ${homeB.homeId})`;
+      await cleanup(home);
+      await cleanup(other);
     }
   });
 
@@ -791,5 +845,6 @@ async function seedHome(name: string, beds = 2) {
     hostId: host!.id,
     invitationId: invitation!.id,
     roomId: room!.id,
+    partyId: party!.id,
   };
 }

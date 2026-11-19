@@ -83,8 +83,8 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
   const [from, to] = preferredStay;
   await page.goto(`/en/g/${vegaToken}`);
 
+  // Booking preparation stays unregistered until room options are visible.
   await expectRegisteredTools(page, [
-    "layalga.guest.prepare_booking",
     "layalga.guest.prepare_search",
     "layalga.guest.read_room_options",
   ]);
@@ -107,6 +107,11 @@ test("registers guest WebMCP tools and prepares an exact visible room choice", a
 
   await clickAndWaitForPost(page, "find-options");
   await expect(page.getByTestId("guest-room-option").first()).toBeVisible();
+  await expectRegisteredTools(page, [
+    "layalga.guest.prepare_booking",
+    "layalga.guest.prepare_search",
+    "layalga.guest.read_room_options",
+  ]);
   const result = await executeWebMcpTool<
     {
       options: {

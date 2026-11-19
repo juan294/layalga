@@ -30,6 +30,44 @@ describe("AgentCoreClient", () => {
 });
 
 describe("AgentCoreClient durable queue", () => {
+  it("dispatches a legacy-readable hint while persisting the explicit capture choice", async () => {
+    const payload = {
+      task: "host_capture_v2" as const,
+      homeId: task.homeId,
+      hostId: runId,
+      captureId: crypto.randomUUID(),
+      partyChoice: { kind: "returning" as const, partyId: crypto.randomUUID() },
+      rawMessage: "Please invite our returning friends",
+      locale: "es" as const,
+    };
+    const persist = vi.fn(async () => ({
+      runId,
+      status: "queued" as const,
+      sessionId: `capture_${runId}`,
+      pendingDecisionIds: [],
+      summary: "Queued",
+    }));
+    const invoke = vi.fn(async () => ({ status: "accepted", runId }));
+    const client = new AgentCoreClient("runtime", "eu-west-1", {
+      persist,
+      invoke,
+      depsForTask: async () => ({}) as RunAgentDeps,
+    });
+    await client.enqueue(payload);
+    expect(persist.mock.calls[0]).toEqual([payload, {}]);
+    expect(invoke).toHaveBeenCalledWith({
+      operation: "execute_run",
+      runId,
+      task: {
+        task: "host_capture",
+        homeId: task.homeId,
+        hostId: runId,
+        rawMessage: payload.rawMessage,
+        locale: "es",
+      },
+    });
+  });
+
   it("acknowledges persistence before post-response dispatch and owns its lifetime", async () => {
     const persisted = Promise.withResolvers<import("./task").RunResult>();
     const execution = Promise.withResolvers<unknown>();

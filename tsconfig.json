@@ -25,5 +25,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "spike"]
+  "exclude": ["node_modules", "spike", "docs/agents"]
 }

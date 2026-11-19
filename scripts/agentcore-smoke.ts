@@ -59,7 +59,9 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
   try {
     const client = new AgentCoreClient(runtimeArn, region);
     const queued = await client.enqueue({
-      task: "host_capture",
+      task: "host_capture_v2",
+      captureId: randomUUID(),
+      partyChoice: { kind: "new" },
       homeId: household.homeId,
       hostId: household.hostIds[0]!,
       rawMessage,

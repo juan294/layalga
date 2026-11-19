@@ -27,10 +27,39 @@ describe("captureInvitationTool", () => {
     else process.env.LINK_TOKEN_SECRET = previousSecret;
   });
 
+  it("requires the selected party to belong to the capture transaction's home", async () => {
+    const fixture = await seedHost(sql, `Capture choice ${randomUUID()}`);
+    const other = await seedHost(sql, `Other choice ${randomUUID()}`);
+    try {
+      const [party] = await sql<{ id: string }[]>`insert into public.parties
+        (home_id, family_name, locale) values (${other.homeId}, 'Family', 'en') returning id`;
+      const deps = agentDeps(fixture.homeId, fixture.hostId);
+      deps.authority!.partyId = party!.id;
+      await expect(
+        captureInvitationTool(deps).invoke({
+          partyName: "Different name",
+          partyLocale: "en",
+          adults: 1,
+          children: 0,
+          pets: 0,
+          flexibleDates: { text: "a weekend" },
+          rawMessage: "Invite them",
+          specialRequests: [],
+        }),
+      ).rejects.toThrow("Capture unavailable: party");
+      expect(
+        await sql`select id from public.invitations where home_id = ${fixture.homeId}`,
+      ).toHaveLength(0);
+    } finally {
+      await cleanupHost(sql, fixture);
+      await cleanupHost(sql, other);
+    }
+  });
+
   it("stores rememberedContext separately and removes any specialRequests entry that only echoes it", async () => {
     const fixture = await seedHost(sql, `Capture remembered ${randomUUID()}`);
     try {
-      const deps = agentDeps(fixture.homeId, fixture.hostId);
+      const deps = await returningDeps(fixture.homeId, fixture.hostId);
       const result = await captureInvitationTool(deps).invoke({
         partyName: "Vega",
         partyLocale: "es",
@@ -65,7 +94,7 @@ describe("captureInvitationTool", () => {
   it("keeps every specialRequests entry when none matches a rememberedContext entry", async () => {
     const fixture = await seedHost(sql, `Capture unmatched ${randomUUID()}`);
     try {
-      const deps = agentDeps(fixture.homeId, fixture.hostId);
+      const deps = await returningDeps(fixture.homeId, fixture.hostId);
       const result = await captureInvitationTool(deps).invoke({
         partyName: "Parkers",
         partyLocale: "en",
@@ -92,7 +121,7 @@ describe("captureInvitationTool", () => {
     }
   });
 
-  it("omits rememberedContext from structured when the model does not supply it", async () => {
+  it("ignores unscoped model recall and preserves the matching explicit request", async () => {
     const fixture = await seedHost(sql, `Capture absent ${randomUUID()}`);
     try {
       const deps = agentDeps(fixture.homeId, fixture.hostId);
@@ -103,13 +132,15 @@ describe("captureInvitationTool", () => {
         children: 0,
         pets: 0,
         flexibleDates: { text: "next month" },
-        specialRequests: [],
+        specialRequests: ["Step-free access"],
+        rememberedContext: ["Step-free access"],
         rawMessage: "Invite the Smiths next month.",
       });
 
       const [row] = await sql<{ structured: Record<string, unknown> }[]>`
         select structured from public.invitations where id = ${result.invitationId}
       `;
+      expect(row!.structured.specialRequests).toEqual(["Step-free access"]);
       expect(row!.structured).not.toHaveProperty("rememberedContext");
     } finally {
       await cleanupHost(sql, fixture);
@@ -119,8 +150,9 @@ describe("captureInvitationTool", () => {
   it("bounds rememberedContext entries instead of rejecting an overlong recall", async () => {
     const fixture = await seedHost(sql, `Capture bounded ${randomUUID()}`);
     try {
-      const deps = agentDeps(fixture.homeId, fixture.hostId);
-      const long = "prefers the ground floor room because of the stairs ".repeat(5);
+      const deps = await returningDeps(fixture.homeId, fixture.hostId);
+      const long =
+        "prefers the ground floor room because of the stairs ".repeat(5);
       const result = await captureInvitationTool(deps).invoke({
         partyName: "Suarez",
         partyLocale: "es",
@@ -148,12 +180,13 @@ describe("captureInvitationTool", () => {
   it("reuses the invitation this run already captured instead of creating a second one", async () => {
     const fixture = await seedHost(sql, `Capture idempotent ${randomUUID()}`);
     const runId = randomUUID();
+    const claimToken = randomUUID();
     try {
       await sql`
-        insert into public.runs (id, home_id, session_id, task, status, payload)
+        insert into public.runs (id, home_id, session_id, task, status, queue_claim_token, payload)
         values (
           ${runId}, ${fixture.homeId}, ${`capture_${fixture.hostId}`},
-          'host_capture', 'running',
+          'host_capture', 'running', ${claimToken},
           ${JSON.stringify({
             task: "host_capture",
             homeId: fixture.homeId,
@@ -164,6 +197,7 @@ describe("captureInvitationTool", () => {
         )
       `;
       const deps = agentDeps(fixture.homeId, fixture.hostId);
+      deps.captureLease = { runId, claimToken };
       const input = {
         partyName: "Rivera",
         partyLocale: "en" as const,
@@ -175,13 +209,30 @@ describe("captureInvitationTool", () => {
         rawMessage: "Invite the Riveras for a weekend in October.",
       };
       const context = { invocationState: { runId } } as never;
-      const first = await captureInvitationTool(deps).invoke(input, context);
+      const [first, simultaneous] = await Promise.all([
+        captureInvitationTool(deps).invoke(input, context),
+        captureInvitationTool(deps).invoke(input, context),
+      ]);
+      expect(simultaneous).toEqual(first);
+      expect(Object.keys(first).sort()).toEqual(["invitationId", "partyId"]);
+      const [bound] =
+        await sql`select capture_run_id,link_scheme from public.invitations where id=${first.invitationId}`;
+      expect(bound).toMatchObject({ capture_run_id: runId, link_scheme: 1 });
+      // Simulate interruption between the invitation commit and the timeline write.
+      await sql`delete from public.audit_events where run_id=${runId}`;
       const second = await captureInvitationTool(deps).invoke(
         { ...input, adults: 3 },
         context,
       );
 
       expect(second.invitationId).toBe(first.invitationId);
+      expect(
+        await sql`select id from public.parties where home_id=${fixture.homeId}`,
+      ).toHaveLength(1);
+      deps.captureLease = { runId, claimToken: randomUUID() };
+      await expect(
+        captureInvitationTool(deps).invoke(input, context),
+      ).rejects.toThrow("Capture run authority");
       const [invitations] = await sql<{ count: number }[]>`
         select count(*)::integer as count from public.invitations
         where home_id = ${fixture.homeId}
@@ -201,5 +252,16 @@ function agentDeps(homeId: string, hostId: string): AgentDeps {
     appUrl: "http://localhost:3008",
     locale: "en",
     authority: { homeId, hostId },
+  };
+}
+
+async function returningDeps(homeId: string, hostId: string) {
+  const [selected] = await sql<
+    { id: string }[]
+  >`insert into public.parties (home_id, family_name, locale)
+    values (${homeId}, 'Selected family', 'en') returning id`;
+  return {
+    ...agentDeps(homeId, hostId),
+    authority: { homeId, hostId, partyId: selected!.id },
   };
 }

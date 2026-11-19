@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { parseStoredRunResult, type AgentTask } from "../src/agent/task";
+import { deriveCaptureLink } from "../src/core/booking/link-tokens";
 import { recordHostDecision } from "../src/core/decisions/host-decision";
 import {
   createFixtureHousehold,
@@ -98,8 +99,33 @@ export interface ProbeContext {
   conflict: FixtureHousehold;
   agentRouteSecret: string;
   tickSecret: string;
+  /** The web app's LINK_TOKEN_SECRET; the reveal action derives links with it. */
+  tokenSecret: string;
   now: Date;
   capturedInvitationId?: string;
+}
+
+/**
+ * The web reveal derives the guest link with its own LINK_TOKEN_SECRET and
+ * compares it with the hash the capture writer stored. A writer configured
+ * with another secret makes every new link unrecoverable. Returns the derived
+ * bearer token; callers must never print it.
+ */
+export function assertRecoverableLinkHash(
+  row: { id: string; linkGeneration: string; linkToken: string },
+  tokenSecret: string,
+): string {
+  const { token, hash } = deriveCaptureLink(
+    tokenSecret,
+    row.id,
+    row.linkGeneration,
+  );
+  assert.equal(
+    row.linkToken,
+    hash,
+    "the capture writer must derive the stored link hash with the probe LINK_TOKEN_SECRET",
+  );
+  return token;
 }
 
 export type ProbeFn = (context: ProbeContext) => Promise<string>;
@@ -257,6 +283,7 @@ export async function runReleaseProbes(
       conflict,
       agentRouteSecret,
       tickSecret,
+      tokenSecret,
       now,
     };
     for (const probe of PROBES[options.target]) {
@@ -327,7 +354,7 @@ export async function removeProbeHouseholds(
   return homes.length;
 }
 
-async function probeHealth(options: ReleaseCliOptions): Promise<string> {
+export async function probeHealth(options: ReleaseCliOptions): Promise<string> {
   let health: { status: string; commit?: string };
   try {
     health = await responseJson(
@@ -357,10 +384,13 @@ async function probeHealth(options: ReleaseCliOptions): Promise<string> {
 
 async function probeHostCapture(context: ProbeContext): Promise<string> {
   const { sql, household, options } = context;
+  const vega = findFixtureGuest(household, "Familia Vega");
   const rawMessage = `${VEGA_CAPTURE_MESSAGE}${household.tag}`;
   const [result] = await runToTerminal(context, [
     {
-      task: "host_capture",
+      task: "host_capture_v2",
+      captureId: randomUUID(),
+      partyChoice: { kind: "returning", partyId: vega.partyId },
       homeId: household.homeId,
       hostId: household.hostIds[0]!,
       rawMessage,
@@ -381,23 +411,69 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
   );
   const [captured] = await sql<{ id: string }[]>`
     select id from public.invitations
-    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative'
+    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
   `;
   assert.ok(captured, "the captured invitation must be tentative");
+  const [metadata] =
+    await sql`select exists (select from information_schema.columns
+    where table_schema='public' and table_name='invitations' and column_name='capture_run_id') as upgraded`;
+  if (metadata?.upgraded) {
+    const [bound] = await sql<
+      {
+        id: string;
+        link_generation: string;
+        link_token: string;
+        link_locale: string;
+      }[]
+    >`select id, link_generation, link_token, link_locale from public.invitations where id=${captured.id}
+      and capture_run_id=${result.runId} and link_scheme=1 and link_generation is not null and link_locale is not null`;
+    assert.ok(
+      bound,
+      "the serving writer must persist the exact capture run and recovery metadata",
+    );
+    const token = assertRecoverableLinkHash(
+      {
+        id: bound.id,
+        linkGeneration: bound.link_generation,
+        linkToken: bound.link_token,
+      },
+      context.tokenSecret,
+    );
+    // The serving web app must accept the derived link, which proves that its
+    // own LINK_TOKEN_SECRET matches the writer's. The guest page only reads.
+    const response = await fetch(
+      `${options.baseUrl}/${bound.link_locale}/g/${token}`,
+    );
+    assert.ok(
+      response.ok,
+      `the derived guest link returned HTTP ${response.status}`,
+    );
+    const html = await response.text();
+    assert.ok(
+      /data-testid="guest-status"/.test(html) &&
+        !/data-status="invalid"/.test(html),
+      "the serving web app must accept the guest link derived from the stored metadata",
+    );
+  }
   context.capturedInvitationId = captured.id;
+  const linkDetail = metadata?.upgraded
+    ? "the stored link hash matched and the serving web app accepted the derived link"
+    : null;
   if (options.expectMemory) {
     const [row] = await sql<{ count: number }[]>`
       select count(*)::int as count from public.audit_events
       where run_id = ${result.runId}
         and kind = 'tool_call' and payload->>'name' = 'search_memory'
+        and payload->>'partyId' = ${vega.partyId}
     `;
     assert.ok(
       (row?.count ?? 0) > 0,
-      "the matched Vega capture run must call search_memory",
+      "the returning capture must search the selected fixture party memory",
     );
   }
   return [
     "one tagged tentative invitation created",
+    linkDetail,
     options.expectedRuntime ? `executed on ${options.expectedRuntime}` : null,
     options.expectMemory ? "the capture run searched memory" : null,
   ]
@@ -667,11 +743,8 @@ async function probeRoomCoordination(context: ProbeContext): Promise<string> {
   return "the confirmed visit holds exactly the two chosen rooms";
 }
 
-async function probeGuestIsolation({
-  options,
-  household,
-  conflict,
-}: ProbeContext): Promise<string> {
+async function probeGuestIsolation(context: ProbeContext): Promise<string> {
+  const { sql, options, household, conflict } = context;
   const response = await fetch(`${options.baseUrl}/en/g/${"x".repeat(43)}`);
   assert.ok(response.ok, `invalid guest page returned HTTP ${response.status}`);
   const html = await response.text();
@@ -681,6 +754,34 @@ async function probeGuestIsolation({
       !html.includes(familyName),
       `the invalid guest page revealed "${familyName}"`,
     );
+  }
+  if (options.target === "local") {
+    const vega = findFixtureGuest(household, "Familia Vega");
+    const [fresh] = await runToTerminal(context, [
+      {
+        task: "host_capture_v2",
+        captureId: randomUUID(),
+        partyChoice: { kind: "new" },
+        homeId: household.homeId,
+        hostId: household.hostIds[0]!,
+        locale: "es",
+        rawMessage: VEGA_CAPTURE_MESSAGE + household.tag,
+      },
+    ]);
+    assert.equal(
+      fresh?.status,
+      "completed",
+      "the local same-name New capture must complete",
+    );
+    const [row] = await sql<
+      { party_id: string; family_name: string }[]
+    >`select i.party_id,p.family_name
+      from public.audit_events ae join public.invitations i on i.id::text=ae.payload->>'invitationId' and i.home_id=ae.home_id
+      join public.parties p on p.id=i.party_id and p.home_id=i.home_id
+      where ae.home_id=${household.homeId} and ae.run_id=${fresh.runId} and ae.kind='tool_call' and ae.payload->>'name'='capture_invitation'`;
+    assert.equal(row?.family_name, vega.familyName);
+    assert.notEqual(row.party_id, vega.partyId);
+    return "invalid link withheld private data and a same-name New capture created a separate party";
   }
   return "invalid token revealed no family identity";
 }

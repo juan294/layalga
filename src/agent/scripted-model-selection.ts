@@ -11,7 +11,7 @@ import { foldText } from "@/lib/text-fold";
 
 import type { AgentDeps } from "./deps";
 import { ScriptedModel, type ScriptStep } from "./scripted-model";
-import type { AgentTask } from "./task";
+import { isCaptureTask, type AgentTask } from "./task";
 import { scriptedOutcome } from "./scripted-outcomes";
 
 /** Deterministic local model used only when MODEL=scripted. */
@@ -84,13 +84,16 @@ export class TaskScriptedModel extends ScriptedModel {
         },
       };
     }
-    if (this.task.task === "host_capture") {
+    if (isCaptureTask(this.task)) {
       const isVega = /vega/i.test(this.task.rawMessage);
+      const invitedName = /^invite (.{1,100}?) for /i.exec(
+        this.task.rawMessage,
+      )?.[1];
       return {
         toolUse: {
           name: "capture_invitation",
           input: {
-            partyName: isVega ? "Familia Vega" : "The Parkers",
+            partyName: isVega ? "Familia Vega" : (invitedName ?? "The Parkers"),
             partyLocale: this.task.locale,
             adults: 2,
             children: isVega ? 2 : 0,

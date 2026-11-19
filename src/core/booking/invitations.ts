@@ -1,8 +1,17 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
+
+import { deriveCaptureLink, hashLinkToken } from "./link-tokens";
+export { hashLinkToken } from "./link-tokens";
 
 import type { JSONValue, TransactionSql } from "postgres";
 
 import { sqlClient, type DatabaseClient } from "../db/client";
+
+export class CaptureInputError extends Error {
+  constructor(readonly reason: "name" | "party" | "changed" | "scrubbed") {
+    super(`Capture unavailable: ${reason}`);
+  }
+}
 
 export interface LinkToken {
   token: string;
@@ -12,6 +21,7 @@ export interface LinkToken {
 export interface CaptureInvitationInput {
   homeId: string;
   hostId: string;
+  returningPartyId?: string;
   partyName: string;
   partyLocale: "en" | "es";
   rawMessage: string;
@@ -81,12 +91,6 @@ export async function extendInvitationAccessForStay(
   `;
 }
 
-export function hashLinkToken(token: string, secret: string): string {
-  if (!token) throw new Error("Link token is required");
-  if (!secret) throw new Error("LINK_TOKEN_SECRET is required");
-  return createHmac("sha256", secret).update(token, "utf8").digest("hex");
-}
-
 export function issueLinkToken(
   secret: string = requiredSetting("LINK_TOKEN_SECRET"),
 ): LinkToken {
@@ -98,60 +102,120 @@ export async function captureInvitation(
   database: DatabaseClient,
   input: CaptureInvitationInput,
 ): Promise<CapturedInvitation> {
-  const client = sqlClient(database);
+  return sqlClient(database).begin((tx) => insertCapture(tx, input));
+}
+
+export interface CaptureLease {
+  runId: string;
+  claimToken: string;
+}
+
+export async function captureForRun(
+  database: DatabaseClient,
+  input: CaptureInvitationInput,
+  lease: CaptureLease,
+): Promise<Pick<CapturedInvitation, "invitationId" | "partyId">> {
+  return sqlClient(database).begin(async (tx) => {
+    const [run] = await tx`select r.id from public.runs r join public.hosts h
+      on h.id = ${input.hostId} and h.home_id = r.home_id
+      where r.id = ${lease.runId} and r.home_id = ${input.homeId}
+        and r.queue_claim_token = ${lease.claimToken} and r.status = 'running'
+        and r.session_id = ${"capture_" + input.hostId}
+        and r.payload->>'task' = r.task and r.payload->>'hostId' = ${input.hostId}
+        and r.payload->>'homeId' = ${input.homeId} and (
+          (r.task = 'host_capture' and ${input.returningPartyId ?? null}::uuid is null) or
+          (r.task = 'host_capture_v2' and (
+            (r.payload#>>'{partyChoice,kind}' = 'new' and ${input.returningPartyId ?? null}::uuid is null) or
+            (r.payload#>>'{partyChoice,kind}' = 'returning' and
+             r.payload#>>'{partyChoice,partyId}' = ${input.returningPartyId ?? null})
+          ))) for update of r`;
+    if (!run) throw new Error("Capture run authority is unavailable");
+    const [previous] = await tx<
+      { id: string; party_id: string; host_id: string; home_id: string }[]
+    >`
+      select id, party_id, host_id, home_id from public.invitations where capture_run_id = ${lease.runId}`;
+    if (previous) {
+      if (
+        previous.host_id !== input.hostId ||
+        previous.home_id !== input.homeId ||
+        (input.returningPartyId && previous.party_id !== input.returningPartyId)
+      )
+        throw new Error("Capture association is inconsistent");
+      return { invitationId: previous.id, partyId: previous.party_id };
+    }
+    // A bridge worker may have committed and recorded the invitation before rollout.
+    const legacy = await tx<
+      { id: string }[]
+    >`select distinct payload->>'invitationId' as id
+      from public.audit_events where run_id = ${lease.runId} and home_id = ${input.homeId}
+      and kind = 'tool_call' and payload->>'name' = 'capture_invitation' limit 2`;
+    if (legacy.length) {
+      if (legacy.length !== 1) throw new Error("Ambiguous capture association");
+      const [bound] = await tx<
+        { id: string; party_id: string }[]
+      >`update public.invitations set capture_run_id = ${lease.runId}
+        where id::text = ${legacy[0]!.id} and home_id = ${input.homeId} and host_id = ${input.hostId}
+        and capture_run_id is null and link_scheme is null and (${input.returningPartyId ?? null}::uuid is null or party_id = ${input.returningPartyId ?? null})
+        returning id, party_id`;
+      if (!bound) throw new Error("Capture association is unavailable");
+      return { invitationId: bound.id, partyId: bound.party_id };
+    }
+    const { invitationId, partyId } = await insertCapture(
+      tx,
+      input,
+      lease.runId,
+    );
+    return { invitationId, partyId };
+  });
+}
+
+async function insertCapture(
+  transaction: TransactionSql,
+  input: CaptureInvitationInput,
+  runId?: string,
+): Promise<CapturedInvitation> {
   const secret = input.tokenSecret ?? requiredSetting("LINK_TOKEN_SECRET");
   const appUrl = (input.appUrl ?? requiredSetting("APP_URL")).replace(
     /\/$/,
     "",
   );
-  const link = issueLinkToken(secret);
+  const id = randomUUID();
+  const generation = runId ? randomUUID() : null;
+  const link = generation
+    ? deriveCaptureLink(secret, id, generation)
+    : issueLinkToken(secret);
   const structured = input.structured ?? {};
   const expiresAt =
     input.linkTokenExpiresAt ??
     new Date((input.now ?? new Date()).getTime() + LINK_LIFETIME_MS);
-
-  return client.begin(async (transaction) => {
-    const [host] = await transaction<{ id: string }[]>`
+  const [host] = await transaction<{ id: string }[]>`
       select id from public.hosts
       where id = ${input.hostId} and home_id = ${input.homeId}
     `;
-    if (!host) throw new Error("Host does not belong to the invitation home");
+  if (!host) throw new Error("Host does not belong to the invitation home");
 
-    const existingParties = await transaction<{ id: string }[]>`
-      select id
-      from public.parties
-      where home_id = ${input.homeId}
-        and family_name = ${input.partyName}
-      for update
-    `;
-
-    let partyId = existingParties[0]?.id;
-    if (partyId) {
-      await transaction`
-        update public.parties
-        set locale = ${input.partyLocale}
-        where id = ${partyId}
+  let partyId: string;
+  let locale = input.partyLocale;
+  if (input.returningPartyId) {
+    const [party] = await transaction<{ id: string; locale: "en" | "es" }[]>`
+        select id, locale from public.parties
+        where id = ${input.returningPartyId} and home_id = ${input.homeId}
+        for update
       `;
-    } else {
-      const parties = await transaction<{ id: string }[]>`
-        insert into public.parties (
-          home_id,
-          family_name,
-          locale
-        )
-        values (
-          ${input.homeId},
-          ${input.partyName},
-          ${input.partyLocale}
-        )
-        returning id
+    if (!party) throw new CaptureInputError("party");
+    partyId = party.id;
+    locale = party.locale;
+  } else {
+    const [created] = await transaction<{ id: string }[]>`
+        insert into public.parties (home_id, family_name, locale)
+        values (${input.homeId}, ${input.partyName}, ${input.partyLocale})
+        on conflict do nothing returning id
       `;
-      partyId = parties[0]?.id;
-    }
+    if (!created) throw new CaptureInputError("name");
+    partyId = created.id;
+  }
 
-    if (!partyId) throw new Error("Failed to create or load the invited party");
-
-    const invitations = await transaction<{ id: string }[]>`
+  const invitations = await transaction<{ id: string }[]>`
       insert into public.invitations (
         home_id,
         host_id,
@@ -160,7 +224,7 @@ export async function captureInvitation(
         structured,
         status,
         link_token,
-        link_token_expires_at
+        link_token_expires_at, id, capture_run_id, link_scheme, link_generation, link_locale
       )
       values (
         ${input.homeId},
@@ -170,19 +234,18 @@ export async function captureInvitation(
         ${JSON.stringify(structured)}::text::jsonb,
         'tentative',
         ${link.hash},
-        ${expiresAt.toISOString()}
+        ${expiresAt.toISOString()}, ${id}, ${runId ?? null}, ${generation ? 1 : null}, ${generation}, ${generation ? locale : null}
       )
       returning id
     `;
-    const invitationId = invitations[0]?.id;
-    if (!invitationId) throw new Error("Failed to create the invitation");
+  const invitationId = invitations[0]?.id;
+  if (!invitationId) throw new Error("Failed to create the invitation");
 
-    return {
-      invitationId,
-      partyId,
-      guestLink: `${appUrl}/${input.partyLocale}/g/${link.token}`,
-    };
-  });
+  return {
+    invitationId,
+    partyId,
+    guestLink: `${appUrl}/${locale}/g/${link.token}`,
+  };
 }
 
 export async function reissueInvitationLink(
@@ -198,13 +261,17 @@ export async function reissueInvitationLink(
   );
   const now = options.now ?? new Date();
   const expiresAt = new Date(now.getTime() + LINK_LIFETIME_MS);
-  const link = issueLinkToken(secret);
 
   return client.begin(async (transaction) => {
     const [invitation] = await transaction<
-      { party_id: string; locale: "en" | "es" }[]
+      {
+        party_id: string;
+        locale: "en" | "es";
+        link_scheme: number | null;
+        link_locale: string | null;
+      }[]
     >`
-      select i.party_id, p.locale
+      select i.party_id, p.locale, i.link_scheme, i.link_locale
       from public.invitations i
       join public.parties p on p.id = i.party_id and p.home_id = i.home_id
       where i.id = ${invitationId} and i.status <> 'cancelled'
@@ -212,9 +279,13 @@ export async function reissueInvitationLink(
     `;
     if (!invitation) throw new Error(`Invitation not found: ${invitationId}`);
 
+    const generation = invitation.link_scheme === 1 ? randomUUID() : null;
+    const link = generation
+      ? deriveCaptureLink(secret, invitationId, generation)
+      : issueLinkToken(secret);
     await transaction`
       update public.invitations
-      set link_token = ${link.hash},
+      set link_generation = ${generation}, link_token = ${link.hash},
           link_token_expires_at = greatest(
             ${expiresAt.toISOString()}::timestamptz,
             (
@@ -229,7 +300,7 @@ export async function reissueInvitationLink(
           link_token_revoked_at = null
       where id = ${invitationId}
     `;
-    return `${appUrl}/${invitation.locale}/g/${link.token}`;
+    return `${appUrl}/${invitation.link_locale ?? invitation.locale}/g/${link.token}`;
   });
 }
 

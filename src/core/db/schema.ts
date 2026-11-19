@@ -2,6 +2,7 @@ import {
   customType,
   jsonb,
   pgTable,
+  smallint,
   text,
   timestamp,
   uuid,
@@ -161,6 +162,12 @@ export const invitations = pgTable("invitations", {
     .$type<InvitationStatus>()
     .notNull()
     .default("tentative"),
+  captureRunId: uuid("capture_run_id")
+    .unique()
+    .references(() => runs.id, { onDelete: "set null" }),
+  linkScheme: smallint("link_scheme"),
+  linkGeneration: uuid("link_generation"),
+  linkLocale: text("link_locale").$type<Locale>(),
   linkToken: text("link_token").unique(),
   linkTokenExpiresAt: timestamp("link_token_expires_at", {
     withTimezone: true,

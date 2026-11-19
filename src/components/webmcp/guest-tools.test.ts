@@ -91,3 +91,41 @@ describe("guest search preparation contract", () => {
     },
   );
 });
+
+describe("guest booking preparation availability", () => {
+  const option = {
+    stay: ["2026-09-18", "2026-09-20"] as const,
+    rooms: [{ id: "room-a", guestLabel: "Garden room" }],
+    recommendedRoomIds: ["room-a"],
+  };
+  const names = (bookingAvailable: boolean) =>
+    createGuestWebMcpTools({
+      options: [option],
+      bookingAvailable,
+      prepareSearch: () => undefined,
+      prepareBooking: () => undefined,
+    }).map((tool) => tool.name);
+
+  it("offers booking preparation only while room options are visible", () => {
+    expect(names(true)).toContain("layalga.guest.prepare_booking");
+    expect(names(false)).not.toContain("layalga.guest.prepare_booking");
+    expect(names(false)).toContain("layalga.guest.prepare_search");
+  });
+
+  it("tells the caller to run a search when no option is visible", async () => {
+    const prepared: unknown[] = [];
+    const booking = createGuestWebMcpTools({
+      options: [],
+      prepareSearch: () => undefined,
+      prepareBooking: (value) => prepared.push(value),
+    }).find((tool) => tool.name.endsWith("prepare_booking"))!;
+    await expect(
+      booking.execute({
+        stay: "2026-09-18|2026-09-20",
+        roomIds: ["room-a"],
+        acceptOverflow: false,
+      }),
+    ).rejects.toThrow(/no room options are visible.*prepare_search/i);
+    expect(prepared).toEqual([]);
+  });
+});

@@ -139,7 +139,8 @@
 .stackForm input,
 .stackForm select,
 .stackForm textarea,
-.inlineForm input {
+.inlineForm input,
+.touchSelect {
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
   border-radius: 0;
@@ -155,7 +156,8 @@
    so it tracks --ink through the seasonal and dark palettes, which an SVG
    data URI could not. */
 .inventoryForm select,
-.stackForm select {
+.stackForm select,
+.touchSelect {
   -webkit-appearance: none;
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),

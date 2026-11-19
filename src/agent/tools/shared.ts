@@ -45,19 +45,39 @@ export async function homeIdForInvitation(
   return row.home_id;
 }
 
+/**
+ * A visit is in task scope when it is in the task home, matches the exact
+ * visit authority when one exists, and belongs to the task invitation when the
+ * task is invitation-scoped. An initial guest submission has an invitation but
+ * no visit yet, so the invitation check is the only visit fence it has.
+ */
+function assertVisitAuthority(
+  deps: AgentDeps,
+  visitId: string,
+  visit: { home_id: string; invitation_id: string },
+): void {
+  assertHomeAuthority(deps, visit.home_id);
+  if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
+    throw new Error("Visit is outside the agent task scope");
+  }
+  if (
+    deps.authority?.invitationId &&
+    deps.authority.invitationId !== visit.invitation_id
+  ) {
+    throw new Error("Visit is outside the agent task invitation");
+  }
+}
+
 export async function homeIdForVisit(
   deps: AgentDeps,
   visitId: string,
 ): Promise<string> {
   const sql = sqlClient(deps.db);
-  const [row] = await sql<{ home_id: string }[]>`
-    select home_id from public.visits where id = ${visitId}
+  const [row] = await sql<{ home_id: string; invitation_id: string }[]>`
+    select home_id, invitation_id from public.visits where id = ${visitId}
   `;
   if (!row) throw new Error(`Visit not found: ${visitId}`);
-  assertHomeAuthority(deps, row.home_id);
-  if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
-    throw new Error("Visit is outside the agent task scope");
-  }
+  assertVisitAuthority(deps, visitId, row);
   return row.home_id;
 }
 
@@ -126,6 +146,7 @@ export async function loadDraftForTool(
   const [visit] = await sql<
     {
       home_id: string;
+      invitation_id: string;
       stay_start: string;
       stay_end: string;
       adults: number;
@@ -139,6 +160,7 @@ export async function loadDraftForTool(
   >`
     select
       visit.home_id,
+      visit.invitation_id,
       lower(visit.stay)::text as stay_start,
       upper(visit.stay)::text as stay_end,
       visit.adults,
@@ -159,10 +181,7 @@ export async function loadDraftForTool(
     group by visit.id
   `;
   if (!visit) throw new Error(`Visit not found: ${visitId}`);
-  assertHomeAuthority(deps, visit.home_id);
-  if (deps.authority?.visitId && deps.authority.visitId !== visitId) {
-    throw new Error("Visit is outside the agent task scope");
-  }
+  assertVisitAuthority(deps, visitId, visit);
   const draft: VisitDraft = {
     visitId,
     stay: (input.stay as [string, string] | undefined) ?? [

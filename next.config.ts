@@ -16,6 +16,15 @@ export function buildSecurityHeaders() {
 export const securityHeaders = buildSecurityHeaders();
 
 const nextConfig: NextConfig = {
+  // Matches direct guest links, encoded guest return paths and capability queries.
+  logging: {
+    incomingRequests: {
+      ignore: [
+        /(?:\/|%2f)g(?:\/|%2f)[^/?&#]+/i,
+        /[?&](?:token|capability)=[^&]+/i,
+      ],
+    },
+  },
   allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     return [

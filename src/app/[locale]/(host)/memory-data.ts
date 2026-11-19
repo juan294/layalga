@@ -21,7 +21,7 @@ export interface HostMemoryPartyRecords {
  * party even when it currently has no records. One `ListMemoryRecords` call
  * (paginated) per party's own namespace subtree
  * (`/parties/home-<homeId>/party-<partyId>`), matching the read scope
- * `memoryStoresForTask` gives a matched host_capture or guest task.
+ * `memoryStoresForTask` gives a returning capture or guest task.
  */
 export async function loadHostMemoryPanel(
   database: DatabaseClient,

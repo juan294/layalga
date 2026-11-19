@@ -57,7 +57,7 @@ describe("memoryStoresForTask", () => {
       "guest_reconfirm",
       "tick",
       "resume",
-      "host_capture",
+      "host_capture_v2",
     ] as const) {
       const [store] = memoryStoresForTask(
         task,
@@ -71,35 +71,18 @@ describe("memoryStoresForTask", () => {
     }
   });
 
-  it("never extraction-backs host_capture, matched party or not (D7)", () => {
-    const [matched] = memoryStoresForTask(
-      "host_capture",
-      partyAuthority,
-      "capture_1",
-      config,
-    );
-    expect(matched!.writable).toBe(false);
-    expect(matched!.extraction).toBeFalsy();
-
-    const [unmatched] = memoryStoresForTask(
-      "host_capture",
-      homeAuthority,
-      "capture_1",
-      config,
-    );
-    expect(unmatched!.writable).toBe(false);
-    expect(unmatched!.extraction).toBeFalsy();
-  });
-
-  it("attaches a read-only household store for an unmatched host_capture", () => {
-    const [store] = memoryStoresForTask(
-      "host_capture",
-      homeAuthority,
-      "capture_1",
-      config,
-    );
-    expect(store).toBeDefined();
-    expect(store!.writable).toBe(false);
+  it("gives New and legacy captures no recall even in a known household", () => {
+    expect(
+      memoryStoresForTask("host_capture", partyAuthority, "capture_1", config),
+    ).toEqual([]);
+    expect(
+      memoryStoresForTask(
+        "host_capture_v2",
+        homeAuthority,
+        "capture_1",
+        config,
+      ),
+    ).toEqual([]);
   });
 
   it("attaches no store for host_capture without any home authority", () => {
@@ -109,9 +92,9 @@ describe("memoryStoresForTask", () => {
   });
 
   it("resolves concrete namespaces with no unresolved placeholder braces", () => {
-    const [householdStore] = memoryStoresForTask(
-      "host_capture",
-      homeAuthority,
+    const [returningStore] = memoryStoresForTask(
+      "host_capture_v2",
+      partyAuthority,
       "capture_1",
       config,
     );
@@ -121,7 +104,7 @@ describe("memoryStoresForTask", () => {
       "inv_1",
       config,
     );
-    for (const store of [householdStore!, familyStore!]) {
+    for (const store of [returningStore!, familyStore!]) {
       const namespace = String(
         (store as unknown as { resolvedNamespace: string }).resolvedNamespace,
       );

@@ -8,6 +8,87 @@ The real-use launch replaces that gate. Demo mode, the demo seed and the demo AP
 
 Guest email delivery remains unactivated and follows [its readiness runbook](guest-email-readiness.md). Merging to develop does not apply migrations, IAM or deployments; merging to `main` deploys the web app immediately. No feature/develop Vercel preview deployments are allowed.
 
+## Invitation identity cutover
+
+The bridge commit `8f845859cdb44e8128378927339d43694c6c9fae` supports explicit returning parties and treats older capture tasks as new parties. Ship the bridge independently. Keep the existing name constraint until the bridge web app and worker both serve traffic and have passed fixture captures.
+
+Before applying `20261119000100_allow_shared_party_names.sql` in an authorized release, complete these checks in order. The migration was named `20261118000100` until the v2.4.0 release preparation renamed it to sort after the link recovery migration.
+
+1. Verify `/api/health` reports the exact web commit released with bridge support. Record the web deployment and source commit. Verify the worker build source and bundle identity from the corresponding deployment and record its runtime version.
+2. Run `pnpm run contract:preflight -- --runtime-id "$AGENTCORE_RUNTIME_ID" --expected-version "$BRIDGE_RUNTIME_VERSION"` using the version from the verified compatible build. The preflight checks the **DEFAULT** endpoint and requires it to be ready and serving that version.
+3. Use the existing authorized production probe workflow with the exact web commit and expected runtime `agentcore` on the bridge schema. The tagged host capture uses a selected fixture party and checks the invitation belongs to that ID. Retain its run ID, the local fallback capture evidence, the old queued-task result and the old runtime's refusal of a persisted v2 task. Recheck both serving identities if either deployment changes before the migration.
+4. With missing, stale or failed evidence, keep the bridge schema. Hosts can select a known returning record or supply a distinct display label for a new group until both writers are verified.
+
+After duplicate names exist, a rollback must keep the bridge's explicit-ID behavior on both web and worker. A writer that looks up parties by name can assign a visit or its memory to another family. Reinstating the old constraint would conflict with valid data. Keep the duplicates and use a compatible build or a forward fix. Historical account or memory repairs require a separate owner review.
+
+### v2.4.0 rollout order
+
+v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place, a New capture with a name already in use fails with `captureNameUsed` and the host is asked for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release. For v2.4.0 it replaces step 6 of the release procedure below, which applies every migration before the merge. Run each `supabase` command from the primary checkout, because only that checkout holds the project link in `supabase/.temp`. Step 5 also needs that checkout at the candidate commit.
+
+1. Apply only `20261118000200_invitation_link_recovery.sql` while v2.3.1 still serves both targets. Build the stage from the candidate commit and take only the link files from the primary checkout. Run the block in bash (it uses `compgen`):
+
+   ```bash
+   (
+     set -euo pipefail
+     CANDIDATE=<candidate-sha>
+     STAGE=$(mktemp -d)
+     git archive "$CANDIDATE" supabase | tar -x -C "$STAGE"
+     cp -R supabase/.temp "$STAGE/supabase/"
+     rm "$STAGE/supabase/migrations/20261119000100_allow_shared_party_names.sql"
+     if compgen -G "$STAGE/supabase/migrations/*allow_shared_party_names*" >/dev/null; then
+       echo "the constraint drop is still staged" >&2; exit 1
+     fi
+     supabase db push --linked --workdir "$STAGE" --dry-run   # must list only 20261118000200
+     read -r -p "Dry run lists only 20261118000200? Type yes: " answer
+     [ "$answer" = yes ]
+     supabase db push --linked --workdir "$STAGE"
+     rm -rf "$STAGE"
+   )
+   ```
+
+   Check that `supabase migration list --linked` shows `20261118000200` applied and `20261119000100` pending, and that `/api/health` stays `ok`.
+
+2. Merge the release pull request into `main`. Verify the exact web commit at `/api/health`. Until AgentCore is updated, the old runtime refuses the new `host_capture_v2` task, so the hosts do not capture invitations in this window. If a capture is refused, record its run ID as the old-runtime refusal evidence.
+3. Deploy AgentCore from a clean checkout of the same commit with `scripts/deploy-agentcore.sh --profile archy`. Pass the runtime version it reports to `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version <reported version>`.
+4. Dispatch the production probes for the exact commit. The workflow passes `--expect-runtime agentcore` and `MEMORY=agentcore`. `host-capture` asserts the selected returning party and the bound run and recovery metadata. It then derives the guest link with the probe's `LINK_TOKEN_SECRET` (`PROD_LINK_TOKEN_SECRET`), checks that it matches the hash AgentCore stored, and opens it against the serving web app, which must accept it. Together these prove that AgentCore, Vercel and the GitHub copy hold the same link secret. A failure means that a new link could not be revealed.
+5. Apply `20261119000100_allow_shared_party_names.sql`: `supabase db push --linked --dry-run` must list only that migration, then run `supabase db push --linked`. Confirm that `parties_home_id_family_name_key` is gone and that `supabase migration list --linked` shows no pending migration.
+6. Dispatch the production probes again for the same commit, then run the orphaned-memory sweep. The production probe set has no same-name capture, so this run proves that the constraint drop did not break the core journeys. The local release probes and integration tests cover two parties with one name.
+
+Checks from the two cutovers above that this order replaces:
+
+| Cutover check                                                                   | v2.4.0 evidence                                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Separate bridge release and fixture captures on the bridge schema               | Local rehearsal with the database reset to `20261118000200`: the production probe set passed, and a same-name New capture failed with `captureNameUsed`; then production probes in step 4 |
+| Old runtime refusal of a persisted v2 task                                      | Phase 1 local evidence; any refusal seen in step 2                                                                                                                                        |
+| Synthetic capture that shows the legacy replacement warning and keeps the URL   | Chromium and mobile WebKit browser tests on the candidate, locally and in CI                                                                                                              |
+| Reveal twice from status and dashboard, then open the original URL as the guest | The same browser tests                                                                                                                                                                    |
+| Same `LINK_TOKEN_SECRET` on web and AgentCore                                   | The `host-capture` hash assertion and guest page check in step 4                                                                                                                          |
+
+The production probes do not drive the browser reveal: fixture households have no Google host who can sign in. A production check of the reveal on the real household needs a separate owner decision, because tests never write to the real household.
+
+#### Release-system impact of the link hash assertion
+
+- **Risk class (A/B/C/D/E):** A.
+- **Unique production risk prevented:** AgentCore and Vercel read `LINK_TOKEN_SECRET` from different sources (`.env.agentcore` and the Vercel environment). A mismatch makes every new invitation link unrecoverable for its host. Local and CI runs use one environment for both, so only production can show it.
+- **Existing controls that already cover part of this risk:** None. The browser tests and local probes share one secret.
+- **Why this must be synchronous (if Class A/B):** A mismatch breaks the host's only way to obtain a new guest link.
+- **Added local critical-path time:** None.
+- **Added remote critical-path time / workflows / deployments:** None; one query, one HMAC and one guest page request inside the existing `host-capture` probe.
+- **Added external dependencies:** None.
+- **Added evidence objects:** None beyond the probe detail.
+- **Same-candidate recovery behavior if this gate fails:** The candidate code is not disproved. A hash mismatch points to the AgentCore or GitHub copy, a rejected link to Vercel. Correct that secret, redeploy only the affected target from the same candidate and dispatch the probes again.
+- **Control this replaces or consolidates, if any:** The manual `LINK_TOKEN_SECRET` parity check in "Recoverable invitation links" step 2.
+
+### Recoverable invitation links
+
+After the identity cutover above, deploy link recovery in this order during an authorized release.
+
+1. Apply the additive migration `20261118000200_invitation_link_recovery.sql`. Check that the existing hash-only invitations still resolve through the guest entry point and that older writers can still insert rows.
+2. Serve the new web reader and reveal action first. Verify the exact serving web commit at `/api/health`. With an authorized synthetic capture, confirm its creator sees the legacy replacement warning and can keep the existing URL. Web and AgentCore must use the same existing `LINK_TOKEN_SECRET` for this deployment.
+3. Deploy the matching AgentCore writer. Verify the serving DEFAULT version against the recorded bundle using the contract preflight above. Trace one synthetic capture to its completed run and bound invitation, reveal it twice from the status page and dashboard, and open the original URL in the guest fixture. Record the run and deployment identities without including the URL.
+
+Once the first recoverable link has been issued, keep the web reader that shows the same active token. If restoring a web version that rotates links on reveal is unavoidable, pause host capture and reveal before rollback, or forward-fix the web app. Keep guest access by hash available. Before restoring a worker that lacks same-run replay, drain new capture writes and verify their terminal runs and associated invitations. Continue to honor the explicit-party rollback minimum after shared names exist.
+
 ## Project adaptation profile
 
 | Area                           | Project value                                                                                                                         |
@@ -64,17 +145,17 @@ Wave B exploratory charters are applicable after the first deployed candidate an
 
 `scripts/release-probes.ts` runs the probes for one target in order. Each run builds two fixture households from the shared builder (`src/test-support/fixture-household.ts`): `Release probe <run id>` with three rooms, and `Release probe conflict <run id>` with one contested room for the concurrency probe. Probes enqueue work through `POST /api/agent/run` with the `x-layalga-internal` header and drain it through `GET /api/ticks`. No probe uses a browser session or touches a real household.
 
-| Probe                 | Local | Production | Assertion                                                                                                                                       |
-| --------------------- | :---: | :--------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `health`              |  yes  |    yes     | `/api/health` is `ok`; for a non-local base, the reported commit equals the candidate                                                           |
-| `host-capture`        |  yes  |    yes     | A `host_capture` run for the fixture host completes and creates one tagged tentative invitation; optional runtime and memory assertions (below) |
-| `guest-confirmation`  |  yes  |    yes     | A `guest_submit` run on the captured invitation creates one hold and one confirmation audit                                                     |
-| `concurrent-conflict` |  yes  |    yes     | Two concurrent holds on the one contested room: exactly one wins and the other is rejected safely                                               |
-| `interrupt-resume`    |  yes  |     no     | A policy-triggering request pauses; a recorded host approval resumes it through a new queued run and applies once                               |
-| `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                          |
-| `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                          |
-| `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                   |
-| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                              |
+| Probe                 | Local | Production | Assertion                                                                                                                                                                                                                                                                                              |
+| --------------------- | :---: | :--------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `health`              |  yes  |    yes     | `/api/health` is `ok`; for a non-local base, the reported commit equals the candidate                                                                                                                                                                                                                  |
+| `host-capture`        |  yes  |    yes     | A `host_capture_v2` run for a selected fixture party completes and creates one tagged tentative invitation for that party; with link recovery applied, the run binding, recovery metadata and a link hash that matches the probe's `LINK_TOKEN_SECRET`; optional runtime and memory assertions (below) |
+| `guest-confirmation`  |  yes  |    yes     | A `guest_submit` run on the captured invitation creates one hold and one confirmation audit                                                                                                                                                                                                            |
+| `concurrent-conflict` |  yes  |    yes     | Two concurrent holds on the one contested room: exactly one wins and the other is rejected safely                                                                                                                                                                                                      |
+| `interrupt-resume`    |  yes  |     no     | A policy-triggering request pauses; a recorded host approval resumes it through a new queued run and applies once                                                                                                                                                                                      |
+| `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                                                                                                                                                                                 |
+| `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                                                                                                                                                                                 |
+| `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                                                                                                                                                                          |
+| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                                                                                                                                                                                     |
 
 Cleanup runs in `finally`, also after a failed probe. A run ends in one of three states:
 
@@ -210,7 +291,7 @@ The queue recovers expired run leases and permits bounded attempts. Scheduled jo
 10. Verify the datastore state, queue completion and that no fixture household remains.
 11. Present complete evidence and residual risk to the product owner.
 12. Obtain separate tag and publication authorization.
-13. Create and push the named tag last through `/release`.
+13. Create and push the named tag last through `/rpi-release`.
 
 ## Real-use launch releases
 
@@ -342,7 +423,7 @@ through a long sequence of individually reasonable hardening commits — see
 audit against that case study. The rules below exist to keep this playbook's
 Wave A/B/C-H structure from repeating that accretion as the project grows.
 They apply to every future change that proposes a new required check, probe,
-evidence artifact, or wave promotion — not only to `/release` itself.
+evidence artifact, or wave promotion — not only to `/rpi-release` itself.
 
 ### Risk classes
 
@@ -358,7 +439,7 @@ Classify every existing or proposed gate before it can block a release:
 
 Only Class A and Class B controls belong on the default mandatory path. Wave A
 today is Class A/B by design (required checks, identity match, cleanup proof).
-Wave B (`/explore-release`) is Class D and stays off the default path until the
+Wave B (`/rpi-explore-release`) is Class D and stays off the default path until the
 adopted-scope trigger is met. Waves C-H remain deferred per ADR 0001 and stay
 Class C/D/E until a specific, named risk promotes one.
 

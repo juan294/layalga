@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { partyChoiceSchema } from "@/core/booking/party-choice";
+export { partyChoiceSchema } from "@/core/booking/party-choice";
 
 import type { ExecutionRuntime } from "./ports";
 import { staySchema } from "./schemas";
@@ -21,13 +23,20 @@ export const hostDecisionSchema = z.object({
   note: z.string().max(MAX_DECISION_NOTE_LENGTH).optional(),
 });
 
+const captureFields = {
+  homeId: z.uuid(),
+  hostId: z.uuid(),
+  rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
+  locale,
+};
+
 export const agentTaskSchema = z.discriminatedUnion("task", [
+  z.object({ task: z.literal("host_capture"), ...captureFields }),
   z.object({
-    task: z.literal("host_capture"),
-    homeId: z.uuid(),
-    hostId: z.uuid(),
-    rawMessage: z.string().min(1).max(MAX_HOST_MESSAGE_LENGTH),
-    locale,
+    task: z.literal("host_capture_v2"),
+    ...captureFields,
+    captureId: z.uuid(),
+    partyChoice: partyChoiceSchema,
   }),
   z.object({
     task: z.literal("host_room_request"),
@@ -93,6 +102,11 @@ export const agentTaskSchema = z.discriminatedUnion("task", [
 ]);
 
 export type AgentTask = z.infer<typeof agentTaskSchema>;
+export function isCaptureTask(
+  task: AgentTask,
+): task is Extract<AgentTask, { task: "host_capture" | "host_capture_v2" }> {
+  return task.task === "host_capture" || task.task === "host_capture_v2";
+}
 export type HostDecision = z.infer<typeof hostDecisionSchema>;
 
 export interface RunResult {

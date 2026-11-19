@@ -116,8 +116,10 @@ NODE
 #
 # The same file raises the database instrumentations that ADOT's pinned
 # auto-instrumentations-node@0.77.0 would otherwise resolve to versions
-# affected by GHSA-qqmp-wf37-98f9 (db.user span attribute). Keep these in step
-# with the overrides in the root pnpm-workspace.yaml.
+# affected by GHSA-qqmp-wf37-98f9 (db.user span attribute), and the transitive
+# packages with published advisories (instrumentation-http, systeminformation,
+# qs, glob, minimatch). Keep these in step with the overrides in the root
+# pnpm-workspace.yaml.
 cat > "$build_dir/pnpm-workspace.yaml" <<'WORKSPACE'
 overrides:
   "@tobilu/qmd": "false"
@@ -129,6 +131,11 @@ overrides:
   "@opentelemetry/instrumentation-oracledb": 0.46.0
   "@opentelemetry/instrumentation-pg": 0.73.0
   "@opentelemetry/instrumentation-tedious": 0.40.0
+  "@opentelemetry/instrumentation-http": 0.222.0
+  systeminformation: 5.33.16
+  qs: 6.16.1
+  "glob@10": 14.0.6
+  "minimatch@9": 11.0.9
 WORKSPACE
 
 pnpm --dir "$build_dir" install \

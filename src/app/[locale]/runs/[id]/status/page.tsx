@@ -1,4 +1,11 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { creatorCapture } from "@/app/[locale]/(host)/capture-history";
+import { CaptureQueuedPanel } from "@/components/host/capture-invitation-form";
+import { getCurrentHost } from "@/lib/auth/current-host";
+import {
+  getMessages,
+  getTranslations,
+  setRequestLocale,
+} from "next-intl/server";
 
 import { getAuthorizedRunSnapshot } from "@/app/api/runs/run-data";
 import { RunStatusPoller } from "@/components/runs/run-status-poller";
@@ -20,6 +27,9 @@ export default async function RunStatusPage({
   const query = await searchParams;
   const run = await getAuthorizedRunSnapshot(id, query.token);
   const runContext = run ? await loadRunContext(id) : null;
+  const host = run && !query.token ? await getCurrentHost() : null;
+  const owner = host ? await creatorCapture(host, id) : null;
+  const messages = owner ? await getMessages({ locale }) : null;
   const requestedReturn = query.returnTo;
   const returnTo = safeReturnPath(requestedReturn, locale);
 
@@ -28,7 +38,22 @@ export default async function RunStatusPage({
       <div className={styles.frame}>
         <p className={styles.eyebrow}>{t("eyebrow")}</p>
         <h1 className={styles.title}>{t("title")}</h1>
-        {run ? (
+        {run && owner && messages ? (
+          <CaptureQueuedPanel
+            key={run.id}
+            runId={run.id}
+            labels={{
+              ...messages.Host.capture,
+              remembered: messages.Host.memory.remembered,
+            }}
+            statusPage
+            locale={locale}
+            timeZone={runContext?.timeZone ?? "UTC"}
+            retryable={owner.retryable}
+            initial={run}
+            deadlineMs={runContext?.deadlineMs ?? null}
+          />
+        ) : run ? (
           <RunStatusPoller
             initial={run}
             deadlineMs={runContext?.deadlineMs ?? null}

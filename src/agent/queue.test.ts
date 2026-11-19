@@ -82,6 +82,44 @@ async function waitForRunStatus(
 describe("durable agent queue", () => {
   afterAll(() => sql.end());
 
+  it("replays only an unchanged capture UUID and shares the legacy capture budget", async () => {
+    const fixture = await seedHost();
+    const runtime = deps(new ScriptedModel([]));
+    const legacy = hostTask(fixture, "Same invitation");
+    const task = {
+      ...legacy,
+      task: "host_capture_v2" as const,
+      captureId: randomUUID(),
+      partyChoice: { kind: "new" as const },
+    };
+    try {
+      const first = await enqueueAgentTask(task, runtime);
+      expect((await enqueueAgentTask(task, runtime)).runId).toBe(first.runId);
+      await expect(
+        enqueueAgentTask({ ...task, rawMessage: "Changed" }, runtime),
+      ).rejects.toMatchObject({ reason: "changed" });
+      const second = await enqueueAgentTask(
+        { ...task, captureId: randomUUID() },
+        runtime,
+      );
+      expect(second.runId).not.toBe(first.runId);
+      await sql`update public.runs set payload = '{}'::jsonb where id = ${first.runId}`;
+      await expect(enqueueAgentTask(task, runtime)).rejects.toMatchObject({
+        reason: "scrubbed",
+      });
+      for (let index = 0; index < 3; index++)
+        await enqueueAgentTask(
+          { ...legacy, rawMessage: `Legacy ${index}` },
+          runtime,
+        );
+      await expect(
+        enqueueAgentTask({ ...task, captureId: randomUUID() }, runtime),
+      ).rejects.toThrow("request limit");
+    } finally {
+      await cleanup(fixture.homeId);
+    }
+  });
+
   it.each([
     ["immediate", "immediate"],
     ["immediate", "queued"],
@@ -467,6 +505,51 @@ describe("durable agent queue", () => {
       `;
       expect(rows.every(({ status }) => status === "completed")).toBe(true);
     } finally {
+      await cleanup(fixture.homeId);
+    }
+  });
+
+  it("does not let a worker that lost its lease overwrite session state", async () => {
+    const fixture = await seedHost();
+    const clock = new FakeClock(new Date("2026-09-01T10:00:00Z"));
+    const gate = Promise.withResolvers<void>();
+    const entered = Promise.withResolvers<void>();
+    const model = new GatedModel(
+      new ScriptedModel([{ text: "Late answer." }]),
+      gate.promise,
+      entered.resolve,
+    );
+    try {
+      const slow = runAgentTask(
+        hostTask(fixture, "Invite a slow family."),
+        deps(model, clock),
+      );
+      const slowOutcome = slow.then(
+        () => "completed",
+        (error: Error) => error.message,
+      );
+      await entered.promise;
+      const before = await sql`
+        select key, data from public.agent_sessions
+        where session_id = ${`capture_${fixture.hostId}`} order by key
+      `;
+      expect(before.length).toBeGreaterThan(0);
+
+      // Recovery gave the lease to a replacement worker while this one waited.
+      await sql`
+        update public.runs set queue_claim_token = ${randomUUID()}
+        where home_id = ${fixture.homeId}
+      `;
+      gate.resolve();
+
+      expect(await slowOutcome).toMatch(/Failed to write .* to storage/);
+      const after = await sql`
+        select key, data from public.agent_sessions
+        where session_id = ${`capture_${fixture.hostId}`} order by key
+      `;
+      expect(after).toEqual(before);
+    } finally {
+      gate.resolve();
       await cleanup(fixture.homeId);
     }
   });

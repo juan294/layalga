@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated October 27, 2026. Production runs v2.3.0 with the Next.js 16.4.2 security hotfix at `339b62a`; v2.3.1 is being prepared. Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
+Updated November 19, 2026. Production runs v2.3.1 at `a3524ee` (live health, 2026-11-19); `develop` holds v2.4.0, described under "Prepared release". Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
 
 ## Implemented in the completion
 
@@ -39,4 +39,6 @@ The main remaining uncertainty is evidence from real people using the product.
 
 ## Prepared release
 
-v2.3.1 prepares the completed pre-launch reliability fixes for production, with no migrations. Local remediation and its hosted integration checks passed on `14d5d45`; release preparation, exact deployed identities and production probes are separate evidence. Guest email activation remains separate.
+v2.3.1 shipped 2026-10-27 (main `a3524ee`, pull request #220, AgentCore runtime version 43 per the release evidence): the pre-launch reliability fixes, with no migrations.
+
+v2.4.0 is prepared on `develop` ([changelog](../CHANGELOG.md#240---2026-11-19)): explicit returning-party choice and shared family names (migration `20261119000100`), recoverable invitation links (migration `20261118000200`), the November 18 triage fixes and a dependency update. It rolls out in the [staged order](release/e2e-pro-playbook.md#v240-rollout-order), and production release authority is separate. Guest email activation remains separate.

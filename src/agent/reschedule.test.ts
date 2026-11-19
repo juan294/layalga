@@ -37,7 +37,13 @@ describe("agent reschedule policy", () => {
     await sql`insert into public.parties (id, home_id, family_name, locale, link_token) values (${vegaPartyId}, ${homeId}, 'Vega', 'es', 'reschedule-vega'), (${oterosPartyId}, ${homeId}, 'Parkers', 'en', 'reschedule-oteros')`;
     await sql`insert into public.invitations (id, home_id, host_id, party_id, raw_message) values (${vegaInvitationId}, ${homeId}, ${hostId}, ${vegaPartyId}, 'Vega'), (${oterosInvitationId}, ${homeId}, ${hostId}, ${oterosPartyId}, 'Parkers')`;
   });
-  afterAll(() => sql.end());
+  afterAll(async () => {
+    // Past-due scheduled jobs would otherwise outlive the run and make the
+    // health endpoint report an unclaimed queue to later probes.
+    await sql`delete from public.homes where id = ${homeId}`;
+    await sql`delete from public.agent_sessions where session_id like 'inv_20000000%'`;
+    await sql.end();
+  });
 
   it("re-asks for changed approval and denies a children conflict", async () => {
     const vega = await createTemporaryHold(sql, clock, {

@@ -42,7 +42,11 @@ describe("installMemorySearchAudit", () => {
     const homeId = home!.id;
     try {
       const agent = new FakeAgent();
-      installMemorySearchAudit(agent as never, deps(homeId));
+      const selectedPartyId = crypto.randomUUID();
+      installMemorySearchAudit(agent as never, {
+        ...deps(homeId),
+        authority: { homeId, partyId: selectedPartyId },
+      });
       await agent.callback!({
         toolUse: { name: "search_memory" },
         error: undefined,
@@ -55,7 +59,7 @@ describe("installMemorySearchAudit", () => {
       `;
       expect(audit).toEqual({
         kind: "tool_call",
-        payload: { name: "search_memory" },
+        payload: { name: "search_memory", partyId: selectedPartyId },
       });
     } finally {
       await sql`delete from public.homes where id = ${homeId}`;

@@ -19,11 +19,13 @@ export function GuestWebMcpRegistration({
   useEffect(() => {
     currentOptions.current = options;
   }, [options]);
+  const bookingAvailable = options.length > 0;
   useEffect(
     () =>
       registerWebMcpTools(
         document,
         createGuestWebMcpTools({
+          bookingAvailable,
           options: () => currentOptions.current,
           prepareBooking: (value) =>
             prepareGuestBookingInDocument(document, value),
@@ -31,7 +33,7 @@ export function GuestWebMcpRegistration({
             prepareGuestSearchInDocument(document, value),
         }),
       ),
-    [],
+    [bookingAvailable],
   );
   return null;
 }
@@ -76,6 +78,11 @@ export function prepareGuestBookingInDocument(
     'input[name="overflowConsent"]',
   );
   if (overflow) clickToState(overflow, value.acceptOverflow);
+  else if (value.acceptOverflow) {
+    throw new Error(
+      "The overflow consent is not shown for this room selection, so it cannot be accepted. Set acceptOverflow to false, or choose rooms whose standard capacity is below the party size.",
+    );
+  }
   reveal(form);
 }
 

@@ -13,7 +13,7 @@ import { buildTools, type AgentDeps } from "./deps";
 import { installMemorySearchAudit, memoryConfigForTask } from "./memory";
 import { installPolicyHook } from "./policy-hook";
 import { PromptMinimizingModel } from "./prompt-minimization";
-import { PostgresStorage } from "./storage/postgres-storage";
+import { PostgresStorage, type SessionLease } from "./storage/postgres-storage";
 import { RESUME_SYSTEM_PROMPT_SUFFIX, systemPrompts } from "./system-prompt";
 import type { AgentTask } from "./task";
 
@@ -22,6 +22,9 @@ export interface BuildAgentOptions {
   deps: AgentDeps;
   task: AgentTask["task"];
   homeId: string;
+  captureRunId?: string;
+  /** Fences session snapshot writes to the run's current queue claim. */
+  sessionLease?: SessionLease;
   model?: Model<BaseModelConfig>;
 }
 
@@ -30,6 +33,8 @@ export function buildAgent({
   deps,
   task,
   homeId,
+  captureRunId,
+  sessionLease,
   model,
 }: BuildAgentOptions): Agent {
   const selectedModel = model ?? bedrockModel();
@@ -46,9 +51,12 @@ export function buildAgent({
     tools: buildTools(deps, task),
     sessionManager: new SessionManager({
       sessionId,
-      storage: new PostgresStorage(sqlClient(deps.db), sessionId).namespace(
-        "session",
-      ),
+      storage: new PostgresStorage(
+        sqlClient(deps.db),
+        sessionId,
+        "",
+        sessionLease,
+      ).namespace(captureRunId ? `session/capture/${captureRunId}` : "session"),
       saveLatestOn: "message",
     }),
     systemPrompt,

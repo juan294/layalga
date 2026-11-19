@@ -4,10 +4,16 @@ import { readFileSync } from "node:fs";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { runAgentTask } from "@/agent/run-task";
+import { TaskScriptedModel } from "@/agent/scripted-model-selection";
+import { NoopScheduler } from "@/agent/scheduler";
+import { createFixtureHousehold } from "@/test-support/fixture-household";
+import { recoverCaptureLink } from "./capture-links";
 import { FakeClock } from "../clock";
 import { confirmVisit, createTemporaryHold, rescheduleVisit } from "./holds";
 
 import {
+  captureForRun,
   captureInvitation,
   extendInvitationAccessForStay,
   findInvitationByToken,
@@ -22,6 +28,197 @@ const db = postgres(connectionUrl, { max: 2, prepare: false });
 describe("invitation persistence", () => {
   afterAll(async () => {
     await db.end({ timeout: 5 });
+  });
+
+  it("writes and reveals recoverable links with the deployed database roles", async () => {
+    const localAdmin = new URL(connectionUrl);
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(localAdmin.hostname))
+      throw new Error("Role rehearsal requires local Supabase");
+    // The default postgres login is a member of the runtime roles without the
+    // SET option, so both rehearsals switch roles from the local admin login.
+    localAdmin.username = "supabase_admin";
+    const agent = postgres(localAdmin.toString(), {
+      max: 1,
+      prepare: false,
+      connection: { role: "layalga_agent_runtime" },
+    });
+    const web = postgres(localAdmin.toString(), {
+      max: 1,
+      prepare: false,
+      connection: { role: "layalga_web_runtime" },
+    });
+    const home = await createFixtureHousehold(db, {
+      label: "Role capture " + randomUUID(),
+      tokenSecret: process.env.LINK_TOKEN_SECRET!,
+    });
+    try {
+      const host = { homeId: home.homeId, id: home.hostIds[0]! };
+      const runId = randomUUID(),
+        claimToken = randomUUID();
+      const task = {
+        task: "host_capture_v2",
+        hostId: host.id,
+        homeId: host.homeId,
+        captureId: randomUUID(),
+        partyChoice: { kind: "new" },
+        locale: "es",
+        rawMessage: "Invite friends",
+      };
+      await db`insert into public.runs(id,home_id,session_id,task,status,payload,queue_claim_token) values(
+        ${runId},${home.homeId},${"capture_" + host.id},${task.task},'running',${db.json(task)},${claimToken})`;
+      expect((await agent`select current_user as role`)[0]?.role).toBe(
+        "layalga_agent_runtime",
+      );
+      expect((await web`select current_user as role`)[0]?.role).toBe(
+        "layalga_web_runtime",
+      );
+      await expect(
+        db`update public.invitations set link_scheme=1 where id=${home.parties[0]!.invitationId}`,
+      ).rejects.toMatchObject({ code: "23514" });
+      const details = {
+        homeId: home.homeId,
+        hostId: host.id,
+        partyName: "Cedar",
+        partyLocale: "es" as const,
+        rawMessage: task.rawMessage,
+      };
+      const result = await captureForRun(agent, details, { runId, claimToken });
+      await db`update public.runs set status='completed',queue_claim_token=null,payload='{}',result=null where id=${runId}`;
+      const reveal = () =>
+        recoverCaptureLink(web, host, runId, false, "https://example.test");
+      const first = await reveal();
+      expect(first.status).toBe("success");
+      if (first.status !== "success")
+        throw new Error("Missing authorized link");
+      const token = new URL(first.guestLink).pathname.split("/").at(-1)!;
+      expect((await findInvitationByToken(web, token))?.id).toBe(
+        result.invitationId,
+      );
+      const rows = async () =>
+        db`select to_jsonb(i) as invitation,to_jsonb(r) as run from public.invitations i join public.runs r on r.id=i.capture_run_id where i.id=${result.invitationId}`;
+      const initial = await rows();
+      expect(JSON.stringify(initial)).not.toContain(token);
+      await db`update public.parties set locale='en' where id=${result.partyId}`;
+      expect(await Promise.all([reveal(), reveal()])).toEqual([first, first]);
+      expect(await rows()).toEqual(initial);
+      const rotated = await reissueInvitationLink(web, result.invitationId, {
+        appUrl: "https://example.test",
+      });
+      expect(rotated).not.toBe(first.guestLink);
+      expect(await reveal()).toMatchObject({
+        status: "success",
+        guestLink: rotated,
+      });
+      expect(await findInvitationByToken(web, token)).toBeNull();
+      for (const role of ["anon", "authenticated"]) {
+        const [grants] =
+          await db`select has_column_privilege(${role},'public.invitations','link_generation','select') as readable,
+          has_column_privilege(${role},'public.invitations','capture_run_id','update') as writable`;
+        expect(grants).toEqual({ readable: false, writable: false });
+      }
+    } finally {
+      await home.cleanup();
+      await agent.end();
+      await web.end();
+    }
+  });
+
+  it("creates distinct parties for concurrent same-name New captures and reuses only the chosen returning record", async () => {
+    const home = await createFixtureHousehold(db, {
+      label: `Concurrent captures ${randomUUID()}`,
+      tokenSecret: "synthetic-capture-secret",
+      hosts: 2,
+      parties: [],
+    });
+    const deps = {
+      db,
+      clock: new FakeClock(new Date()),
+      scheduler: new NoopScheduler(),
+      appUrl: "http://localhost:3008",
+      locale: "en" as const,
+    };
+    const tasks = home.hostIds.map((hostId) => ({
+      task: "host_capture_v2" as const,
+      homeId: home.homeId,
+      hostId,
+      captureId: randomUUID(),
+      partyChoice: { kind: "new" as const },
+      locale: "en" as const,
+      rawMessage: "Invite Cedar family for a weekend",
+    }));
+    try {
+      const outcomes = await Promise.allSettled(
+        tasks.map((task) =>
+          runAgentTask(task, {
+            ...deps,
+            model: new TaskScriptedModel(task, deps),
+          }),
+        ),
+      );
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") throw outcome.reason;
+        expect(outcome.value.status).toBe("completed");
+      }
+      const rows = await db<
+        { id: string; family_name: string }[]
+      >`select p.id, p.family_name from public.parties p
+        join public.invitations i on i.party_id=p.id and i.home_id=p.home_id where p.home_id=${home.homeId} order by p.id`;
+      expect(rows.map((row) => row.family_name)).toEqual([
+        "Cedar family",
+        "Cedar family",
+      ]);
+      expect(rows[0]!.id).not.toBe(rows[1]!.id);
+      const returning = {
+        ...tasks[0]!,
+        captureId: randomUUID(),
+        rawMessage: "Invite other guests for a weekend",
+        partyChoice: { kind: "returning" as const, partyId: rows[1]!.id },
+      };
+      const result = await runAgentTask(returning, {
+        ...deps,
+        model: new TaskScriptedModel(returning, deps),
+      });
+      const [captured] =
+        await db`select i.party_id, p.family_name from public.invitations i join public.parties p on p.id=i.party_id
+        join public.audit_events ae on ae.payload->>'invitationId'=i.id::text and ae.home_id=i.home_id
+        where ae.run_id=${result.runId} and ae.kind='tool_call' and ae.payload->>'name'='capture_invitation'`;
+      expect(captured).toEqual({
+        party_id: rows[1]!.id,
+        family_name: "Cedar family",
+      });
+    } finally {
+      await home.cleanup();
+    }
+  });
+
+  it("preserves the application roles and denies anonymous or signed-in browser roles party access", async () => {
+    for (const role of ["anon", "authenticated"] as const) {
+      for (const operation of ["read", "write"] as const) {
+        await expect(
+          db.begin(async (tx) => {
+            await tx`set local role ${tx(role)}`;
+            if (operation === "read")
+              return tx`select id from public.parties limit 0`;
+            return tx`update public.parties set family_name=family_name where false`;
+          }),
+        ).rejects.toMatchObject({ code: "42501" });
+      }
+    }
+    for (const role of ["layalga_web_runtime", "layalga_agent_runtime"]) {
+      const [privileges] =
+        await db`select has_table_privilege(${role}, 'public.parties','select') as read,
+        has_table_privilege(${role}, 'public.parties','insert') as create,
+        has_table_privilege(${role}, 'public.parties','update') as change,
+        has_table_privilege(${role}, 'public.parties','delete') as remove,
+        has_table_privilege(${role}, 'public.parties','truncate') as truncate`;
+      expect(privileges).toEqual({
+        read: true,
+        create: true,
+        change: true,
+        remove: true,
+        truncate: false,
+      });
+    }
   });
 
   it("backfills upcoming booked links without changing revoked, cancelled or unbooked access", async () => {
@@ -311,6 +508,7 @@ describe("invitation persistence", () => {
         now: new Date("2099-08-31T10:00:00.000Z"),
       });
       const second = await captureInvitation(db, {
+        returningPartyId: first.partyId,
         homeId: home.id,
         hostId: host.id,
         partyName: "Returning family",

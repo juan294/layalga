@@ -114,6 +114,8 @@ test("@mobile every surface stays touch-safe at 390px", async ({
   await page.goto("/en");
   const approve = page.getByTestId("approve-decision");
   await expect(approve).toBeVisible();
+  await page.getByLabel("Invited party").selectOption("returning");
+  await expect(page.locator("#capture-party")).toBeVisible();
   await expectTouchSafe(page, "host dashboard");
 
   await Promise.all([

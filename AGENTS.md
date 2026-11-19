@@ -14,7 +14,7 @@ This project follows the cc-rpi methodology and is configured to work with both 
 When operating in Codex, treat these files as the source of truth:
 
 - `CLAUDE.md` -- project overview, workflow, commands, git, deployment, and safety contracts
-- `.claude/commands/*.md` -- workflow definitions for slash-style commands
+- `.claude/skills/rpi-*/SKILL.md` -- RPI workflow definitions (`/rpi-plan`, `/rpi-implement`, `/rpi-release` and the rest)
 - `.claude/rules/*.md` -- reusable rules and path-scoped constraints
 - `.claude/skills/*/SKILL.md` -- on-demand skills and domain procedures
 
@@ -27,8 +27,6 @@ references completely before acting. Use `/rpi-plan` in Claude Code or
 `$rpi-plan` in Codex for RPI planning; the other RPI workflows follow the
 same naming pattern. Native `/plan` and `/status` do not invoke RPI workflows.
 
-Retained project-specific commands in `.claude/commands/` apply only when
-explicitly invoked. Their presence does not replace the native RPI skills.
 If a workflow references a plan or research artifact, read it completely.
 
 ## Claude-to-Codex Translation
@@ -87,7 +85,7 @@ During research, describe what exists and do not implement improvements.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This is NOT the Next.js you know
+## This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
 
@@ -144,6 +142,7 @@ A new remote action needs authorization after the complete local gates pass.
   owned files, evidence/output, resource budget and terminal condition for each
   assignment. Missing required results remain coverage gaps until resolved.
 - Never write documents with placeholder values.
+- Before allocating local task services or reporting their cleanup, read `.rpi/rules/resource-lifecycle.md`. Release owned disposable resources within authorization or record a retained-resource handoff before task/worktree completion; report cleanup failures explicitly. A worktree or name prefix does not prove database ownership.
 - Exhaust all tools before suggesting manual steps --
   check CLI tools, shell commands, MCP servers, and file tools
   before escalating to the user.
@@ -173,8 +172,15 @@ efficiency. Track its findings with the other audit results; resolve security
 and infrastructure findings through the same review, repair and verification
 loop. Preserve all required audit domains regardless of staffing.
 
-Resolve every confirmed actionable finding before acceptance. Reject false
-positives with evidence. Strategic findings needing a new architectural decision
+Release verification is proportional. Wave A's truthful local gate applies to
+every release; Wave B exploratory charters and Waves C-H run only when the
+project's release profile selects them, one Wave B round per candidate.
+
+Resolve every confirmed actionable finding before acceptance. For an S3 or S4
+finding (below S1/S2: data loss, a security boundary breach, a broken core
+workflow or a normal-use defect with no workaround), an owner-approved accepted
+known issue, recorded with its severity and reason, is a valid disposition; fix
+it in a later release. Reject false positives with evidence. Strategic findings needing a new architectural decision
 receive explicit local dispositions and owner review; external issue creation
 requires authorization. Never silently discard a finding.
 
@@ -199,6 +205,7 @@ root-to-current-directory instruction chain. Preserve project-specific overrides
 
 | Task or path | Required resource | Essential constraint |
 | --- | --- | --- |
+| Docker, local stacks, database tests, task services or resource cleanup (even without a Dockerfile) | `.rpi/rules/resource-lifecycle.md` | Prove ownership; finish disposable lifecycles; preserve shared/recovery data and report retained resources. |
 | Deployment, CI, release or infrastructure configuration | `.rpi/rules/deployment-safety.md` | Local gates first; no Vercel Preview; production needs authorization. |
 | SQL, Supabase migrations, schema, data access or database tests | `.rpi/rules/supabase.md` | Reset/test locally; privileges and RLS are distinct; remote targets need authorization. |
 | Behavioral changes, tests, fixtures and validation | `.rpi/rules/testing.md` | TDD for behavioral code; every required check must run and pass. |
