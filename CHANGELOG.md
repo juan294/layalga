@@ -4,6 +4,40 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-19
+
+Invitation identity and link recovery, the November 18 triage fixes and a dependency update. It has two migrations and updates both the web app and the AgentCore runtime. Plan: [invitation identity and link recovery](docs/plans/2026-11-18-invitation-identity-and-link-recovery.md). Guest email activation remains separate.
+
+### Added
+
+- When a host captures an invitation, they choose **New party** (the default) or an existing party record, shown with its recent invitation and stay dates. Capture and memory recall use the selected party ID and never match by surname.
+- Two unrelated parties in one household can share a display name and keep separate invitations, guest accounts, visit histories and memory (migration `20261119000100_allow_shared_party_names.sql`).
+- The creator of a completed capture can reveal its guest link from the progress screen and reopen it later from the dashboard history. Repeated reveals return the same link while it is valid. A link from before this release can be replaced only after the host confirms that the old URL stops working (migration `20261118000200_invitation_link_recovery.sql`).
+- `/api/health` reports how long the oldest claimable queued run or due job has waited, and degrades only after ten minutes.
+
+### Changed
+
+- New-format guest links are derived from the existing link secret and invitation metadata, so the server can show the same active link again. Guest access still verifies the stored hash. The [data lifecycle](docs/security/data-lifecycle.md) describes the change.
+- An invitation is bound to its capture run in the same transaction as the capture, and a failed capture audit fails the run so that the host's retry restores it for the original invitation.
+- The language menu is a disclosure with navigation links.
+- Dependencies: Next.js 16.4.6, React 19.3.1, next-intl 4.15.1, Strands Agents SDK 1.25.0, AWS SDK 3.1169.0, Supabase JS 2.119.0, bedrock-agentcore 0.4.7, Fastify 5.12.8 and Playwright 1.65.1. CodeQL init and analyze are pinned together.
+
+### Fixed
+
+- A worker that lost its queue claim can no longer overwrite the session of a replacement worker or an approval continuation. The worker stops before its recovery deadline.
+- A first guest submission can confirm or reschedule only a visit of its own invitation.
+- Guests are asked again for overflow consent when the room selection changes.
+- Switching language keeps verification, calendar and return state.
+- Run status stops polling at its deadline and times out stalled status requests.
+- An empty or too long change request shows a field error.
+- The guest booking preparation WebMCP tool registers only while room options are visible.
+- Guest capability URLs no longer appear in the Next.js development request log.
+
+### Upgrade notes
+
+- Roll out in the order in the [release playbook](docs/release/e2e-pro-playbook.md#v240-rollout-order): apply `20261118000200` alone, deploy the web app, then AgentCore, pass the production probes, and only then apply `20261119000100`. The shared-name migration was renamed from `20261118000100` before release so that it sorts last. Only local and CI databases had applied it under the old name.
+- After duplicate names exist, a rollback must keep explicit-party behavior on both web and AgentCore. After the first recoverable link is issued, keep a web reader that shows the same active link.
+
 ## [2.3.1] - 2026-10-27
 
 Reliability fixes for agent execution, booking, guest email and household controls. No database migrations. The release updates both the web app and AgentCore runtime; guest email activation remains separate.

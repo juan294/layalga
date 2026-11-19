@@ -87,7 +87,7 @@ The real-use launch ships in two releases, because migrations run before the web
 
 The production gate is the `Production probes` workflow, dispatched from `main` with the exact deployed commit and the acknowledgement `WRITE PROBE FIXTURE`. It runs `pnpm run release:probes -- --target production` against two fixture households that it creates and deletes; it never reads or writes the real household. Apply migrations with `supabase db push --linked` before merging a release into `main`, because the merge deploys the web app. Follow `docs/release/e2e-pro-playbook.md`; production actions require explicit authorization.
 
-`develop` holds work that production does not have: the invitation identity and link recovery change (migrations `20261118000100_allow_shared_party_names.sql` and `20261118000200_invitation_link_recovery.sql`), which needs the web-first and AgentCore-first sequence in `docs/plans/2026-11-18-invitation-identity-and-link-recovery.md`, and the 2026-11-18 triage fixes. The production state above remains the last verified deployment until that release is promoted.
+v2.4.0 is prepared on `develop` and not yet in production: the invitation identity and link recovery change (migrations `20261118000200_invitation_link_recovery.sql` and `20261119000100_allow_shared_party_names.sql`), the 2026-11-18 triage fixes and the Next.js 16.4.6, React 19.3 and Strands 1.25 dependency update. It rolls out in the staged order in the playbook section "v2.4.0 rollout order": link recovery migration, web, AgentCore, production probes, then the shared-name migration. The production state above remains the last verified deployment until that release is promoted.
 
 ## Agent Behavior
 

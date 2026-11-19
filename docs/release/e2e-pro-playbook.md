@@ -12,7 +12,7 @@ Guest email delivery remains unactivated and follows [its readiness runbook](gue
 
 The bridge commit `8f845859cdb44e8128378927339d43694c6c9fae` supports explicit returning parties and treats older capture tasks as new parties. Ship the bridge independently. Keep the existing name constraint until the bridge web app and worker both serve traffic and have passed fixture captures.
 
-Before applying `20261118000100_allow_shared_party_names.sql` in an authorized release, complete these checks in order.
+Before applying `20261119000100_allow_shared_party_names.sql` in an authorized release, complete these checks in order. The migration was named `20261118000100` until the v2.4.0 release preparation renamed it to sort after the link recovery migration.
 
 1. Verify `/api/health` reports the exact web commit released with bridge support. Record the web deployment and source commit. Verify the worker build source and bundle identity from the corresponding deployment and record its runtime version.
 2. Run `pnpm run contract:preflight -- --runtime-id "$AGENTCORE_RUNTIME_ID" --expected-version "$BRIDGE_RUNTIME_VERSION"` using the version from the verified compatible build. The preflight checks the **DEFAULT** endpoint and requires it to be ready and serving that version.
@@ -20,6 +20,19 @@ Before applying `20261118000100_allow_shared_party_names.sql` in an authorized r
 4. With missing, stale or failed evidence, keep the bridge schema. Hosts can select a known returning record or supply a distinct display label for a new group until both writers are verified.
 
 After duplicate names exist, a rollback must keep the bridge's explicit-ID behavior on both web and worker. A writer that looks up parties by name can assign a visit or its memory to another family. Reinstating the old constraint would conflict with valid data. Keep the duplicates and use a compatible build or a forward fix. Historical account or memory repairs require a separate owner review.
+
+### v2.4.0 rollout order
+
+v2.4.0 ships the bridge, shared names and link recovery in one candidate. That candidate serves as the bridge: with the name constraint in place it refuses a duplicate new name and asks for a distinct label. The owner chose this order on 2026-11-19, so both cutovers above apply without a separate bridge release:
+
+1. Apply only `20261118000200_invitation_link_recovery.sql`, from a temporary copy of the candidate's `supabase/` directory without `20261119000100`, with `supabase db push --linked`. v2.3.1 still serves both targets. Check that `supabase migration list --linked` shows `20261118000200` applied and `20261119000100` pending, and that `/api/health` stays `ok`.
+2. Merge the release pull request into `main`. Verify the exact web commit at `/api/health`. Until AgentCore is updated, the old runtime refuses the new `host_capture_v2` task, so the hosts do not capture invitations in this window.
+3. Deploy AgentCore from a clean checkout of the same commit and run `pnpm run contract:preflight -- --runtime-id layalga_agent-mONXXjFms4 --expected-version <new version>`.
+4. Dispatch the production probes for the exact commit. `host-capture` asserts the selected returning party and, because `capture_run_id` exists, the bound run and recovery metadata.
+5. Apply `20261119000100_allow_shared_party_names.sql` with `supabase db push --linked` from the candidate checkout. Confirm that `parties_home_id_family_name_key` is gone and that `supabase migration list --linked` shows no pending migration.
+6. Dispatch the production probes again for the same commit, then run the orphaned-memory sweep.
+
+The production probes do not drive the browser reveal or the legacy replacement warning: fixture households have no Google host who can sign in. Browser tests cover those surfaces locally and in CI. A production check of the reveal on the real household needs a separate owner decision, because tests never write to the real household.
 
 ### Recoverable invitation links
 
