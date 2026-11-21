@@ -7,27 +7,31 @@ import { test } from "./helpers/household";
 test.use({ householdOptions: { parties: [] } });
 test.setTimeout(90_000);
 
-test("a guest can reach discovery and refine a search with JavaScript disabled", async ({
-  browser,
-  baseURL,
+test("a direct guest can use the discovery form when WebMCP registration fails", async ({
+  page,
 }) => {
-  const context = await browser.newContext({
-    baseURL,
-    javaScriptEnabled: false,
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "modelContext", {
+      configurable: true,
+      value: {
+        registerTool() {
+          document.documentElement.dataset.registrationAttempted = "true";
+          throw new Error("Registration unavailable");
+        },
+      },
+    });
   });
-  try {
-    const guest = await context.newPage();
-    await guest.goto("/en/sign-in");
-    await guest.getByRole("link", { name: en.SignIn.findStays }).click();
-    await guest.getByLabel(en.PublicStays.householdName).fill(randomUUID());
-    await guest
-      .getByRole("button", { name: en.PublicStays.search, exact: true })
-      .click();
-    await expect(guest.getByRole("status")).toHaveText(en.PublicStays.noMatch);
-    await expect(guest.getByLabel(en.PublicStays.householdName)).toBeEditable();
-  } finally {
-    await context.close();
-  }
+  await page.goto("/en/stays");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-registration-attempted",
+    "true",
+  );
+  await page.getByLabel(en.PublicStays.householdName).fill(randomUUID());
+  await page
+    .getByRole("button", { name: en.PublicStays.search, exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(en.PublicStays.noMatch);
+  await expect(page.getByLabel(en.PublicStays.householdName)).toBeEditable();
 });
 
 for (const [locale, messages] of [
