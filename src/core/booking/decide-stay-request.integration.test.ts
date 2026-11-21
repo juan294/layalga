@@ -69,9 +69,10 @@ async function scenario(adults = 2) {
 
 it("commits the exact rooms, calendar, verified account and one chase before attempting external scheduling", async () => {
   const { home, host, otherHost, userId, id } = await scenario();
-  const [unrelated] = await sql()`insert into public.parties(home_id,family_name,locale)
+  const [unrelated] =
+    await sql()`insert into public.parties(home_id,family_name,locale)
     values (${home.homeId},'Guest','en') returning id`;
-  let statusAtSchedule: string|undefined;
+  let statusAtSchedule: string | undefined;
   const scheduler = {
     cancel: vi.fn(),
     schedule: vi.fn(async () => {
@@ -85,7 +86,8 @@ it("commits the exact rooms, calendar, verified account and one chase before att
     scheduler,
   });
   expect(statusAtSchedule).toBe("confirmed");
-  const [untouched] = await sql()`select auth_user_id from public.parties where id=${unrelated!.id}`;
+  const [untouched] =
+    await sql()`select auth_user_id from public.parties where id=${unrelated!.id}`;
   expect(untouched!.auth_user_id).toBeNull();
   expect(booked).toMatchObject({
     status: "confirmed",
@@ -115,7 +117,11 @@ it("commits the exact rooms, calendar, verified account and one chase before att
     jobs: 1,
     audits: 1,
   });
-  expect(await decideRequestedStay(host,id,42,"confirm")).toMatchObject({status:"stale",currentStatus:"confirmed",replayed:false});
+  expect(await decideRequestedStay(host, id, 42, "confirm")).toMatchObject({
+    status: "stale",
+    currentStatus: "confirmed",
+    replayed: false,
+  });
   expect(scheduler.schedule).toHaveBeenCalledTimes(1);
   expect(
     await decideRequestedStay(host, id, 1, "confirm", { scheduler }),

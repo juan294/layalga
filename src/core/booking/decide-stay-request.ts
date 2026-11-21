@@ -4,6 +4,7 @@ import type { TransactionSql } from "postgres";
 import { z } from "zod";
 import { configuredScheduler } from "@/agent/scheduler";
 import { SystemClock, type Clock } from "@/core/clock";
+import { auditHostAction } from "@/core/host-operations";
 import { getDatabaseConnection } from "@/core/db/client";
 import type { Locale, StayRequestStatus } from "@/core/db/schema";
 import type { JobScheduler } from "@/core/reconfirmation/jobs";
@@ -99,9 +100,12 @@ async function recordDecision(
   if (!row)
     throw new Error("The locked stay request changed during the decision");
   if (actor)
-    await tx`insert into public.audit_events(home_id,actor,kind,payload)
-    values(${host.homeId},'host','stay_request_decided',
-      ${JSON.stringify({ requestId: proposal.id, hostId: actor, status, visitId })}::jsonb)`;
+    await auditHostAction(tx, host.homeId, "stay_request_decided", {
+      requestId: proposal.id,
+      hostId: actor,
+      status,
+      visitId,
+    });
   return outcome(status, row);
 }
 
@@ -204,11 +208,11 @@ export async function decideRequestedStay(
     async (
       tx,
     ): Promise<{ result: StayDecisionResult; scheduling?: SchedulingPlan }> => {
+      await lockBookingHome(tx, host.homeId);
       const [actor] = await tx<
         { display_name: string }[]
-      >`select display_name from public.hosts where home_id=${host.homeId} and id=${host.id}`;
+      >`select display_name from public.hosts where home_id=${host.homeId} and id=${host.id} for key share`;
       if (!actor) return { result: outcome("not_found") };
-      await lockBookingHome(tx, host.homeId);
       const now = clock.now();
       const [proposal] = await tx<
         Proposal[]
@@ -227,6 +231,8 @@ export async function decideRequestedStay(
           prior === "declined" ||
           prior === "needs_new_selection"
         ) {
+          if (reviewedVersion !== proposal.version - 1)
+            return { result: outcome("stale", proposal) };
           const sameAnswer =
             answer === (prior === "declined" ? "decline" : "confirm");
           return {
@@ -256,7 +262,7 @@ export async function decideRequestedStay(
       let booked;
       try {
         booked = await tx.savepoint((savepoint) =>
-          bookExactProposal(savepoint, host, proposal, clock),
+          bookExactProposal(savepoint, host, proposal, { now: () => now }),
         );
       } catch (error) {
         if (!(
