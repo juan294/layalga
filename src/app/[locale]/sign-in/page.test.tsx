@@ -51,6 +51,10 @@ describe("sign-in page", () => {
     expect(html).not.toContain("demo-enter");
   });
 
+  it("offers public stay search before Google sign-in", async () => {
+    expect(await renderPage("es")).toContain('href="/es/stays"');
+  });
+
   it("links to the privacy notice", async () => {
     const html = await renderPage("es");
 

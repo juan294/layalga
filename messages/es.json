@@ -22,7 +22,34 @@
     "dark": "Oscuro",
     "cycleLabel": "Tema: {state} — clic para cambiar"
   },
+  "PublicStays": {
+    "find": "Buscar una casa",
+    "householdName": "Nombre de la casa",
+    "search": "Buscar",
+    "invalidName": "Escribe al menos dos letras del nombre de la casa.",
+    "noMatch": "No se han encontrado casas. Prueba con otro nombre.",
+    "moreHomes": "Hay más coincidencias. Escribe más letras del nombre para acotar la búsqueda.",
+    "from": "Primera fecha de llegada",
+    "to": "Última fecha de salida",
+    "nights": "Noches",
+    "adults": "Adultos",
+    "children": "Menores",
+    "pets": "Mascotas",
+    "check": "Consultar disponibilidad",
+    "matches": "Estancias disponibles",
+    "review": "El anfitrión confirmará si podéis alojaros.",
+    "checkout": "Salida el {date}.",
+    "sleeps": "{count, plural, one {# plaza} other {# plazas}}",
+    "overflow": "Hasta {count} plazas con {arrangement}.",
+    "recommended": "Sugerida para vuestro grupo",
+    "moreStays": "Hay más estancias disponibles. Acota las fechas para compararlas.",
+    "invalid": "Revisa las fechas y el tamaño del grupo. Elige entre 1 y 30 noches en un periodo de hasta 90 días a partir de hoy, incluida la salida.",
+    "none": "No hay habitaciones para toda la estancia. Prueba con otras fechas o cambia el tamaño del grupo.",
+    "not_found": "Casa no disponible",
+    "unavailable": "Vuelve a intentarlo en unos instantes."
+  },
   "SignIn": {
+    "findStays": "Buscar una casa",
     "tagline": "ayalga — asturiano para describir un tesoro encontrado",
     "title": "Te damos la bienvenida a nuestra casa.",
     "description": "Dinos cuándo quieres venir a visitarnos y nos ocuparemos del resto. ¡Nos alegra recibirte!",
@@ -526,6 +553,17 @@
     "noStay": "Fechas pendientes",
     "changed": "Esta solicitud ha cambiado desde que la revisaste. Comprueba los datos actuales y vuelve a confirmar solo si quieres cancelarla.",
     "pendingInvitations": "Invitaciones pendientes de visita"
+  },
+  "HostPublicListing": {
+    "title": "Ficha pública",
+    "unlisted": "La casa no aparece en la búsqueda. Si la publicas, cualquiera podrá encontrarla por su nombre y ver las estancias disponibles y los detalles de las habitaciones para huéspedes.",
+    "published": "Los huéspedes pueden encontrar {name} y ver las estancias disponibles y los detalles de las habitaciones.",
+    "name": "Nombre público de la casa",
+    "publish": "Publicar la casa",
+    "unpublish": "Retirar la publicación",
+    "saved": "Se ha actualizado la ficha.",
+    "invalid": "Escribe un nombre público de entre 2 y 80 caracteres.",
+    "failed": "No se ha podido actualizar la ficha. Inténtalo de nuevo."
   },
   "HouseholdPolicy": {
     "title": "Normas de la casa",

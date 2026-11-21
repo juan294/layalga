@@ -4,19 +4,16 @@ import { getAgentClient } from "@/agent/client";
 import { configuredScheduler } from "@/agent/scheduler";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
-import { evaluateOverlap } from "@/core/policy/evaluate-overlap";
 import { applyGuestReconfirmation } from "@/core/reconfirmation/apply-guest-answer";
-import { recommendRoomsWithOverflow } from "@/core/rooms/recommendation";
 import { loadPartyRoomPreferences } from "@/core/memory/room-preferences";
 import type { MemoryClient } from "@/core/memory/client";
 import {
   explainRoomPreferences,
   type RoomPreferenceExplanation,
 } from "@/core/rooms/preferences";
-import {
-  loadGuestRoomSearchWindow,
-  roomOptionsForStay,
-} from "@/core/rooms/search";
+import { loadGuestRoomSearchWindow } from "@/core/rooms/search";
+import { enumerateStayOptions, type GuestSearchCriteria } from "./stay-options";
+export type { GuestSearchCriteria } from "./stay-options";
 import { toGuestRoomChoice, type GuestRoomChoice } from "./guest-room-contract";
 
 import {
@@ -31,15 +28,6 @@ export interface GuestOption {
   recommendedRoomIds: string[];
   hasOverlap: boolean;
   preferenceExplanation?: RoomPreferenceExplanation;
-}
-
-export interface GuestSearchCriteria {
-  from: string;
-  to: string;
-  nights: number;
-  adults: number;
-  children: number;
-  pets: number;
 }
 
 export interface GuestOptionState {
@@ -88,15 +76,6 @@ export async function findGuestOptionsForAuthority(
 ): Promise<GuestOptionState> {
   const connection = getDatabaseConnection();
   const clock = new SystemClock();
-  const broadDraft = {
-    stay: [input.from, input.to] as const,
-    adults: input.adults,
-    children: input.children,
-    pets: input.pets,
-    specialRequests: [] as string[],
-  };
-  const options: GuestOption[] = [];
-  const lastDeparture = utcDate(input.to);
   const windowState = await loadGuestRoomSearchWindow(
     connection.db,
     clock,
@@ -109,60 +88,23 @@ export async function findGuestOptionsForAuthority(
     memoryOptions,
   );
 
-  for (
-    let start = utcDate(input.from);
-    addDays(start, input.nights) <= lastDeparture &&
-    options.length < MAX_VISIT_OPTIONS;
-    start = addDays(start, 1)
-  ) {
-    const stay = [isoDay(start), isoDay(addDays(start, input.nights))] as const;
-    const draft = { ...broadDraft, stay };
-    const state = {
-      home: windowState.home,
-      rooms: [] as { id: string; name: string; beds: number }[],
-      visits: windowState.visits,
-    };
-    const availableRooms = roomOptionsForStay(windowState, stay);
-    state.rooms = availableRooms.map((room) => ({
-      id: room.id,
-      name: room.guestLabel,
-      beds: room.standardCapacity,
-    }));
-    const verdict = evaluateOverlap(draft, state);
-    const partySize = input.adults + input.children;
-    const recommendation = recommendRoomsWithOverflow(
-      availableRooms,
-      partySize,
-      preferences.preferences,
-    );
-    const effectiveVerdict =
-      verdict.decision === "deny" &&
-      verdict.reason === "beds" &&
-      recommendation?.usesOverflow
-        ? evaluateOverlap(draft, {
-            ...state,
-            rooms: availableRooms.map((room) => ({
-              id: room.id,
-              name: room.guestLabel,
-              beds: room.maximumCapacity,
-            })),
-          })
-        : verdict;
-    if (effectiveVerdict.decision !== "deny" && recommendation) {
-      options.push({
-        stay,
-        rooms: availableRooms.map(toGuestRoomChoice),
-        recommendedRoomIds: recommendation.rooms.map(({ id }) => id),
-        preferenceExplanation: explainRoomPreferences(
-          preferences,
-          recommendation.rooms,
-        ),
-        hasOverlap: state.visits.some(
-          (visit) =>
-            visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),
-        ),
-      });
-    }
+  const options: GuestOption[] = [];
+  for (const { stay, rooms, recommended } of enumerateStayOptions(
+    windowState,
+    input,
+    preferences.preferences,
+  )) {
+    options.push({
+      stay,
+      rooms: rooms.map(toGuestRoomChoice),
+      recommendedRoomIds: recommended.map(({ id }) => id),
+      preferenceExplanation: explainRoomPreferences(preferences, recommended),
+      hasOverlap: windowState.visits.some(
+        (visit) =>
+          visit.status !== "cancelled" && rangesOverlap(stay, visit.stay),
+      ),
+    });
+    if (options.length >= MAX_VISIT_OPTIONS) break;
   }
 
   return options.length > 0
@@ -255,20 +197,6 @@ export async function reconfirmGuestCore(
 function clean(value: string | undefined): string | undefined {
   const result = value?.trim();
   return result || undefined;
-}
-
-function utcDate(value: string): Date {
-  return new Date(`${value}T00:00:00.000Z`);
-}
-
-function addDays(value: Date, days: number): Date {
-  const result = new Date(value);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
-function isoDay(value: Date): string {
-  return value.toISOString().slice(0, 10);
 }
 
 function rangesOverlap(

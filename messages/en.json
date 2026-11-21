@@ -22,7 +22,34 @@
     "dark": "Dark",
     "cycleLabel": "Theme: {state} — click to change"
   },
+  "PublicStays": {
+    "find": "Find a household",
+    "householdName": "Household name",
+    "search": "Search",
+    "invalidName": "Enter at least two letters of the household name.",
+    "noMatch": "No households found. Try another name.",
+    "moreHomes": "More households match. Enter more of the name to narrow your search.",
+    "from": "Earliest check-in",
+    "to": "Latest checkout",
+    "nights": "Nights",
+    "adults": "Adults",
+    "children": "Children",
+    "pets": "Pets",
+    "check": "Check availability",
+    "matches": "Available stays",
+    "review": "The host will confirm whether you can stay.",
+    "checkout": "Check out on {date}.",
+    "sleeps": "Sleeps {count}",
+    "overflow": "Sleeps up to {count} with {arrangement}.",
+    "recommended": "Suggested for your group",
+    "moreStays": "More stays match. Narrow your dates to compare them.",
+    "invalid": "Check the dates and party size. Choose 1–30 nights in a future window of up to 90 days, including checkout.",
+    "none": "No rooms fit for the whole stay. Try other dates or a different group size.",
+    "not_found": "Household unavailable",
+    "unavailable": "Please try the search again in a moment."
+  },
   "SignIn": {
+    "findStays": "Find a household",
     "tagline": "ayalga — Asturian for a treasure found",
     "title": "Welcome to our home.",
     "description": "Let us know when you want to come visit and we'll take care of the rest. We're happy to have you!",
@@ -526,6 +553,17 @@
     "noStay": "Awaiting dates",
     "changed": "This request changed since your review. Check the current details below, then confirm again only if you still want to cancel.",
     "pendingInvitations": "Invitations awaiting a visit"
+  },
+  "HostPublicListing": {
+    "title": "Public listing",
+    "unlisted": "Your household is unlisted. Publishing lets anyone find it by name and see available stays and guest-facing room details.",
+    "published": "Guests can find {name} and see available stays and room details.",
+    "name": "Public household name",
+    "publish": "Publish household",
+    "unpublish": "Unpublish household",
+    "saved": "Listing updated.",
+    "invalid": "Enter a public household name between 2 and 80 characters.",
+    "failed": "The listing could not be updated. Try again."
   },
   "HouseholdPolicy": {
     "title": "Household rules",

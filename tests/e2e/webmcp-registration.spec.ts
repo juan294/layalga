@@ -215,3 +215,53 @@ async function executeWebMcpTool<
     { toolName: name, toolInput: input },
   ) as Promise<Result>;
 }
+
+test("public WebMCP looks up a published home and searches fourteen nights without a guest session", async ({
+  household,
+  page,
+}) => {
+  const name = `Public ${household.homeId}`;
+  const [listing] = await household.db<{ handle: string }[]>`
+    insert into public.household_public_listings (home_id, display_name, search_name, published)
+    values (${household.homeId}, ${name}, ${name.toLowerCase()}, true) returning handle
+  `;
+  await page.goto("/en/stays");
+  await expectRegisteredTools(page, [
+    "layalga.public.find_households",
+    "layalga.public.search_stays",
+  ]);
+  const homes = await executeWebMcpTool(
+    page,
+    "layalga.public.find_households",
+    { name },
+  );
+  expect(homes).toEqual({
+    status: "success",
+    listings: [{ handle: listing!.handle, displayName: name }],
+    truncated: false,
+  });
+  const [from, to] = fixtureStay(new Date(), 30, 14);
+  const input = {
+    handle: listing!.handle,
+    from,
+    to,
+    nights: 14,
+    adults: 2,
+    children: 0,
+    pets: 0,
+  };
+  const result = await executeWebMcpTool(
+    page,
+    "layalga.public.search_stays",
+    input,
+  );
+  expect(result).toMatchObject({
+    status: "success",
+    options: [{ stay: [from, to], rooms: expect.any(Array) }],
+    truncated: false,
+  });
+  await household.db`update public.household_public_listings set published=false where home_id=${household.homeId}`;
+  expect(
+    await executeWebMcpTool(page, "layalga.public.search_stays", input),
+  ).toEqual({ status: "not_found", options: [], truncated: false });
+});

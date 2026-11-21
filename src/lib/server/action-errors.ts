@@ -12,6 +12,7 @@ export type ActionErrorCode =
   | "host_decision_failed"
   | "household_policy_update_failed"
   | "memory_forget_failed"
+  | "public_listing_update_failed"
   | "private_room_block_cancel_failed"
   | "private_room_block_create_failed"
   | "room_inventory_create_failed"

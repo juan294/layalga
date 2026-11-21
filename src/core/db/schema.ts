@@ -115,6 +115,16 @@ export const rooms = pgTable("rooms", {
   createdAt: createdAt(),
 });
 
+export const householdPublicListings = pgTable("household_public_listings", {
+  homeId: uuid("home_id")
+    .primaryKey()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  handle: uuid("handle").notNull().unique().defaultRandom(),
+  displayName: text("display_name").notNull(),
+  searchName: text("search_name").notNull(),
+  published: boolean("published").notNull().default(false),
+});
+
 export const hosts = pgTable("hosts", {
   id: uuid("id").primaryKey().defaultRandom(),
   homeId: uuid("home_id")
