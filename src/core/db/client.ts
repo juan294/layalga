@@ -7,6 +7,7 @@ export function createDatabase(connectionString: string) {
   const sql = postgres(connectionString, {
     prepare: false,
     max: 4,
+    ...(process.env.NODE_ENV === "development" ? { idle_timeout: 15 } : {}),
   });
 
   return {
@@ -26,6 +27,14 @@ export function sqlClient(database: DatabaseClient): Sql {
 }
 
 let singleton: DatabaseConnection | undefined;
+
+// Development route reloads share a pool only for the exact configured target.
+function developmentPools() {
+  const runtime = globalThis as typeof globalThis & {
+    layalgaDevelopmentPools?: Map<string, DatabaseConnection>;
+  };
+  return (runtime.layalgaDevelopmentPools ??= new Map());
+}
 
 function getDatabaseUrl(): string {
   const connectionString = process.env.DATABASE_URL;
@@ -71,8 +80,15 @@ export function validateRuntimeDatabaseUrl(connectionString: string): string {
 }
 
 export function getDatabaseConnection(): DatabaseConnection {
-  singleton ??= createDatabase(getDatabaseUrl());
-  return singleton;
+  if (process.env.NODE_ENV !== "development")
+    return (singleton ??= createDatabase(getDatabaseUrl()));
+  const url = getDatabaseUrl();
+  const pools = developmentPools();
+  const cached = pools.get(url);
+  if (cached) return cached;
+  const connection = createDatabase(url);
+  pools.set(url, connection);
+  return connection;
 }
 
 export function getDatabase(): AppDatabase {
@@ -80,11 +96,15 @@ export function getDatabase(): AppDatabase {
 }
 
 export async function closeDatabase(): Promise<void> {
-  if (!singleton) {
-    return;
+  let connection = singleton;
+  if (process.env.NODE_ENV === "development") {
+    const url = process.env.DATABASE_URL;
+    if (!url) return;
+    const pools = developmentPools();
+    connection = pools.get(url);
+    pools.delete(url);
+  } else {
+    singleton = undefined;
   }
-
-  const connection = singleton;
-  singleton = undefined;
-  await connection.sql.end({ timeout: 5 });
+  if (connection) await connection.sql.end({ timeout: 5 });
 }

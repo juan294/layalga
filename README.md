@@ -23,15 +23,15 @@
   <img src="https://chapa.thecreativetoken.com/u/juan294/badge.svg" alt="juan294's Chapa Impact Badge" width="100%" />
 </a>
 
-Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
+L’Ayalga helps two hosts manage stays in their shared home. A guest can find a published household, describe a trip in English or Spanish, compare feasible dates and rooms, and send an exact request. Either host confirms once they have checked their plans. A private invitation also starts a stay, with automatic room checks and host review for exceptions. Both paths lead to the same visit, calendar and reconfirmation follow-up.
 
 ## Documentation
 
 The [documentation index](docs/README.md) lists every current document. The [host](docs/guides/host-manual.md) and [guest](docs/guides/guest-manual.md) manuals describe complete journeys; the [roadmap](docs/roadmap.md) separates released work from the remaining steps. L’Ayalga began as an AWS Agents for Humans hackathon entry; the [hackathon archive](docs/archive/hackathon/README.md) keeps the submission material, which describes the judged demo as of 2026-10-14.
 
-Production runs v2.3.1 (2026-10-27) at commit `a3524ee1de0665751a96807324e414525433cdfd`, with AgentCore runtime version 43 per its release evidence. Demo mode is gone: hosts sign in with Google (the header shows which account is signed in, and Google always offers its account picker), invited guests can sign in with the Google account that claimed their invitation, and the household starts with no rooms. The release passed the production probe gate on fixture households. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
+Production runs v2.4.0 (2026-11-19) at commit `587f42c84b07b2ab8f6bfe9cd34295e481928760`, with AgentCore runtime version 44. Demo mode is gone: hosts sign in with Google (the header shows which account is signed in, and Google always offers its account picker), invited guests can sign in with the Google account that claimed their invitation, and the household starts with no rooms. The release passed the production probe gate on fixture households. Human time savings have not been measured; guest-email activation and real-recipient delivery proof remain separate work.
 
-Release preparation: v2.4.0 adds explicit returning-party choice, shared family names and recoverable invitation links, with two migrations ([CHANGELOG.md](CHANGELOG.md#240---2026-11-19)). Production promotion and the matching AgentCore deployment are pending release verification.
+v2.4.0 adds explicit returning-party choice, shared family names and recoverable invitation links, with two migrations ([CHANGELOG.md](CHANGELOG.md#240---2026-11-19)). It passed the production probe gate.
 
 [![Simplified L’Ayalga AWS architecture](docs/architecture/layalga-aws-blog-architecture.drawio.png)](docs/architecture/layalga-aws-blog-architecture.drawio)
 
@@ -182,7 +182,7 @@ pnpm run test:e2e
 pnpm run release:probes -- --target local --base http://127.0.0.1:3008
 ```
 
-The release probes need a running local dev server. They create two fixture households, run every local probe on them and delete them. The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
+The release probes need a running local dev server. The local probes create three fixture households and a synthetic requester, exercise the booking flows and remove their fixtures. The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
 
 ## Deployment shape
 

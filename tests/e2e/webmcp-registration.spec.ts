@@ -1,3 +1,6 @@
+import en from "../../messages/en.json" with { type: "json" };
+import type { PublicStayOption } from "../../src/core/booking/public-stay-search";
+import { createFixtureRequester } from "./helpers/requester";
 import { clickAndWaitForPost } from "./helpers/async-actions";
 import { expect, type Page } from "@playwright/test";
 
@@ -215,3 +218,189 @@ async function executeWebMcpTool<
     { toolName: name, toolInput: input },
   ) as Promise<Result>;
 }
+
+test("public WebMCP looks up a published home and searches fourteen nights without a guest session", async ({
+  household,
+  page,
+}) => {
+  const name = `Public ${household.homeId}`;
+  const [listing] = await household.db<{ handle: string }[]>`
+    insert into public.household_public_listings (home_id, display_name, search_name, published)
+    values (${household.homeId}, ${name}, ${name.toLowerCase()}, true) returning handle
+  `;
+  await page.goto("/en/stays");
+  await expectRegisteredTools(page, [
+    "layalga.public.find_households",
+    "layalga.public.search_stays",
+  ]);
+  const homes = await executeWebMcpTool(
+    page,
+    "layalga.public.find_households",
+    { name },
+  );
+  expect(homes).toEqual({
+    status: "success",
+    listings: [{ handle: listing!.handle, displayName: name }],
+    truncated: false,
+  });
+  const [from, to] = fixtureStay(new Date(), 30, 14);
+  const input = {
+    handle: listing!.handle,
+    from,
+    to,
+    nights: 14,
+    adults: 2,
+    children: 0,
+    pets: 0,
+  };
+  const result = await executeWebMcpTool(
+    page,
+    "layalga.public.search_stays",
+    input,
+  );
+  expect(result).toMatchObject({
+    status: "success",
+    options: [{ stay: [from, to], rooms: expect.any(Array) }],
+    truncated: false,
+  });
+  await household.db`update public.household_public_listings set published=false where home_id=${household.homeId}`;
+  expect(
+    await executeWebMcpTool(page, "layalga.public.search_stays", input),
+  ).toEqual({ status: "not_found", options: [], truncated: false });
+});
+
+test("public preparation and private receipt tools follow the exact visible selection and current account", async ({
+  page,
+  context,
+  browser,
+  baseURL,
+  household,
+}) => {
+  const name = "Browser tool " + household.homeId;
+  const [listing] = await household.db<{ handle: string }[]>`
+    insert into public.household_public_listings(home_id,display_name,search_name,published)
+    values (${household.homeId},${name},${name.toLowerCase()},true) returning handle`;
+  const requester = await createFixtureRequester(household.db);
+  try {
+    const publicTools = [
+      "layalga.public.find_households",
+      "layalga.public.search_stays",
+    ];
+    const prepare = "layalga.public.prepare_stay_request";
+    const status = "layalga.guest.read_request_status";
+    await page.goto("/en/stays");
+    await expectRegisteredTools(page, publicTools);
+    const places = await executeWebMcpTool<{ listings: { handle: string }[] }>(
+      page,
+      publicTools[0]!,
+      { name },
+    );
+    expect(places.listings).toEqual([
+      { handle: listing!.handle, displayName: name },
+    ]);
+    const [from, to] = fixtureStay(new Date(), 70, 14);
+    const query = {
+      from,
+      to,
+      nights: "14",
+      adults: "3",
+      children: "0",
+      pets: "0",
+    };
+    const result = await executeWebMcpTool<{ options: PublicStayOption[] }>(
+      page,
+      publicTools[1]!,
+      {
+        ...query,
+        nights: 14,
+        adults: 3,
+        children: 0,
+        pets: 0,
+        handle: listing!.handle,
+      },
+    );
+    const option = result.options[0]!;
+    expect(option.stay).toEqual([from, to]);
+    await requester.signIn(context);
+    const overflowRoom = option.rooms.find(
+      (room) => room.standardCapacity < 3 && room.maximumCapacity >= 3,
+    )!;
+    await page.goto(
+      `/en/stays/${listing!.handle}?${new URLSearchParams(query)}`,
+    );
+    await expectRegisteredTools(page, [...publicTools, prepare]);
+    expect(
+      await executeWebMcpTool(page, prepare, {
+        from,
+        to,
+        roomRefs: [overflowRoom.ref],
+      }),
+    ).toMatchObject({ status: "prepared", requiresOverflowConsent: true });
+    const form = page.locator("details[open] form[data-webmcp-public-option]");
+    await expect(form.locator('input[name="room"]:checked')).toHaveCount(1);
+    await expect(form.locator('input[name="room"]:checked')).toHaveValue(
+      overflowRoom.ref,
+    );
+    const consent = form.locator('input[name="overflow"]');
+    await expect(consent).not.toBeChecked();
+    const [before] =
+      await household.db`select count(*)::int as n from public.stay_requests where home_id=${household.homeId}`;
+    expect(before!.n).toBe(0);
+    await form.getByLabel(en.StayRequests.notes).fill("Private travel detail");
+    await consent.check();
+    await form.getByRole("button", { name: en.StayRequests.review }).click();
+    const send = page.getByRole("button", { name: en.StayRequests.send });
+    await expect(send).toBeVisible();
+    await expectRegisteredTools(page, []);
+    await send.click();
+    await expect(page.getByRole("status")).toHaveText(
+      en.StayRequests.status.pending,
+    );
+    await expectRegisteredTools(page, [status]);
+    expect(await executeWebMcpTool(page, status, {})).toEqual({
+      status: "pending",
+      visitStatus: null,
+    });
+    const stranger = await createFixtureRequester(household.db);
+    try {
+      await stranger.signIn(context);
+      expect(await executeWebMcpTool(page, status, {})).toEqual({
+        status: "not_found",
+      });
+      await context.clearCookies();
+      expect(await executeWebMcpTool(page, status, {})).toEqual({
+        status: "sign_in",
+      });
+    } finally {
+      await stranger.cleanup();
+    }
+    await requester.signIn(context);
+    const receiptId = new URL(page.url()).pathname.split("/").at(-1)!;
+    const hostContext = await browser.newContext({ baseURL });
+    try {
+      await household.signIn(hostContext);
+      const dashboard = await hostContext.newPage();
+      await dashboard.goto("/en/review-stay/" + receiptId);
+      const card = dashboard.locator("#stay-request-" + receiptId);
+      await card
+        .getByRole("button", { name: en.HostStayRequests.confirm })
+        .click();
+      await expect(card.getByRole("status")).toContainText(
+        en.HostStayRequests.confirmed,
+      );
+      expect(await executeWebMcpTool(page, status, {})).toEqual({
+        status: "confirmed",
+        visitStatus: "confirmed",
+      });
+    } finally {
+      await hostContext.close();
+    }
+    await page.getByRole("link", { name: en.StayRequests.history }).click();
+    await expect(
+      page.getByRole("heading", { name: en.StayRequests.history }),
+    ).toBeVisible();
+    await expectRegisteredTools(page, []);
+  } finally {
+    await requester.cleanup();
+  }
+});

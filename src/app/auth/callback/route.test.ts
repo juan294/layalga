@@ -30,3 +30,17 @@ describe("OAuth callback paths", () => {
     expect(oauthNextPath(request)).toBe("/es");
   });
 });
+
+it("keeps prepared requester callbacks on the browser's configured origin", async () => {
+  const { authRequestOrigin } = await import("@/lib/auth/oauth-next");
+  const request = (host: string) =>
+    new NextRequest("http://localhost:3008/auth/callback", {
+      headers: { host },
+    });
+  expect(
+    authRequestOrigin(request("127.0.0.1:3008"), "http://127.0.0.1:3008"),
+  ).toBe("http://127.0.0.1:3008");
+  expect(
+    authRequestOrigin(request("other.example"), "http://127.0.0.1:3008"),
+  ).toBe("http://localhost:3008");
+});

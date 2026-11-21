@@ -59,6 +59,57 @@ describe("release probe recovery", () => {
     expect(await homesNamed(labels!)).toBe(0);
   });
 
+  it("recovers an interrupted local booking probe and preserves an unrelated account", async () => {
+    const runId = randomUUID();
+    const other = randomUUID();
+    const email = `stay-${runId}@probe.example.invalid`;
+    const fixture = await createFixtureHousehold(db, {
+      label: "Self-service probe " + runId,
+      tokenSecret,
+      hosts: 2,
+      parties: [],
+    });
+    try {
+      await db`insert into auth.users (id,email,aud,role) values (${runId},${email},'authenticated','authenticated'),(${other},${other + "@example.invalid"},'authenticated','authenticated')`;
+      expect(await removeProbeHouseholds(db, runId, true)).toBe(1);
+      expect(await removeProbeHouseholds(db, runId, true)).toBe(0);
+      const users = await db<
+        { id: string }[]
+      >`select id from auth.users where id in (${runId},${other})`;
+      expect(users.map((row) => row.id)).toEqual([other]);
+    } finally {
+      await fixture.cleanup();
+      await db`delete from auth.users where id in (${runId},${other})`;
+    }
+  });
+
+  it("proves self-service submits without booking and confirms with one human decision", async () => {
+    const stub = async () => "covered by its own probe";
+    const report = await runReleaseProbes(
+      parseReleaseCliOptions(["--target", "local"], {}),
+      {
+        health: stub,
+        "host-capture": stub,
+        "guest-confirmation": stub,
+        "concurrent-conflict": stub,
+        "interrupt-resume": stub,
+        reconfirmation: stub,
+        "room-coordination": stub,
+        "guest-isolation": stub,
+      },
+    );
+    expect(report.failure).toBeUndefined();
+    expect(report.evidence).toContainEqual({
+      probe: "self-service-booking",
+      status: "passed",
+      detail: expect.stringContaining("one host decision"),
+    });
+    const [remaining] = await db`select
+      (select count(*)::int from public.homes where name=${"Self-service probe " + report.runId}) as homes,
+      (select count(*)::int from auth.users where id=${report.runId}) as users`;
+    expect(remaining).toMatchObject({ homes: 0, users: 0 });
+  });
+
   it("runs the target's probes in the declared order", async () => {
     const ran: string[] = [];
     const record = (probe: string) => async () => {

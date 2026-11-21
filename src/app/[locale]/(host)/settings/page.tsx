@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 
 import { getDatabaseConnection, sqlClient } from "@/core/db/client";
+import { getHostPublicListing } from "@/core/booking/public-listings";
+import { PublicListingSettings } from "@/components/host/public-listing-settings";
 import { maskHostEmail } from "@/lib/auth/host-emails";
 import { HostBreadcrumb } from "@/components/host/host-breadcrumb";
 import { HouseholdPolicyPanel } from "@/components/host/household-policy-panel";
@@ -37,6 +39,7 @@ export default async function HostSettingsPage({
     order by claim.normalized_email
     limit 1
   `;
+  const listing = await getHostPublicListing(host);
   const maskedEmail = emailPingsSetting?.normalized_email
     ? maskHostEmail(emailPingsSetting.normalized_email)
     : null;
@@ -53,7 +56,9 @@ export default async function HostSettingsPage({
           <h2 style={headingStyle}>{t("emailPings.title")}</h2>
           {maskedEmail ? (
             <>
-              <p style={{ color: graphite, lineHeight: 1.6, margin: "0 0 1rem" }}>
+              <p
+                style={{ color: graphite, lineHeight: 1.6, margin: "0 0 1rem" }}
+              >
                 {t("emailPings.description", { address: maskedEmail })}
               </p>
               <form action={updateEmailPingsAction}>
@@ -76,10 +81,13 @@ export default async function HostSettingsPage({
               </p>
             </>
           ) : (
-            <p style={{ color: graphite, margin: 0 }}>{t("emailPings.noAddress")}</p>
+            <p style={{ color: graphite, margin: 0 }}>
+              {t("emailPings.noAddress")}
+            </p>
           )}
         </section>
 
+        <PublicListingSettings locale={safeLocale} listing={listing} />
         <HouseholdPolicyPanel
           homeId={host.homeId}
           hostId={host.id}

@@ -57,7 +57,7 @@ export default async function GuestAccountPage({
           ) : visits.length ? (
             <ol className={styles.accountVisits}>
               {visits.map((visit) => (
-                <li key={visit.id}>
+                <li key={visit.id} id={`visit-${visit.id}`}>
                   <strong>{visit.partyName}</strong>
                   <span>{formatDateStay(visit.stay, locale)}</span>
                   <small>{t(`status.${visit.status}`)}</small>

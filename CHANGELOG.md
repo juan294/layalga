@@ -4,6 +4,20 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-21
+
+### Added
+
+- Hosts can publish their household name in Settings. Guests can find a listed home without an invitation, compare available dates and rooms, and see any extra sleeping arrangements before choosing.
+- Guests can plan a stay in English or Spanish, refine the dates or room preferences, sign in with Google and send an exact request. A private receipt shows the host’s answer and lets the guest withdraw a pending request.
+- One host can confirm or decline. Confirmation rechecks the dates, rooms and household rules and books the stay immediately. Pending requests leave the rooms available. A guest whose selection has changed can choose new dates or rooms.
+- Compatible browsers can use four WebMCP tools to find a household, search availability, prepare the visible selection and read the signed-in guest’s receipt. The guest reviews and sends the prepared request on the page. A standalone ChatGPT app remains a separate integration. [Guest booking channels](docs/architecture/guest-booking-channels.md)
+
+### Changed
+
+- Apply the four migrations dated November 21 in order before deploying the web application. They add public listings, privately owned stay requests, the pending-request host notification type and the host decision reference. Existing households start unlisted and can continue sending private invitations.
+- The development server reuses its database pool across route reloads. The local release probes now exercise a first-time guest booking for fourteen nights and check that precisely one host decision creates one confirmed stay.
+
 ## [2.4.0] - 2026-11-19
 
 Invitation identity and link recovery, the November 18 triage fixes and a dependency update. It has two migrations and updates both the web app and the AgentCore runtime. Plan: [invitation identity and link recovery](docs/plans/2026-11-18-invitation-identity-and-link-recovery.md). Guest email activation remains separate.

@@ -3,6 +3,7 @@ import { findInvitationByToken } from "@/core/booking/invitations";
 import type { ExecutionRuntime } from "@/agent/deps";
 import { parseStoredRunResult } from "@/agent/task";
 import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
+import { verifiedRequester } from "@/lib/auth/verified-requester";
 import { getCurrentHost } from "@/lib/auth/current-host";
 import { objectValue } from "@/lib/json-object";
 
@@ -73,6 +74,7 @@ export async function getAuthorizedRunSnapshot(
       id: string;
       home_id: string;
       session_id: string;
+      task: string;
       status: RunStatus;
       result: unknown;
       finished_at: Date | string | null;
@@ -82,7 +84,7 @@ export async function getAuthorizedRunSnapshot(
     }[]
   >`
     select
-      r.id, r.home_id, r.session_id, r.status, r.result, r.finished_at,
+      r.id, r.home_id, r.session_id, r.task, r.status, r.result, r.finished_at,
       ae.kind as event_kind, ae.payload as event_payload,
       ae.created_at as event_created_at
     from public.runs r
@@ -120,6 +122,24 @@ export async function getAuthorizedRunSnapshot(
     authorized =
       guest?.homeId === run.home_id &&
       run.session_id === `inv_${guest.invitationId}`;
+  }
+  if (
+    !authorized &&
+    (run.task === "guest_change" || run.task === "guest_reconfirm")
+  ) {
+    const requester = await verifiedRequester();
+    if (requester) {
+      const [owned] = await sql<{ id: string }[]>`
+        select v.id from public.runs task
+        join public.stay_requests r on r.home_id = task.home_id and r.status = 'confirmed'
+        join public.visits v on (v.home_id, v.id) = (r.home_id, r.visit_id)
+        join public.parties p on (p.home_id, p.id) = (v.home_id, v.party_id)
+        where task.id = ${id} and task.payload->>'visitId' = v.id::text
+          and task.session_id = 'inv_' || v.invitation_id::text
+          and r.requester_id = ${requester.userId} and p.auth_user_id = r.requester_id
+      `;
+      authorized = Boolean(owned);
+    }
   }
   if (!authorized) return null;
 

@@ -1,3 +1,5 @@
+import { PendingStayRequests } from "@/components/host/pending-stay-requests";
+import { listHostPendingStayRequests } from "@/core/booking/stay-requests";
 import { HostOutcomes } from "@/components/host/host-outcomes";
 import { GuestDeliveryPanel } from "@/components/host/guest-delivery-panel";
 import { HostCancellationPanel } from "@/components/host/cancellation-panel";
@@ -81,7 +83,7 @@ export default async function HostTodayPage({
   const monthWindow = calendarMonthWindow(currentMonth);
 
   const query = await searchParams;
-  const [decisionRows, hubStatuses, parties, history] = await Promise.all([
+  const [decisionRows, hubStatuses, parties, history, stayRequests] = await Promise.all([
     sql<DecisionRow[]>`
       select pd.id, pd.status, p.family_name,
         pd.reason, pd.note, pd.application_error, pd.created_at,
@@ -146,6 +148,7 @@ export default async function HostTodayPage({
       order by p.family_name, last_invite desc nulls last, p.id
     `,
     captureHistory(host, query.capturePage),
+    listHostPendingStayRequests(host),
   ]);
   const selected = history.rows.find((row) => row.id === query.captureRun);
   const statusLabel = await getTranslations({
@@ -262,6 +265,7 @@ export default async function HostTodayPage({
       />
 
       <div style={sectionGridStyle}>
+        <PendingStayRequests requests={stayRequests} locale={safeLocale} />
         <section id="host-decisions" style={panelStyle}>
           <p style={labelStyle}>{t("decisions.eyebrow")}</p>
           <h2 style={headingStyle}>{t("decisions.title")}</h2>

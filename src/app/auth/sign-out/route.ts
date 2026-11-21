@@ -1,10 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { DRAFT_BROWSER_COOKIE } from "@/lib/auth/stay-request-draft";
+import { authRequestOrigin } from "@/lib/auth/oauth-next";
 import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (request.headers.get("origin") !== request.nextUrl.origin) {
+  if (request.headers.get("origin") !== authRequestOrigin(request)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -22,15 +24,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const response = NextResponse.redirect(
-    new URL(`/${locale}/sign-in`, request.url),
+    new URL(`/${locale}/sign-in`, authRequestOrigin(request)),
     303,
   );
-  response.cookies.set(GUEST_EMAIL_COOKIE, "", {
-    httpOnly: true,
-    maxAge: 0,
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
+  for (const name of [GUEST_EMAIL_COOKIE, DRAFT_BROWSER_COOKIE])
+    response.cookies.set(name, "", {
+      httpOnly: true,
+      maxAge: 0,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
   return response;
 }

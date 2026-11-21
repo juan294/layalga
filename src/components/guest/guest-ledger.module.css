@@ -403,3 +403,19 @@
   height: 1.25rem;
   width: 1.25rem;
 }
+
+.commandForm {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+  margin: 1.25rem 0;
+  padding: 1rem 0 1.25rem;
+  border-block: 1px solid var(--guest-rule);
+}
+.commandForm .field {
+  width: 100%;
+  margin-bottom: 0.3rem;
+}
+.reviewNavigation {
+  margin: 1.1rem 0;
+}

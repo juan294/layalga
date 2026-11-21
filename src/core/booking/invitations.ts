@@ -169,7 +169,7 @@ export async function captureForRun(
   });
 }
 
-async function insertCapture(
+export async function insertCapture(
   transaction: TransactionSql,
   input: CaptureInvitationInput,
   runId?: string,

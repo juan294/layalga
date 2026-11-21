@@ -115,6 +115,16 @@ export const rooms = pgTable("rooms", {
   createdAt: createdAt(),
 });
 
+export const householdPublicListings = pgTable("household_public_listings", {
+  homeId: uuid("home_id")
+    .primaryKey()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  handle: uuid("handle").notNull().unique().defaultRandom(),
+  displayName: text("display_name").notNull(),
+  searchName: text("search_name").notNull(),
+  published: boolean("published").notNull().default(false),
+});
+
 export const hosts = pgTable("hosts", {
   id: uuid("id").primaryKey().defaultRandom(),
   homeId: uuid("home_id")
@@ -572,7 +582,7 @@ export const notifications = pgTable(
   ],
 );
 
-export type HostEmailPingKind = "pending_decision" | "reconfirm_escalation";
+export type HostEmailPingKind = "pending_decision" | "reconfirm_escalation" | "pending_stay_request";
 export type HostEmailPingStatus = "sending" | "sent" | "failed";
 
 export const hostEmailPings = pgTable(
@@ -709,4 +719,46 @@ export const guestEmailAttempts = pgTable("guest_email_attempts", {
   }).notNull(),
   acceptedAt: timestamp("accepted_at", { withTimezone: true, mode: "date" }),
   messageId: text("message_id"),
+});
+
+export type StayRequestStatus =
+  | "pending"
+  | "confirmed"
+  | "declined"
+  | "withdrawn"
+  | "expired"
+  | "needs_new_selection";
+export const stayRequests = pgTable("stay_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  homeId: uuid("home_id")
+    .notNull()
+    .references(() => homes.id, { onDelete: "cascade" }),
+  listingHandle: uuid("listing_handle").notNull(),
+  displayName: text("display_name").notNull(),
+  requesterId: uuid("requester_id").notNull(),
+  requesterEmail: text("requester_email"),
+  idempotencyKey: uuid("idempotency_key").notNull(),
+  payloadHash: text("payload_hash").notNull(),
+  stay: dateRange("stay"),
+  adults: integer("adults"),
+  children: integer("children"),
+  pets: integer("pets"),
+  roomIds: uuid("room_ids").array().notNull(),
+  roomTerms: jsonb("room_terms").notNull(),
+  overflowConsent: boolean("overflow_consent").notNull(),
+  notes: text("notes").notNull(),
+  requests: text("requests").notNull(),
+  locale: text("locale").$type<Locale>().notNull(),
+  status: text("status")
+    .$type<StayRequestStatus>()
+    .notNull()
+    .default("pending"),
+  version: integer("version").notNull().default(1),
+  decidedByHostId: uuid("decided_by_host_id"),
+  visitId: uuid("visit_id"),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  terminalAt: timestamp("terminal_at", { withTimezone: true, mode: "date" }),
 });

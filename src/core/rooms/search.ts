@@ -1,7 +1,8 @@
 import "@/core/server-only";
 
 import type { Clock } from "@/core/clock";
-import { sqlClient, type DatabaseClient } from "@/core/db/client";
+import type { TransactionSql } from "postgres";
+import type { DatabaseClient } from "@/core/db/client";
 import type { HouseState } from "@/core/policy/evaluate-overlap";
 import type {
   RoomInventoryState,
@@ -28,12 +29,12 @@ export interface GuestRoomSearchWindow {
 }
 
 export async function loadGuestRoomSearchWindow(
-  database: DatabaseClient,
+  database: DatabaseClient | TransactionSql,
   clock: Clock,
   homeId: string,
   window: StayRange,
 ): Promise<GuestRoomSearchWindow> {
-  const sql = sqlClient(database);
+  const sql = "$client" in database ? database.$client : database;
   const [homeRows, roomRows, overrideRows, occupancyRows, visitRows] =
     await Promise.all([
       sql<

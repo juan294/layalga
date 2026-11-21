@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import {
   afterAll,
@@ -145,6 +146,65 @@ describe("email outbox", () => {
       { status: "sent", to_address: hostEmails[0] },
       { status: "sent", to_address: hostEmails[1] },
     ]);
+  });
+
+  it("links a pending stay to the exact host card and leaves a failed ping retryable only while pending", async () => {
+    stubEmailEnv();
+    const userId = randomUUID();
+    await sql`insert into auth.users(id) values (${userId})`;
+    try {
+      const [listing] =
+        await sql`insert into public.household_public_listings(home_id,display_name,search_name,published)
+        values (${homeId}, 'Outbox house','outbox house',true) returning handle`;
+      const [room] =
+        await sql`insert into public.rooms(home_id,name,beds) values (${homeId},'Test room',2) returning id`;
+      const [request] =
+        await sql`insert into public.stay_requests(home_id,listing_handle,display_name,requester_id,requester_email,
+        idempotency_key,payload_hash,stay,adults,children,pets,room_ids,room_terms,overflow_consent,notes,requests,locale)
+        values (${homeId},${listing!.handle},'Outbox house',${userId},'guest@example.test',${randomUUID()},
+          ${"a".repeat(64)},daterange('2031-07-01','2031-07-15','[)'),2,0,0,array[${room!.id}::uuid],
+          '[{"guestLabel":"Guest room"}]'::jsonb,false,'','', 'en') returning id`;
+      await sql`insert into public.host_notification_settings(host_id,home_id,email_pings) values (${hostIds[1]},${homeId},false)`;
+      const clock = new FakeClock(new Date("2031-06-10T09:00:00Z"));
+      const failed = fakeSend(() => {
+        throw new Error("Synthetic provider failure");
+      });
+      await dispatchHostEmailPings(sql, clock, failed.send);
+      const stayPings = failed.calls.filter((call) =>
+        call.text.includes("/review-stay/"),
+      );
+      expect(stayPings).toHaveLength(1);
+      expect(stayPings[0]).toMatchObject({
+        toAddress: hostEmails[0],
+        text: expect.stringContaining(`/en/review-stay/${request!.id}`),
+      });
+      expect(
+        await sql`select status from public.stay_requests where id=${request!.id}`,
+      ).toMatchObject([{ status: "pending" }]);
+      clock.advance(6 * 60 * 1000);
+      await sql`update public.host_notification_settings set email_pings=true where host_id=${hostIds[1]}`;
+      // The request is withdrawn after the first provider acceptance but before
+      // the second candidate's recheck. The second host must receive no email.
+      const accepted = fakeSend(async () => {
+        await sql`update public.stay_requests set status='withdrawn', terminal_at=now(),
+          version=version+1 where id=${request!.id} and status='pending'`;
+        return { messageId: "fixture-provider-accepted" };
+      });
+      await dispatchHostEmailPings(sql, clock, accepted.send);
+      expect(
+        accepted.calls.filter((call) => call.text.includes("/review-stay/")),
+      ).toHaveLength(1);
+      await dispatchHostEmailPings(sql, clock, accepted.send);
+      expect(
+        accepted.calls.filter((call) => call.text.includes("/review-stay/")),
+      ).toHaveLength(1);
+      expect(
+        await sql`select error_name from public.host_email_pings where kind='pending_stay_request'
+        and source_id=${request!.id} and host_id=${hostIds[1]}`,
+      ).toMatchObject([{ error_name: "ObsoleteNotification" }]);
+    } finally {
+      await sql`delete from auth.users where id=${userId}`;
+    }
   });
 
   it("skips a host who turned consent off", async () => {

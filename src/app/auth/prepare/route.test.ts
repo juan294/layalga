@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { OAUTH_NEXT_COOKIE } from "@/lib/auth/oauth-next";
 
@@ -47,3 +47,23 @@ function request(next: string): NextRequest {
     method: "POST",
   });
 }
+
+it("accepts the configured browser origin when Next normalizes the loopback request URL", async () => {
+  vi.stubEnv("APP_URL", "http://127.0.0.1:3008");
+  try {
+    const response = await POST(
+      new NextRequest("http://localhost:3008/auth/prepare", {
+        method: "POST",
+        headers: {
+          origin: "http://127.0.0.1:3008",
+          host: "127.0.0.1:3008",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ next: "/en/requests/review" }),
+      }),
+    );
+    expect(response.status).toBe(204);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

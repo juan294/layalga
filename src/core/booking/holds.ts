@@ -128,7 +128,7 @@ interface VisitRow {
   hold_expires_at: Date | string | null;
 }
 
-interface SchedulingPlan {
+export interface SchedulingPlan {
   cancelledExternalRefs: string[];
   request: ScheduledJobRequest | null;
   visitId: string;
@@ -140,115 +140,122 @@ export async function createTemporaryHold(
   input: CreateTemporaryHoldInput,
   options: HoldOptions = {},
 ): Promise<VisitResult> {
+  try {
+    return await sqlClient(database).begin((tx) =>
+      createTemporaryHoldInTransaction(tx, clock, input, options),
+    );
+  } catch (error) {
+    throw mapRoomConflict(error, options.lockHome === false);
+  }
+}
+
+export async function createTemporaryHoldInTransaction(
+  transaction: TransactionSql,
+  clock: Clock,
+  input: CreateTemporaryHoldInput,
+  options: HoldOptions = {},
+): Promise<VisitResult> {
   validateParty(input);
   if ((input.guestNotes?.length ?? 0) > MAX_GUEST_NOTES_LENGTH)
     throw new RangeError("Guest notes exceed the supported maximum");
   validateStay(input.stay);
-  const client = sqlClient(database);
+  const invitations = await transaction<InvitationContext[]>`
+    select home_id, party_id
+    from public.invitations
+    where id = ${input.invitationId}
+      and status <> 'cancelled'
+  `;
+  const invitation = invitations[0];
+  if (!invitation)
+    throw new Error(`Invitation not found: ${input.invitationId}`);
 
-  try {
-    return await client.begin(async (transaction) => {
-      const invitations = await transaction<InvitationContext[]>`
-        select home_id, party_id
-        from public.invitations
-        where id = ${input.invitationId}
-          and status <> 'cancelled'
-      `;
-      const invitation = invitations[0];
-      if (!invitation)
-        throw new Error(`Invitation not found: ${input.invitationId}`);
-
-      const home = await loadHome(
-        transaction,
-        invitation.home_id,
-        options.lockHome !== false,
-      );
-      // Recheck after the home lock: withdrawal may have committed while
-      // this task waited after its initial invitation lookup.
-      const [activeInvitation] = await transaction`
-        select id from public.invitations where id = ${input.invitationId} and status <> 'cancelled'
-      `;
-      if (!activeInvitation) throw new Error("The invitation was cancelled");
-      await expireHomeHolds(transaction, invitation.home_id, clock.now());
-      const [activeVisit] = await transaction`
-        select id from public.visits
-        where invitation_id = ${input.invitationId} and status <> 'cancelled'
-        limit 1
-      `;
-      if (activeVisit) {
-        throw new Error(
-          "This invitation already has an active visit. Use rescheduleVisit to change it.",
-        );
-      }
-      const draft = toDraft(input);
-      await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
-      const allocation = await selectRoomAllocation(
-        transaction,
-        home,
-        draft,
-        input.roomIds,
-        input.overflowConsent ?? false,
-        Boolean(input.approvedBy),
-      );
-      const state = await loadHouseState(
-        transaction,
-        home,
-        draft.stay,
-        allocation.policyRooms,
-      );
-      const verdict = evaluateOverlap(draft, state);
-      assertBookable(verdict);
-      draft.roomIds ??= allocation.rooms.map(({ id }) => id);
-
-      const now = clock.now();
-      const holdExpiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1_000);
-      const approvalHash = input.approvedBy ? stayApprovalHash(draft) : null;
-      const visits = await transaction<{ id: string }[]>`
-        insert into public.visits (
-          home_id,
-          party_id,
-          invitation_id,
-          stay,
-          adults,
-          children,
-          pets,
-          special_requests,
-          guest_notes,
-          status,
-          hold_expires_at,
-          approval_stay_hash
-        )
-        values (
-          ${invitation.home_id},
-          ${invitation.party_id},
-          ${input.invitationId},
-          daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)'),
-          ${input.adults},
-          ${input.children ?? 0},
-          ${input.pets ?? 0},
-          ${transaction.array([...(input.specialRequests ?? [])])},
-          ${input.guestNotes?.trim() ?? ""},
-          'hold',
-          ${holdExpiresAt.toISOString()},
-          ${approvalHash}
-        )
-        returning id
-      `;
-      const visitId = visits[0]?.id;
-      if (!visitId) throw new Error("Failed to create the temporary hold");
-
-      await insertVisitRooms(
-        transaction,
-        visitId,
-        invitation.home_id,
-        input.stay,
-        allocation.rooms,
-      );
-      return { visitId, allocation: allocation.rooms, status: "hold" };
-    });
-  } catch (error) {
-    throw mapRoomConflict(error, options.lockHome === false);
+  const home = await loadHome(
+    transaction,
+    invitation.home_id,
+    options.lockHome !== false,
+  );
+  // Recheck after the home lock: withdrawal may have committed while
+  // this task waited after its initial invitation lookup.
+  const [activeInvitation] = await transaction`
+    select id from public.invitations where id = ${input.invitationId} and status <> 'cancelled'
+  `;
+  if (!activeInvitation) throw new Error("The invitation was cancelled");
+  await expireHomeHolds(transaction, invitation.home_id, clock.now());
+  const [activeVisit] = await transaction`
+    select id from public.visits
+    where invitation_id = ${input.invitationId} and status <> 'cancelled'
+    limit 1
+  `;
+  if (activeVisit) {
+    throw new Error(
+      "This invitation already has an active visit. Use rescheduleVisit to change it.",
+    );
   }
+  const draft = toDraft(input);
+  await assertHostInHome(transaction, input.approvedBy, invitation.home_id);
+  const allocation = await selectRoomAllocation(
+    transaction,
+    home,
+    draft,
+    input.roomIds,
+    input.overflowConsent ?? false,
+    Boolean(input.approvedBy),
+  );
+  const state = await loadHouseState(
+    transaction,
+    home,
+    draft.stay,
+    allocation.policyRooms,
+  );
+  const verdict = evaluateOverlap(draft, state);
+  assertBookable(verdict);
+  draft.roomIds ??= allocation.rooms.map(({ id }) => id);
+
+  const now = clock.now();
+  const holdExpiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1_000);
+  const approvalHash = input.approvedBy ? stayApprovalHash(draft) : null;
+  const visits = await transaction<{ id: string }[]>`
+    insert into public.visits (
+      home_id,
+      party_id,
+      invitation_id,
+      stay,
+      adults,
+      children,
+      pets,
+      special_requests,
+      guest_notes,
+      status,
+      hold_expires_at,
+      approval_stay_hash
+    )
+    values (
+      ${invitation.home_id},
+      ${invitation.party_id},
+      ${input.invitationId},
+      daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)'),
+      ${input.adults},
+      ${input.children ?? 0},
+      ${input.pets ?? 0},
+      ${transaction.array([...(input.specialRequests ?? [])])},
+      ${input.guestNotes?.trim() ?? ""},
+      'hold',
+      ${holdExpiresAt.toISOString()},
+      ${approvalHash}
+    )
+    returning id
+  `;
+  const visitId = visits[0]?.id;
+  if (!visitId) throw new Error("Failed to create the temporary hold");
+
+  await insertVisitRooms(
+    transaction,
+    visitId,
+    invitation.home_id,
+    input.stay,
+    allocation.rooms,
+  );
+  return { visitId, allocation: allocation.rooms, status: "hold" };
 }
 
 export async function confirmVisit(
@@ -258,99 +265,101 @@ export async function confirmVisit(
   approvedBy?: string,
   scheduler: JobScheduler = noopJobScheduler,
 ): Promise<VisitResult> {
-  const client = sqlClient(database);
-
   try {
-    const { result, scheduling } = await client.begin(async (transaction) => {
-      const visit = await loadVisitWithHomeLock(transaction, visitId);
-      if (visit.status === "cancelled")
-        throw new Error("A cancelled visit cannot be confirmed");
-      await assertHostInHome(transaction, approvedBy, visit.home_id);
-      if (visit.status !== "hold") {
-        return {
-          result: await existingVisitResult(transaction, visit),
-          scheduling: emptyScheduling(visit.id),
-        };
-      }
-      assertActiveHold(visit, clock.now());
-
-      const home = await loadHome(transaction, visit.home_id, false);
-      const expired = await expireHomeHolds(
-        transaction,
-        visit.home_id,
-        clock.now(),
-      );
-      const draft = visitDraft(visit);
-      const heldRoomIds = await loadVisitRoomIds(transaction, visit.id);
-      draft.roomIds = heldRoomIds;
-      const overflowPreviouslyApproved =
-        visit.approval_stay_hash ===
-        stayApprovalHash({ ...draft, overflowConsent: true });
-      draft.overflowConsent = overflowPreviouslyApproved ? true : undefined;
-      const allocation = await selectRoomAllocation(
-        transaction,
-        home,
-        draft,
-        heldRoomIds,
-        overflowPreviouslyApproved,
-        overflowPreviouslyApproved,
-      );
-      const verdict = evaluateOverlap(
-        draft,
-        await loadHouseState(
-          transaction,
-          home,
-          draft.stay,
-          allocation.policyRooms,
-        ),
-      );
-      assertBookable(verdict);
-
-      const approvalHash = approvedBy ? stayApprovalHash(draft) : null;
-      const now = clock.now();
-      const [confirmed] = await transaction<{ id: string }[]>`
-        update public.visits
-        set status = 'confirmed',
-            confirmed_at = ${now.toISOString()},
-            hold_expires_at = null,
-            approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash),
-            calendar_eligible_at = coalesce(calendar_eligible_at, ${now.toISOString()}),
-            calendar_updated_at = ${now.toISOString()},
-            calendar_sequence = case
-              when calendar_eligible_at is null then calendar_sequence
-              else calendar_sequence + 1
-            end
-        where id = ${visitId} and status = 'hold'
-        returning id
-      `;
-      if (!confirmed) throw new Error(`Visit is no longer held: ${visitId}`);
-      await extendInvitationAccessForStay(
-        transaction,
-        visit.invitation_id,
-        visit.stay_end,
-      );
-      const scheduling = await replaceChaseJob(
-        transaction,
-        visit,
-        home.timezone,
-        now,
-      );
-      scheduling.cancelledExternalRefs.push(...expired.externalRefs);
-
-      return {
-        result: {
-          visitId,
-          allocation: allocation.rooms,
-          status: "confirmed" as const,
-        },
-        scheduling,
-      };
-    });
+    const { result, scheduling } = await sqlClient(database).begin((tx) =>
+      confirmVisitInTransaction(tx, clock, visitId, approvedBy),
+    );
     await syncChaseJob(database, scheduler, scheduling);
     return result;
   } catch (error) {
     throw mapRoomConflict(error);
   }
+}
+
+export async function confirmVisitInTransaction(
+  transaction: TransactionSql,
+  clock: Clock,
+  visitId: string,
+  approvedBy?: string,
+): Promise<{ result: VisitResult; scheduling: SchedulingPlan }> {
+  const visit = await loadVisitWithHomeLock(transaction, visitId);
+  if (visit.status === "cancelled")
+    throw new Error("A cancelled visit cannot be confirmed");
+  await assertHostInHome(transaction, approvedBy, visit.home_id);
+  if (visit.status !== "hold") {
+    return {
+      result: await existingVisitResult(transaction, visit),
+      scheduling: emptyScheduling(visit.id),
+    };
+  }
+  assertActiveHold(visit, clock.now());
+
+  const home = await loadHome(transaction, visit.home_id, false);
+  const expired = await expireHomeHolds(
+    transaction,
+    visit.home_id,
+    clock.now(),
+  );
+  const draft = visitDraft(visit);
+  const heldRoomIds = await loadVisitRoomIds(transaction, visit.id);
+  draft.roomIds = heldRoomIds;
+  const overflowPreviouslyApproved =
+    visit.approval_stay_hash ===
+    stayApprovalHash({ ...draft, overflowConsent: true });
+  draft.overflowConsent = overflowPreviouslyApproved ? true : undefined;
+  const allocation = await selectRoomAllocation(
+    transaction,
+    home,
+    draft,
+    heldRoomIds,
+    overflowPreviouslyApproved,
+    overflowPreviouslyApproved,
+  );
+  const verdict = evaluateOverlap(
+    draft,
+    await loadHouseState(transaction, home, draft.stay, allocation.policyRooms),
+  );
+  assertBookable(verdict);
+
+  const approvalHash = approvedBy ? stayApprovalHash(draft) : null;
+  const now = clock.now();
+  const [confirmed] = await transaction<{ id: string }[]>`
+    update public.visits
+    set status = 'confirmed',
+        confirmed_at = ${now.toISOString()},
+        hold_expires_at = null,
+        approval_stay_hash = coalesce(${approvalHash}, approval_stay_hash),
+        calendar_eligible_at = coalesce(calendar_eligible_at, ${now.toISOString()}),
+        calendar_updated_at = ${now.toISOString()},
+        calendar_sequence = case
+          when calendar_eligible_at is null then calendar_sequence
+          else calendar_sequence + 1
+        end
+    where id = ${visitId} and status = 'hold'
+    returning id
+  `;
+  if (!confirmed) throw new Error(`Visit is no longer held: ${visitId}`);
+  await extendInvitationAccessForStay(
+    transaction,
+    visit.invitation_id,
+    visit.stay_end,
+  );
+  const scheduling = await replaceChaseJob(
+    transaction,
+    visit,
+    home.timezone,
+    now,
+  );
+  scheduling.cancelledExternalRefs.push(...expired.externalRefs);
+
+  return {
+    result: {
+      visitId,
+      allocation: allocation.rooms,
+      status: "confirmed" as const,
+    },
+    scheduling,
+  };
 }
 
 export async function cancelVisit(
@@ -581,6 +590,13 @@ export function stayApprovalHash(draft: VisitDraft): string {
     .digest("hex");
 }
 
+export async function lockBookingHome(
+  transaction: TransactionSql,
+  homeId: string,
+): Promise<void> {
+  await transaction`select pg_advisory_xact_lock(hashtextextended(${homeId.toLowerCase()}::text, 0))`;
+}
+
 async function loadHome(
   transaction: TransactionSql,
   homeId: string,
@@ -589,11 +605,7 @@ async function loadHome(
   // Serialize per home with a transaction-scoped advisory lock rather than
   // `select ... for update`: a row lock needs UPDATE on homes, which the
   // read-only layalga_agent_runtime role deliberately does not have.
-  if (lock) {
-    await transaction`
-      select pg_advisory_xact_lock(hashtextextended(${homeId}::text, 0))
-    `;
-  }
+  if (lock) await lockBookingHome(transaction, homeId);
   const rows = await transaction<HomeRow[]>`
     select id, timezone, pets_together_allowed, max_families_with_children
     from public.homes
@@ -966,7 +978,7 @@ async function replaceChaseJob(
   };
 }
 
-async function syncChaseJob(
+export async function syncChaseJob(
   database: DatabaseClient,
   scheduler: JobScheduler,
   scheduling: SchedulingPlan,

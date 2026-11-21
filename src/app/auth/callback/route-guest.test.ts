@@ -38,6 +38,70 @@ describe("OAuth callback from the main sign-in page", () => {
     hasPartyForUser.mockResolvedValue(false);
   });
 
+  it.each([
+    "/en/requests",
+    "/es/requests/review",
+    "/es/requests/eab9e960-0b40-4f02-8fa8-6df08829cb96",
+  ])(
+    "opens only the request view for a verified first-time Google guest: %s",
+    async (path) => {
+      auth.getUser.mockResolvedValue({
+        data: {
+          user: {
+            ...user,
+            email_confirmed_at: "2030-01-01",
+            identities: [{ provider: "google" }],
+          },
+        },
+      });
+      expect(location(await GET(callback(path)))).toBe(path);
+      expect(auth.signOut).not.toHaveBeenCalled();
+      expect(claimHostForUser).not.toHaveBeenCalled();
+      expect(claimPartyForUser).not.toHaveBeenCalled();
+      expect(hasPartyForUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps a cancelled Google flow on the same request review", async () => {
+    const response = await GET(
+      new NextRequest(
+        "https://layalga.example/auth/callback?next=%2Fes%2Frequests%2Freview",
+      ),
+    );
+    expect(location(response)).toBe("/es/requests/review?auth=failed");
+    expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unverified identity on requester routes", async () => {
+    expect(location(await GET(callback("/en/requests")))).toBe(
+      "/en/requests?auth=failed",
+    );
+    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(claimHostForUser).not.toHaveBeenCalled();
+  });
+
+  it("preserves unrelated account rejection for similar and noncanonical paths", async () => {
+    auth.getUser.mockResolvedValue({
+      data: {
+        user: {
+          ...user,
+          email_confirmed_at: "2030-01-01",
+          identities: [{ provider: "google" }],
+        },
+      },
+    });
+    for (const path of [
+      "/en/requests-admin",
+      "/en/requests/elsewhere",
+      "/en/requests/../rooms",
+      "/en/requests?next=/en/rooms",
+    ]) {
+      expect(location(await GET(callback(path)))).toBe(
+        "/en/sign-in?error=not_a_host",
+      );
+    }
+  });
+
   it("keeps a host on the requested page", async () => {
     claimHostForUser.mockResolvedValue(true);
 

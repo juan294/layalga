@@ -56,6 +56,10 @@ describe("POST /auth/sign-out", () => {
   test("clears all guest capabilities after successful Google sign-out", async () => {
     const response = await POST(request("http://localhost:3008", "es"));
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(response.cookies.get("layalga_request_browser")).toMatchObject({
+      value: "",
+      maxAge: 0,
+    });
     expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toMatchObject({
       value: "",
       maxAge: 0,

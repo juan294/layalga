@@ -21,3 +21,17 @@ export function clearOAuthNextCookie<T extends NextResponse>(response: T): T {
   });
   return response;
 }
+
+/** Next can normalize a loopback URL. Keep the browser's configured origin
+ * only when it matches the Host serving this request. */
+export function authRequestOrigin(
+  request: NextRequest,
+  appUrl = process.env.APP_URL,
+): string {
+  if (appUrl && URL.canParse(appUrl)) {
+    const configured = new URL(appUrl);
+    if (request.headers.get("host") === configured.host)
+      return configured.origin;
+  }
+  return request.nextUrl.origin;
+}

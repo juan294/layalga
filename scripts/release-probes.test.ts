@@ -215,6 +215,7 @@ describe("probe targets", () => {
       "reconfirmation",
       "room-coordination",
       "guest-isolation",
+      "self-service-booking",
       "cleanup",
     ]);
     expect(PROBES.production).toEqual([

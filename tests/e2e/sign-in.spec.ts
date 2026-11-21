@@ -30,5 +30,6 @@ test("the privacy notice is public and linked from sign-in", async ({
   await page.getByRole("link", { name: "Privacy" }).click();
   await expect(page).toHaveURL(/\/en\/privacy$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(6);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(7);
+  await expect(page.getByRole("heading", { name: "Guest-initiated requests" })).toBeVisible();
 });
