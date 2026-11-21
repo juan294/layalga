@@ -48,6 +48,8 @@
     "viewRequest": "Ver la solicitud original",
     "viewVisit": "Ver la estancia confirmada",
     "withdraw": "Retirar la solicitud",
+    "withdrawing": "Retirando la solicitud…",
+    "withdrawRetry": "No hemos podido comprobar la retirada de la solicitud. Puedes volver a intentarlo.",
     "refresh": "Actualizar el estado",
     "empty": "Todavía no tienes solicitudes de estancia.",
     "sign_in": "Inicia sesión para continuar.",

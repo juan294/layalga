@@ -24,7 +24,7 @@ export default async function RequestReceipt({
   searchParams,
 }: {
   params: Promise<{ locale: AppLocale; id: string }>;
-  searchParams: Promise<{ auth?: string; cancel?: string }>;
+  searchParams: Promise<{ auth?: string; cancel?: string; withdraw?: string }>;
 }) {
   const { locale, id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -88,7 +88,13 @@ export default async function RequestReceipt({
           ) : (
             <RequestTerms locale={locale} record={record} />
           )}
-          {record.status === "pending" && <WithdrawStayRequest id={id} />}
+          {record.status === "pending" && (
+            <WithdrawStayRequest
+              id={id}
+              locale={locale}
+              retry={(await searchParams).withdraw === "retry"}
+            />
+          )}
           {record.status === "confirmed" && record.visitId && (
             <p>
               <Link href={`/${locale}/visits#visit-${record.visitId}`}>

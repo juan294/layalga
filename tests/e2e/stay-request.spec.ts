@@ -1,4 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
+import { closeDatabase } from "../../src/core/db/client";
+import { searchPublicStays } from "../../src/core/booking/public-stay-search";
+import { submitStayRequest } from "../../src/core/booking/stay-requests";
 import en from "../../messages/en.json" with { type: "json" };
 import es from "../../messages/es.json" with { type: "json" };
 import { test } from "./helpers/household";
@@ -139,4 +143,75 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
     await host.close();
     await requester.cleanup();
   }
+});
+
+test.describe("before hydration", () => {
+  test.afterAll(closeDatabase);
+  test("a guest withdraws from the server-rendered private receipt with one click", async ({
+    page,
+    context,
+    household,
+  }) => {
+    const requester = await createFixtureRequester(household.db);
+    try {
+      await requester.signIn(context);
+      const [listing] =
+        await household.db`insert into public.household_public_listings(home_id,display_name,search_name,published) values(${household.homeId},'Test home','test home',true) returning handle`;
+      const criteria = {
+        from: "2090-07-01",
+        to: "2090-07-15",
+        nights: 14,
+        adults: 2,
+        children: 0,
+        pets: 0,
+      };
+      const [option] = (await searchPublicStays(listing!.handle, criteria))
+        .options;
+      const pending = await submitStayRequest(requester, {
+        handle: listing!.handle,
+        criteria,
+        roomRefs: option!.recommendedRoomRefs,
+        overflowConsent: false,
+        notes: "",
+        requests: "",
+        locale: "es",
+        idempotencyKey: randomUUID(),
+      });
+      if (pending.status !== "pending")
+        throw new Error("Fixture request failed");
+      const path = `/es/requests/${pending.requestId}`;
+      // Let React reveal the streamed server HTML, but prevent Next from hydrating it.
+      let blockedChunks = 0;
+      await page.route(/\/_next\/static\/chunks\/.*\.js(?:\?|$)/, (route) => {
+        blockedChunks++;
+        return route.abort();
+      });
+      await page.goto(path);
+      await expect(page.getByRole("status")).toHaveText(
+        es.StayRequests.status.pending,
+      );
+      expect(blockedChunks).toBeGreaterThan(0);
+      const nativePost = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === path,
+      );
+      await page
+        .getByRole("button", { name: es.StayRequests.withdraw })
+        .click();
+      expect((await nativePost).status()).toBe(303);
+      await expect(page.getByRole("status")).toHaveText(
+        es.StayRequests.status.withdrawn,
+      );
+      await expect(page).toHaveURL(new RegExp(path + "$"));
+      const [row] =
+        await household.db`select status from public.stay_requests where id=${pending.requestId} and requester_id=${requester.userId}`;
+      expect(row!.status).toBe("withdrawn");
+      await expect(
+        page.getByRole("button", { name: es.StayRequests.withdraw }),
+      ).toHaveCount(0);
+    } finally {
+      await requester.cleanup();
+    }
+  });
 });

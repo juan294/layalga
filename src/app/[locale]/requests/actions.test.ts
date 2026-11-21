@@ -7,9 +7,16 @@ const api = vi.hoisted(() => ({
   existing: vi.fn(),
   getUser: vi.fn(),
   after: vi.fn(),
+  revalidate: vi.fn(),
   set: vi.fn(),
   get: vi.fn(),
 }));
+vi.mock("next/navigation", () => ({
+  redirect: (path: string) => {
+    throw new Error("redirect " + path);
+  },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: api.revalidate }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: api.get, set: api.set }),
 }));
@@ -127,13 +134,34 @@ it("sends the reviewed payload only on explicit action and preserves its key on 
   expect(api.after).toHaveBeenCalledTimes(2);
 });
 
-it("withdraws only as the signed-in requester", async () => {
+it("returns a signed-out requester to the private sign-in gate without withdrawing", async () => {
   api.getUser.mockResolvedValueOnce({ data: { user: null } });
-  expect(await withdrawMyRequest(input.idempotencyKey)).toBe("sign_in");
+  await expect(withdrawMyRequest(input.idempotencyKey, "es")).rejects.toThrow(
+    `redirect /es/requests/${input.idempotencyKey}`,
+  );
   expect(api.withdraw).not.toHaveBeenCalled();
+});
+
+it("withdraws as the verified requester and returns to the refreshed private receipt", async () => {
   api.withdraw.mockResolvedValueOnce({ status: "withdrawn" });
-  expect(await withdrawMyRequest(input.idempotencyKey)).toBe("withdrawn");
+  await expect(withdrawMyRequest(input.idempotencyKey, "en")).rejects.toThrow(
+    `redirect /en/requests/${input.idempotencyKey}`,
+  );
   expect(api.withdraw).toHaveBeenCalledWith(user.id, input.idempotencyKey);
+  expect(api.revalidate).toHaveBeenCalledWith(
+    `/en/requests/${input.idempotencyKey}`,
+  );
+});
+
+it("returns retryable failures to the validated receipt and rejects unsafe return targets", async () => {
+  api.withdraw.mockRejectedValueOnce(new Error("db unavailable"));
+  await expect(withdrawMyRequest(input.idempotencyKey, "es")).rejects.toThrow(
+    `redirect /es/requests/${input.idempotencyKey}?withdraw=retry`,
+  );
+  await expect(withdrawMyRequest("//outside.example/x", "en")).rejects.toThrow(
+    "redirect /en/requests",
+  );
+  expect(api.withdraw).toHaveBeenCalledTimes(1);
 });
 
 it("recovers a committed receipt before checking changed inventory following a lost response", async () => {

@@ -2,6 +2,9 @@
 
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import type { AppLocale } from "@/i18n/routing";
 import { after } from "next/server";
 import { z } from "zod";
 import { resolvePublicStaySelection } from "@/core/booking/public-stay-search";
@@ -122,14 +125,22 @@ export async function sendStayRequest(token: unknown, reviewedAccount: string) {
   }
 }
 
-export async function withdrawMyRequest(id: string) {
-  if (!z.uuid().safeParse(id).success) return "missing" as const;
+export async function withdrawMyRequest(
+  id: string,
+  locale: AppLocale,
+): Promise<void> {
+  const history = locale === "es" ? "/es/requests" : "/en/requests";
+  if (!z.uuid().safeParse(id).success) redirect(history);
+  const receipt = `${history}/${id}`;
+  let destination = receipt;
   try {
     const requester = await verifiedRequester();
-    if (!requester) return "sign_in" as const;
-    const record = await withdrawStayRequest(requester.userId, id);
-    return record?.status ?? "missing";
+    if (requester && (await withdrawStayRequest(requester.userId, id))) {
+      revalidatePath(receipt);
+      revalidatePath(history);
+    }
   } catch {
-    return "unavailable" as const;
+    destination = `${receipt}?withdraw=retry`;
   }
+  redirect(destination);
 }

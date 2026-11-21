@@ -48,6 +48,8 @@
     "viewRequest": "Open the original request",
     "viewVisit": "View your booked stay",
     "withdraw": "Withdraw request",
+    "withdrawing": "Withdrawing…",
+    "withdrawRetry": "We could not verify the withdrawal. You can try again.",
     "refresh": "Refresh status",
     "empty": "You have no stay requests yet.",
     "sign_in": "Sign in to continue.",
