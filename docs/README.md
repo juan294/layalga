@@ -23,6 +23,7 @@ The [hackathon archive](archive/hackathon/README.md) keeps the AWS Agents for Hu
 | ------------------------------------------------ | -------------------------------------------------------------------------------- |
 | [guides/host-manual.md](guides/host-manual.md)   | Host journey, decisions, current outcomes, household settings and administration |
 | [guides/guest-manual.md](guides/guest-manual.md) | Guest journey, room choice, requests, reminders, changes and cancellation        |
+| [architecture/guest-booking-channels.md](architecture/guest-booking-channels.md) | Public discovery, conversational booking, WebMCP and private request outcomes |
 
 ## Architecture and decisions
 

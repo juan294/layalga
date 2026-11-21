@@ -11,7 +11,10 @@ import {
   MAX_GUEST_NOTES_LENGTH,
   MAX_SPECIAL_REQUEST_LENGTH,
 } from "@/agent/task-limits";
-import { REQUEST_DRAFT_STORAGE } from "./request-storage";
+import {
+  REQUEST_CHAT_DRAFT_STORAGE,
+  REQUEST_DRAFT_STORAGE,
+} from "./request-storage";
 import styles from "./guest-ledger.module.css";
 
 export function StaySelectionForm({
@@ -19,11 +22,13 @@ export function StaySelectionForm({
   handle,
   criteria,
   option,
+  conversation = false,
 }: {
   locale: AppLocale;
   handle: string;
   criteria: GuestSearchCriteria;
   option: PublicStayOption;
+  conversation?: boolean;
 }) {
   const t = useTranslations("StayRequests");
   const stays = useTranslations("PublicStays");
@@ -34,6 +39,9 @@ export function StaySelectionForm({
   >(null);
   return (
     <form
+      data-webmcp-public-option={
+        conversation ? undefined : option.stay.join("|")
+      }
       method="post"
       className={styles.formStack}
       onSubmit={(event) => {
@@ -57,6 +65,9 @@ export function StaySelectionForm({
               return;
             }
             sessionStorage.setItem(REQUEST_DRAFT_STORAGE, result.token);
+            if (conversation)
+              sessionStorage.setItem(REQUEST_CHAT_DRAFT_STORAGE, result.token);
+            else sessionStorage.removeItem(REQUEST_CHAT_DRAFT_STORAGE);
             router.push(`/${locale}/requests/review`);
           } catch {
             setError("unavailable");

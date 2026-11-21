@@ -22,6 +22,31 @@
     "dark": "Dark",
     "cycleLabel": "Theme: {state} — click to change"
   },
+  "GuestConversation": {
+    "extraBedding": "Extra bedding: {terms}",
+    "earlier": "Earlier messages",
+    "signInStatus": "Sign in to check my requests",
+    "title": "Plan a stay in conversation",
+    "welcome": "Tell us the household, when you’d like to stay and who’s coming. You can also ask about a request you’ve already sent.",
+    "welcomeHome": "Ask about dates and rooms at {name}, or check a request you’ve already sent.",
+    "message": "Your message",
+    "example": "Two weeks in July at Casa Roble for two adults",
+    "exampleHome": "Two weeks in July for two adults",
+    "ask": "Ask",
+    "checking": "Checking…",
+    "structured": "Use the search form",
+    "conversation": "Conversation",
+    "you": "You",
+    "chooseFirst": "Choose an available stay and review its exact rooms and terms before sending a request.",
+    "options": "Available stays",
+    "option": "Option {n}",
+    "compare": "Compare other dates",
+    "unavailable": "We couldn’t check that message. Try again or use the search form below.",
+    "command": "Send in conversation",
+    "commandHint": "To send these exact terms, type “Send my request”.",
+    "submitExample": "Send my request",
+    "otherCommand": "This request is still unsent. To change the stay, choose new dates or rooms and review them again."
+  },
   "StayRequests": {
     "alreadySent": "You already sent this request. Your receipt shows its current status.",
     "history": "My stay requests",
@@ -113,13 +138,13 @@
   "Privacy": {
     "title": "Privacy",
     "updated": "Last updated November 21, 2026.",
-    "intro": "L’Ayalga is a private guest coordinator for one household. The hosts use it to invite family and friends and to plan their stays. This notice explains what the app keeps and why.",
+    "intro": "L’Ayalga helps guests arrange a stay with a household. You can look up a published home or use a private invitation. This notice explains what the app keeps and who can see it.",
     "signInTitle": "Google sign-in",
     "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to identify you as a host, a guest sending a stay request, or a guest who has linked an invitation to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
     "householdTitle": "Invitations and stays",
     "householdBody": "The app stores what hosts and guests enter to plan a visit: the invitation, the dates, the size of the party, room choices, notes and requests for approval. If you choose to get reminders by email, it also stores that address and your consent. You can turn the reminders off at any time.",
     "assistantTitle": "The coordinator",
-    "assistantBody": "An AI coordinator that runs on Amazon Bedrock reads invitation and request text to suggest dates and rooms. Bookings change only through the app's own rules, and sensitive changes need a host's approval. To help with later visits, it remembers practical preferences for each family, such as arrival habits, room needs, pets and accessibility notes. Hosts can see these notes and erase them for any family.",
+    "assistantBody": "An AI coordinator that runs on Amazon Bedrock reads invitation and request text to suggest dates and rooms. Bookings change only through the app's own rules, and sensitive changes need a host's approval. To help with later visits, it remembers practical preferences for each family, such as arrival habits, room needs, pets and accessibility notes. Hosts can see these notes and erase them for any family. In the guest booking conversation, the app extracts scheduling words, dates and counts from your message. When model interpretation is enabled, only that filtered input goes to Amazon Bedrock. Household matching, room selection and private status checks run in the app. Your email, receipt and hosts’ private schedules are excluded from the model input.",
     "servicesTitle": "Services the app uses",
     "servicesBody": "Supabase stores the data and handles sign-in, Vercel hosts the website, and Amazon Web Services runs the coordinator and sends email. Google provides sign-in. L’Ayalga does not sell data, show ads or use tracking cookies. It sets only the cookies it needs for sign-in, guest access and your language.",
     "retentionTitle": "How long data is kept",
@@ -128,7 +153,7 @@
     "choicesBody": "To see, correct or delete what the app holds about you, or to ask about this notice, contact the hosts who invited you or the site operator at juan294@gmail.com.",
     "backToSignIn": "Back to sign-in",
     "stayRequestsTitle": "Guest-initiated requests",
-    "stayRequestsBody": "Anyone can search published households and see available dates and guest-facing room details. When you send a request, the household’s hosts can see your verified email, selected rooms, dates, group size, notes and requests. You can view or withdraw your pending request from your account. Unbooked requests are deleted 30 days after they close. For a confirmed request the app retains the link to the booked visit."
+    "stayRequestsBody": "Anyone can find a published household by name and see available date options, room labels, capacity and sleeping arrangements. The public search keeps other guests’ identities, the room ledger and hosts’ whereabouts private. When you send a request, the hosts see your verified email address, exact dates, rooms, group size, notes and special requests. One host confirms or declines. You can check the outcome in your account and withdraw while the request is pending. Unbooked requests are deleted 30 days after they close. For confirmed requests the app keeps a link to the booked visit."
   },
   "Season": {
     "primavera": "spring",

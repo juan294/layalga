@@ -1,16 +1,22 @@
 # Host manual
 
-L’Ayalga coordinates invitations, rooms and follow-up for a household with more than one host. Routine stays can complete without a decision; explicit requests and overflow arrangements come back to a person.
+Guests can ask for a stay at your published household. They select dates and rooms before you receive a request. You can also send a private invitation to start the established invitation flow.
 
-This guide describes L’Ayalga for real household use. The live site runs it since v2.0.0 (2026-10-15).
+## Receive guest-initiated stays
+
+Set the public household name and choose **Publish household** in **Settings**. Make the room labels, sleeping arrangements and overflow descriptions suitable for guests. Anyone searching by name can see published homes and feasible whole stays. Private room blocks, your home schedule and other guests’ details remain private.
+
+On **Today**, open the pending stay request. Check the dates, selected rooms, party size, accepted overflow, notes and special requests. Either host can confirm once they have checked they will be home and accept those terms. The system rechecks availability and records the booked visit, room occupancy and reconfirmation follow-up together. The guest can see the result in their own account. A decline also appears on their receipt. If availability or another material term changed, the guest is asked to choose again.
+
+An opted-in host can receive a notification when email delivery is configured. Its link reopens the request or the recorded decision. You can always review pending requests on the dashboard.
 
 ## 1. Sign in with Google
 
 Open the sign-in page and choose **Continue with Google**. Google is the only way to sign in. The household keeps a list of host email addresses; your Google account must use one of them. The first time you sign in, the server binds your Google account to your host record. After that, only that Google account can sign in as you.
 
-If you see "This Google account is not on the host list for this house.", the account you chose is not on the list and has no linked invitation. You are signed out. Try again with the address the household recorded for you, or ask another host to add your address (see the next section). If you see "Google sign-in could not be completed", try again; if it continues, report it to the operator.
+If the account is missing from the household’s host list, try the address recorded for you or ask another host to add it. If Google sign-in fails, retry. Report a persistent error to the operator.
 
-Guests who linked an invitation to their Google account can also sign in from this page; they go to their visits, not to the host pages. Any Google account can reach the Google step, but only these two kinds of account get in. The public [privacy notice](https://layalga.thecreativetoken.com/en/privacy) explains what the app keeps.
+Guests can sign in from the request flow to submit or read a private receipt. Guests who have linked an invitation can also open their visits. Host controls require a host account in the household. [Privacy notice](https://layalga.thecreativetoken.com/en/privacy)
 
 The server finds your household from your host record. Changing a home identifier in a request does not grant access to another household.
 
@@ -84,7 +90,7 @@ Cancellation releases occupancy and retires related pending decisions, agent run
 
 Confirmation schedules reconfirmation for 09:00 household time three days before arrival, or immediately when already inside that window. A chase opens a reconfirmation request; an unanswered request can escalate after 24 hours. A guest answer cancels the current escalation. Cancellation and rescheduling suppress obsolete work from the old state or cycle.
 
-Host email pings cover pending decisions and reconfirmation escalations when configured and enabled for the host. Real guests can independently consent to verified email reminders and opt out. Guest contacts and their delivery records are web-only data, outside the agent database role and model prompt.
+Host email pings cover pending stay requests, booking decisions and reconfirmation escalations when configured and enabled for the host. Real guests can independently consent to verified email reminders and opt out. Guest contacts and their delivery records are web-only data, outside the agent database role and model prompt.
 
 Read delivery state separately from guest response. A failure to send is not evidence of silence. SES acceptance is not proof of inbox delivery; an uncertain provider outcome is retained without blindly retrying and risking a duplicate. See [guest email readiness](../release/guest-email-readiness.md) before any production activation.
 

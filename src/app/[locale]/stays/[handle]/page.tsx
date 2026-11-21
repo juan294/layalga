@@ -1,3 +1,4 @@
+import { GuestConversation } from "@/components/guest/guest-conversation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { resolvePublicListing } from "@/core/booking/public-listings";
@@ -49,7 +50,10 @@ export default async function HouseholdStaysPage({
     typeof query[key] === "string" ? query[key] : String(defaults[key]);
   return (
     <main className={styles.shell}>
-      <PublicStayRegistration />
+      <PublicStayRegistration
+        options={result?.options}
+        partySize={Number(query.adults) + Number(query.children)}
+      />
       <article className={styles.ledger}>
         <header className={styles.header}>
           <div>
@@ -58,7 +62,16 @@ export default async function HouseholdStaysPage({
           </div>
         </header>
         <div className={styles.body}>
-          <form className={styles.formStack} method="get">
+          <GuestConversation
+            locale={locale}
+            handle={handle}
+            displayName={listing.displayName}
+          />
+          <form
+            id="structured-stay-search"
+            className={styles.formStack}
+            method="get"
+          >
             <div className={styles.fieldGrid}>
               {(["from", "to"] as const).map((key) => (
                 <Field key={key} label={t(key)} name={key}>

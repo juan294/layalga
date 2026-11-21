@@ -23,7 +23,7 @@
   <img src="https://chapa.thecreativetoken.com/u/juan294/badge.svg" alt="juan294's Chapa Impact Badge" width="100%" />
 </a>
 
-Two hosts share a rural home, but invitations arrive as informal messages and overlapping stays need more judgment than a normal calendar can provide. L’Ayalga turns each message into a private guest link, finds safe dates and guest-visible rooms, confirms exact room choices, follows up before arrival, and asks a host only when a social exception needs a human decision. The calendar is the result of that coordination, not the product.
+L’Ayalga helps two hosts manage stays in their shared home. A guest can find a published household, describe a trip in English or Spanish, compare feasible dates and rooms, and send an exact request. Either host confirms once they have checked their plans. A private invitation also starts a stay, with automatic room checks and host review for exceptions. Both paths lead to the same visit, calendar and reconfirmation follow-up.
 
 ## Documentation
 

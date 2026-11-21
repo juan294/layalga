@@ -103,28 +103,32 @@ function publicRoom(
 export async function searchPublicStays(
   handle: string,
   criteria: GuestSearchCriteria,
+  project?: (option: PublicStayOption) => PublicStayOption | null,
 ): Promise<PublicStaySearchResult> {
   const search = await loadPublicSearch(handle, criteria);
   const options: PublicStayOption[] = [];
   if (search.status !== "success")
     return { status: search.status, options, truncated: false };
   for (const option of search.options) {
-    if (options.length === PUBLIC_OPTION_LIMIT)
-      return { status: "success", options, truncated: true };
     const byId = new Map(
       option.rooms.map((room) => [
         room.id,
         publicRoom(search.listing, option.stay, room),
       ]),
     );
-    options.push({
+    const candidate: PublicStayOption = {
       confirmation: "host_approval_required",
       stay: option.stay,
       rooms: [...byId.values()],
       recommendedRoomRefs: option.recommended.map(
         (room) => byId.get(room.id)!.ref,
       ),
-    });
+    };
+    const visible = project ? project(candidate) : candidate;
+    if (!visible) continue;
+    if (options.length === PUBLIC_OPTION_LIMIT)
+      return { status: "success", options, truncated: true };
+    options.push(visible);
   }
   return {
     status: options.length ? "success" : "none",

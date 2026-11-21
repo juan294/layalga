@@ -20,15 +20,21 @@ export function createPublicStayTools(actions: {
       },
       annotations: readAnnotations,
       execute: (input) =>
-        actions.discover(
-          input && Object.keys(input).length === 1 ? input.name : undefined,
-        ),
+        actions
+          .discover(
+            input && Object.keys(input).length === 1 ? input.name : undefined,
+          )
+          .catch(() => ({
+            status: "unavailable",
+            listings: [],
+            truncated: false,
+          })),
     },
     {
       name: "layalga.public.search_stays",
       title: "Check available stays",
       description:
-        "Find whole-stay room choices in a published household. Each stay contains check-in and checkout dates. No match means try a different window or party. For invalid input, check the dates, duration and party size. If the household is missing, look it up again. If unavailable, retry later. Availability is provisional until a host confirms.",
+        "Find whole-stay room choices in a published household. Each stay contains check-in and checkout dates. No match means try a different window or party. For invalid input, check the dates, duration and party size. If the household is missing, look it up again. If unavailable, retry later. To prepare a choice, open the matching household and display these search results using the page form. Availability is provisional until a host confirms.",
       inputSchema: {
         type: "object",
         properties: {
@@ -63,7 +69,14 @@ export function createPublicStayTools(actions: {
         additionalProperties: false,
       },
       annotations: readAnnotations,
-      execute: actions.search,
+      execute: (input) =>
+        actions
+          .search(input)
+          .catch(() => ({
+            status: "unavailable",
+            options: [],
+            truncated: false,
+          })),
     },
   ];
 }

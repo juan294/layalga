@@ -11,7 +11,11 @@ import {
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import type { AppLocale } from "@/i18n/routing";
 import { RequestTerms } from "./request-terms";
-import { REQUEST_DRAFT_STORAGE } from "./request-storage";
+import { guestConversationTurn } from "@/app/[locale]/stays/conversation-actions";
+import {
+  REQUEST_CHAT_DRAFT_STORAGE,
+  REQUEST_DRAFT_STORAGE,
+} from "./request-storage";
 import styles from "./guest-ledger.module.css";
 
 type Review = Awaited<ReturnType<typeof reviewStayRequest>>;
@@ -27,7 +31,14 @@ export function RequestReview({
   authFailed: boolean;
 }) {
   const t = useTranslations("StayRequests");
+  const chat = useTranslations("GuestConversation");
   const router = useRouter();
+  const [reviewed, setReviewed] = useState<{
+    token: string;
+    chat: boolean;
+  } | null>(null);
+  const [command, setCommand] = useState("");
+  const [commandFeedback, setCommandFeedback] = useState("");
   const [review, setReview] = useState<Review | null>(null);
   const [reply, setReply] = useState<Sent | null>(null);
   const [retry, refresh] = useState(0);
@@ -42,6 +53,16 @@ export function RequestReview({
           : { status: "expired" };
         if (active) {
           setReview(fresh);
+          setReviewed(
+            token && fresh.status === "ready"
+              ? {
+                  token,
+                  chat:
+                    sessionStorage.getItem(REQUEST_CHAT_DRAFT_STORAGE) ===
+                    token,
+                }
+              : null,
+          );
           if (fresh.status === "replayed")
             router.replace(`/${locale}/requests/${fresh.requestId}`);
         }
@@ -54,6 +75,17 @@ export function RequestReview({
       active = false;
     };
   }, [retry, locale, router]);
+  async function submitReviewed(account: string) {
+    if (!reviewed) return;
+    try {
+      const result = await sendStayRequest(reviewed.token, account);
+      if (result.status === "pending" || result.status === "replayed")
+        router.replace(`/${locale}/requests/${result.requestId}`);
+      else setReply(result);
+    } catch {
+      setReply({ status: "unavailable" });
+    }
+  }
   if (!review) return <p role="status">{t("loading")}</p>;
   if (review.status === "replayed" || review.status === "conflict")
     return (
@@ -107,39 +139,69 @@ export function RequestReview({
       ) : (
         <>
           <p>{t("sendingAs", { email })}</p>
+          {!terminal && reviewed?.chat && (
+            <form
+              method="post"
+              className={styles.commandForm}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!command.trim() || pending) return;
+                start(async () => {
+                  try {
+                    const turn = await guestConversationTurn({
+                      locale,
+                      message: command,
+                    });
+                    if (turn.kind === "submit") await submitReviewed(email);
+                    else
+                      setCommandFeedback(
+                        turn.kind === "unavailable"
+                          ? chat("unavailable")
+                          : chat("otherCommand"),
+                      );
+                  } catch {
+                    setCommandFeedback(chat("unavailable"));
+                  }
+                });
+              }}
+            >
+              <label className={styles.field}>
+                {chat("commandHint")}
+                <input
+                  maxLength={600}
+                  required
+                  autoComplete="off"
+                  value={command}
+                  placeholder={chat("submitExample")}
+                  onChange={(e) => setCommand(e.target.value)}
+                />
+              </label>
+              <button
+                disabled={pending || !command.trim()}
+                className={styles.secondaryButton}
+              >
+                {chat("command")}
+              </button>
+              {commandFeedback && <p role="alert">{commandFeedback}</p>}
+            </form>
+          )}
           {!terminal && (
             <button
               type="button"
               disabled={pending}
               className={styles.primaryButton}
-              onClick={() =>
-                start(async () => {
-                  try {
-                    const token = sessionStorage.getItem(REQUEST_DRAFT_STORAGE);
-                    if (!token) {
-                      setReply({ status: "expired" });
-                      return;
-                    }
-                    const result = await sendStayRequest(token, email);
-                    if (
-                      result.status === "pending" ||
-                      result.status === "replayed"
-                    ) {
-                      // Keep the sealed key across a lost response or failed navigation.
-                      router.replace(`/${locale}/requests/${result.requestId}`);
-                    } else setReply(result);
-                  } catch {
-                    setReply({ status: "unavailable" });
-                  }
-                })
-              }
+              onClick={() => start(() => submitReviewed(email))}
             >
               {pending ? t("sending") : t("send")}
             </button>
           )}
         </>
       )}
-      <Link href={`/${locale}/stays/${review.handle}`}>{t("findAnother")}</Link>
+      <p className={styles.reviewNavigation}>
+        <Link href={`/${locale}/stays/${review.handle}`}>
+          {t("findAnother")}
+        </Link>
+      </p>
     </>
   );
 }

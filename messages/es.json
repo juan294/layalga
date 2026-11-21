@@ -22,6 +22,31 @@
     "dark": "Oscuro",
     "cycleLabel": "Tema: {state} — clic para cambiar"
   },
+  "GuestConversation": {
+    "extraBedding": "Cama adicional: {terms}",
+    "earlier": "Mensajes anteriores",
+    "signInStatus": "Iniciar sesión para consultar mis solicitudes",
+    "title": "Planifica tu estancia en conversación",
+    "welcome": "Indica la casa, las fechas que te interesan y quiénes vendrán. También puedes preguntar por una solicitud que ya hayas enviado.",
+    "welcomeHome": "Pregunta por fechas y habitaciones en {name} o consulta una solicitud que ya hayas enviado.",
+    "message": "Tu mensaje",
+    "example": "Dos semanas en julio en Casa Roble para dos adultos",
+    "exampleHome": "Dos semanas en julio para dos adultos",
+    "ask": "Preguntar",
+    "checking": "Consultando…",
+    "structured": "Usar el formulario de búsqueda",
+    "conversation": "Conversación",
+    "you": "Tú",
+    "chooseFirst": "Elige una estancia disponible y revisa las habitaciones y condiciones antes de enviar la solicitud.",
+    "options": "Estancias disponibles",
+    "option": "Opción {n}",
+    "compare": "Comparar otras fechas",
+    "unavailable": "No hemos podido comprobar ese mensaje. Vuelve a intentarlo o usa el formulario de búsqueda.",
+    "command": "Enviar en la conversación",
+    "commandHint": "Para enviar estas condiciones exactas, escribe «Enviar mi solicitud».",
+    "submitExample": "Enviar mi solicitud",
+    "otherCommand": "La solicitud sigue sin enviarse. Si quieres cambiar la estancia, elige otras fechas o habitaciones y vuelve a revisarlas."
+  },
   "StayRequests": {
     "alreadySent": "Ya enviaste esta solicitud. Puedes consultar su estado en el justificante.",
     "history": "Mis solicitudes de estancia",
@@ -113,13 +138,13 @@
   "Privacy": {
     "title": "Privacidad",
     "updated": "Última actualización: 21 de noviembre de 2026.",
-    "intro": "L’Ayalga es un coordinador privado de visitas para un solo hogar. Los anfitriones lo usan para invitar a familia y amigos y organizar sus estancias. Este aviso explica qué guarda la aplicación y por qué.",
+    "intro": "L’Ayalga te ayuda a organizar una estancia con una familia. Puedes buscar una casa publicada o usar una invitación privada. Este aviso explica qué guarda la aplicación y quién puede verlo.",
     "signInTitle": "Inicio de sesión con Google",
     "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para identificarte como anfitrión, como huésped que envía una solicitud de estancia o como huésped que ha vinculado una invitación a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
     "householdTitle": "Invitaciones y estancias",
     "householdBody": "La aplicación guarda lo que anfitriones y huéspedes introducen para organizar una visita: la invitación, las fechas, el número de personas, la elección de habitaciones, las notas y las solicitudes de aprobación. Si decides recibir recordatorios por correo, también guarda esa dirección y tu consentimiento. Puedes desactivar los recordatorios cuando quieras.",
     "assistantTitle": "El coordinador",
-    "assistantBody": "Un coordinador de IA que funciona en Amazon Bedrock lee el texto de invitaciones y solicitudes para proponer fechas y habitaciones. Las reservas solo cambian según las reglas de la aplicación, y los cambios delicados necesitan la aprobación de un anfitrión. Para ayudar en visitas futuras, recuerda preferencias prácticas de cada familia, como sus costumbres de llegada, necesidades de habitación, mascotas y notas de accesibilidad. Los anfitriones pueden ver estas notas y borrarlas para cualquier familia.",
+    "assistantBody": "Un coordinador de IA que funciona en Amazon Bedrock lee el texto de invitaciones y solicitudes para proponer fechas y habitaciones. Las reservas solo cambian según las reglas de la aplicación, y los cambios delicados necesitan la aprobación de un anfitrión. Para ayudar en visitas futuras, recuerda preferencias prácticas de cada familia, como sus costumbres de llegada, necesidades de habitación, mascotas y notas de accesibilidad. Los anfitriones pueden ver estas notas y borrarlas para cualquier familia. En la conversación para solicitar una estancia, la aplicación extrae las palabras relacionadas con fechas, duración y número de huéspedes. Si utiliza un modelo para interpretarlas, solo envía esos datos filtrados a Amazon Bedrock. La búsqueda de la casa, la selección de habitaciones y la consulta del estado se realizan en la aplicación. Tu correo, tu solicitud privada y la agenda de los anfitriones quedan fuera de los datos que recibe el modelo.",
     "servicesTitle": "Servicios que usa la aplicación",
     "servicesBody": "Supabase guarda los datos y gestiona el inicio de sesión, Vercel aloja el sitio web y Amazon Web Services ejecuta el coordinador y envía los correos. Google proporciona el inicio de sesión. L’Ayalga no vende datos, no muestra anuncios ni usa cookies de seguimiento. Solo usa las cookies necesarias para el inicio de sesión, el acceso de huéspedes y tu idioma.",
     "retentionTitle": "Cuánto tiempo se guardan los datos",
@@ -128,7 +153,7 @@
     "choicesBody": "Para ver, corregir o borrar lo que la aplicación guarda sobre ti, o para preguntar por este aviso, contacta con los anfitriones que te invitaron o con el responsable del sitio en juan294@gmail.com.",
     "backToSignIn": "Volver al inicio de sesión",
     "stayRequestsTitle": "Solicitudes de los huéspedes",
-    "stayRequestsBody": "Cualquier persona puede buscar casas publicadas y ver fechas disponibles e información sobre las habitaciones. Al enviar una solicitud, los anfitriones ven tu correo verificado, fechas, habitaciones, grupo, notas y peticiones. En tu cuenta puedes consultar o retirar una solicitud pendiente. Las solicitudes sin reserva se eliminan 30 días después de cerrarse. Para una solicitud confirmada se conserva el vínculo con la visita reservada."
+    "stayRequestsBody": "Cualquier persona puede buscar una casa publicada por su nombre y consultar fechas disponibles, nombres de habitaciones, capacidad y disposición de camas. La búsqueda pública mantiene en privado la identidad de otros huéspedes, el registro de ocupación y los planes de los anfitriones. Al enviar una solicitud, los anfitriones ven tu correo verificado, fechas exactas, habitaciones, número de personas y mascotas, notas y peticiones. Un anfitrión confirma o rechaza la estancia. Puedes consultar la respuesta en tu cuenta y retirar la solicitud mientras esté pendiente. Las solicitudes sin reserva se eliminan 30 días después de cerrarse. Si se confirman, la aplicación conserva un vínculo con la visita reservada."
   },
   "Season": {
     "primavera": "primavera",

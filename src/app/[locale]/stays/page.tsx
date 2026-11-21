@@ -1,3 +1,4 @@
+import { GuestConversation } from "@/components/guest/guest-conversation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Field } from "@/components/guest/field";
@@ -9,16 +10,12 @@ export default async function FindHouseholdPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ locale: string }>;
+  params: Promise<{ locale: "en" | "es" }>;
   searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
   const { q } = await searchParams;
   const t = await getTranslations({ locale, namespace: "PublicStays" });
-  const requestsT = await getTranslations({
-    locale,
-    namespace: "StayRequests",
-  });
   const result = q !== undefined ? await lookupHouseholds(q) : null;
   return (
     <main className={styles.shell}>
@@ -28,8 +25,12 @@ export default async function FindHouseholdPage({
           <h1 className={styles.title}>{t("find")}</h1>
         </header>
         <div className={styles.body}>
-          <Link href={`/${locale}/requests`}>{requestsT("history")}</Link>
-          <form method="get" className={styles.formStack}>
+          <GuestConversation locale={locale} />
+          <form
+            id="structured-stay-search"
+            method="get"
+            className={styles.formStack}
+          >
             <Field label={t("householdName")} name="q">
               <input
                 name="q"

@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import postgres, { type Sql } from "postgres";
 import { z } from "zod";
 
+import {
+  localProbeDatabase,
+  probeSelfServiceBooking,
+  removeSelfServiceFixture,
+} from "./self-service-booking-probe";
 import { MIN_INTERNAL_SECRET_BYTES } from "../src/app/api/agent/internal-auth";
 import { parseStoredRunResult, type AgentTask } from "../src/agent/task";
 import { deriveCaptureLink } from "../src/core/booking/link-tokens";
@@ -36,6 +41,7 @@ export type ProbeName =
   | "interrupt-resume"
   | "reconfirmation"
   | "room-coordination"
+  | "self-service-booking"
   | "guest-isolation"
   | "cleanup";
 
@@ -54,6 +60,7 @@ export const PROBES: Record<ProbeTarget, readonly ProbeName[]> = {
     "reconfirmation",
     "room-coordination",
     "guest-isolation",
+    "self-service-booking",
     "cleanup",
   ],
   production: [
@@ -197,6 +204,7 @@ interface TerminalProbeRunResult {
 }
 
 const PROBE_FNS: Record<Exclude<ProbeName, "health" | "cleanup">, ProbeFn> = {
+  "self-service-booking": probeSelfServiceBooking,
   "host-capture": probeHostCapture,
   "guest-confirmation": probeGuestConfirmation,
   "concurrent-conflict": probeConcurrentConflict,
@@ -213,6 +221,8 @@ export async function runReleaseProbes(
   } = {},
 ): Promise<ProbeReport> {
   const databaseUrl = requiredEnvironment("DATABASE_URL");
+  if (options.target === "local" && !localProbeDatabase())
+    throw new Error("The local probe suite requires a loopback database");
   const tokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
   const agentRouteSecret = requiredInternalSecret("AGENT_ROUTE_SECRET");
   const tickSecret = requiredInternalSecret("TICK_SECRET");
@@ -297,7 +307,7 @@ export async function runReleaseProbes(
     report.failure = { probe: current, message: safeErrorMessage(error) };
   } finally {
     try {
-      await removeProbeHouseholds(sql, runId);
+      await removeProbeHouseholds(sql, runId, options.target === "local");
       if (report.status === "passed") {
         report.evidence.push({
           probe: "cleanup",
@@ -342,6 +352,7 @@ async function settledAll<T extends readonly unknown[]>(
 export async function removeProbeHouseholds(
   sql: Sql,
   runId: string,
+  includeSelfService = false,
 ): Promise<number> {
   const [label, conflictLabel] = probeHomeLabels(runId);
   const homes = await sql<{ id: string; name: string }[]>`
@@ -351,7 +362,11 @@ export async function removeProbeHouseholds(
   for (const home of homes) {
     await removeFixtureHousehold(sql, home.id, home.name);
   }
-  return homes.length;
+  const extra =
+    includeSelfService && localProbeDatabase()
+      ? await removeSelfServiceFixture(sql, runId)
+      : 0;
+  return homes.length + extra;
 }
 
 export async function probeHealth(options: ReleaseCliOptions): Promise<string> {
@@ -955,7 +970,11 @@ async function main(): Promise<void> {
       max: 2,
     });
     try {
-      const removed = await removeProbeHouseholds(sql, options.cleanupOnly);
+      const removed = await removeProbeHouseholds(
+        sql,
+        options.cleanupOnly,
+        options.target === "local",
+      );
       console.log(
         JSON.stringify({
           status: "cleaned",

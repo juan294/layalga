@@ -1,3 +1,4 @@
+import { ReceiptRegistration } from "@/components/webmcp/receipt-registration";
 import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
 import { CancellationReview } from "@/components/guest/cancellation-review";
 import { loadRequestedVisit } from "@/core/booking/requested-visit";
@@ -59,6 +60,7 @@ export default async function RequestReceipt({
         </p>
       ) : (
         <>
+          <ReceiptRegistration id={id} />
           <p role="status">
             <strong>
               {live?.visit

@@ -28,3 +28,21 @@ it("looks up homes and reads actual availability with no invitation", async () =
     lookup!.annotations.readOnlyHint && availability!.annotations.readOnlyHint,
   ).toBe(true);
 });
+
+it("returns the ordinary lookup recovery when the browser loses its connection", async () => {
+  const offline = vi.fn().mockRejectedValue(new Error("Failed to fetch"));
+  const [discover, search] = createPublicStayTools({
+    discover: offline,
+    search: offline,
+  });
+  expect(await discover!.execute({ name: "House" })).toEqual({
+    status: "unavailable",
+    listings: [],
+    truncated: false,
+  });
+  expect(await search!.execute({})).toEqual({
+    status: "unavailable",
+    options: [],
+    truncated: false,
+  });
+});
