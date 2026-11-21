@@ -110,9 +110,9 @@ Once the first recoverable link has been issued, keep the web reader that shows 
 | Tests                          | Vitest, local Supabase integration tests, Playwright, and the local release probe target                                              |
 | Primary datastore              | PostgreSQL through Supabase                                                                                                           |
 | Queue and scheduler            | Durable PostgreSQL run queue and jobs; `after()` dispatch plus Vercel Cron recovery                                                   |
-| Authentication                 | Google hosts admitted by `host_identity_claims`, invitation links, and optional guest claims                                          |
+| Authentication                 | Google hosts admitted by `host_identity_claims`, verified guest requesters, invitation links and optional guest claims                                          |
 | Notifications                  | In-app reminders and host SES pings; consented guest email implemented, production activation pending. SES acceptance is not delivery |
-| Other vendors                  | Strands on Bedrock through AgentCore; production model is Sonnet 4.6. Tests and the local probe target use the scripted model         |
+| Other vendors                  | AgentCore uses Strands on Bedrock. The web also calls Bedrock directly with filtered guest scheduling language. The production model is Sonnet 4.6. Production probes exercise the AgentCore model path. Local tests use a scripted interpreter and a mocked Bedrock adapter.         |
 | Release approver               | Product owner                                                                                                                         |
 | Rollback authority             | Product owner                                                                                                                         |
 
@@ -143,7 +143,7 @@ Wave B exploratory charters are applicable after the first deployed candidate an
 
 ## Release probes
 
-`scripts/release-probes.ts` runs the probes for one target in order. Each run builds two fixture households from the shared builder (`src/test-support/fixture-household.ts`): `Release probe <run id>` with three rooms, and `Release probe conflict <run id>` with one contested room for the concurrency probe. Probes enqueue work through `POST /api/agent/run` with the `x-layalga-internal` header and drain it through `GET /api/ticks`. No probe uses a browser session or touches a real household.
+`scripts/release-probes.ts` runs the probes for one target in order. Both targets build two fixture households from the shared builder (`src/test-support/fixture-household.ts`): `Release probe <run id>` with three rooms, and `Release probe conflict <run id>` with one contested room for the concurrency probe. The local self-service booking probe also creates a third household and a synthetic verified requester. Agent probes enqueue work through `POST /api/agent/run` with the `x-layalga-internal` header and drain it through `GET /api/ticks`. No probe uses a browser session or touches a real household.
 
 | Probe                 | Local | Production | Assertion                                                                                                                                                                                                                                                                                              |
 | --------------------- | :---: | :--------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -155,7 +155,8 @@ Wave B exploratory charters are applicable after the first deployed candidate an
 | `reconfirmation`      |  yes  |     no     | A past-due reconfirmation job for a fixture visit is dispatched by the tick, with the expected notification and status                                                                                                                                                                                 |
 | `room-coordination`   |  yes  |     no     | The selected rooms equal the fixture household's rooms                                                                                                                                                                                                                                                 |
 | `guest-isolation`     |  yes  |    yes     | An invalid guest token page shows the invalid state and no fixture party name                                                                                                                                                                                                                          |
-| `cleanup`             |  yes  |    yes     | Both fixture households and their tagged artifacts are deleted, and no rows remain                                                                                                                                                                                                                     |
+| `self-service-booking` | yes | no | A first-time requester selects fourteen nights and receives one receipt. One household host decision confirms the exact rooms and dates and schedules follow-up. |
+| `cleanup` | yes | yes | Removes the run-owned households and their artifacts. The local self-service fixture also removes its synthetic account. |
 
 Cleanup runs in `finally`, also after a failed probe. A run ends in one of three states:
 
@@ -163,7 +164,7 @@ Cleanup runs in `finally`, also after a failed probe. A run ends in one of three
 - `PAUSED`: the environment failed (unreachable base, gateway status, dropped database connection, run timeout). The candidate is not disproved; repair the environment and run the same candidate again.
 - `BLOCKED`: an assertion failed on a completed run. The candidate needs a fix.
 
-On any failure the script exits with status 1 and prints the run ID and `pnpm run release:probes -- --cleanup-only <run id>`. That command deletes both fixture households of the run and their tagged artifacts, then exits. Use it when a run stops before its own cleanup finishes.
+On any failure the script exits with status 1 and prints the run ID and `pnpm run release:probes -- --cleanup-only <run id>`. That command removes the run’s fixture households and their tagged artifacts. On the local database it also removes the self-service fixture and its synthetic requester. Use it when a run stops before its own cleanup finishes.
 
 Options:
 

@@ -182,7 +182,7 @@ pnpm run test:e2e
 pnpm run release:probes -- --target local --base http://127.0.0.1:3008
 ```
 
-The release probes need a running local dev server. They create two fixture households, run every local probe on them and delete them. The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
+The release probes need a running local dev server. The local probes create three fixture households and a synthetic requester, exercise the booking flows and remove their fixtures. The [release verification playbook](docs/release/e2e-pro-playbook.md) contains the exact environment and cleanup contract. The [data lifecycle](docs/security/data-lifecycle.md) defines automatic retention and the Amazon Bedrock prompt boundary.
 
 ## Deployment shape
 
