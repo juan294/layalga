@@ -113,10 +113,22 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
     ).toHaveCount(0);
     await requester.signIn(context);
     const returningGuest = await context.newPage();
-    await returningGuest.goto("/en/requests");
-    await returningGuest
-      .getByRole("link", { name: /Guest request test/ })
-      .click();
+    await returningGuest.goto("/en/requests", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(
+      returningGuest.getByRole("heading", { name: en.StayRequests.history }),
+    ).toBeVisible();
+    const savedRequest = returningGuest.getByRole("link", {
+      name: /Guest request test/,
+    });
+    await expect(savedRequest).toBeVisible();
+    await expect(savedRequest).toHaveAttribute("href", path);
+    await savedRequest.click();
+    await expect(returningGuest).toHaveURL(new RegExp(`${path}$`));
+    await expect(returningGuest.getByRole("status")).toHaveText(
+      en.StayRequests.status.pending,
+    );
     await returningGuest
       .getByRole("button", { name: en.StayRequests.withdraw })
       .click();

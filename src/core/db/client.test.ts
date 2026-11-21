@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   closeDatabase,
@@ -53,6 +53,39 @@ describe("runtime database credentials", () => {
     expect(() =>
       validateRuntimeDatabaseUrl("postgresql://%zz:secret@127.0.0.1/postgres"),
     ).toThrow("valid PostgreSQL username");
+  });
+
+  it("reuses the development pool across route reloads and releases idle sockets", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DATABASE_URL", "postgresql://postgres@127.0.0.1:1/postgres");
+    const first = getDatabaseConnection();
+    try {
+      vi.resetModules();
+      const reloaded = await import("./client");
+      try {
+        expect(reloaded.getDatabaseConnection() === first).toBe(true);
+        expect(first.sql.options.idle_timeout).toBe(15);
+        vi.stubEnv(
+          "DATABASE_URL",
+          "postgresql://postgres@127.0.0.1:2/postgres",
+        );
+        expect(reloaded.getDatabaseConnection() === first).toBe(false);
+        await reloaded.closeDatabase();
+        vi.stubEnv("DATABASE_URL", "bad");
+        expect(() => reloaded.getDatabaseConnection()).toThrow(
+          "valid PostgreSQL URL",
+        );
+        vi.stubEnv(
+          "DATABASE_URL",
+          "postgresql://postgres@127.0.0.1:1/postgres",
+        );
+      } finally {
+        await reloaded.closeDatabase();
+      }
+    } finally {
+      await closeDatabase();
+      vi.unstubAllEnvs();
+    }
   });
 
   it("lazily creates and closes the shared database connection", async () => {
