@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { OAUTH_NEXT_COOKIE } from "@/lib/auth/oauth-next";
+import { OAUTH_NEXT_COOKIE, authRequestOrigin } from "@/lib/auth/oauth-next";
 import { safeNextPath } from "@/lib/auth/safe-next-path";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (request.headers.get("origin") !== request.nextUrl.origin) {
+  if (request.headers.get("origin") !== authRequestOrigin(request)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

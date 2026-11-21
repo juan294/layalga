@@ -22,6 +22,51 @@
     "dark": "Oscuro",
     "cycleLabel": "Tema: {state} — clic para cambiar"
   },
+  "StayRequests": {
+    "alreadySent": "Ya enviaste esta solicitud. Puedes consultar su estado en el justificante.",
+    "history": "Mis solicitudes de estancia",
+    "receipt": "Solicitud de estancia",
+    "chooseRooms": "Elige tus habitaciones",
+    "notes": "Notas para los anfitriones (opcional)",
+    "requests": "Peticiones que requieren aprobación (opcional)",
+    "overflowConsent": "Acepto la distribución de camas adicionales indicada para las habitaciones elegidas si es necesaria.",
+    "overflowAccepted": "Has aceptado la distribución de camas adicionales indicada si es necesaria.",
+    "review": "Revisar la solicitud",
+    "reviewHelp": "Los anfitriones revisarán la estancia cuando envíes la solicitud. Las habitaciones siguen disponibles hasta que un anfitrión la confirme. Podrás consultar la respuesta en Mis solicitudes de estancia.",
+    "loading": "Comprobando tu selección…",
+    "terms": "Estancia elegida",
+    "party": "{adults, plural, one {# adulto} other {# adultos}} · {children, plural, one {# menor} other {# menores}} · {pets, plural, one {# mascota} other {# mascotas}}",
+    "findAnother": "Buscar una estancia",
+    "retry": "Volver a intentar",
+    "signIn": "Continuar con Google",
+    "authFailed": "No se ha completado el inicio de sesión. Vuelve a intentarlo con tu cuenta de Google verificada.",
+    "accountHelp": "Inicia sesión con la cuenta de Google que usaste para la solicitud.",
+    "sendingAs": "Vas a enviar la solicitud con la cuenta {email}",
+    "send": "Enviar la solicitud",
+    "sending": "Enviando…",
+    "pendingHelp": "Los anfitriones revisarán la estancia. Vuelve aquí para consultar la respuesta o retirar tu solicitud.",
+    "viewRequest": "Ver la solicitud original",
+    "viewVisit": "Ver la estancia confirmada",
+    "withdraw": "Retirar la solicitud",
+    "refresh": "Actualizar el estado",
+    "empty": "Todavía no tienes solicitudes de estancia.",
+    "sign_in": "Inicia sesión para continuar.",
+    "changed_account": "La cuenta ha cambiado. Vuelve a iniciar sesión y revisa la solicitud antes de enviarla.",
+    "invalid": "Comprueba la estancia y elige habitaciones con capacidad para tu grupo.",
+    "stale": "Han cambiado las habitaciones o sus condiciones. Busca de nuevo y revisa las habitaciones disponibles.",
+    "expired": "Esta selección ha caducado o pertenece a otro navegador. Vuelve a elegir la estancia.",
+    "limit": "Has alcanzado el límite de solicitudes pendientes para esta casa. En Mis solicitudes de estancia puedes consultarlas o retirar alguna.",
+    "conflict": "Este envío ya corresponde a otra solicitud. Consulta la solicitud original o elige una estancia nueva.",
+    "unavailable": "No se ha podido completar la operación. Vuelve a intentarlo o consulta Mis solicitudes de estancia.",
+    "status": {
+      "pending": "Pendiente de confirmación del anfitrión",
+      "confirmed": "Estancia confirmada",
+      "declined": "Rechazada por el anfitrión",
+      "withdrawn": "Solicitud retirada",
+      "expired": "Solicitud caducada",
+      "needs_new_selection": "Elige otra estancia"
+    }
+  },
   "PublicStays": {
     "find": "Buscar una casa",
     "householdName": "Nombre de la casa",
@@ -55,20 +100,20 @@
     "description": "Dinos cuándo quieres venir a visitarnos y nos ocuparemos del resto. ¡Nos alegra recibirte!",
     "googleAction": "Continuar con Google",
     "connecting": "Abriendo Google…",
-    "privacyNote": "Abierto a los anfitriones de esta casa y a quienes ellos invitan.",
+    "privacyNote": "Cualquier persona puede buscar una casa publicada. Inicia sesión para solicitar una estancia o consultar la respuesta.",
     "startError": "No se pudo iniciar la sesión con Google. Inténtalo de nuevo.",
     "callbackError": "No se pudo completar la sesión con Google. Inténtalo de nuevo.",
-    "notHostError": "Esta cuenta de Google no está en la lista de anfitriones de esta casa. Si te han invitado, abre tu enlace de invitación e inicia sesión desde allí.",
+    "notHostError": "Para consultar una solicitud de estancia, abre Mis solicitudes. Si recibiste una invitación, utiliza el enlace que te envió el anfitrión.",
     "imageAlt": "Ilustración de la casa sobre el Cantábrico, {season}",
     "footerLead": "¿Planes por la zona? Ideas en ",
     "privacyLink": "Privacidad"
   },
   "Privacy": {
     "title": "Privacidad",
-    "updated": "Última actualización: 15 de octubre de 2026.",
+    "updated": "Última actualización: 21 de noviembre de 2026.",
     "intro": "L’Ayalga es un coordinador privado de visitas para un solo hogar. Los anfitriones lo usan para invitar a familia y amigos y organizar sus estancias. Este aviso explica qué guarda la aplicación y por qué.",
     "signInTitle": "Inicio de sesión con Google",
-    "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para reconocerte, como uno de los anfitriones registrados para la casa o como un huésped que abrió una invitación y la vinculó a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
+    "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para identificarte como anfitrión, como huésped que envía una solicitud de estancia o como huésped que ha vinculado una invitación a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
     "householdTitle": "Invitaciones y estancias",
     "householdBody": "La aplicación guarda lo que anfitriones y huéspedes introducen para organizar una visita: la invitación, las fechas, el número de personas, la elección de habitaciones, las notas y las solicitudes de aprobación. Si decides recibir recordatorios por correo, también guarda esa dirección y tu consentimiento. Puedes desactivar los recordatorios cuando quieras.",
     "assistantTitle": "El coordinador",
@@ -79,7 +124,9 @@
     "retentionBody": "Las visitas, las invitaciones y un registro breve de quién hizo qué se conservan hasta que se borra el hogar, pero su texto privado se borra con el tiempo. El texto de las invitaciones se borra 180 días después de su captura cuando ya nada depende de él; las notas y peticiones especiales de estancias canceladas o reconfirmadas, 180 días después de terminar la estancia; los datos de trabajo del coordinador, 30 días después de terminar el trabajo; los registros de envío de correo, a los 90 días, y los detalles del registro, al cabo de un año. Las direcciones para recordatorios se eliminan unos 180 días después de que termine la estancia o la invitación correspondiente. Las preferencias recordadas de cada familia se conservan hasta que un anfitrión las borra. Quien inicia sesión con Google tiene un registro básico en el servicio de inicio de sesión (nombre, correo, foto, horas de inicio de sesión y direcciones IP). Se conserva hasta que pidas que se borre, también si tu cuenta no es de un anfitrión ni de un huésped invitado.",
     "choicesTitle": "Tus opciones",
     "choicesBody": "Para ver, corregir o borrar lo que la aplicación guarda sobre ti, o para preguntar por este aviso, contacta con los anfitriones que te invitaron o con el responsable del sitio en juan294@gmail.com.",
-    "backToSignIn": "Volver al inicio de sesión"
+    "backToSignIn": "Volver al inicio de sesión",
+    "stayRequestsTitle": "Solicitudes de los huéspedes",
+    "stayRequestsBody": "Cualquier persona puede buscar casas publicadas y ver fechas disponibles e información sobre las habitaciones. Al enviar una solicitud, los anfitriones ven tu correo verificado, fechas, habitaciones, grupo, notas y peticiones. En tu cuenta puedes consultar o retirar una solicitud pendiente. Las solicitudes sin reserva se eliminan 30 días después de cerrarse. Para una solicitud confirmada se conserva el vínculo con la visita reservada."
   },
   "Season": {
     "primavera": "primavera",
@@ -650,5 +697,12 @@
       "escalated": "Contacta con el huésped para comprobar sus planes. El estado del correo es distinto de una respuesta.",
       "arrived": "Consulta los detalles de la visita y confirma la llegada con los huéspedes."
     }
+  },
+  "HostStayRequests": {
+    "title": "Solicitudes de estancia",
+    "group": "{adults} adultos · {children} menores · {pets} mascotas",
+    "overflow": "Plaza adicional aceptada: {terms}",
+    "notes": "Notas del huésped",
+    "requests": "Peticiones para aprobar"
   }
 }

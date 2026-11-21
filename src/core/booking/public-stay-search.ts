@@ -1,4 +1,5 @@
 import "@/core/server-only";
+import type { TransactionSql } from "postgres";
 import { SystemClock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import type { StayRange } from "@/core/db/schema";
@@ -29,8 +30,12 @@ export interface PublicStaySearchResult {
   truncated: boolean;
 }
 
-async function loadPublicSearch(handle: string, criteria: GuestSearchCriteria) {
-  const listing = await resolvePublicListing(handle);
+async function loadPublicSearch(
+  handle: string,
+  criteria: GuestSearchCriteria,
+  transaction?: TransactionSql,
+) {
+  const listing = await resolvePublicListing(handle, transaction);
   if (!listing) return { status: "not_found" } as const;
 
   const counts = [
@@ -61,7 +66,7 @@ async function loadPublicSearch(handle: string, criteria: GuestSearchCriteria) {
   }
 
   const window = await loadGuestRoomSearchWindow(
-    getDatabaseConnection().db,
+    transaction ?? getDatabaseConnection().db,
     clock,
     listing.homeId,
     [input.from, input.to],
@@ -134,14 +139,20 @@ export async function resolvePublicStaySelection(
   exactCriteria: GuestSearchCriteria,
   roomRefs: readonly string[],
   overflowConsent: boolean,
-): Promise<{ homeId: string; roomIds: string[] } | null> {
+  transaction?: TransactionSql,
+): Promise<{
+  homeId: string;
+  displayName: string;
+  roomIds: string[];
+  rooms: PublicRoomChoice[];
+} | null> {
   if (
     !Array.isArray(roomRefs) ||
     !roomRefs.length ||
     roomRefs.length > MAX_ROOM_SELECTION
   )
     return null;
-  const search = await loadPublicSearch(handle, exactCriteria);
+  const search = await loadPublicSearch(handle, exactCriteria, transaction);
   if (search.status !== "success") return null;
   const option = search.options.next().value;
   if (
@@ -171,6 +182,10 @@ export async function resolvePublicStaySelection(
   if (verdict.decision === "deny") return null;
   return {
     homeId: search.listing.homeId,
+    displayName: search.listing.displayName,
+    rooms: verdict.rooms.map((room) =>
+      publicRoom(search.listing, option.stay, room),
+    ),
     roomIds: verdict.rooms.map((room) => room.id),
   };
 }

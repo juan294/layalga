@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { resolvePublicListing } from "@/core/booking/public-listings";
 import { PublicStayRegistration } from "@/components/webmcp/public-registration";
 import { guestInvitationDefaults } from "@/components/guest/guest-invitation-defaults";
+import { StaySelectionForm } from "@/components/guest/stay-selection-form";
 import { Field } from "@/components/guest/field";
 import { formatDateStay } from "@/components/frontend-utils";
 import styles from "@/components/guest/guest-ledger.module.css";
@@ -94,33 +95,19 @@ export default async function HouseholdStaysPage({
                   <p>
                     {t("checkout", { date: option.stay[1] })} {t("review")}
                   </p>
-                  <ul className={styles.accountVisits}>
-                    {option.rooms.map((room) => (
-                      <li key={room.ref}>
-                        <strong>{room.guestLabel}</strong>
-                        <span>
-                          {[room.floorLabel, room.sleepingArrangement]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                        <small>
-                          {t("sleeps", { count: room.standardCapacity })}
-                        </small>
-                        {room.maximumCapacity > room.standardCapacity &&
-                          room.overflowArrangement && (
-                            <small>
-                              {t("overflow", {
-                                count: room.maximumCapacity,
-                                arrangement: room.overflowArrangement,
-                              })}
-                            </small>
-                          )}
-                        {option.recommendedRoomRefs.includes(room.ref) && (
-                          <small>{t("recommended")}</small>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                  <StaySelectionForm
+                    locale={locale}
+                    handle={handle}
+                    option={option}
+                    criteria={{
+                      from: option.stay[0],
+                      to: option.stay[1],
+                      nights: Number(query.nights),
+                      adults: Number(query.adults),
+                      children: Number(query.children),
+                      pets: Number(query.pets),
+                    }}
+                  />
                 </details>
               ))}
               {result.truncated && <p>{t("moreStays")}</p>}

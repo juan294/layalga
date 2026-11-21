@@ -23,6 +23,10 @@ export default async function SignInPage({
   if (!hasLocale(routing.locales, locale)) notFound();
 
   const t = await getTranslations({ locale, namespace: "SignIn" });
+  const requestsT = await getTranslations({
+    locale,
+    namespace: "StayRequests",
+  });
   const brandT = await getTranslations({ locale, namespace: "Brand" });
   const { error } = await searchParams;
   const callbackError =
@@ -51,6 +55,7 @@ export default async function SignInPage({
         <div className="postcard__actions">
           <SignInButton locale={locale} />
           <a href={`/${locale}/stays`}>{t("findStays")}</a>
+          <a href={`/${locale}/requests`}>{requestsT("history")}</a>
           {callbackError ? (
             <p className="postcard__error" role="alert">
               {callbackError}

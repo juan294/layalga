@@ -15,6 +15,10 @@ export default async function FindHouseholdPage({
   const { locale } = await params;
   const { q } = await searchParams;
   const t = await getTranslations({ locale, namespace: "PublicStays" });
+  const requestsT = await getTranslations({
+    locale,
+    namespace: "StayRequests",
+  });
   const result = q !== undefined ? await lookupHouseholds(q) : null;
   return (
     <main className={styles.shell}>
@@ -24,6 +28,7 @@ export default async function FindHouseholdPage({
           <h1 className={styles.title}>{t("find")}</h1>
         </header>
         <div className={styles.body}>
+          <Link href={`/${locale}/requests`}>{requestsT("history")}</Link>
           <form method="get" className={styles.formStack}>
             <Field label={t("householdName")} name="q">
               <input

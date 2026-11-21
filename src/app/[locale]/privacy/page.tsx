@@ -10,6 +10,7 @@ import { routing } from "@/i18n/routing";
 const PRIVACY_SECTIONS = [
   "signIn",
   "household",
+  "stayRequests",
   "assistant",
   "services",
   "retention",

@@ -1,3 +1,4 @@
+import type { TransactionSql } from "postgres";
 import { z } from "zod";
 import { getDatabaseConnection } from "../db/client";
 
@@ -54,13 +55,18 @@ export async function discoverPublicListings(query: string): Promise<{
 
 export async function resolvePublicListing(
   handle: string,
+  transaction?: TransactionSql,
 ): Promise<ResolvedListing | null> {
   if (!z.uuid().safeParse(handle).success) return null;
-  const [listing] = await getDatabaseConnection().sql<ResolvedListing[]>`
+  const sql = transaction ?? getDatabaseConnection().sql;
+  const query = sql<ResolvedListing[]>`
     select l.handle, l.display_name as "displayName", l.home_id as "homeId", h.timezone
     from public.household_public_listings l join public.homes h on h.id = l.home_id
     where l.published and l.handle = ${handle}
   `;
+  const [listing] = transaction
+    ? await sql<ResolvedListing[]>`${query} for share of l`
+    : await query;
   return listing ?? null;
 }
 

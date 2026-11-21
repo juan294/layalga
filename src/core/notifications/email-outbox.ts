@@ -154,7 +154,22 @@ export async function selectPendingPings(
         and visit.status = 'escalated'
         and (invitation.id is null or invitation.status <> 'cancelled')
     ),
+    stay_request_candidates as (
+      select r.id as source_id, 'pending_stay_request'::text as kind, r.home_id,
+        host.id as host_id, host.locale,
+        jsonb_build_object('arrival', lower(r.stay)::text, 'departure', upper(r.stay)::text) as reason,
+        ''::text as party_name
+      from public.stay_requests r
+      join public.homes home on home.id = r.home_id
+      join public.hosts host on host.home_id = r.home_id
+      where r.status = 'pending'
+        and lower(r.stay) >= (${now.toISOString()}::timestamptz at time zone home.timezone)::date
+        and ${target ? sql`r.id = ${target.sourceId} and r.home_id = ${target.homeId}
+          and host.id = ${target.hostId} and ${target.kind} = 'pending_stay_request'` : sql`true`}
+    ),
     candidates as (
+      select * from stay_request_candidates
+      union all
       select * from decision_candidates
       union all
       select * from escalation_candidates
@@ -211,7 +226,7 @@ export async function selectPendingPings(
       partyName: row.party_name,
       toAddress: row.to_address,
       reasonCode: decisionReasonCode(row.reason),
-      stay: context?.stay,
+      stay: context?.stay ?? requestStay(row),
       existingId: row.existing_id,
       existingStatus: row.existing_status,
       existingCreatedAt: row.existing_created_at
@@ -275,7 +290,7 @@ async function sendCandidatePing(
 ): Promise<"sent" | "skipped" | "failed"> {
   const rendered = renderPing(candidate.kind, candidate.locale, {
     partyName: candidate.partyName,
-    link: pingLink(candidate.kind, candidate.locale),
+    link: pingLink(candidate.kind, candidate.locale, candidate.sourceId),
     stay: candidate.stay,
     reasonCode: candidate.reasonCode,
     season: currentSeason(now),
@@ -391,8 +406,24 @@ async function reclaimStalePing(
   return row?.id ?? null;
 }
 
-function pingLink(kind: HostEmailPingKind, locale: "en" | "es"): string {
+function requestStay(row: CandidateRow): readonly [string, string] | undefined {
+  if (row.kind !== "pending_stay_request") return;
+  const reason = objectValue(row.reason);
+  if (
+    typeof reason?.arrival === "string" &&
+    typeof reason.departure === "string"
+  )
+    return [reason.arrival, reason.departure];
+}
+
+function pingLink(
+  kind: HostEmailPingKind,
+  locale: "en" | "es",
+  sourceId: string,
+): string {
   const appUrl = parseServerEnvironment().appUrl.replace(/\/$/, "");
+  if (kind === "pending_stay_request")
+    return `${appUrl}/${locale}/review-stay/${sourceId}`;
   return kind === "pending_decision"
     ? `${appUrl}/${locale}#pending-decisions`
     : `${appUrl}/${locale}`;
@@ -435,6 +466,31 @@ export function renderPing(
     fromAddress: context.fromAddress,
   };
 
+  if (kind === "pending_stay_request") {
+    const es = locale === "es";
+    const subject = es
+      ? "Solicitud de estancia en L’Ayalga"
+      : "Stay request at L’Ayalga";
+    const dates = context.stay?.join(" – ") ?? "";
+    const prompt = es
+      ? "Revisa las fechas y habitaciones solicitadas."
+      : "Review the requested dates and rooms.";
+    return {
+      subject,
+      text: `${prompt} ${dates} ${context.link}`,
+      html: renderEmailDocument({
+        ...documentDefaults,
+        subject,
+        headline: subject,
+        preheader: prompt,
+        eyebrow: es
+          ? "Pendiente de confirmación"
+          : "Awaiting host confirmation",
+        bodyHtml: `${prompt} ${monoSpan(dates)}`,
+        ctaLabel: es ? "Ver la solicitud" : "Review the request",
+      }),
+    };
+  }
   if (kind === "reconfirm_escalation") {
     const subject =
       locale === "es"

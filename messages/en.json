@@ -22,6 +22,51 @@
     "dark": "Dark",
     "cycleLabel": "Theme: {state} — click to change"
   },
+  "StayRequests": {
+    "alreadySent": "You already sent this request. Your receipt shows its current status.",
+    "history": "My stay requests",
+    "receipt": "Stay request",
+    "chooseRooms": "Choose your rooms",
+    "notes": "Notes for the hosts (optional)",
+    "requests": "Requests that need host approval (optional)",
+    "overflowConsent": "I agree to the extra sleeping arrangements shown for my selected rooms if needed.",
+    "overflowAccepted": "You accepted the displayed extra sleeping arrangements if needed.",
+    "review": "Review stay request",
+    "reviewHelp": "The household hosts will review this stay after you send it. The rooms remain available until a host confirms. You can check the reply in My stay requests.",
+    "loading": "Checking your selection…",
+    "terms": "Selected stay",
+    "party": "{adults, plural, one {# adult} other {# adults}} · {children, plural, one {# child} other {# children}} · {pets, plural, one {# pet} other {# pets}}",
+    "findAnother": "Find a stay",
+    "retry": "Try again",
+    "signIn": "Continue with Google",
+    "authFailed": "Sign-in did not finish. Try again with your verified Google account.",
+    "accountHelp": "Sign in with the Google account you used for your stay request.",
+    "sendingAs": "Sending as {email}",
+    "send": "Send stay request",
+    "sending": "Sending…",
+    "pendingHelp": "The hosts will review your stay. Return here to check their reply or withdraw the request.",
+    "viewRequest": "Open the original request",
+    "viewVisit": "View your booked stay",
+    "withdraw": "Withdraw request",
+    "refresh": "Refresh status",
+    "empty": "You have no stay requests yet.",
+    "sign_in": "Sign in to continue.",
+    "changed_account": "The account has changed. Sign in again and review before sending.",
+    "invalid": "Check your stay and select rooms that fit your party.",
+    "stale": "These rooms or their terms have changed. Search again and review the available rooms.",
+    "expired": "This selection has expired or belongs to another browser. Choose the stay again.",
+    "limit": "You have reached the limit of pending requests for this household. Open My stay requests to check or withdraw one.",
+    "conflict": "This submission already belongs to a different request. Open the original request, or choose a new stay.",
+    "unavailable": "The request service could not finish. Try again or check My stay requests.",
+    "status": {
+      "pending": "Awaiting host confirmation",
+      "confirmed": "Stay confirmed",
+      "declined": "Declined by the host",
+      "withdrawn": "Request withdrawn",
+      "expired": "Request expired",
+      "needs_new_selection": "Choose another stay"
+    }
+  },
   "PublicStays": {
     "find": "Find a household",
     "householdName": "Household name",
@@ -55,20 +100,20 @@
     "description": "Let us know when you want to come visit and we'll take care of the rest. We're happy to have you!",
     "googleAction": "Continue with Google",
     "connecting": "Opening Google…",
-    "privacyNote": "Open to the hosts of this house and the guests they invite.",
+    "privacyNote": "Anyone can find a published household. Sign in to send a stay request or view the host’s reply.",
     "startError": "Google sign-in could not start. Try again.",
     "callbackError": "Google sign-in could not be completed. Try again.",
-    "notHostError": "This Google account is not on the host list for this house. If you were invited, open your invitation link and sign in there.",
+    "notHostError": "For a stay request, open My stay requests. For an invitation, use the link your host sent you.",
     "imageAlt": "Illustration of the house above the Cantábrico, {season}",
     "footerLead": "Planning days out around the house? Local ideas at ",
     "privacyLink": "Privacy"
   },
   "Privacy": {
     "title": "Privacy",
-    "updated": "Last updated October 15, 2026.",
+    "updated": "Last updated November 21, 2026.",
     "intro": "L’Ayalga is a private guest coordinator for one household. The hosts use it to invite family and friends and to plan their stays. This notice explains what the app keeps and why.",
     "signInTitle": "Google sign-in",
-    "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to recognize you, as one of the hosts recorded for the house or as a guest who opened an invitation and linked it to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
+    "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to identify you as a host, a guest sending a stay request, or a guest who has linked an invitation to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
     "householdTitle": "Invitations and stays",
     "householdBody": "The app stores what hosts and guests enter to plan a visit: the invitation, the dates, the size of the party, room choices, notes and requests for approval. If you choose to get reminders by email, it also stores that address and your consent. You can turn the reminders off at any time.",
     "assistantTitle": "The coordinator",
@@ -79,7 +124,9 @@
     "retentionBody": "Visits, invitations and a short record of who did what stay until the household is deleted, but their private text is cleared over time. Invitation text is cleared 180 days after capture once nothing depends on it; notes and special requests on cancelled or reconfirmed stays, 180 days after the stay ends; the coordinator's working data, 30 days after the work finishes; email delivery records, after 90 days; and record details, after one year. Reminder email addresses are removed about 180 days after the related stay or invitation ends. Remembered family preferences stay until a host erases them. Everyone who signs in with Google has a basic account record with the sign-in service (name, email address, picture, sign-in times and IP addresses). It is kept until you ask for its deletion, also when your account is neither a host nor an invited guest.",
     "choicesTitle": "Your choices",
     "choicesBody": "To see, correct or delete what the app holds about you, or to ask about this notice, contact the hosts who invited you or the site operator at juan294@gmail.com.",
-    "backToSignIn": "Back to sign-in"
+    "backToSignIn": "Back to sign-in",
+    "stayRequestsTitle": "Guest-initiated requests",
+    "stayRequestsBody": "Anyone can search published households and see available dates and guest-facing room details. When you send a request, the household’s hosts can see your verified email, selected rooms, dates, group size, notes and requests. You can view or withdraw your pending request from your account. Unbooked requests are deleted 30 days after they close. For a confirmed request the app retains the link to the booked visit."
   },
   "Season": {
     "primavera": "spring",
@@ -650,5 +697,12 @@
       "escalated": "Contact the guest to check their plans. Email status is separate from a reply.",
       "arrived": "Check the visit details and confirm arrival with your guests."
     }
+  },
+  "HostStayRequests": {
+    "title": "Guest stay requests",
+    "group": "{adults} adults · {children} children · {pets} pets",
+    "overflow": "Accepted extra sleeping space: {terms}",
+    "notes": "Guest notes",
+    "requests": "Requests for approval"
   }
 }

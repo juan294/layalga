@@ -56,7 +56,9 @@ describe("renderPing", () => {
     expect(rendered.html).toContain("<strong>Vega</strong>");
     expect(rendered.html).toContain("2026-09-18 – 2026-09-21");
     expect(rendered.html).toContain("Review and decide");
-    expect(rendered.html).toContain("https://layalga.example/en#pending-decisions");
+    expect(rendered.html).toContain(
+      "https://layalga.example/en#pending-decisions",
+    );
     expect(rendered.html).toContain("background-color:#b3572f");
   });
 
@@ -84,4 +86,16 @@ describe("renderPing", () => {
     });
     expect(es.html).toContain("Una familia no ha reconfirmado su visita");
   });
+});
+
+it("links a pending stay to its final host review", () => {
+  const link = "https://layalga.example/es#stay-request-123";
+  const ping = renderPing("pending_stay_request", "es", {
+    link,
+    partyName: "",
+    stay: ["2027-07-01", "2027-07-15"],
+  });
+  expect(ping.subject).toContain("estancia");
+  expect(ping.text).toContain("2027-07-15");
+  expect(ping.html).toContain(link);
 });

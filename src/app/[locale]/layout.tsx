@@ -83,7 +83,7 @@ export default async function LocaleLayout({
     getCurrentGuestInvitation(),
     getCurrentAccount(),
   ]);
-  const signedIn = Boolean(host || guest);
+  const signedIn = Boolean(host || guest || account);
 
   return (
     <html

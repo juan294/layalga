@@ -26,6 +26,7 @@ import PrivacyPage, { generateMetadata } from "./page";
 const EXPECTED_SECTIONS = [
   "signIn",
   "household",
+  "stayRequests",
   "assistant",
   "services",
   "retention",

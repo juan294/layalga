@@ -3,7 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { routing } from "@/i18n/routing";
 import { claimHostForUser } from "@/lib/auth/current-host";
-import { clearOAuthNextCookie, oauthNextPath } from "@/lib/auth/oauth-next";
+import {
+  authRequestOrigin,
+  clearOAuthNextCookie,
+  oauthNextPath,
+} from "@/lib/auth/oauth-next";
+import { isRequesterPath } from "@/lib/auth/safe-next-path";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
 import { hasPartyForUser } from "@/lib/auth/guest-account";
 import { createClient } from "@/lib/supabase/server";
@@ -23,10 +29,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (user) {
         const redirectTo = (path: string) =>
           clearOAuthNextCookie(
-            NextResponse.redirect(new URL(path, request.url)),
+            NextResponse.redirect(new URL(path, authRequestOrigin(request))),
           );
         const guestToken = guestTokenFromPath(next);
-        if (guestToken) {
+        if (isRequesterPath(next)) {
+          if (verifiedGoogleGuestEmail(user)) return redirectTo(next);
+        } else if (guestToken) {
           if (await claimPartyForUser(guestToken, user.id)) {
             return redirectTo(next);
           }
@@ -42,13 +50,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }
       }
       await supabase.auth.signOut();
+      if (isRequesterPath(next)) return failedRequestSignIn(request, next);
       if (guestTokenFromPath(next)) {
-        const failed = new URL(next, request.url);
+        const failed = new URL(next, authRequestOrigin(request));
         failed.searchParams.set("claim", "failed");
         return clearOAuthNextCookie(NextResponse.redirect(failed));
       }
       if (guestAccountPath(next)) {
-        const failed = new URL(next, request.url);
+        const failed = new URL(next, authRequestOrigin(request));
         failed.searchParams.set("account", "not_found");
         return clearOAuthNextCookie(NextResponse.redirect(failed));
       }
@@ -56,7 +65,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  if (isRequesterPath(next)) return failedRequestSignIn(request, next);
   return clearOAuthNextCookie(signInRedirect(request, next, "oauth_failed"));
+}
+
+function failedRequestSignIn(request: NextRequest, next: string) {
+  const retry = new URL(next, authRequestOrigin(request));
+  retry.searchParams.set("auth", "failed");
+  return clearOAuthNextCookie(NextResponse.redirect(retry));
 }
 
 function guestAccountPath(value: string): boolean {
@@ -73,7 +89,10 @@ function signInRedirect(
   error: "not_a_host" | "oauth_failed",
 ): NextResponse {
   return NextResponse.redirect(
-    new URL(`/${localeOf(next)}/sign-in?error=${error}`, request.url),
+    new URL(
+      `/${localeOf(next)}/sign-in?error=${error}`,
+      authRequestOrigin(request),
+    ),
   );
 }
 
