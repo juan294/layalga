@@ -1,6 +1,5 @@
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
@@ -51,7 +50,7 @@ export default async function SignInPage({
         <p className="postcard__lead">{t("description")}</p>
         <div className="postcard__actions">
           <SignInButton locale={locale} />
-          <Link href={`/${locale}/stays`}>{t("findStays")}</Link>
+          <a href={`/${locale}/stays`}>{t("findStays")}</a>
           {callbackError ? (
             <p className="postcard__error" role="alert">
               {callbackError}
