@@ -85,17 +85,6 @@ for (const [locale, copy, device] of [
         .getByRole("link", { name: copy.GuestConversation.structured })
         .getAttribute("href");
       expect(structured).toContain("nights=14");
-      const comparison = await context.newPage();
-      await comparison.goto(structured!);
-      const matched = comparison
-        .getByRole("region", { name: copy.PublicStays.matches })
-        .locator("details")
-        .first();
-      await matched.locator("summary").click();
-      await expect(
-        matched.getByRole("checkbox", { name: "Garage Room" }),
-      ).toBeVisible();
-      await comparison.close();
       await chat.screenshot({
         path: testInfo.outputPath("conversation-options.png"),
       });
@@ -173,6 +162,18 @@ for (const [locale, copy, device] of [
       );
       const receipt = new URL(page.url()).pathname;
       const id = receipt.split("/").at(-1)!;
+      // Compare the captured projection after completing the guest's uninterrupted turn.
+      const comparison = await context.newPage();
+      await comparison.goto(structured!);
+      const matched = comparison
+        .getByRole("region", { name: copy.PublicStays.matches })
+        .locator("details")
+        .first();
+      await matched.locator("summary").click();
+      await expect(
+        matched.getByRole("checkbox", { name: "Garage Room" }),
+      ).toBeVisible();
+      await comparison.close();
       await page.goto(`/${locale}/stays`);
       await ask(statusQuestion);
       await expect(
