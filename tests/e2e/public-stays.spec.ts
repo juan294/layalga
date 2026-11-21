@@ -7,6 +7,29 @@ import { test } from "./helpers/household";
 test.use({ householdOptions: { parties: [] } });
 test.setTimeout(90_000);
 
+test("a guest can reach discovery and refine a search with JavaScript disabled", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({
+    baseURL,
+    javaScriptEnabled: false,
+  });
+  try {
+    const guest = await context.newPage();
+    await guest.goto("/en/sign-in");
+    await guest.getByRole("link", { name: en.SignIn.findStays }).click();
+    await guest.getByLabel(en.PublicStays.householdName).fill(randomUUID());
+    await guest
+      .getByRole("button", { name: en.PublicStays.search, exact: true })
+      .click();
+    await expect(guest.getByRole("status")).toHaveText(en.PublicStays.noMatch);
+    await expect(guest.getByLabel(en.PublicStays.householdName)).toBeEditable();
+  } finally {
+    await context.close();
+  }
+});
+
 for (const [locale, messages] of [
   ["en", en],
   ["es", es],
