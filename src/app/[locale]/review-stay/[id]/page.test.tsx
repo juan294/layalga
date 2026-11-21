@@ -2,6 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const host = vi.hoisted(() => vi.fn());
+const outcome = vi.hoisted(() => vi.fn());
+vi.mock("@/core/booking/stay-requests", () => ({
+  getHostStayRequestOutcome: outcome,
+}));
 vi.mock("@/lib/auth/current-host", () => ({ getCurrentHost: host }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -12,7 +16,8 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => key,
+  getTranslations: async () => (key: string, values?: { name: string }) =>
+    values ? key + " " + values.name : key,
 }));
 vi.mock("@/app/[locale]/sign-in/sign-in-button", () => ({
   SignInButton: ({
@@ -35,6 +40,7 @@ const open = (locale: string, request = id) =>
   ReviewStay({ params: Promise.resolve({ locale, id: request }) });
 beforeEach(() => {
   host.mockReset();
+  outcome.mockReset().mockResolvedValue({ status: "pending", actor: null });
 });
 
 it.each(["en", "es"])(
@@ -45,6 +51,7 @@ it.each(["en", "es"])(
     expect(html).toContain(`data-return-to="/${locale}/review-stay/${id}"`);
     expect(html).toContain(`data-locale="${locale}"`);
     expect(html).not.toContain("#stay-request-");
+    expect(outcome).not.toHaveBeenCalled();
   },
 );
 it.each(["en", "es"])(
@@ -66,3 +73,17 @@ it.each([
     expect(host).not.toHaveBeenCalled();
   },
 );
+
+it("shows the decision and actor when the host reopens a settled notification", async () => {
+  host.mockResolvedValue({ id: "host", homeId: "home" });
+  outcome.mockResolvedValue({ status: "declined", actor: "Ana" });
+  const html = renderToStaticMarkup(await open("es"));
+  expect(outcome).toHaveBeenCalledWith({ id: "host", homeId: "home" }, id);
+  expect(html).toContain("status.declined");
+  expect(html).toContain("decidedBy Ana");
+});
+it("uses a generic not-found response for requests outside the host household", async () => {
+  host.mockResolvedValue({ id: "host", homeId: "other" });
+  outcome.mockResolvedValue(null);
+  await expect(open("en")).rejects.toThrow("not found");
+});

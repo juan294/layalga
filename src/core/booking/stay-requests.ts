@@ -1,9 +1,15 @@
 import "@/core/server-only";
+import { lockBookingHome } from "./holds";
 import { createHash } from "node:crypto";
 import type { Sql, TransactionSql } from "postgres";
 import { z } from "zod";
 import { getDatabaseConnection } from "@/core/db/client";
-import type { Locale, StayRange, StayRequestStatus } from "@/core/db/schema";
+import type {
+  Locale,
+  StayRange,
+  StayRequestStatus,
+  VisitStatus,
+} from "@/core/db/schema";
 import {
   resolvePublicStaySelection,
   type PublicRoomChoice,
@@ -27,6 +33,7 @@ export interface StayRequestReceipt {
   status: StayRequestStatus;
   version: number;
   visitId: string | null;
+  visitStatus: VisitStatus | null;
   createdAt: string;
 }
 export interface HostStayRequestReceipt extends StayRequestReceipt {
@@ -37,7 +44,9 @@ type SubmitOutcome =
   | { status: "replayed" | "conflict"; requestId: string }
   | { status: "invalid" | "stale" | "limit" };
 type Host = { id: string; homeId: string };
-type Reader = { userId: string; id?: string; handle?: string } | { host: Host };
+type Reader =
+  | { userId: string; id?: string; handle?: string }
+  | { host: Host; id?: string };
 const uuid = z.uuid();
 
 function pendingLimit() {
@@ -51,7 +60,8 @@ function pendingLimit() {
 function scope(tx: TransactionSql, reader: Reader) {
   if ("host" in reader)
     return tx`r.home_id=${reader.host.homeId} and exists(
-    select 1 from public.hosts h where h.id=${reader.host.id} and h.home_id=r.home_id)`;
+    select 1 from public.hosts h where h.id=${reader.host.id} and h.home_id=r.home_id)
+    ${reader.id ? tx`and r.id=${reader.id}` : tx``}`;
   return tx`r.requester_id=${reader.userId}
     ${reader.id ? tx`and r.id=${reader.id}` : tx``}
     ${reader.handle ? tx`and r.listing_handle=${reader.handle}` : tx``}`;
@@ -163,7 +173,7 @@ async function selectReceipts(tx: TransactionSql, reader: Reader) {
       lower(coalesce(v.stay,r.stay))::text as "checkIn",upper(coalesce(v.stay,r.stay))::text as checkout,
       coalesce(v.adults,r.adults) as adults,coalesce(v.children,r.children) as children,coalesce(v.pets,r.pets) as pets,
       r.room_terms as rooms,r.overflow_consent as "overflowConsent",r.notes,r.requests,
-      r.locale,r.status,r.version,r.visit_id as "visitId",r.created_at as "createdAt",
+      r.locale,r.status,r.version,r.visit_id as "visitId",v.status as "visitStatus",r.created_at as "createdAt",
       ${"host" in reader ? tx`r.requester_email` : tx`null::text`} as "requesterEmail"
     from public.stay_requests r left join public.visits v on v.id=r.visit_id and v.home_id=r.home_id
     where ${scope(tx, reader)}
@@ -195,6 +205,7 @@ function receipt(row: ReceiptRow): StayRequestReceipt {
     status: row.status,
     version: row.version,
     visitId: row.visitId,
+    visitStatus: row.visitStatus,
     createdAt: new Date(row.createdAt).toISOString(),
   };
 }
@@ -221,6 +232,11 @@ export async function withdrawStayRequest(
     return null;
   return getDatabaseConnection().sql.begin(async (tx) => {
     const reader = { userId, id };
+    const [owned] = await tx<
+      { home_id: string }[]
+    >`select r.home_id from public.stay_requests r where ${scope(tx, reader)}`;
+    if (!owned) return null;
+    await lockBookingHome(tx, owned.home_id);
     await expirePending(tx, reader);
     await tx`update public.stay_requests r set status='withdrawn',version=version+1,updated_at=now(),terminal_at=now()
       where ${scope(tx, reader)} and r.status='pending'`;
@@ -237,4 +253,29 @@ export async function listHostPendingStayRequests(
     ...receipt(row),
     requesterEmail: row.requesterEmail!,
   }));
+}
+
+/** The original host notification remains readable after the card leaves the pending queue. */
+export async function getHostStayRequestOutcome(host: Host, id: string) {
+  if (
+    ![host.id, host.homeId, id].every((value) => uuid.safeParse(value).success)
+  )
+    return null;
+  return getDatabaseConnection().sql.begin(async (tx) => {
+    const reader = { host, id };
+    await expirePending(tx, reader);
+    const [row] = await tx<
+      {
+        status: StayRequestStatus;
+        actor: string | null;
+        visitStatus: VisitStatus | null;
+      }[]
+    >`
+      select r.status, h.display_name as actor, v.status as "visitStatus"
+      from public.stay_requests r
+      left join public.hosts h on h.id=r.decided_by_host_id and h.home_id=r.home_id
+      left join public.visits v on v.id=r.visit_id and v.home_id=r.home_id
+      where ${scope(tx, reader)}`;
+    return row ?? null;
+  });
 }

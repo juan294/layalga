@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   findInvitationByToken: vi.fn(),
   getCurrentHost: vi.fn(),
   getCurrentGuestInvitation: vi.fn(),
+  requester: vi.fn(),
   database: {},
 }));
 
@@ -20,6 +21,10 @@ vi.mock("@/lib/auth/current-host", () => ({
 }));
 vi.mock("@/lib/auth/current-guest", () => ({
   getCurrentGuestInvitation: mocks.getCurrentGuestInvitation,
+}));
+
+vi.mock("@/lib/auth/verified-requester", () => ({
+  verifiedRequester: mocks.requester,
 }));
 
 import { getAuthorizedRunSnapshot } from "./run-data";
@@ -47,6 +52,31 @@ describe("getAuthorizedRunSnapshot authorization", () => {
     mocks.findInvitationByToken.mockResolvedValue(null);
     mocks.getCurrentHost.mockResolvedValue(null);
     mocks.getCurrentGuestInvitation.mockResolvedValue(null);
+  });
+
+  it("checks the signed-in requester and matching confirmed visit for change and reconfirmation runs", async () => {
+    const visitId = "8117899c-7d83-48df-ae33-52126c3bd055";
+    const run = {
+      id: runId,
+      home_id: homeId,
+      session_id: "inv_" + invitationId,
+      task: "guest_change",
+      status: "queued",
+      result: null,
+      finished_at: null,
+      event_kind: null,
+      event_created_at: null,
+    };
+    mocks.requester.mockResolvedValue({ userId: "user" });
+    mocks.sql
+      .mockResolvedValueOnce([run])
+      .mockResolvedValueOnce([{ id: visitId }]);
+    expect(await getAuthorizedRunSnapshot(runId)).toMatchObject({
+      id: runId,
+      status: "queued",
+    });
+    mocks.sql.mockResolvedValueOnce([run]).mockResolvedValueOnce([]);
+    expect(await getAuthorizedRunSnapshot(runId)).toBeNull();
   });
 
   it("authorizes a run with its invitation token", async () => {
@@ -88,11 +118,7 @@ describe("getAuthorizedRunSnapshot authorization", () => {
 
   it.each([
     ["another invitation", "00000000-0000-4000-8000-000000000504", homeId],
-    [
-      "another home",
-      invitationId,
-      "00000000-0000-4000-8000-000000000505",
-    ],
+    ["another home", invitationId, "00000000-0000-4000-8000-000000000505"],
   ])("rejects a guest session for %s", async (_label, guestId, guestHomeId) => {
     mocks.getCurrentGuestInvitation.mockResolvedValue({
       invitationId: guestId,

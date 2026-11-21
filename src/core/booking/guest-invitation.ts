@@ -85,7 +85,19 @@ export async function loadGuestInvitation(
   const invitation = await findInvitationForIdentity(connection.db, identity);
   if (!invitation) return null;
 
-  const sql = sqlClient(connection.db);
+  return loadInvitationVisitRecord(invitation, locale, clock);
+}
+
+export async function loadInvitationVisitRecord(
+  invitation: Pick<
+    InvitationByToken,
+    "id" | "homeId" | "partyId" | "partyName" | "partyLocale" | "structured"
+  >,
+  locale: "en" | "es",
+  clock: Clock,
+  visitId?: string,
+): Promise<GuestInvitationData> {
+  const sql = sqlClient(getDatabaseConnection().db);
   const now = clock.now().toISOString();
   const [visit] = await sql<
     {
@@ -148,6 +160,7 @@ export async function loadGuestInvitation(
       where vr.visit_id = v.id
     ) assigned on true
     where v.invitation_id = ${invitation.id}
+      and (${visitId ?? null}::uuid is null or v.id = ${visitId ?? null}::uuid)
     order by v.created_at desc
     limit 1
   `;

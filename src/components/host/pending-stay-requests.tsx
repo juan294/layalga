@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import type { HostStayRequestReceipt } from "@/core/booking/stay-requests";
 import type { AppLocale } from "@/i18n/routing";
 import { formatDateStay } from "../frontend-utils";
+import { StayDecisionForm } from "./stay-decision-form";
 import { headingStyle, panelStyle } from "./host-styles";
 
 export async function PendingStayRequests({
@@ -49,6 +50,7 @@ export async function PendingStayRequests({
               <strong>{t("requests")}</strong> {r.requests}
             </p>
           )}
+          <StayDecisionForm id={r.id} version={r.version} locale={locale} />
         </article>
       ))}
     </section>

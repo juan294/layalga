@@ -3,6 +3,10 @@ import { expect, it, vi } from "vitest";
 import { PendingStayRequests } from "./pending-stay-requests";
 import type { HostStayRequestReceipt } from "@/core/booking/stay-requests";
 
+vi.mock("@/app/[locale]/(host)/stay-decision-actions", () => ({
+  decideStay: vi.fn(),
+}));
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
@@ -14,6 +18,7 @@ it("exposes the pending card at the notification anchor and includes the exact p
     status: "pending",
     version: 1,
     visitId: null,
+    visitStatus: null,
     createdAt: "2028-06-01T00:00:00Z",
     id: "abc",
     requesterEmail: "sam@example.test",
@@ -46,6 +51,10 @@ it("exposes the pending card at the notification anchor and includes the exact p
     "Twin beds",
     "Late arrival",
     "Bring a cot",
+    "confirmationMeaning",
+    "roomCheck",
+    ">confirm</button>",
+    ">decline</button>",
   ])
     expect(html).toContain(field);
 });

@@ -754,6 +754,7 @@ export const stayRequests = pgTable("stay_requests", {
     .notNull()
     .default("pending"),
   version: integer("version").notNull().default(1),
+  decidedByHostId: uuid("decided_by_host_id"),
   visitId: uuid("visit_id"),
   createdAt: createdAt(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })

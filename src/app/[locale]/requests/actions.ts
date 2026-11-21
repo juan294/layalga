@@ -20,16 +20,8 @@ import {
   readStayDraft,
   sealStayDraft,
 } from "@/lib/auth/stay-request-draft";
-import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
-import { createClient } from "@/lib/supabase/server";
+import { verifiedRequester } from "@/lib/auth/verified-requester";
 
-async function verifiedRequester() {
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser();
-  const email = verifiedGoogleGuestEmail(user);
-  return user && email ? { userId: user.id, email } : null;
-}
 async function draftForBrowser(token: unknown) {
   return readStayDraft(
     token,

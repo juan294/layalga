@@ -9,6 +9,7 @@ import {
   findSubmittedStayRequest,
   listRequesterStayRequests,
   getRequesterStayRequest,
+  getHostStayRequestOutcome,
   listHostPendingStayRequests,
   withdrawStayRequest,
   type StayRequestInput,
@@ -394,4 +395,40 @@ it("recovers a new submission racing withdrawal at the configured household limi
       (request) => request.status,
     ),
   ).toEqual(["pending", "withdrawn"]);
+});
+
+it("returns only the scoped outcome to a host revisiting a settled request", async () => {
+  const { home, host, input } = await fixture();
+  const owner = await requester();
+  const pending = await submitStayRequest(owner, input);
+  if (pending.status !== "pending") throw new Error("fixture did not submit");
+  expect(await getHostStayRequestOutcome(host, pending.requestId)).toEqual({
+    status: "pending",
+    actor: null,
+    visitStatus: null,
+  });
+  await withdrawStayRequest(owner.userId, pending.requestId);
+  expect(await getHostStayRequestOutcome(host, pending.requestId)).toEqual({
+    status: "withdrawn",
+    actor: null,
+    visitStatus: null,
+  });
+  const foreign = await createFixtureHousehold(sql(), {
+    label: "Foreign " + randomUUID(),
+    tokenSecret: "fixture",
+    parties: [],
+  });
+  onTestFinished(() => foreign.cleanup());
+  expect(
+    await getHostStayRequestOutcome(
+      { id: foreign.hostIds[0]!, homeId: home.homeId },
+      pending.requestId,
+    ),
+  ).toBeNull();
+  expect(
+    await getHostStayRequestOutcome(
+      { id: foreign.hostIds[0]!, homeId: foreign.homeId },
+      pending.requestId,
+    ),
+  ).toBeNull();
 });

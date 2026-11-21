@@ -19,6 +19,7 @@ export default async function RequestHistory({
   const { locale } = await params;
   const path = `/${locale}/requests`;
   const t = await getTranslations({ locale, namespace: "StayRequests" });
+  const account = await getTranslations({ locale, namespace: "GuestAccount" });
   const user = await getAuthUser();
   if (!user || !verifiedGoogleGuestEmail(user))
     return (
@@ -44,7 +45,11 @@ export default async function RequestHistory({
               <Link href={`${path}/${r.id}`}>
                 {r.displayName} · {formatDateStay(r.stay, locale)}
               </Link>{" "}
-              <span>{t(`status.${r.status}`)}</span>
+              <span>
+                {r.visitStatus
+                  ? account(`status.${r.visitStatus}`)
+                  : t(`status.${r.status}`)}
+              </span>
             </li>
           ))}
         </ul>

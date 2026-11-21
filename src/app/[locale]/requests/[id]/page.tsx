@@ -1,3 +1,11 @@
+import { GuestVisitRecord } from "@/components/guest/guest-visit-record";
+import { CancellationReview } from "@/components/guest/cancellation-review";
+import { loadRequestedVisit } from "@/core/booking/requested-visit";
+import { cancelAccountVisit } from "../../visits/actions";
+import {
+  changeRequestedVisit,
+  reconfirmRequestedVisit,
+} from "../visit-actions";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -16,7 +24,7 @@ export default async function RequestReceipt({
   searchParams,
 }: {
   params: Promise<{ locale: AppLocale; id: string }>;
-  searchParams: Promise<{ auth?: string }>;
+  searchParams: Promise<{ auth?: string; cancel?: string }>;
 }) {
   const { locale, id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
@@ -37,17 +45,49 @@ export default async function RequestReceipt({
     () => undefined,
   );
   if (record === null) notFound();
+  const live =
+    record?.status === "confirmed"
+      ? await loadRequestedVisit(user.id, id, locale).catch(() => null)
+      : null;
+  const account = await getTranslations({ locale, namespace: "GuestAccount" });
   return (
     <RequestShell title={t("receipt")}>
-      {record === undefined ? (
-        <p role="alert">{t("unavailable")}</p>
+      {record === undefined ||
+      (record.status === "confirmed" && !live?.visit) ? (
+        <p role="alert">
+          {t("unavailable")} <a href={path}>{t("retry")}</a>
+        </p>
       ) : (
         <>
           <p role="status">
-            <strong>{t(`status.${record.status}`)}</strong>
+            <strong>
+              {live?.visit
+                ? account(`status.${live.visit.status}`)
+                : t(`status.${record.status}`)}
+            </strong>
           </p>
           {record.status === "pending" && <p>{t("pendingHelp")}</p>}
-          <RequestTerms locale={locale} record={record} />
+          {live?.visit ? (
+            <>
+              <GuestVisitRecord
+                locale={locale}
+                visit={live.visit}
+                reconfirmAction={reconfirmRequestedVisit.bind(null, id)}
+                requestChangeAction={changeRequestedVisit.bind(null, id)}
+              />
+              {live.visit.status !== "cancelled" && (
+                <CancellationReview
+                  locale={locale}
+                  visit={live.visit}
+                  action={cancelAccountVisit}
+                  anchorId="cancel-request"
+                  open={(await searchParams).cancel === "review"}
+                />
+              )}
+            </>
+          ) : (
+            <RequestTerms locale={locale} record={record} />
+          )}
           {record.status === "pending" && <WithdrawStayRequest id={id} />}
           {record.status === "confirmed" && record.visitId && (
             <p>

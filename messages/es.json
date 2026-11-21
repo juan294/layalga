@@ -699,10 +699,29 @@
     }
   },
   "HostStayRequests": {
+    "currentVisit": "Estado actual de la visita: {status}",
+    "dashboard": "Volver al panel",
     "title": "Solicitudes de estancia",
     "group": "{adults} adultos · {children} menores · {pets} mascotas",
     "overflow": "Plaza adicional aceptada: {terms}",
     "notes": "Notas del huésped",
-    "requests": "Peticiones para aprobar"
+    "requests": "Peticiones para aprobar",
+    "confirmationMeaning": "Al confirmar, aceptas estar en casa en estas fechas y alojar al grupo en las habitaciones indicadas, con la distribución y las peticiones que figuran aquí.",
+    "roomCheck": "Al confirmar, volvemos a comprobar las habitaciones y reservamos la estancia si siguen disponibles en estas condiciones.",
+    "confirm": "Confirmar la estancia",
+    "decline": "Rechazar la estancia",
+    "confirmed": "Hemos comprobado las habitaciones y la estancia está reservada. El huésped ya puede ver la confirmación.",
+    "declined": "Se ha rechazado la estancia. El huésped ya puede ver la decisión.",
+    "needs_new_selection": "Han cambiado las habitaciones o las condiciones de reserva. El huésped puede elegir otra estancia.",
+    "withdrawn": "El huésped ha retirado la solicitud.",
+    "expired": "La solicitud caducó antes de que se registrara una decisión.",
+    "conflict": "Esta solicitud ya tiene otro resultado.",
+    "stale": "La solicitud ha cambiado. Revisa los datos actuales antes de decidir.",
+    "invalid": "No se ha podido leer la decisión. Vuelve a abrir la solicitud.",
+    "sign_in": "Inicia sesión como anfitrión para revisar la solicitud.",
+    "unavailable": "No hemos podido comprobar el resultado. Puedes volver a intentar la misma decisión.",
+    "not_found": "Esta solicitud no está disponible para esta casa.",
+    "decidedBy": "Decisión registrada por {name}.",
+    "reopen": "Volver a abrir la solicitud"
   }
 }

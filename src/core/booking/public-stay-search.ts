@@ -1,6 +1,6 @@
 import "@/core/server-only";
 import type { TransactionSql } from "postgres";
-import { SystemClock } from "@/core/clock";
+import { SystemClock, type Clock } from "@/core/clock";
 import { getDatabaseConnection } from "@/core/db/client";
 import type { StayRange } from "@/core/db/schema";
 import { MAX_ROOM_SELECTION } from "@/core/rooms/limits";
@@ -34,6 +34,7 @@ async function loadPublicSearch(
   handle: string,
   criteria: GuestSearchCriteria,
   transaction?: TransactionSql,
+  clock: Clock = new SystemClock(),
 ) {
   const listing = await resolvePublicListing(handle, transaction);
   if (!listing) return { status: "not_found" } as const;
@@ -51,7 +52,6 @@ async function loadPublicSearch(
   });
   if (!parsed.success) return { status: "invalid" } as const;
   const input = parsed.data;
-  const clock = new SystemClock();
   const today = new Intl.DateTimeFormat("sv-SE", {
     timeZone: listing.timezone,
     year: "numeric",
@@ -140,6 +140,7 @@ export async function resolvePublicStaySelection(
   roomRefs: readonly string[],
   overflowConsent: boolean,
   transaction?: TransactionSql,
+  clock: Clock = new SystemClock(),
 ): Promise<{
   homeId: string;
   displayName: string;
@@ -152,7 +153,12 @@ export async function resolvePublicStaySelection(
     roomRefs.length > MAX_ROOM_SELECTION
   )
     return null;
-  const search = await loadPublicSearch(handle, exactCriteria, transaction);
+  const search = await loadPublicSearch(
+    handle,
+    exactCriteria,
+    transaction,
+    clock,
+  );
   if (search.status !== "success") return null;
   const option = search.options.next().value;
   if (

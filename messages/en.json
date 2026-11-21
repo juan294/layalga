@@ -699,10 +699,29 @@
     }
   },
   "HostStayRequests": {
+    "currentVisit": "Current visit status: {status}",
+    "dashboard": "Back to dashboard",
     "title": "Guest stay requests",
     "group": "{adults} adults · {children} children · {pets} pets",
     "overflow": "Accepted extra sleeping space: {terms}",
     "notes": "Guest notes",
-    "requests": "Requests for approval"
+    "requests": "Requests for approval",
+    "confirmationMeaning": "By confirming, you agree to be home for these dates and host this group in the rooms shown, including the listed arrangements and special requests.",
+    "roomCheck": "When you confirm, we check the rooms again and book the stay if they are still available under these terms.",
+    "confirm": "Confirm stay",
+    "decline": "Decline stay",
+    "confirmed": "Room check passed. The stay is booked and the guest can see their confirmation.",
+    "declined": "The stay was declined. The guest can see the decision.",
+    "needs_new_selection": "The rooms or booking terms have changed. The guest can choose another stay.",
+    "withdrawn": "The guest withdrew this request.",
+    "expired": "This request expired before a decision was recorded.",
+    "conflict": "This request already has a different outcome.",
+    "stale": "This request changed. Review its current details before deciding.",
+    "invalid": "The decision could not be read. Reopen the request.",
+    "sign_in": "Sign in as a host to review this request.",
+    "unavailable": "We could not verify the outcome. You can retry the same decision.",
+    "not_found": "This request is unavailable to this household.",
+    "decidedBy": "Decision recorded by {name}.",
+    "reopen": "Reopen request"
   }
 }
