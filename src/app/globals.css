@@ -130,6 +130,19 @@ a {
   padding: 0.75rem clamp(1rem, 4vw, 4rem);
 }
 
+.booking-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+  padding-inline: clamp(1rem, 4vw, 4rem);
+}
+
+.booking-navigation a {
+  align-items: center;
+  display: inline-flex;
+  min-height: var(--interactive-target);
+}
+
 .site-header__mark {
   align-items: baseline;
   display: flex;

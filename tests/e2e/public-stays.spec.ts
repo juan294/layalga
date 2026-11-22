@@ -7,9 +7,12 @@ import { test } from "./helpers/household";
 test.use({ householdOptions: { parties: [] } });
 test.setTimeout(90_000);
 
-test("a direct guest can use the discovery form when WebMCP registration fails", async ({
+test("a signed-in guest can use the discovery form when WebMCP registration fails", async ({
   page,
+  context,
+  requester,
 }) => {
+  await requester.signIn(context);
   await page.addInitScript(() => {
     Object.defineProperty(document, "modelContext", {
       configurable: true,
@@ -39,10 +42,12 @@ for (const [locale, messages] of [
   ["es", es],
 ] as const) {
   for (const device of ["desktop", "@mobile"] as const) {
-    test(`${device} ${locale} stranger compares two-week stays after the host lists the home`, async ({
+    test(`${device} ${locale} first-time guest compares two-week stays after the host lists the home`, async ({
       baseURL,
       browser,
+      context,
       household,
+      requester,
       page,
     }) => {
       const listing = messages.HostPublicListing;
@@ -73,11 +78,25 @@ for (const [locale, messages] of [
         });
         await expect(unpublish).toBeVisible();
 
-        // This is the project's device-specific, anonymous browser context.
+        // A published household is discoverable only after this guest signs in.
+        await page.goto(`/${locale}/stays?q=${encodeURIComponent(name)}`);
+        await expect(page.getByTestId("google-sign-in")).toBeVisible();
+        await expect(page.getByLabel(stays.householdName)).toHaveCount(0);
+        await expect(page.getByRole("link", { name, exact: true })).toHaveCount(
+          0,
+        );
+        await expect(page.locator(`a[href="/${locale}/requests"]`)).toHaveCount(
+          0,
+        );
+        await requester.signIn(context);
         await page.goto(`/${locale}/sign-in`);
-        await page
-          .getByRole("link", { name: messages.SignIn.findStays })
-          .click();
+        await expect(page).toHaveURL(new RegExp(`/${locale}/stays$`));
+        await expect(
+          page.getByRole("heading", { name: stays.find }),
+        ).toBeVisible();
+        await expect(page.locator(`a[href="/${locale}/requests"]`)).toHaveCount(
+          0,
+        );
         await page.getByLabel(stays.householdName).fill(name.replace("’", "'"));
         await page
           .getByRole("button", { name: stays.search, exact: true })
@@ -133,7 +152,10 @@ for (const [locale, messages] of [
         await expect(
           page.getByRole("region", { name: stays.matches }),
         ).toHaveCount(0);
-        await page.getByRole("link", { name: stays.find }).click();
+        await page
+          .getByRole("link", { name: stays.find, exact: true })
+          .first()
+          .click();
         await page.getByLabel(stays.householdName).fill(name);
         await page
           .getByRole("button", { name: stays.search, exact: true })

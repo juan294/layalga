@@ -44,6 +44,7 @@ export function RequestReview({
   const [retry, refresh] = useState(0);
   const [pending, start] = useTransition();
   useEffect(() => {
+    if (!email) return;
     let active = true;
     async function check() {
       try {
@@ -74,18 +75,41 @@ export function RequestReview({
     return () => {
       active = false;
     };
-  }, [retry, locale, router]);
+  }, [retry, email, locale, router]);
   async function submitReviewed(account: string) {
     if (!reviewed) return;
     try {
       const result = await sendStayRequest(reviewed.token, account);
       if (result.status === "pending" || result.status === "replayed")
         router.replace(`/${locale}/requests/${result.requestId}`);
+      else if (result.status === "expired") setReview({ status: "expired" });
       else setReply(result);
     } catch {
       setReply({ status: "unavailable" });
     }
   }
+  if (
+    !email ||
+    review?.status === "sign_in" ||
+    reply?.status === "sign_in" ||
+    reply?.status === "changed_account"
+  )
+    return (
+      <>
+        <p role="status">
+          {t(
+            reply?.status === "changed_account" ? "changed_account" : "sign_in",
+          )}
+        </p>
+        {authFailed && <p role="alert">{t("authFailed")}</p>}
+        <SignInButton
+          locale={locale}
+          nextPath={`/${locale}/requests/review`}
+          label={t("signIn")}
+          className={styles.primaryButton}
+        />
+      </>
+    );
   if (!review) return <p role="status">{t("loading")}</p>;
   if (review.status === "replayed" || review.status === "conflict")
     return (
@@ -106,13 +130,8 @@ export function RequestReview({
         <Link href={`/${locale}/stays`}>{t("findAnother")}</Link>
       </>
     );
-  const needSignIn =
-    !email ||
-    reply?.status === "sign_in" ||
-    reply?.status === "changed_account";
   const terminal =
     reply?.status === "stale" ||
-    reply?.status === "expired" ||
     reply?.status === "limit" ||
     reply?.status === "invalid" ||
     reply?.status === "conflict";
@@ -129,73 +148,63 @@ export function RequestReview({
           {t("viewRequest")}
         </Link>
       )}
-      {needSignIn ? (
-        <SignInButton
-          locale={locale}
-          nextPath={`/${locale}/requests/review`}
-          label={t("signIn")}
-          className={styles.primaryButton}
-        />
-      ) : (
-        <>
-          <p>{t("sendingAs", { email })}</p>
-          {!terminal && reviewed?.chat && (
-            <form
-              method="post"
-              className={styles.commandForm}
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!command.trim() || pending) return;
-                start(async () => {
-                  try {
-                    const turn = await guestConversationTurn({
-                      locale,
-                      message: command,
-                    });
-                    if (turn.kind === "submit") await submitReviewed(email);
-                    else
-                      setCommandFeedback(
-                        turn.kind === "unavailable"
-                          ? chat("unavailable")
-                          : chat("otherCommand"),
-                      );
-                  } catch {
-                    setCommandFeedback(chat("unavailable"));
-                  }
+      <p>{t("sendingAs", { email })}</p>
+      {!terminal && reviewed?.chat && (
+        <form
+          method="post"
+          className={styles.commandForm}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!command.trim() || pending) return;
+            start(async () => {
+              try {
+                const turn = await guestConversationTurn({
+                  locale,
+                  message: command,
                 });
-              }}
-            >
-              <label className={styles.field}>
-                {chat("commandHint")}
-                <input
-                  maxLength={600}
-                  required
-                  autoComplete="off"
-                  value={command}
-                  placeholder={chat("submitExample")}
-                  onChange={(e) => setCommand(e.target.value)}
-                />
-              </label>
-              <button
-                disabled={pending || !command.trim()}
-                className={styles.secondaryButton}
-              >
-                {chat("command")}
-              </button>
-              {commandFeedback && <p role="alert">{commandFeedback}</p>}
-            </form>
-          )}
-          {!terminal && (
-            <button
-              type="button"
-              disabled={pending}
-              className={styles.primaryButton}
-              onClick={() => start(() => submitReviewed(email))}
-            >
-              {pending ? t("sending") : t("send")}
-            </button>
-          )}
-        </>
+                if (turn.kind === "sign_in") setReply({ status: "sign_in" });
+                else if (turn.kind === "submit") await submitReviewed(email);
+                else
+                  setCommandFeedback(
+                    turn.kind === "unavailable"
+                      ? chat("unavailable")
+                      : chat("otherCommand"),
+                  );
+              } catch {
+                setCommandFeedback(chat("unavailable"));
+              }
+            });
+          }}
+        >
+          <label className={styles.field}>
+            {chat("commandHint")}
+            <input
+              maxLength={600}
+              required
+              autoComplete="off"
+              value={command}
+              placeholder={chat("submitExample")}
+              onChange={(e) => setCommand(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={pending || !command.trim()}
+            className={styles.secondaryButton}
+          >
+            {chat("command")}
+          </button>
+          {commandFeedback && <p role="alert">{commandFeedback}</p>}
+        </form>
+      )}
+      {!terminal && (
+        <button
+          type="button"
+          disabled={pending}
+          className={styles.primaryButton}
+          onClick={() => start(() => submitReviewed(email))}
+        >
+          {pending ? t("sending") : t("send")}
+        </button>
       )}
       <p className={styles.reviewNavigation}>
         <Link href={`/${locale}/stays/${review.handle}`}>

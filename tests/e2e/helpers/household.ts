@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { test as base, type BrowserContext } from "@playwright/test";
 import postgres, { type Sql } from "postgres";
+import { createFixtureRequester } from "./requester";
 
 import {
   createFixtureHousehold,
@@ -65,8 +66,17 @@ export async function openHousehold(
 export const test = base.extend<{
   householdOptions: HouseholdOptions;
   household: OpenHousehold;
+  requester: Awaited<ReturnType<typeof createFixtureRequester>>;
 }>({
   householdOptions: [{}, { option: true }],
+  requester: async ({ household }, provide) => {
+    const requester = await createFixtureRequester(household.db);
+    try {
+      await provide(requester);
+    } finally {
+      await requester.cleanup();
+    }
+  },
   household: async ({ householdOptions }, provide) => {
     const household = await openHousehold(householdOptions);
     try {

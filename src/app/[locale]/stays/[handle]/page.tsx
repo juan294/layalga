@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
+import { getAuthUser } from "@/lib/auth/current-user";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
+import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { GuestConversation } from "@/components/guest/guest-conversation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { resolvePublicListing } from "@/core/booking/public-listings";
 import { PublicStayRegistration } from "@/components/webmcp/public-registration";
@@ -27,6 +30,8 @@ export default async function HouseholdStaysPage({
 }) {
   const { locale, handle } = await params;
   const query = await searchParams;
+  if (!verifiedGoogleGuestEmail(await getAuthUser()))
+    redirect(staySignInPath(locale, handle, query));
   const listing = await resolvePublicListing(handle).catch(() => undefined);
   const t = await getTranslations({ locale, namespace: "PublicStays" });
   if (!listing)
@@ -36,9 +41,6 @@ export default async function HouseholdStaysPage({
           <header className={styles.header}>
             <h1>{t(listing === null ? "not_found" : "unavailable")}</h1>
           </header>
-          <div className={styles.body}>
-            <Link href={`/${locale}/stays`}>{t("find")}</Link>
-          </div>
         </article>
       </main>
     );
@@ -46,6 +48,8 @@ export default async function HouseholdStaysPage({
   const result = Object.keys(query).length
     ? await lookupStays({ ...query, handle })
     : null;
+  if (result?.status === "sign_in")
+    redirect(staySignInPath(locale, handle, query));
   const value = (key: keyof typeof defaults) =>
     typeof query[key] === "string" ? query[key] : String(defaults[key]);
   return (
@@ -56,10 +60,7 @@ export default async function HouseholdStaysPage({
       />
       <article className={styles.ledger}>
         <header className={styles.header}>
-          <div>
-            <Link href={`/${locale}/stays`}>{t("find")}</Link>
-            <h1 className={styles.title}>{listing.displayName}</h1>
-          </div>
+          <h1 className={styles.title}>{listing.displayName}</h1>
         </header>
         <div className={styles.body}>
           <GuestConversation

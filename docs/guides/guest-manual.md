@@ -4,13 +4,13 @@ There are two ways to arrange a stay. You can find a household that has publishe
 
 ## Ask for a stay
 
-Open **Find a household** and enter the household’s public name. Select the right match. You can ask in English or Spanish for something like “Two adults for two weeks in July.” Compare the actual check-in and checkout dates, guest-facing room descriptions and sleeping arrangements. The form also lets you adjust the date window, length of stay and group size.
+Choose **Continue with Google**. Once signed in, open **Find a household** and enter the household’s public name. Select the right match. You can ask in English or Spanish for something like “Two adults for two weeks in July.” Compare the actual check-in and checkout dates, guest-facing room descriptions and sleeping arrangements. The form also lets you adjust the date window, length of stay and group size.
 
-Choose the exact dates and rooms. Read any overflow arrangement before accepting it. Add arrival notes or special requests, sign in with Google and review the complete proposal. When the details are right, choose **Send stay request** or type “Send my request” on the review screen. **Awaiting host confirmation** means the request is on the hosts’ dashboard. The rooms remain available to others until a host confirms.
+Choose the exact dates and rooms. Read any overflow arrangement before accepting it. Add arrival notes or special requests and review the complete proposal. When the details are right, choose **Send stay request** or type “Send my request” on the review screen. **Awaiting host confirmation** means the request is on the hosts’ dashboard. The rooms remain available to others until a host confirms.
 
-Open **My stay requests** with the same Google account to see the reply, even in a new browser session. You can also ask “Did the hosts confirm?” in the conversation to find your private receipt. You can withdraw while the request is pending. A host approval completes the booking immediately. Your receipt then opens the booked visit and its change, reconfirmation and cancellation controls. If the host declines or the selected rooms change, you can search again.
+After you send your first request, **My stay requests** appears. Open it with the same Google account to see the reply, even in a new browser session. You can also ask “Did the hosts confirm?” in the conversation to find your private receipt. You can withdraw while the request is pending. A host approval completes the booking immediately. Your receipt then opens the booked visit and its change, reconfirmation and cancellation controls. If the host declines or the selected rooms change, you can search again.
 
-A browser agent that supports WebMCP can help find a published home, check availability and prepare the selection while the page is open. Review the visible details and use the confirmation control to send a request prepared by that agent. Independently connecting from ChatGPT requires a separate remote integration.
+Once you have signed in, a browser agent that supports WebMCP can help find a published home, check availability and prepare the selection while the page is open. Review the visible details and use the confirmation control to send a request prepared by that agent. Independently connecting from ChatGPT requires a separate remote integration.
 
 ## 1. Open your invitation
 

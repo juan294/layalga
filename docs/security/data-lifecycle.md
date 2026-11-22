@@ -65,6 +65,8 @@ Room data has separate disclosure levels:
 | Agent and WebMCP read tools | Bounded, non-private fields only; database-derived text is marked as untrusted                                                                |
 | Calendar feed               | Guest-visible room labels and guest count only                                                                                                |
 
+For guest-initiated stays, the website and its browser tools require a verified Google session before looking up a household or showing availability. A host chooses whether signed-in guests can find the household by name. The requester’s account controls access to their request history and receipts. Private invitation links authorize their own invitation flow.
+
 A guest does not receive hidden or unavailable rooms, internal room names, private room notes, private block notes, another party's identity, or another party's room assignment. Search results are not booking authority. Hold and reschedule transactions read the exact room IDs and availability again under the home lock before they write shared occupancy rows.
 
 ## Private household use and proposals
