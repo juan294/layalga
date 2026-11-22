@@ -140,7 +140,7 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
     try {
       await other.signIn(context);
       await page.goto("/en/requests/review");
-      await expect(page.getByRole("alert")).toContainText(
+      await expect(page.getByRole("main").getByRole("alert")).toContainText(
         en.StayRequests.expired,
       );
       await expect(

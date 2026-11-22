@@ -82,7 +82,7 @@
     "changed_account": "The account has changed. Sign in again and review before sending.",
     "invalid": "Check your stay and select rooms that fit your party.",
     "stale": "These rooms or their terms have changed. Search again and review the available rooms.",
-    "expired": "This selection has expired or belongs to another browser. Choose the stay again.",
+    "expired": "Open this selection with the same Google account and browser, or choose the stay again.",
     "limit": "You have reached the limit of pending requests for this household. Open My stay requests to check or withdraw one.",
     "conflict": "This submission already belongs to a different request. Open the original request, or choose a new stay.",
     "unavailable": "The request service could not finish. Try again or check My stay requests.",

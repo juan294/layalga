@@ -82,7 +82,7 @@
     "changed_account": "La cuenta ha cambiado. Vuelve a iniciar sesión y revisa la solicitud antes de enviarla.",
     "invalid": "Comprueba la estancia y elige habitaciones con capacidad para tu grupo.",
     "stale": "Han cambiado las habitaciones o sus condiciones. Busca de nuevo y revisa las habitaciones disponibles.",
-    "expired": "Esta selección ha caducado o pertenece a otro navegador. Vuelve a elegir la estancia.",
+    "expired": "Abre esta selección con la misma cuenta de Google y el mismo navegador, o vuelve a elegir la estancia.",
     "limit": "Has alcanzado el límite de solicitudes pendientes para esta casa. En Mis solicitudes de estancia puedes consultarlas o retirar alguna.",
     "conflict": "Este envío ya corresponde a otra solicitud. Consulta la solicitud original o elige una estancia nueva.",
     "unavailable": "No se ha podido completar la operación. Vuelve a intentarlo o consulta Mis solicitudes de estancia.",
