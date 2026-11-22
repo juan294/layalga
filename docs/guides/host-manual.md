@@ -4,7 +4,7 @@ Guests can ask for a stay at your published household. They select dates and roo
 
 ## Receive guest-initiated stays
 
-Set the public household name and choose **Publish household** in **Settings**. Make the room labels, sleeping arrangements and overflow descriptions suitable for guests. Anyone searching by name can see published homes and feasible whole stays. Private room blocks, your home schedule and other guests’ details remain private.
+Set the public household name and choose **Publish household** in **Settings**. Make the room labels, sleeping arrangements and overflow descriptions suitable for guests. Anyone who signs in with a verified Google account can search for published homes and see available stays. You decide whether to host them when they send a request. Private room blocks, your home schedule and other guests’ details remain private.
 
 On **Today**, open the pending stay request. Check the dates, selected rooms, party size, accepted overflow, notes and special requests. Either host can confirm once they have checked they will be home and accept those terms. The system rechecks availability and records the booked visit, room occupancy and reconfirmation follow-up together. The guest can see the result in their own account. A decline also appears on their receipt. If availability or another material term changed, the guest is asked to choose again.
 
@@ -14,9 +14,9 @@ An opted-in host can receive a notification when email delivery is configured. I
 
 Open the sign-in page and choose **Continue with Google**. Google is the only way to sign in. The household keeps a list of host email addresses; your Google account must use one of them. The first time you sign in, the server binds your Google account to your host record. After that, only that Google account can sign in as you.
 
-If the account is missing from the household’s host list, try the address recorded for you or ask another host to add it. If Google sign-in fails, retry. Report a persistent error to the operator.
+A verified account outside the household’s host list can book as a guest. For host access, use the address recorded for you or ask another host to add it. If Google sign-in fails, retry. Report a persistent error to the operator.
 
-Guests can sign in from the request flow to submit or read a private receipt. Guests who have linked an invitation can also open their visits. Host controls require a host account in the household. [Privacy notice](https://layalga.thecreativetoken.com/en/privacy)
+Guests sign in before searching for a home, checking availability or sending a request. They can read their own receipts. Guests who have linked an invitation can also open their visits. Host controls require a host account in the household. [Privacy notice](https://layalga.thecreativetoken.com/en/privacy)
 
 The server finds your household from your host record. Changing a home identifier in a request does not grant access to another household.
 

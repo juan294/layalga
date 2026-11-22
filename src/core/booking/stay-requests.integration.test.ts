@@ -8,6 +8,7 @@ import {
   submitStayRequest,
   findSubmittedStayRequest,
   listRequesterStayRequests,
+  hasRequesterStayRequests,
   getRequesterStayRequest,
   getHostStayRequestOutcome,
   listHostPendingStayRequests,
@@ -66,6 +67,7 @@ it("records exactly one pending proposal without inventory, exposes it only to t
   const { home, host, input } = await fixture();
   const owner = await requester(),
     stranger = await requester();
+  expect(await hasRequesterStayRequests(owner.userId)).toBe(false);
   expect(await findSubmittedStayRequest(owner.userId, input)).toBeNull();
   const results = await Promise.all([
     submitStayRequest(owner, input),
@@ -83,6 +85,8 @@ it("records exactly one pending proposal without inventory, exposes it only to t
     status: "pending",
     version: 1,
   });
+  expect(await hasRequesterStayRequests(owner.userId)).toBe(true);
+  expect(await hasRequesterStayRequests(stranger.userId)).toBe(false);
   expect(await listRequesterStayRequests(stranger.userId)).toEqual([]);
   expect(
     await getRequesterStayRequest(stranger.userId, record.requestId),

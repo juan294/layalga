@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { useRouter } from "next/navigation";
 import { prepareStayRequest } from "@/app/[locale]/requests/actions";
 import type { PublicStayOption } from "@/core/booking/public-stay-search";
@@ -60,6 +61,10 @@ export function StaySelectionForm({
               requests: data.get("requests"),
               idempotencyKey: crypto.randomUUID(),
             });
+            if (result.status === "sign_in") {
+              router.replace(staySignInPath(locale, handle, { ...criteria }));
+              return;
+            }
             if (result.status !== "ready") {
               setError(result.status);
               return;

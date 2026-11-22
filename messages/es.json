@@ -5,6 +5,7 @@
     "socialImageAlt": "La acogedora casa de L’Ayalga frente al mar Cantábrico."
   },
   "Brand": {
+    "bookingNavigation": "Estancias",
     "name": "L’Ayalga",
     "strapline": "El libro de huéspedes de la casa",
     "signOut": "Cerrar sesión",
@@ -25,7 +26,7 @@
   "GuestConversation": {
     "extraBedding": "Cama adicional: {terms}",
     "earlier": "Mensajes anteriores",
-    "signInStatus": "Iniciar sesión para consultar mis solicitudes",
+    "signInStatus": "Continuar con Google",
     "title": "Planifica tu estancia en conversación",
     "welcome": "Indica la casa, las fechas que te interesan y quiénes vendrán. También puedes preguntar por una solicitud que ya hayas enviado.",
     "welcomeHome": "Pregunta por fechas y habitaciones en {name} o consulta una solicitud que ya hayas enviado.",
@@ -121,16 +122,15 @@
     "unavailable": "Vuelve a intentarlo en unos instantes."
   },
   "SignIn": {
-    "findStays": "Buscar una casa",
     "tagline": "ayalga — asturiano para describir un tesoro encontrado",
     "title": "Te damos la bienvenida a nuestra casa.",
     "description": "Dinos cuándo quieres venir a visitarnos y nos ocuparemos del resto. ¡Nos alegra recibirte!",
     "googleAction": "Continuar con Google",
     "connecting": "Abriendo Google…",
-    "privacyNote": "Cualquier persona puede buscar una casa publicada. Inicia sesión para solicitar una estancia o consultar la respuesta.",
+    "privacyNote": "Inicia sesión con Google para buscar una casa, ver las fechas y habitaciones disponibles o consultar tu solicitud de estancia.",
     "startError": "No se pudo iniciar la sesión con Google. Inténtalo de nuevo.",
     "callbackError": "No se pudo completar la sesión con Google. Inténtalo de nuevo.",
-    "notHostError": "Para consultar una solicitud de estancia, abre Mis solicitudes. Si recibiste una invitación, utiliza el enlace que te envió el anfitrión.",
+    "notHostError": "Usa tu cuenta verificada de Google para solicitar una estancia. Si tienes una invitación, abre el enlace que te envió tu anfitrión.",
     "imageAlt": "Ilustración de la casa sobre el Cantábrico, {season}",
     "footerLead": "¿Planes por la zona? Ideas en ",
     "privacyLink": "Privacidad"
@@ -138,9 +138,9 @@
   "Privacy": {
     "title": "Privacidad",
     "updated": "Última actualización: 21 de noviembre de 2026.",
-    "intro": "L’Ayalga te ayuda a organizar una estancia con una familia. Puedes buscar una casa publicada o usar una invitación privada. Este aviso explica qué guarda la aplicación y quién puede verlo.",
+    "intro": "L’Ayalga te ayuda a organizar una estancia con una familia. Puedes iniciar sesión con Google para buscar una casa publicada o usar una invitación privada. Este aviso explica qué guarda la aplicación y quién puede verlo.",
     "signInTitle": "Inicio de sesión con Google",
-    "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para identificarte como anfitrión, como huésped que envía una solicitud de estancia o como huésped que ha vinculado una invitación a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
+    "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para identificarte como anfitrión, como huésped que busca o solicita una estancia o como huésped que ha vinculado una invitación a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
     "householdTitle": "Invitaciones y estancias",
     "householdBody": "La aplicación guarda lo que anfitriones y huéspedes introducen para organizar una visita: la invitación, las fechas, el número de personas, la elección de habitaciones, las notas y las solicitudes de aprobación. Si decides recibir recordatorios por correo, también guarda esa dirección y tu consentimiento. Puedes desactivar los recordatorios cuando quieras.",
     "assistantTitle": "El coordinador",
@@ -153,7 +153,7 @@
     "choicesBody": "Para ver, corregir o borrar lo que la aplicación guarda sobre ti, o para preguntar por este aviso, contacta con los anfitriones que te invitaron o con el responsable del sitio en juan294@gmail.com.",
     "backToSignIn": "Volver al inicio de sesión",
     "stayRequestsTitle": "Solicitudes de los huéspedes",
-    "stayRequestsBody": "Cualquier persona puede buscar una casa publicada por su nombre y consultar fechas disponibles, nombres de habitaciones, capacidad y disposición de camas. La búsqueda pública mantiene en privado la identidad de otros huéspedes, el registro de ocupación y los planes de los anfitriones. Al enviar una solicitud, los anfitriones ven tu correo verificado, fechas exactas, habitaciones, número de personas y mascotas, notas y peticiones. Un anfitrión confirma o rechaza la estancia. Puedes consultar la respuesta en tu cuenta y retirar la solicitud mientras esté pendiente. Las solicitudes sin reserva se eliminan 30 días después de cerrarse. Si se confirman, la aplicación conserva un vínculo con la visita reservada."
+    "stayRequestsBody": "Al iniciar sesión con Google puedes buscar una casa publicada por su nombre y consultar fechas disponibles, nombres de habitaciones, capacidad y disposición de camas. La búsqueda mantiene en privado la identidad de otros huéspedes, el registro de ocupación y los planes de los anfitriones. Al enviar una solicitud, los anfitriones ven tu correo verificado, fechas exactas, habitaciones, número de personas y mascotas, notas y peticiones. Un anfitrión confirma o rechaza la estancia. Puedes consultar la respuesta en tu cuenta y retirar la solicitud mientras esté pendiente. Las solicitudes sin reserva se eliminan 30 días después de cerrarse. Si se confirman, la aplicación conserva un vínculo con la visita reservada."
   },
   "Season": {
     "primavera": "primavera",
@@ -630,8 +630,8 @@
   },
   "HostPublicListing": {
     "title": "Ficha pública",
-    "unlisted": "La casa no aparece en la búsqueda. Si la publicas, cualquiera podrá encontrarla por su nombre y ver las estancias disponibles y los detalles de las habitaciones para huéspedes.",
-    "published": "Los huéspedes pueden encontrar {name} y ver las estancias disponibles y los detalles de las habitaciones.",
+    "unlisted": "La casa no aparece en la búsqueda. Publícala para que los huéspedes que inicien sesión con Google puedan encontrarla por su nombre y ver las fechas disponibles y los detalles de las habitaciones.",
+    "published": "Los huéspedes que inicien sesión con Google podrán encontrar {name} y ver las fechas disponibles y los detalles de las habitaciones.",
     "name": "Nombre público de la casa",
     "publish": "Publicar la casa",
     "unpublish": "Retirar la publicación",

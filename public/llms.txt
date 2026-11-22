@@ -1,6 +1,6 @@
 # L’Ayalga
 
-> Find a published household by name, compare available stays and send the hosts an exact request. One host confirms the booking. A private invitation also opens the existing invited-guest flow.
+> Sign in with Google to find a published household by name, compare available stays and send the hosts an exact request. One host confirms the booking. A private invitation also opens the existing invited-guest flow.
 
 This index links to public Markdown on the repository's production branch, main.
 The guides distinguish implementation, local scripted tests, dated deployment
@@ -12,10 +12,10 @@ archived. The archive describes the hackathon demo, not current behavior.
 
 - [Product overview and local setup](https://raw.githubusercontent.com/juan294/layalga/main/README.md): Audience, behavior, setup, and disclosure.
 - [Host manual](https://raw.githubusercontent.com/juan294/layalga/main/docs/guides/host-manual.md): Google sign-in, adding hosts and rooms, decisions, follow-up, and recovery.
-- [Guest manual](https://raw.githubusercontent.com/juan294/layalga/main/docs/guides/guest-manual.md): Public household search, conversational availability, room choice, private request status, invitations, reminders, changes and cancellation.
+- [Guest manual](https://raw.githubusercontent.com/juan294/layalga/main/docs/guides/guest-manual.md): Signed-in household search, conversational availability, room choice, private request status, invitations, reminders, changes and cancellation.
 - [Roadmap](https://raw.githubusercontent.com/juan294/layalga/main/docs/roadmap.md): Released work, the real-use launch, and remaining work.
 
-Booking starts at /en/stays or /es/stays. Compatible browser agents can use page-scoped WebMCP tools while the relevant page is open. Guests sign in to send a request and retrieve its outcome.
+An agent can introduce L’Ayalga before sign-in. To begin booking, open https://layalga.thecreativetoken.com/en/stays or https://layalga.thecreativetoken.com/es/stays and let the guest complete Google sign-in. Household lookup, availability and request preparation require a verified session. A compatible browser agent uses WebMCP on the signed-in page. The guest sends the request and can then check its outcome. A standalone ChatGPT or Claude integration requires delegated account linking.
 
 ## Architecture
 

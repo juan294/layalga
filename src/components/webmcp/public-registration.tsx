@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { lookupHouseholds, lookupStays } from "@/app/[locale]/stays/actions";
+import {
+  hasStaySession,
+  lookupHouseholds,
+  lookupStays,
+} from "@/app/[locale]/stays/actions";
 import type { PublicStayOption } from "@/core/booking/public-stay-search";
 import type { StayRange } from "@/core/db/schema";
 import { createPublicStayTools } from "./public-tools";
@@ -46,7 +50,14 @@ export function PublicStayRegistration({
       search: lookupStays,
     });
     if (options?.length)
-      tools.push(createPrepareRequestTool(options, partySize, revealSelection));
+      tools.push(
+        createPrepareRequestTool(
+          options,
+          partySize,
+          revealSelection,
+          hasStaySession,
+        ),
+      );
     return registerWebMcpTools(document, tools);
   }, [options, partySize]);
   return null;

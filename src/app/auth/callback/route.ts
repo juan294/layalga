@@ -8,7 +8,7 @@ import {
   clearOAuthNextCookie,
   oauthNextPath,
 } from "@/lib/auth/oauth-next";
-import { isRequesterPath } from "@/lib/auth/safe-next-path";
+import { isRequesterPath, isStaySearchPath } from "@/lib/auth/safe-next-path";
 import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
 import { hasPartyForUser } from "@/lib/auth/guest-account";
@@ -32,8 +32,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             NextResponse.redirect(new URL(path, authRequestOrigin(request))),
           );
         const guestToken = guestTokenFromPath(next);
-        if (isRequesterPath(next)) {
-          if (verifiedGoogleGuestEmail(user)) return redirectTo(next);
+        const bookingReturn = isStaySearchPath(next);
+        if (isRequesterPath(next) || bookingReturn) {
+          if (verifiedGoogleGuestEmail(user)) {
+            // A pre-provisioned host can enter from the stay finder and open their dashboard later.
+            if (bookingReturn) await claimHostForUser(user);
+            return redirectTo(next);
+          }
         } else if (guestToken) {
           if (await claimPartyForUser(guestToken, user.id)) {
             return redirectTo(next);
@@ -46,6 +51,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           // page except an invitation link; their visits page is their home.
           if (await hasPartyForUser(user.id)) {
             return redirectTo(`/${localeOf(next)}/visits`);
+          }
+          if (next === `/${localeOf(next)}` && verifiedGoogleGuestEmail(user)) {
+            return redirectTo(`/${localeOf(next)}/stays`);
           }
         }
       }
@@ -88,12 +96,11 @@ function signInRedirect(
   next: string,
   error: "not_a_host" | "oauth_failed",
 ): NextResponse {
-  return NextResponse.redirect(
-    new URL(
-      `/${localeOf(next)}/sign-in?error=${error}`,
-      authRequestOrigin(request),
-    ),
-  );
+  const url = new URL(`/${localeOf(next)}/sign-in`, authRequestOrigin(request));
+  const bookingReturn = isStaySearchPath(next);
+  url.searchParams.set("error", bookingReturn ? "oauth_failed" : error);
+  if (bookingReturn) url.searchParams.set("next", next);
+  return NextResponse.redirect(url);
 }
 
 function localeOf(next: string): string {

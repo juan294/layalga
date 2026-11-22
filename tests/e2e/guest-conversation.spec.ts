@@ -45,8 +45,12 @@ for (const [locale, copy, device] of [
     try {
       const [listing] =
         await household.db`insert into public.household_public_listings(home_id,display_name,search_name,published) values(${household.homeId},${name},${name.toLowerCase()},true) returning handle`;
+      await requester.signIn(context);
       await page.goto(
         locale === "en" ? "/en/stays" : `/es/stays/${listing!.handle}`,
+      );
+      await expect(page.locator(`a[href="/${locale}/requests"]`)).toHaveCount(
+        0,
       );
       await ask(
         locale === "en"
@@ -99,13 +103,14 @@ for (const [locale, copy, device] of [
         .getByRole("button", { name: copy.StayRequests.review })
         .click();
       await expect(
-        page.getByRole("button", { name: copy.StayRequests.signIn }),
+        page.getByRole("button", { name: copy.StayRequests.send }),
       ).toBeVisible();
       await expect(
         page.getByRole("region", { name: copy.StayRequests.terms }),
       ).toContainText("One double air mattress");
-      await requester.signIn(context);
-      await page.goto(`/${locale}/requests/review`);
+      await expect(page.locator(`a[href="/${locale}/requests"]`)).toHaveCount(
+        0,
+      );
       await expect(
         page.getByText(copy.GuestConversation.commandHint, { exact: true }),
       ).toBeVisible();
@@ -175,6 +180,11 @@ for (const [locale, copy, device] of [
       ).toBeVisible();
       await comparison.close();
       await page.goto(`/${locale}/stays`);
+      await expect(
+        page
+          .getByRole("link", { name: copy.StayRequests.history, exact: true })
+          .first(),
+      ).toBeVisible();
       await ask(statusQuestion);
       await expect(
         chat.getByRole("link", { name: new RegExp(name) }),

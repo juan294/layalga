@@ -23,7 +23,7 @@
   <img src="https://chapa.thecreativetoken.com/u/juan294/badge.svg" alt="juan294's Chapa Impact Badge" width="100%" />
 </a>
 
-L’Ayalga helps two hosts manage stays in their shared home. A guest can find a published household, describe a trip in English or Spanish, compare feasible dates and rooms, and send an exact request. Either host confirms once they have checked their plans. A private invitation also starts a stay, with automatic room checks and host review for exceptions. Both paths lead to the same visit, calendar and reconfirmation follow-up.
+L’Ayalga helps two hosts manage stays in their shared home. A guest can sign in with Google to find a published household, describe a trip in English or Spanish, compare feasible dates and rooms, and send an exact request. Either host confirms once they have checked their plans. A private invitation also starts a stay, with automatic room checks and host review for exceptions. Both paths lead to the same visit, calendar and reconfirmation follow-up.
 
 ## Documentation
 
@@ -39,7 +39,7 @@ v2.4.0 adds explicit returning-party choice, shared family names and recoverable
 
 L’Ayalga serves one real household with two hosts, Juan González and Jordan Lynn. Home `00000000-0000-4000-8000-000000000001` was the synthetic demo home during the hackathon. The real-use conversion migration keeps the home, both hosts and their sign-in claims, and deletes the synthetic guests, invitations, rooms and demo clock. The hosts then add the real rooms in the room ledger.
 
-Hosts sign in with Google. A Google account can sign in only when a `host_identity_claims` row maps its email to a host of the household; any other account sees "This Google account is not on the host list for this house." and is signed out. There is no self-service sign-up. The [host manual](docs/guides/host-manual.md) explains how to add a host. Guests do not need an account: each guest uses a private invitation link, and can optionally sign in with Google to claim the invitation.
+A verified Google account can find published homes and request a stay. Host controls require a `host_identity_claims` row that maps the account’s email to a household host. The [host manual](docs/guides/host-manual.md) explains how to add a host. Invited guests can also use their private invitation link and optionally claim it with Google.
 
 ## How it works
 

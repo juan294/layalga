@@ -1,5 +1,6 @@
 "use server";
 
+import { verifiedRequester } from "@/lib/auth/verified-requester";
 import { z } from "zod";
 import { guestSessionOptionInput } from "@/core/booking/guest-action-input";
 import { optionWindowIsAllowed } from "@/core/booking/option-window";
@@ -30,11 +31,22 @@ const stayQuery = z
   })
   .refine(({ from, to }) => optionWindowIsAllowed(from, to));
 
+export async function hasStaySession() {
+  return Boolean(await verifiedRequester());
+}
+
+const signIn = {
+  status: "sign_in",
+  next: "Reopen this booking page, choose Continue with Google, then retry.",
+  truncated: false,
+} as const;
+
 export async function lookupHouseholds(name: unknown) {
-  const query = z.string().trim().min(2).max(80).safeParse(name);
-  if (!query.success)
-    return { status: "invalid" as const, listings: [], truncated: false };
   try {
+    if (!(await hasStaySession())) return { ...signIn, listings: [] };
+    const query = z.string().trim().min(2).max(80).safeParse(name);
+    if (!query.success)
+      return { status: "invalid" as const, listings: [], truncated: false };
     return {
       status: "success" as const,
       ...(await discoverPublicListings(query.data)),
@@ -48,11 +60,12 @@ export async function lookupHouseholds(name: unknown) {
 }
 
 export async function lookupStays(input: unknown) {
-  const parsed = stayQuery.safeParse(input);
-  if (!parsed.success)
-    return { status: "invalid" as const, options: [], truncated: false };
-  const { handle, ...criteria } = parsed.data;
   try {
+    if (!(await hasStaySession())) return { ...signIn, options: [] };
+    const parsed = stayQuery.safeParse(input);
+    if (!parsed.success)
+      return { status: "invalid" as const, options: [], truncated: false };
+    const { handle, ...criteria } = parsed.data;
     return await searchPublicStays(handle, criteria);
   } catch (error) {
     console.error("[PUBLIC_STAY_SEARCH_FAILED]", {

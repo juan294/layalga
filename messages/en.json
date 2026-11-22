@@ -5,6 +5,7 @@
     "socialImageAlt": "L’Ayalga’s welcoming house overlooking the Cantabrian Sea."
   },
   "Brand": {
+    "bookingNavigation": "Stays",
     "name": "L’Ayalga",
     "strapline": "The house guest ledger",
     "signOut": "Sign out",
@@ -25,7 +26,7 @@
   "GuestConversation": {
     "extraBedding": "Extra bedding: {terms}",
     "earlier": "Earlier messages",
-    "signInStatus": "Sign in to check my requests",
+    "signInStatus": "Continue with Google",
     "title": "Plan a stay in conversation",
     "welcome": "Tell us the household, when you’d like to stay and who’s coming. You can also ask about a request you’ve already sent.",
     "welcomeHome": "Ask about dates and rooms at {name}, or check a request you’ve already sent.",
@@ -121,16 +122,15 @@
     "unavailable": "Please try the search again in a moment."
   },
   "SignIn": {
-    "findStays": "Find a household",
     "tagline": "ayalga — Asturian for a treasure found",
     "title": "Welcome to our home.",
     "description": "Let us know when you want to come visit and we'll take care of the rest. We're happy to have you!",
     "googleAction": "Continue with Google",
     "connecting": "Opening Google…",
-    "privacyNote": "Anyone can find a published household. Sign in to send a stay request or view the host’s reply.",
+    "privacyNote": "Sign in with Google to find a household, check dates and rooms, or follow up on a stay request.",
     "startError": "Google sign-in could not start. Try again.",
     "callbackError": "Google sign-in could not be completed. Try again.",
-    "notHostError": "For a stay request, open My stay requests. For an invitation, use the link your host sent you.",
+    "notHostError": "Use your verified Google account to request a stay. If you have an invitation, open the link your host sent you.",
     "imageAlt": "Illustration of the house above the Cantábrico, {season}",
     "footerLead": "Planning days out around the house? Local ideas at ",
     "privacyLink": "Privacy"
@@ -138,9 +138,9 @@
   "Privacy": {
     "title": "Privacy",
     "updated": "Last updated November 21, 2026.",
-    "intro": "L’Ayalga helps guests arrange a stay with a household. You can look up a published home or use a private invitation. This notice explains what the app keeps and who can see it.",
+    "intro": "L’Ayalga helps guests arrange a stay with a household. You can sign in with Google to look up a published home or use a private invitation. This notice explains what the app keeps and who can see it.",
     "signInTitle": "Google sign-in",
-    "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to identify you as a host, a guest sending a stay request, or a guest who has linked an invitation to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
+    "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to identify you as a host, a guest searching for a stay or sending a request, or a guest who has linked an invitation to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
     "householdTitle": "Invitations and stays",
     "householdBody": "The app stores what hosts and guests enter to plan a visit: the invitation, the dates, the size of the party, room choices, notes and requests for approval. If you choose to get reminders by email, it also stores that address and your consent. You can turn the reminders off at any time.",
     "assistantTitle": "The coordinator",
@@ -153,7 +153,7 @@
     "choicesBody": "To see, correct or delete what the app holds about you, or to ask about this notice, contact the hosts who invited you or the site operator at juan294@gmail.com.",
     "backToSignIn": "Back to sign-in",
     "stayRequestsTitle": "Guest-initiated requests",
-    "stayRequestsBody": "Anyone can find a published household by name and see available date options, room labels, capacity and sleeping arrangements. The public search keeps other guests’ identities, the room ledger and hosts’ whereabouts private. When you send a request, the hosts see your verified email address, exact dates, rooms, group size, notes and special requests. One host confirms or declines. You can check the outcome in your account and withdraw while the request is pending. Unbooked requests are deleted 30 days after they close. For confirmed requests the app keeps a link to the booked visit."
+    "stayRequestsBody": "After signing in with Google, you can find a published household by name and see available date options, room labels, capacity and sleeping arrangements. The search keeps other guests’ identities, the room ledger and hosts’ whereabouts private. When you send a request, the hosts see your verified email address, exact dates, rooms, group size, notes and special requests. One host confirms or declines. You can check the outcome in your account and withdraw while the request is pending. Unbooked requests are deleted 30 days after they close. For confirmed requests the app keeps a link to the booked visit."
   },
   "Season": {
     "primavera": "spring",
@@ -630,8 +630,8 @@
   },
   "HostPublicListing": {
     "title": "Public listing",
-    "unlisted": "Your household is unlisted. Publishing lets anyone find it by name and see available stays and guest-facing room details.",
-    "published": "Guests can find {name} and see available stays and room details.",
+    "unlisted": "Your household is unlisted. Publish it so guests who sign in with Google can find it by name and see available dates and room details.",
+    "published": "Guests who sign in with Google can find {name} and see available dates and room details.",
     "name": "Public household name",
     "publish": "Publish household",
     "unpublish": "Unpublish household",

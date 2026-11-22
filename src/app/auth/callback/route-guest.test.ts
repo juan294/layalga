@@ -39,6 +39,8 @@ describe("OAuth callback from the main sign-in page", () => {
   });
 
   it.each([
+    "/en/stays?q=La+Yalga",
+    "/es/stays/eab9e960-0b40-4f02-8fa8-6df08829cb96?from=2030-12-10&nights=14",
     "/en/requests",
     "/es/requests/review",
     "/es/requests/eab9e960-0b40-4f02-8fa8-6df08829cb96",
@@ -56,9 +58,39 @@ describe("OAuth callback from the main sign-in page", () => {
       });
       expect(location(await GET(callback(path)))).toBe(path);
       expect(auth.signOut).not.toHaveBeenCalled();
-      expect(claimHostForUser).not.toHaveBeenCalled();
+      if (path.includes("/stays"))
+        expect(claimHostForUser).toHaveBeenCalledOnce();
+      else expect(claimHostForUser).not.toHaveBeenCalled();
       expect(claimPartyForUser).not.toHaveBeenCalled();
       expect(hasPartyForUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("opens discovery for a new verified guest from the Google sign-in page", async () => {
+    auth.getUser.mockResolvedValue({
+      data: {
+        user: {
+          ...user,
+          email_confirmed_at: "2030-01-01",
+          identities: [{ provider: "google" }],
+        },
+      },
+    });
+    expect(location(await GET(callback("/es")))).toBe("/es/stays");
+    expect(auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it.each(["unverified", "cancelled"])(
+    "preserves the booking search for an OAuth retry (%s)",
+    async (reason) => {
+      const path = "/es/stays?q=Pe%C3%B1a";
+      const req = callback(path);
+      if (reason === "cancelled")
+        auth.exchangeCodeForSession.mockResolvedValue({ error: "cancelled" });
+      const location = new URL((await GET(req)).headers.get("location")!);
+      expect(location.pathname).toBe("/es/sign-in");
+      expect(location.searchParams.get("next")).toBe(path);
+      expect(location.searchParams.get("error")).toBe("oauth_failed");
     },
   );
 
@@ -91,6 +123,10 @@ describe("OAuth callback from the main sign-in page", () => {
       },
     });
     for (const path of [
+      "/en/stays/../rooms",
+      "/en/stays?q=home&q=other",
+      "/en/stays?from=bad",
+      "/en/stays/%2F%2Fevil.example",
       "/en/requests-admin",
       "/en/requests/elsewhere",
       "/en/requests/../rooms",
@@ -158,7 +194,7 @@ describe("OAuth callback from the main sign-in page", () => {
     expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
-  it("signs out an account that is neither a host nor an invited guest", async () => {
+  it("signs out an unverified account with no host or invitation claim", async () => {
     const response = await GET(callback("/en"));
 
     expect(location(response)).toBe("/en/sign-in?error=not_a_host");

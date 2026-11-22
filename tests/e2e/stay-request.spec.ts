@@ -27,6 +27,18 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
     const july = `${new Date().getUTCFullYear() + 1}-07`;
     const url = `/en/stays/${listed!.handle}?from=${july}-01&to=${july}-15&nights=14&adults=2&children=0&pets=0`;
     await page.goto(url);
+    await expect(page.getByTestId("google-sign-in")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Guest request test" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("region", { name: en.PublicStays.matches }),
+    ).toHaveCount(0);
+    const intended = new URL(page.url()).searchParams.get("next");
+    expect(intended).toBe(url);
+    await requester.signIn(context);
+    await page.reload();
+    await expect(page).toHaveURL(url);
     await page.locator("details summary").first().click();
     const option = page.locator("details").first();
     await option.getByLabel(en.StayRequests.notes).fill("Arriving by train.");
@@ -35,12 +47,21 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
       .fill("Can we bring our bikes?");
     await option.getByRole("button", { name: en.StayRequests.review }).click();
     await expect(
-      page.getByRole("button", { name: en.StayRequests.signIn }),
+      page.getByRole("button", { name: en.StayRequests.send }),
     ).toBeVisible();
     await expect(
       page.getByText("Arriving by train.", { exact: false }),
     ).toBeVisible();
     expect(page.url()).not.toContain("train");
+    await context.clearCookies({ name: /^sb-/ });
+    await page.reload();
+    await expect(page.getByRole("button", { name: /Google/ })).toBeVisible();
+    await expect(
+      page.getByText("Arriving by train.", { exact: false }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: en.StayRequests.send }),
+    ).toHaveCount(0);
     const prepare = await page.request.post("/auth/prepare", {
       data: { next: "/en/requests/review" },
       headers: { origin: new URL(baseURL!).origin },
@@ -115,6 +136,23 @@ test("first-time guest reviews an exact stay, returns after cancelled login, sen
     await expect(
       page.getByText("Can we bring our bikes?", { exact: false }),
     ).toHaveCount(0);
+    const other = await createFixtureRequester(household.db);
+    try {
+      await other.signIn(context);
+      await page.goto("/en/requests/review");
+      await expect(page.getByRole("alert")).toContainText(
+        en.StayRequests.expired,
+      );
+      await expect(
+        page.getByText("Arriving by train.", { exact: false }),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: en.StayRequests.send }),
+      ).toHaveCount(0);
+      await expect(page.locator('a[href="/en/requests"]')).toHaveCount(0);
+    } finally {
+      await other.cleanup();
+    }
     await requester.signIn(context);
     const returningGuest = await context.newPage();
     await returningGuest.goto("/en/requests", {

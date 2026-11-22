@@ -1,3 +1,7 @@
+import { redirect } from "next/navigation";
+import { getAuthUser } from "@/lib/auth/current-user";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
+import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { GuestConversation } from "@/components/guest/guest-conversation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -15,8 +19,12 @@ export default async function FindHouseholdPage({
 }) {
   const { locale } = await params;
   const { q } = await searchParams;
+  if (!verifiedGoogleGuestEmail(await getAuthUser()))
+    redirect(staySignInPath(locale, undefined, { q }));
   const t = await getTranslations({ locale, namespace: "PublicStays" });
   const result = q !== undefined ? await lookupHouseholds(q) : null;
+  if (result?.status === "sign_in")
+    redirect(staySignInPath(locale, undefined, { q }));
   return (
     <main className={styles.shell}>
       <PublicStayRegistration />

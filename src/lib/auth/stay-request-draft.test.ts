@@ -25,17 +25,20 @@ const stay = {
 };
 
 it("retains the exact proposal, key and consent across one browser's sign-in", () => {
-  const token = sealStayDraft(stay, browser, 100);
+  const token = sealStayDraft(stay, browser, "guest", 100);
   expect(token).not.toContain("Private note");
-  expect(readStayDraft(token, browser, 101)).toEqual(stay);
-  expect(readStayDraft(token, "b".repeat(43), 101)).toBeNull();
-  expect(readStayDraft(token, undefined, 101)).toBeNull();
-  expect(readStayDraft(token, browser, 100 + DRAFT_SECONDS * 1000)).toBeNull();
+  expect(readStayDraft(token, browser, "other", 101)).toBeNull();
+  expect(readStayDraft(token, browser, "guest", 101)).toEqual(stay);
+  expect(readStayDraft(token, "b".repeat(43), "guest", 101)).toBeNull();
+  expect(readStayDraft(token, undefined, "guest", 101)).toBeNull();
+  expect(
+    readStayDraft(token, browser, "guest", 100 + DRAFT_SECONDS * 1000),
+  ).toBeNull();
 });
 
 it("rejects altered, oversized or malformed drafts", () => {
-  const token = sealStayDraft(stay, browser, 100);
+  const token = sealStayDraft(stay, browser, "guest", 100);
   for (const invalid of [token.slice(1), "tampered", "", "x".repeat(100_000)]) {
-    expect(readStayDraft(invalid, browser, 101)).toBeNull();
+    expect(readStayDraft(invalid, browser, "guest", 101)).toBeNull();
   }
 });

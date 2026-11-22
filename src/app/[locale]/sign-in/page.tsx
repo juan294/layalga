@@ -1,8 +1,13 @@
 import { hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 
+import { getAuthUser } from "@/lib/auth/current-user";
+import { getCurrentHost } from "@/lib/auth/current-host";
+import { hasPartyForUser } from "@/lib/auth/guest-account";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
+import { isStaySearchPath } from "@/lib/auth/safe-next-path";
 import { LocaleSwitcher } from "@/i18n/locale-switcher";
 import { routing } from "@/i18n/routing";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -12,7 +17,7 @@ import { SignInButton } from "./sign-in-button";
 
 interface SignInPageProps {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string | string[] }>;
 }
 
 export default async function SignInPage({
@@ -23,12 +28,19 @@ export default async function SignInPage({
   if (!hasLocale(routing.locales, locale)) notFound();
 
   const t = await getTranslations({ locale, namespace: "SignIn" });
-  const requestsT = await getTranslations({
-    locale,
-    namespace: "StayRequests",
-  });
   const brandT = await getTranslations({ locale, namespace: "Brand" });
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  const nextPath =
+    typeof next === "string" && isStaySearchPath(next, locale)
+      ? next
+      : undefined;
+  const user = await getAuthUser();
+  if (user && verifiedGoogleGuestEmail(user)) {
+    if (nextPath) redirect(nextPath);
+    if (await getCurrentHost()) redirect(`/${locale}`);
+    if (await hasPartyForUser(user.id)) redirect(`/${locale}/visits`);
+    redirect(`/${locale}/stays`);
+  }
   const callbackError =
     error === "not_a_host"
       ? t("notHostError")
@@ -53,9 +65,7 @@ export default async function SignInPage({
         <h1 id="sign-in-title">{t("title")}</h1>
         <p className="postcard__lead">{t("description")}</p>
         <div className="postcard__actions">
-          <SignInButton locale={locale} />
-          <a href={`/${locale}/stays`}>{t("findStays")}</a>
-          <a href={`/${locale}/requests`}>{requestsT("history")}</a>
+          <SignInButton locale={locale} nextPath={nextPath} />
           {callbackError ? (
             <p className="postcard__error" role="alert">
               {callbackError}

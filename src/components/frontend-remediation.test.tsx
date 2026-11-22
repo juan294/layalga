@@ -30,6 +30,22 @@ describe("frontend remediation contracts", () => {
     );
   });
 
+  test("keeps only an approved booking return when changing the sign-in language", () => {
+    const listing =
+      "/en/stays/eab9e960-0b40-4f02-8fa8-6df08829cb96?from=2031-01-01&nights=14";
+    const switched = localeSwitchHref(
+      "/sign-in",
+      new URLSearchParams({ next: listing, notes: "private" }),
+      "es",
+    );
+    expect(
+      new URL(switched, "https://example.test").searchParams.get("next"),
+    ).toBe(listing.replace("/en/", "/es/"));
+    expect(switched).not.toContain("private");
+    const invalid = new URLSearchParams({ next: listing + "&notes=private" });
+    expect(localeSwitchHref("/sign-in", invalid, "es")).toBe("/sign-in");
+  });
+
   test("localizes every known internal return path on locale changes", () => {
     const status = "/runs/run-id/status";
     for (const [returnTo, expected] of [

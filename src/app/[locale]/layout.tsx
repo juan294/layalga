@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
 import { Suspense, type ReactNode } from "react";
@@ -15,7 +16,9 @@ import { routing } from "@/i18n/routing";
 import { currentSeason } from "@/lib/season";
 import { getCurrentGuestInvitation } from "@/lib/auth/current-guest";
 import { getCurrentHost } from "@/lib/auth/current-host";
-import { getCurrentAccount } from "@/lib/auth/current-user";
+import { getAuthUser, getCurrentAccount } from "@/lib/auth/current-user";
+import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
+import { hasRequesterStayRequests } from "@/core/booking/stay-requests";
 import { buildSiteMetadata } from "@/lib/site-metadata";
 
 // Stamps data-theme on <html> before first paint, so a user whose stored
@@ -78,11 +81,16 @@ export default async function LocaleLayout({
   const messages = await getMessages({ locale });
   const t = await getTranslations({ locale, namespace: "Brand" });
   const nonce = (await headers()).get("x-nonce") ?? undefined;
-  const [host, guest, account] = await Promise.all([
+  const [host, guest, user, account] = await Promise.all([
     getCurrentHost(),
     getCurrentGuestInvitation(),
+    getAuthUser(),
     getCurrentAccount(),
   ]);
+  const canFindStays = Boolean(verifiedGoogleGuestEmail(user));
+  const hasRequests =
+    user && canFindStays && (await hasRequesterStayRequests(user.id));
+  const booking = await getTranslations({ locale });
   const signedIn = Boolean(host || guest || account);
 
   return (
@@ -127,6 +135,21 @@ export default async function LocaleLayout({
                 ) : null}
               </div>
             </header>
+            {canFindStays && (
+              <nav
+                aria-label={t("bookingNavigation")}
+                className="booking-navigation"
+              >
+                <Link href={`/${locale}/stays`}>
+                  {booking("PublicStays.find")}
+                </Link>
+                {hasRequests && (
+                  <Link href={`/${locale}/requests`}>
+                    {booking("StayRequests.history")}
+                  </Link>
+                )}
+              </nav>
+            )}
             {children}
           </div>
         </NextIntlClientProvider>
