@@ -209,6 +209,16 @@ function receipt(row: ReceiptRow): StayRequestReceipt {
     createdAt: new Date(row.createdAt).toISOString(),
   };
 }
+/** Show request history only to the guest who submitted a request. */
+export async function hasRequesterStayRequests(
+  userId: string,
+): Promise<boolean> {
+  const [row] = await getDatabaseConnection().sql<{ has_requests: boolean }[]>`
+    select exists(select 1 from public.stay_requests where requester_id = ${userId}) as has_requests
+  `;
+  return row.has_requests;
+}
+
 export async function listRequesterStayRequests(
   userId: string,
 ): Promise<StayRequestReceipt[]> {

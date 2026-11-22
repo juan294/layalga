@@ -4,6 +4,13 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.5.1] - 2026-11-22
+
+### Changed
+
+- Guests sign in with Google before searching for a household, checking room availability or preparing a stay through the website or its WebMCP tools. “My stay requests” appears after the guest sends their first request.
+- Google sign-in restores the selected household and search dates. Saved drafts belong to the account that prepared them. A guest with an unsent draft from v2.5.0 must select the rooms again.
+
 ## [2.5.0] - 2026-11-21
 
 ### Added

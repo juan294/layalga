@@ -1,15 +1,23 @@
 import { expect, test } from "@playwright/test";
 
-test("the sign-in page offers Google and no demo entry", async ({ page }) => {
+test("Google is the only booking entry on the signed-out sign-in page", async ({
+  page,
+}) => {
   await page.goto("/en/sign-in");
   await expect(page.getByTestId("google-sign-in")).toBeVisible();
   await expect(page.locator('[data-testid^="demo-enter-"]')).toHaveCount(0);
+  await expect(
+    page.locator('a[href="/en/stays"], a[href="/en/requests"]'),
+  ).toHaveCount(0);
 });
 
 test("a host error keeps the Google button beside it", async ({ page }) => {
   await page.goto("/es/sign-in?error=not_a_host");
   await expect(page.getByTestId("google-sign-in")).toBeVisible();
-  await expect(page.locator(".postcard__error")).toHaveAttribute("role", "alert");
+  await expect(page.locator(".postcard__error")).toHaveAttribute(
+    "role",
+    "alert",
+  );
 });
 
 test("the retired demo routes are gone", async ({ request }) => {
@@ -31,5 +39,7 @@ test("the privacy notice is public and linked from sign-in", async ({
   await expect(page).toHaveURL(/\/en\/privacy$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy");
   await expect(page.getByRole("heading", { level: 2 })).toHaveCount(7);
-  await expect(page.getByRole("heading", { name: "Guest-initiated requests" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Guest-initiated requests" }),
+  ).toBeVisible();
 });

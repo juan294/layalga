@@ -79,7 +79,7 @@ beforeEach(() => {
   api.submit.mockResolvedValue({ status: "pending", requestId: "receipt" });
 });
 
-it("prepares, signs in and reviews without submitting or scheduling messages", async () => {
+it("prepares and reviews while signed in without submitting or scheduling messages", async () => {
   const draft = await prepareStayRequest(input);
   expect(draft).toMatchObject({ status: "ready", token: expect.any(String) });
   if (draft.status !== "ready") throw new Error("setup");
@@ -96,27 +96,28 @@ it("prepares, signs in and reviews without submitting or scheduling messages", a
 });
 
 it("reports changed room terms on return", async () => {
-  const token = sealStayDraft(input, browser);
+  const token = sealStayDraft(input, browser, user.id);
   api.lookup.mockResolvedValueOnce(null);
   expect(await reviewStayRequest(token)).toEqual({ status: "stale" });
   expect(api.submit).not.toHaveBeenCalled();
 });
 
 it("verifies identity anew and rejects expired or unbound drafts", async () => {
-  const token = sealStayDraft(input, browser);
+  const token = sealStayDraft(input, browser, user.id);
   api.getUser.mockResolvedValueOnce({ data: { user: null } });
   expect((await sendStayRequest(token, email)).status).toBe("sign_in");
   expect((await sendStayRequest(token, "other@example.invalid")).status).toBe(
     "changed_account",
   );
   expect(
-    (await sendStayRequest(sealStayDraft(input, browser, 1), email)).status,
+    (await sendStayRequest(sealStayDraft(input, browser, user.id, 1), email))
+      .status,
   ).toBe("expired");
   expect(api.submit).not.toHaveBeenCalled();
 });
 
 it("sends the reviewed payload only on explicit action and preserves its key on replay", async () => {
-  const token = sealStayDraft(input, browser);
+  const token = sealStayDraft(input, browser, user.id);
   expect(await sendStayRequest(token, email)).toEqual({
     status: "pending",
     requestId: "receipt",
@@ -132,6 +133,7 @@ it("sends the reviewed payload only on explicit action and preserves its key on 
   expect(api.submit).toHaveBeenCalledWith({ userId: "user-id", email }, input);
   expect(api.lookup).not.toHaveBeenCalled(); // The domain resolves idempotent replay before inventory.
   expect(api.after).toHaveBeenCalledTimes(2);
+  expect(api.revalidate).toHaveBeenCalledWith("/en", "layout");
 });
 
 it("returns a signed-out requester to the private sign-in gate without withdrawing", async () => {
@@ -165,7 +167,7 @@ it("returns retryable failures to the validated receipt and rejects unsafe retur
 });
 
 it("recovers a committed receipt before checking changed inventory following a lost response", async () => {
-  const token = sealStayDraft(input, browser);
+  const token = sealStayDraft(input, browser, user.id);
   api.existing.mockResolvedValueOnce({
     status: "replayed",
     requestId: "receipt",
@@ -182,8 +184,37 @@ it("returns the committed receipt even if background email scheduling fails", as
   api.after.mockImplementationOnce(() => {
     throw new Error("task unavailable");
   });
-  expect(await sendStayRequest(sealStayDraft(input, browser), email)).toEqual({
+  expect(
+    await sendStayRequest(sealStayDraft(input, browser, user.id), email),
+  ).toEqual({
     status: "pending",
     requestId: "receipt",
+  });
+});
+
+it("requires Google before checking availability, returning private terms or issuing a draft", async () => {
+  const token = sealStayDraft(input, browser, user.id);
+  api.getUser.mockResolvedValue({ data: { user: null } });
+  expect(await prepareStayRequest(input)).toEqual({ status: "sign_in" });
+  expect(await reviewStayRequest(token)).toEqual({ status: "sign_in" });
+  expect(api.lookup).not.toHaveBeenCalled();
+  expect(api.existing).not.toHaveBeenCalled();
+  expect(api.set).not.toHaveBeenCalled();
+});
+
+it("only lets the original account review and send its draft in this browser", async () => {
+  const draft = await prepareStayRequest(input);
+  if (draft.status !== "ready") throw new Error("setup");
+  const other = { ...user, id: "second-guest", email: "other@example.invalid" };
+  api.getUser.mockResolvedValue({ data: { user: other } });
+  expect(await reviewStayRequest(draft.token)).toEqual({ status: "expired" });
+  expect(await sendStayRequest(draft.token, other.email)).toEqual({
+    status: "expired",
+  });
+  expect(api.submit).not.toHaveBeenCalled();
+  api.getUser.mockResolvedValue({ data: { user } });
+  expect(await reviewStayRequest(draft.token)).toMatchObject({
+    status: "ready",
+    notes: input.notes,
   });
 });

@@ -25,18 +25,21 @@ import {
 } from "@/lib/auth/stay-request-draft";
 import { verifiedRequester } from "@/lib/auth/verified-requester";
 
-async function draftForBrowser(token: unknown) {
+async function draftForBrowser(token: unknown, requesterId: string) {
   return readStayDraft(
     token,
     (await cookies()).get(DRAFT_BROWSER_COOKIE)?.value,
+    requesterId,
   );
 }
 
 export async function prepareStayRequest(raw: unknown) {
-  const parsed = stayRequestInput.safeParse(raw);
-  if (!parsed.success) return { status: "invalid" } as const;
-  const input = parsed.data;
   try {
+    const requester = await verifiedRequester();
+    if (!requester) return { status: "sign_in" } as const;
+    const parsed = stayRequestInput.safeParse(raw);
+    if (!parsed.success) return { status: "invalid" } as const;
+    const input = parsed.data;
     const selected = await resolvePublicStaySelection(
       input.handle,
       input.criteria,
@@ -55,7 +58,10 @@ export async function prepareStayRequest(raw: unknown) {
       path: "/",
       maxAge: DRAFT_SECONDS,
     });
-    return { status: "ready", token: sealStayDraft(input, browser) } as const;
+    return {
+      status: "ready",
+      token: sealStayDraft(input, browser, requester.userId),
+    } as const;
   } catch {
     return { status: "unavailable" } as const;
   }
@@ -63,13 +69,12 @@ export async function prepareStayRequest(raw: unknown) {
 
 export async function reviewStayRequest(token: unknown) {
   try {
-    const input = await draftForBrowser(token);
-    if (!input) return { status: "expired" } as const;
     const requester = await verifiedRequester();
-    if (requester) {
-      const prior = await findSubmittedStayRequest(requester.userId, input);
-      if (prior) return prior;
-    }
+    if (!requester) return { status: "sign_in" } as const;
+    const input = await draftForBrowser(token, requester.userId);
+    if (!input) return { status: "expired" } as const;
+    const prior = await findSubmittedStayRequest(requester.userId, input);
+    if (prior) return prior;
     const terms = await resolvePublicStaySelection(
       input.handle,
       input.criteria,
@@ -97,14 +102,15 @@ export async function reviewStayRequest(token: unknown) {
 
 export async function sendStayRequest(token: unknown, reviewedAccount: string) {
   try {
-    const input = await draftForBrowser(token);
-    if (!input) return { status: "expired" } as const;
     const requester = await verifiedRequester();
     if (!requester) return { status: "sign_in" } as const;
+    const input = await draftForBrowser(token, requester.userId);
+    if (!input) return { status: "expired" } as const;
     if (requester.email !== reviewedAccount)
       return { status: "changed_account" } as const;
     const outcome = await submitStayRequest(requester, input);
     if (outcome.status === "pending" || outcome.status === "replayed") {
+      revalidatePath(`/${input.locale}`, "layout");
       try {
         after(() =>
           dispatchHostEmailPingsSafely(

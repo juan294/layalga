@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import { useHydrated } from "../use-hydrated";
+import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { useRouter } from "next/navigation";
 import { prepareStayRequest } from "@/app/[locale]/requests/actions";
 import type { PublicStayOption } from "@/core/booking/public-stay-search";
@@ -33,6 +35,7 @@ export function StaySelectionForm({
   const t = useTranslations("StayRequests");
   const stays = useTranslations("PublicStays");
   const router = useRouter();
+  const hydrated = useHydrated();
   const [pending, start] = useTransition();
   const [error, setError] = useState<
     "invalid" | "stale" | "unavailable" | null
@@ -60,6 +63,10 @@ export function StaySelectionForm({
               requests: data.get("requests"),
               idempotencyKey: crypto.randomUUID(),
             });
+            if (result.status === "sign_in") {
+              router.replace(staySignInPath(locale, handle, { ...criteria }));
+              return;
+            }
             if (result.status !== "ready") {
               setError(result.status);
               return;
@@ -128,7 +135,7 @@ export function StaySelectionForm({
         {t("requests")}
         <textarea name="requests" maxLength={MAX_SPECIAL_REQUEST_LENGTH} />
       </label>
-      <button disabled={pending} className={styles.primaryButton}>
+      <button disabled={!hydrated || pending} className={styles.primaryButton}>
         {t("review")}
       </button>
       {error && <p role="alert">{t(error)}</p>}

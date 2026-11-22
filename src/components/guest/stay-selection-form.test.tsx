@@ -33,6 +33,7 @@ it("keeps private notes and requests out of native GET URLs before hydration", (
     </NextIntlClientProvider>,
   );
   expect(html).toMatch(/<form[^>]*method="post"/i);
+  expect(html).toMatch(/<button[^>]*disabled/i);
   expect(html).toContain('name="notes"');
   expect(html).toContain('name="requests"');
 });

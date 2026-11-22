@@ -219,8 +219,10 @@ async function executeWebMcpTool<
   ) as Promise<Result>;
 }
 
-test("public WebMCP looks up a published home and searches fourteen nights without a guest session", async ({
+test("WebMCP accepts a verified guest for discovery and requires sign-in again after the session ends", async ({
   household,
+  context,
+  requester,
   page,
 }) => {
   const name = `Public ${household.homeId}`;
@@ -228,6 +230,11 @@ test("public WebMCP looks up a published home and searches fourteen nights witho
     insert into public.household_public_listings (home_id, display_name, search_name, published)
     values (${household.homeId}, ${name}, ${name.toLowerCase()}, true) returning handle
   `;
+  await page.goto(`/en/stays?q=${encodeURIComponent(name)}`);
+  await expect(page.getByTestId("google-sign-in")).toBeVisible();
+  await expectRegisteredTools(page, []);
+  await expect(page.getByRole("link", { name, exact: true })).toHaveCount(0);
+  await requester.signIn(context);
   await page.goto("/en/stays");
   await expectRegisteredTools(page, [
     "layalga.public.find_households",
@@ -263,10 +270,33 @@ test("public WebMCP looks up a published home and searches fourteen nights witho
     options: [{ stay: [from, to], rooms: expect.any(Array) }],
     truncated: false,
   });
+  await context.clearCookies();
+  expect(
+    await executeWebMcpTool(page, "layalga.public.find_households", { name }),
+  ).toMatchObject({
+    status: "sign_in",
+    listings: [],
+    next: expect.stringMatching(/Google/),
+  });
+  expect(
+    await executeWebMcpTool(page, "layalga.public.search_stays", input),
+  ).toMatchObject({
+    status: "sign_in",
+    options: [],
+    next: expect.stringMatching(/Google/),
+  });
+  await requester.signIn(context);
   await household.db`update public.household_public_listings set published=false where home_id=${household.homeId}`;
   expect(
     await executeWebMcpTool(page, "layalga.public.search_stays", input),
   ).toEqual({ status: "not_found", options: [], truncated: false });
+
+  // This fixture still has a valid email session after its Google identity is removed.
+  await household.db`delete from auth.identities where user_id=${requester.userId} and provider='google'`;
+  await requester.signIn(context);
+  await page.goto("/en/stays");
+  await expect(page.getByTestId("google-sign-in")).toBeVisible();
+  await expectRegisteredTools(page, []);
 });
 
 test("public preparation and private receipt tools follow the exact visible selection and current account", async ({
@@ -288,6 +318,7 @@ test("public preparation and private receipt tools follow the exact visible sele
     ];
     const prepare = "layalga.public.prepare_stay_request";
     const status = "layalga.guest.read_request_status";
+    await requester.signIn(context);
     await page.goto("/en/stays");
     await expectRegisteredTools(page, publicTools);
     const places = await executeWebMcpTool<{ listings: { handle: string }[] }>(
@@ -321,7 +352,6 @@ test("public preparation and private receipt tools follow the exact visible sele
     );
     const option = result.options[0]!;
     expect(option.stay).toEqual([from, to]);
-    await requester.signIn(context);
     const overflowRoom = option.rooms.find(
       (room) => room.standardCapacity < 3 && room.maximumCapacity >= 3,
     )!;
@@ -329,14 +359,22 @@ test("public preparation and private receipt tools follow the exact visible sele
       `/en/stays/${listing!.handle}?${new URLSearchParams(query)}`,
     );
     await expectRegisteredTools(page, [...publicTools, prepare]);
-    expect(
-      await executeWebMcpTool(page, prepare, {
-        from,
-        to,
-        roomRefs: [overflowRoom.ref],
-      }),
-    ).toMatchObject({ status: "prepared", requiresOverflowConsent: true });
-    const form = page.locator("details[open] form[data-webmcp-public-option]");
+    const selection = { from, to, roomRefs: [overflowRoom.ref] };
+    const openOptions = page.locator(
+      "details[open] form[data-webmcp-public-option]",
+    );
+    const openBefore = await openOptions.count();
+    await context.clearCookies();
+    expect(await executeWebMcpTool(page, prepare, selection)).toMatchObject({
+      status: "sign_in",
+    });
+    await expect(openOptions).toHaveCount(openBefore);
+    await requester.signIn(context);
+    expect(await executeWebMcpTool(page, prepare, selection)).toMatchObject({
+      status: "prepared",
+      requiresOverflowConsent: true,
+    });
+    const form = openOptions;
     await expect(form.locator('input[name="room"]:checked')).toHaveCount(1);
     await expect(form.locator('input[name="room"]:checked')).toHaveValue(
       overflowRoom.ref,
@@ -395,7 +433,10 @@ test("public preparation and private receipt tools follow the exact visible sele
     } finally {
       await hostContext.close();
     }
-    await page.getByRole("link", { name: en.StayRequests.history }).click();
+    await page
+      .getByRole("navigation", { name: en.Brand.bookingNavigation })
+      .getByRole("link", { name: en.StayRequests.history, exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: en.StayRequests.history }),
     ).toBeVisible();

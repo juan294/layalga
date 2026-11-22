@@ -11,7 +11,7 @@ export function createPublicStayTools(actions: {
       name: "layalga.public.find_households",
       title: "Find a household",
       description:
-        "Find published households by name. Choose a match and use its handle to check available stays. If none match, refine the name. Use at least two characters. If unavailable, retry later.",
+        "With an active Google session, find published households by name. Choose a match and use its handle to check available stays. If none match, refine the name. Use at least two characters. If unavailable, retry later.",
       inputSchema: {
         type: "object",
         properties: { name: { type: "string", minLength: 2, maxLength: 80 } },
@@ -34,7 +34,7 @@ export function createPublicStayTools(actions: {
       name: "layalga.public.search_stays",
       title: "Check available stays",
       description:
-        "Find whole-stay room choices in a published household. Each stay contains check-in and checkout dates. No match means try a different window or party. For invalid input, check the dates, duration and party size. If the household is missing, look it up again. If unavailable, retry later. To prepare a choice, open the matching household and display these search results using the page form. Availability is provisional until a host confirms.",
+        "With an active Google session, find whole-stay room choices in a published household. Each stay contains check-in and checkout dates. No match means try a different window or party. For invalid input, check the dates, duration and party size. If the household is missing, look it up again. If unavailable, retry later. To prepare a choice, open the matching household and display these search results using the page form. Availability is provisional until a host confirms.",
       inputSchema: {
         type: "object",
         properties: {
@@ -70,13 +70,11 @@ export function createPublicStayTools(actions: {
       },
       annotations: readAnnotations,
       execute: (input) =>
-        actions
-          .search(input)
-          .catch(() => ({
-            status: "unavailable",
-            options: [],
-            truncated: false,
-          })),
+        actions.search(input).catch(() => ({
+          status: "unavailable",
+          options: [],
+          truncated: false,
+        })),
     },
   ];
 }

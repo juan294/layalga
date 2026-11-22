@@ -116,9 +116,6 @@ export default async function RequestReceipt({
       <p>
         <a href={path}>{t("refresh")}</a>
       </p>
-      <p>
-        <Link href={`/${locale}/requests`}>{t("history")}</Link>
-      </p>
     </RequestShell>
   );
 }

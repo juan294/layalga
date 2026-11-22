@@ -27,12 +27,13 @@ export function createPrepareRequestTool(
   options: readonly PublicStayOption[],
   partySize: number,
   reveal: (stay: StayRange, roomRefs: string[]) => boolean,
+  hasSession: () => Promise<boolean>,
 ): WebMcpTool {
   return {
     name: "layalga.public.prepare_stay_request",
     title: "Prepare a visible stay request",
     description:
-      "Select rooms in one exact stay on this results page. The guest reviews any overflow arrangement and sends the request using the visible controls.",
+      "With an active Google session, select rooms in one exact stay on this results page. The guest reviews any overflow arrangement and sends the request using the visible controls.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -61,6 +62,18 @@ export function createPrepareRequestTool(
     },
     annotations: preparationAnnotations,
     async execute(raw) {
+      try {
+        if (!(await hasSession()))
+          return {
+            status: "sign_in",
+            next: "Reopen this booking page, choose Continue with Google, and run the availability search again.",
+          };
+      } catch {
+        return {
+          status: "unavailable",
+          next: "Refresh this booking page and retry.",
+        };
+      }
       const parsed = selection.safeParse(raw);
       if (!parsed.success) return invalidSelection;
       const { from, to, roomRefs } = parsed.data;

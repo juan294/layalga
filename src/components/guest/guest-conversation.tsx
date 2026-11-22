@@ -11,6 +11,7 @@ import type {
 import { guestConversationTurn } from "@/app/[locale]/stays/conversation-actions";
 import { formatDateStay } from "../frontend-utils";
 import { StaySelectionForm } from "./stay-selection-form";
+import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { structuredStayPath } from "./structured-stay-path";
 import ledger from "./guest-ledger.module.css";
 import styles from "./guest-conversation.module.css";
@@ -37,6 +38,10 @@ export function GuestConversation({
   const [offered, setOffered] = useState<GuestConversationReply | null>(null);
   const [selection, setSelection] = useState<number | null>(null);
   const [pending, start] = useTransition();
+  const [reconnect, setReconnect] = useState<{
+    href: string;
+    message: string;
+  } | null>(null);
   const structured = structuredStayPath(locale, {
     ...state,
     ...(reply?.criteria ?? offered?.criteria),
@@ -54,6 +59,25 @@ export function GuestConversation({
           message: text,
           state: nextState,
         });
+        if (next.kind === "sign_in") {
+          const returnHandle = nextState.handle ?? handle;
+          setReconnect({
+            href: staySignInPath(locale, returnHandle, {
+              ...nextState,
+              ...(offered?.state.handle === returnHandle
+                ? offered?.criteria
+                : undefined),
+            }),
+            message: next.message,
+          });
+          setMessage("");
+          setTurns([]);
+          setState({});
+          setReply(null);
+          setOffered(null);
+          setSelection(null);
+          return;
+        }
         setState(next.state);
         setReply(next);
         let answer = next.message;
@@ -88,6 +112,13 @@ export function GuestConversation({
       }
     });
   }
+  if (reconnect)
+    return (
+      <section className={styles.panel} aria-label={t("title")}>
+        <p role="status">{reconnect.message}</p>
+        <Link href={reconnect.href}>{t("signInStatus")}</Link>
+      </section>
+    );
   const option = selection === null ? null : offered?.options?.[selection];
   const criteria = offered?.criteria;
   const earlier = turns.map((exchange, i) => (
@@ -271,9 +302,6 @@ export function GuestConversation({
       </form>
       <div className={styles.links}>
         <a href={structured}>{t("structured")}</a>
-        <Link href={`/${locale}/requests`}>
-          {reply?.kind === "sign_in" ? t("signInStatus") : requests("history")}
-        </Link>
       </div>
     </section>
   );

@@ -1,9 +1,19 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { guestConversationTurn } from "./conversation-actions";
 import { lookupHouseholds, lookupStays } from "./actions";
 
 // Keep the public actions, domain validation and listing lookup real. Substitute
 // only the database boundary to count reads and simulate a transient outage.
-const { sql } = vi.hoisted(() => ({ sql: vi.fn() }));
+const { sql, getUser } = vi.hoisted(() => ({ sql: vi.fn(), getUser: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: async () => ({ auth: { getUser } }),
+}));
+const verified = {
+  id: "guest",
+  email: "guest@example.invalid",
+  email_confirmed_at: "2030-01-01",
+  identities: [{ provider: "google" }],
+};
 vi.mock("@/core/db/client", async (load) => ({
   ...(await load<object>()),
   getDatabaseConnection: () => ({ sql }),
@@ -21,6 +31,7 @@ const valid = {
 const invalid = { status: "invalid", options: [], truncated: false };
 
 beforeEach(() => {
+  getUser.mockResolvedValue({ data: { user: verified } });
   sql.mockReset().mockResolvedValue([]);
 });
 
@@ -102,4 +113,53 @@ it("allows both failed searches to be retried without returning stale matches or
     options: [],
     truncated: false,
   });
+});
+
+it.each([
+  null,
+  { ...verified, identities: [{ provider: "email" }] },
+  { ...verified, email_confirmed_at: null },
+])(
+  "requires a verified Google session before discovery, availability, and conversation",
+  async (user) => {
+    getUser.mockResolvedValue({ data: { user } });
+    expect(await lookupHouseholds("Casa")).toMatchObject({
+      status: "sign_in",
+      listings: [],
+    });
+    expect(await lookupStays(valid)).toMatchObject({
+      status: "sign_in",
+      options: [],
+    });
+    expect(
+      await guestConversationTurn({
+        locale: "es",
+        message: "envía mi solicitud",
+      }),
+    ).toMatchObject({
+      kind: "sign_in",
+      state: {},
+      message: expect.stringMatching(/Google/),
+    });
+    expect(sql).not.toHaveBeenCalled();
+  },
+);
+
+it("returns retryable failures when the session cannot be verified", async () => {
+  getUser.mockRejectedValue(new Error("auth unavailable"));
+  expect(await lookupHouseholds("Casa")).toMatchObject({
+    status: "unavailable",
+    listings: [],
+  });
+  expect(await lookupStays(valid)).toMatchObject({
+    status: "unavailable",
+    options: [],
+  });
+  expect(
+    await guestConversationTurn({
+      locale: "en",
+      message: "show me a household",
+    }),
+  ).toMatchObject({ kind: "unavailable", state: {} });
+  expect(sql).not.toHaveBeenCalled();
 });

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/i18n/routing";
 import { RequestShell } from "@/components/guest/request-shell";
@@ -15,16 +14,15 @@ export default async function ReviewPage({
 }) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "StayRequests" });
+  const email = verifiedGoogleGuestEmail(await getAuthUser());
   return (
     <RequestShell title={t("review")}>
       <RequestReview
+        key={email}
         locale={locale}
-        email={verifiedGoogleGuestEmail(await getAuthUser())}
+        email={email}
         authFailed={(await searchParams).auth === "failed"}
       />
-      <p>
-        <Link href={`/${locale}/requests`}>{t("history")}</Link>
-      </p>
     </RequestShell>
   );
 }
