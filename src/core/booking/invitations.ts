@@ -3,7 +3,8 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { deriveCaptureLink, hashLinkToken } from "./link-tokens";
 export { hashLinkToken } from "./link-tokens";
 
-import type { JSONValue, TransactionSql } from "postgres";
+import type postgres from "postgres";
+import type { TransactionSql } from "postgres";
 
 import { sqlClient, type DatabaseClient } from "../db/client";
 
@@ -25,7 +26,7 @@ export interface CaptureInvitationInput {
   partyName: string;
   partyLocale: "en" | "es";
   rawMessage: string;
-  structured?: JSONValue;
+  structured?: postgres.JSONValue;
   linkTokenExpiresAt?: Date | null;
   tokenSecret?: string;
   appUrl?: string;

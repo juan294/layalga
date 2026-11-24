@@ -1,4 +1,4 @@
-import type { JSONValue } from "postgres";
+import type postgres from "postgres";
 
 import { stayApprovalHash } from "@/core/booking/holds";
 import { sqlClient } from "@/core/db/client";
@@ -12,7 +12,7 @@ export async function audit(
   homeId: string,
   context: { invocationState: Record<string, unknown> } | undefined,
   kind: string,
-  payload: Record<string, JSONValue>,
+  payload: Record<string, postgres.JSONValue>,
 ): Promise<void> {
   assertHomeAuthority(deps, homeId);
   const sql = sqlClient(deps.db);
@@ -97,12 +97,12 @@ export function assertHomeAuthority(deps: AgentDeps, homeId: string): void {
 export async function loadDraftForTool(
   deps: AgentDeps,
   name: string,
-  input: Record<string, JSONValue>,
+  input: Record<string, postgres.JSONValue>,
 ): Promise<{
   homeId: string;
   draft: VisitDraft;
   approvalStayHash: string | null;
-  sanitizedInput: Record<string, JSONValue>;
+  sanitizedInput: Record<string, postgres.JSONValue>;
 }> {
   const sql = sqlClient(deps.db);
   const sanitizedInput = { ...input };
