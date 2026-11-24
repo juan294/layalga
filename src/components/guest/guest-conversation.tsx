@@ -10,6 +10,7 @@ import type {
 } from "@/core/booking/guest-conversation-contract";
 import { guestConversationTurn } from "@/app/[locale]/stays/conversation-actions";
 import { formatDateStay } from "../frontend-utils";
+import { useHydrated } from "../use-hydrated";
 import { StaySelectionForm } from "./stay-selection-form";
 import { staySignInPath } from "@/lib/auth/stay-sign-in-path";
 import { structuredStayPath } from "./structured-stay-path";
@@ -32,6 +33,7 @@ export function GuestConversation({
   const [state, setState] = useState<GuestConversationState>(
     handle ? { handle } : {},
   );
+  const hydrated = useHydrated();
   const [message, setMessage] = useState("");
   const [turns, setTurns] = useState<Exchange[]>([]);
   const [reply, setReply] = useState<GuestConversationReply | null>(null);
@@ -290,6 +292,8 @@ export function GuestConversation({
             maxLength={600}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
+            // Text typed before hydration never reaches state, so Ask would stay disabled.
+            disabled={!hydrated}
             required
           />
           <button

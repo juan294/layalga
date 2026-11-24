@@ -23,6 +23,16 @@ describe("guest booking conversation", () => {
     expect(html).toContain('href="#structured-stay-search"');
     expect(html).not.toContain('name="message"');
   });
+  it("accepts typing only once the message can be sent", () => {
+    const html = renderToStaticMarkup(
+      <NextIntlClientProvider locale="en" timeZone="UTC" messages={en}>
+        <GuestConversation locale="en" />
+      </NextIntlClientProvider>,
+    );
+    expect(html).toMatch(
+      /<input[^>]*id="guest-conversation-message"[^>]*disabled/,
+    );
+  });
   it("carries only public dates and counts into the matching structured home", () => {
     const handle = "5cce56f7-ecb4-44df-ad7a-ed9430381451";
     const link = structuredStayPath("es", {
