@@ -1,6 +1,6 @@
 # Documentation index
 
-Start with the root README, the [current roadmap](roadmap.md) and the user manuals below. Production runs v2.0.0, real-use release 1, without demo mode. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, the hackathon archive, generated design-bundle copies, private inventory, and ignored agent reports. The public-site discovery index is [`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
+Start with the root README, the [current roadmap](roadmap.md) and the user manuals below. The roadmap names the version in production. Use this index when rebuilding Gemini Notebook resources; include the current sources listed below and exclude dated research, plans, the hackathon archive, generated design-bundle copies, private inventory, and ignored agent reports. The public-site discovery index is [`/llms.txt`](../public/llms.txt); it links to the production branch's Markdown.
 
 ## Real-use launch
 
@@ -11,6 +11,7 @@ Start with the root README, the [current roadmap](roadmap.md) and the user manua
 | [Real-use launch notes](plans/2026-10-15-real-use-launch-notes.md)                                | Implementation deviations, review dispositions and open owner decisions                       |
 | [Host sign-in identity plan](plans/2026-10-17-host-sign-in-identity.md)                           | Three phases: account chip in the header, Google account picker, host naming, release v2.3.0  |
 | [Host sign-in identity notes](plans/2026-10-17-host-sign-in-identity-notes.md)                    | Implementation evidence, review dispositions and deviations for phases 1 and 2                |
+| [External agent access plan](plans/2026-11-24-external-agent-access.md) | Proposed: ChatGPT and Claude access through a remote MCP server with Google-backed account linking; awaits owner decisions |
 | [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals     |
 
 ## Hackathon archive
