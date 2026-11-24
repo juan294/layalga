@@ -138,8 +138,8 @@ describe("host household policy", () => {
       select role_name, column_name,
         has_column_privilege(role_name, 'public.homes', column_name, 'UPDATE') as can_update,
         has_column_privilege(role_name, 'public.homes', column_name, 'SELECT') as can_read
-      from unnest(${db.array(roles)}::text[]) role_name
-      cross join unnest(${db.array(columns)}::text[]) column_name
+      from unnest(${roles}::text[]) role_name
+      cross join unnest(${columns}::text[]) column_name
     `;
     expect(privileges).toHaveLength(roles.length * columns.length);
     for (const privilege of privileges) {
@@ -163,7 +163,7 @@ describe("host household policy", () => {
         from pg_attribute column_acl
         cross join lateral aclexplode(coalesce(column_acl.attacl, '{}'::aclitem[])) acl
         where column_acl.attrelid = 'public.homes'::regclass
-          and column_acl.attname = any(${db.array(columns)}::text[])
+          and column_acl.attname = any(${columns}::text[])
       )
       select exists(select 1 from grants where grantee = 0 and privilege_type = 'UPDATE') as can_update,
         exists(select 1 from grants where grantee = 0 and privilege_type = 'SELECT') as can_read

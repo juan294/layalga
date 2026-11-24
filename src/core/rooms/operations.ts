@@ -173,7 +173,7 @@ async function insertPrivateRoomBlock(
     select
       ${block.id}, selected.room_id, ${input.homeId},
       daterange(${input.stay[0]}::date, ${input.stay[1]}::date, '[)')
-    from unnest(${transaction.array([...input.roomIds])}::uuid[])
+    from unnest(${[...input.roomIds]}::uuid[])
       selected(room_id)
   `;
   return block.id;

@@ -134,7 +134,7 @@ export async function prepareRoomActionProposal(
         proposal_id, room_id, home_id
       )
       select ${proposal.id}, selected.room_id, ${normalized.homeId}
-      from unnest(${transaction.array(normalized.roomIds)}::uuid[]) selected(room_id)
+      from unnest(${normalized.roomIds}::uuid[]) selected(room_id)
     `;
     return proposalResult(proposal.id, normalized);
   });

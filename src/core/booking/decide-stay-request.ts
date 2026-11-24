@@ -118,7 +118,7 @@ async function bookExactProposal(
   // Room edits can also be made outside the booking workflow. Keep the selected
   // wording/capacities and household rules stable until confirmation commits.
   await tx`select id from public.homes where id=${host.homeId} for share`;
-  await tx`select id from public.rooms where home_id=${host.homeId} and id=any(${tx.array(proposal.room_ids)}::uuid[])
+  await tx`select id from public.rooms where home_id=${host.homeId} and id=any(${proposal.room_ids}::uuid[])
     order by id for share`;
   const selected = await resolvePublicStaySelection(
     proposal.listing_handle,

@@ -153,7 +153,7 @@ export async function submitStayRequest(
       adults,children,pets,room_ids,room_terms,overflow_consent,notes,requests,locale)
       values (${selected.homeId},${proposal.handle},${selected.displayName},${requester.userId},${requester.email},
         ${proposal.idempotencyKey},${fingerprint},daterange(${from}::date,${to}::date,'[)'),
-        ${adults},${children},${pets},${tx.array(selected.roomIds)}::uuid[],${JSON.stringify(selected.rooms)}::jsonb,
+        ${adults},${children},${pets},${selected.roomIds}::uuid[],${JSON.stringify(selected.rooms)}::jsonb,
         ${proposal.overflowConsent},${proposal.notes},${proposal.requests},${proposal.locale}) returning id`;
     return { status: "pending", requestId: row!.id } as const;
   });

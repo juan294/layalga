@@ -313,7 +313,7 @@ it("prevents mixed-household links or rooms even when a database writer supplies
   if (submitted.status !== "pending")
     throw new Error("Expected a pending receipt");
   await expect(
-    sql()`update public.stay_requests set room_ids=${sql().array([b.home.roomIds[0]!])}::uuid[] where id=${submitted.requestId}`,
+    sql()`update public.stay_requests set room_ids=${[b.home.roomIds[0]!]}::uuid[] where id=${submitted.requestId}`,
   ).rejects.toMatchObject({ code: "23514" });
   await expect(
     sql()`update public.stay_requests set listing_handle=${b.input.handle} where id=${submitted.requestId}`,

@@ -426,7 +426,7 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
   );
   const [captured] = await sql<{ id: string }[]>`
     select id from public.invitations
-    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
+    where id = any(${invitationIds}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
   `;
   assert.ok(captured, "the captured invitation must be tentative");
   const [metadata] =
@@ -828,7 +828,7 @@ async function runToTerminal(
     () => drainTicks(context),
     (exactRunIds) => context.sql`
       select id, status, result from public.runs
-      where id = any(${context.sql.array([...exactRunIds])}::uuid[])
+      where id = any(${[...exactRunIds]}::uuid[])
     `,
   );
 }
