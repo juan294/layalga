@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { parseServerEnvironment, serverEnvironmentReadiness } from "./env";
+import {
+  assistantAccessOn,
+  parseServerEnvironment,
+  serverEnvironmentReadiness,
+} from "./env";
 
 describe("server environment", () => {
   it("keeps local scripted development usable without cloud secrets", () => {
@@ -68,6 +72,55 @@ describe("server environment", () => {
       email: "ses",
       sesFromAddress: "noreply@layalga.example",
     });
+  });
+
+  it("keeps assistants switched off without configuration in every contract", () => {
+    const production = {
+      NODE_ENV: "production",
+      VERCEL_ENV: "production",
+      AGENT_RUNTIME: "local",
+      MODEL: "bedrock",
+      BEDROCK_MODEL_ID: "model",
+      AWS_REGION: "us-east-1",
+      SCHEDULER: "none",
+      APP_URL: "https://layalga.example",
+      DATABASE_URL: "postgresql://web@db.example/postgres",
+      LINK_TOKEN_SECRET: "x".repeat(32),
+      NEXT_PUBLIC_SUPABASE_URL: "https://auth.example",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "key",
+      CALENDAR_FEED_SECRET: "x".repeat(32),
+      AGENT_ROUTE_SECRET: "x".repeat(32),
+      CRON_SECRET: "x".repeat(32),
+    };
+    for (const environment of [
+      { NODE_ENV: "development" },
+      production,
+      { ...production, AGENT_EXECUTION_RUNTIME: "agentcore" },
+    ]) {
+      expect(parseServerEnvironment(environment).assistantAccess).toBe("none");
+      expect(
+        parseServerEnvironment({ ...environment, ASSISTANT_ACCESS: "on" })
+          .assistantAccess,
+      ).toBe("on");
+      expect(serverEnvironmentReadiness(environment).ready).toBe(true);
+    }
+  });
+
+  it("refuses an unknown ASSISTANT_ACCESS mode", () => {
+    const environment = { NODE_ENV: "development", ASSISTANT_ACCESS: "true" };
+    expect(() => parseServerEnvironment(environment)).toThrow(
+      /ASSISTANT_ACCESS/,
+    );
+    expect(serverEnvironmentReadiness(environment).issues).toContainEqual({
+      key: "ASSISTANT_ACCESS",
+      code: "invalid",
+    });
+  });
+
+  it("opens assistant pages only for the exact mode", () => {
+    expect(assistantAccessOn({ ASSISTANT_ACCESS: "on" })).toBe(true);
+    for (const value of [undefined, "", "none", "true", "ON"])
+      expect(assistantAccessOn({ ASSISTANT_ACCESS: value })).toBe(false);
   });
 
   it("keeps MEMORY=none by default", () => {

@@ -18,6 +18,18 @@ export function isRequesterPath(value: string): boolean {
   );
 }
 
+/** A guest returns to the consent page of one assistant request. */
+export function isAssistantConsentPath(value: string): boolean {
+  return /^\/(en|es)\/oauth\/consent\?authorization_id=[A-Za-z0-9_-]{16,128}$/.test(
+    value,
+  );
+}
+
+/** The list of connected assistants. */
+export function isAssistantsPath(value: string): boolean {
+  return /^\/(en|es)\/assistants$/.test(value);
+}
+
 export function staySearchKeys(hasHandle: boolean): readonly string[] {
   return hasHandle
     ? ["from", "to", "nights", "adults", "children", "pets"]

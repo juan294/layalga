@@ -22,6 +22,7 @@ const e2eEnv = {
   AGENT_RUNTIME: "local",
   MODEL: "scripted",
   SCHEDULER: "none",
+  ASSISTANT_ACCESS: "on",
 };
 Object.assign(process.env, e2eEnv);
 

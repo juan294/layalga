@@ -110,6 +110,75 @@ describe("OAuth callback from the main sign-in page", () => {
     expect(auth.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 
+  const CONSENT =
+    "/es/oauth/consent?authorization_id=6qozma2yk5o6zzzh6t7ozzpowz2l4h5t";
+  const verified = {
+    data: {
+      user: {
+        ...user,
+        email_confirmed_at: "2030-01-01",
+        identities: [{ provider: "google" }],
+      },
+    },
+  };
+
+  it.each([CONSENT, "/en/assistants"])(
+    "returns a verified Google account to the assistant page without binding a host: %s",
+    async (path) => {
+      auth.getUser.mockResolvedValue(verified);
+      claimHostForUser.mockResolvedValue(true);
+
+      expect(location(await GET(callback(path)))).toBe(path);
+      expect(claimHostForUser).not.toHaveBeenCalled();
+      expect(claimPartyForUser).not.toHaveBeenCalled();
+      expect(hasPartyForUser).not.toHaveBeenCalled();
+      expect(auth.signOut).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [CONSENT, `${CONSENT}&auth=failed`],
+    ["/en/assistants", "/en/assistants?auth=failed"],
+  ])(
+    "keeps the assistant page after a failed or cancelled sign-in: %s",
+    async (path, retry) => {
+      // Google sent no code.
+      expect(
+        location(
+          await GET(
+            new NextRequest(
+              `https://layalga.example/auth/callback?next=${encodeURIComponent(path)}`,
+            ),
+          ),
+        ),
+      ).toBe(retry);
+      expect(auth.signOut).not.toHaveBeenCalled();
+
+      // The code exchange failed.
+      auth.exchangeCodeForSession.mockResolvedValue({ error: "failed" });
+      expect(location(await GET(callback(path)))).toBe(retry);
+      expect(auth.signOut).not.toHaveBeenCalled();
+
+      // The account is not a verified Google account.
+      auth.exchangeCodeForSession.mockResolvedValue({ error: null });
+      expect(location(await GET(callback(path)))).toBe(retry);
+      expect(auth.signOut).toHaveBeenCalledExactlyOnceWith({ scope: "local" });
+      expect(claimHostForUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not treat a changed consent address as an assistant return", async () => {
+    auth.getUser.mockResolvedValue(verified);
+    for (const path of [
+      `${CONSENT}&next=/en/rooms`,
+      CONSENT.replace("consent", "consent/x"),
+      "/en/assistants?x=1",
+    ]) {
+      const answer = location(await GET(callback(path)));
+      expect(answer).toMatch(/^\/(en|es)\/sign-in\?error=not_a_host$/);
+    }
+  });
+
   it("rejects an unverified identity on requester routes", async () => {
     expect(location(await GET(callback("/en/requests")))).toBe(
       "/en/requests?auth=failed",

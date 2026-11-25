@@ -46,6 +46,33 @@ describe("frontend remediation contracts", () => {
     expect(localeSwitchHref("/sign-in", invalid, "es")).toBe("/sign-in");
   });
 
+  test("keeps only a valid consent request when changing the consent language", () => {
+    const id = "6qozma2yk5o6zzzh6t7ozzpowz2l4h5t";
+    for (const locale of ["en", "es"] as const)
+      expect(
+        localeSwitchHref(
+          "/oauth/consent",
+          new URLSearchParams({ authorization_id: id, auth: "failed" }),
+          locale,
+        ),
+      ).toBe(`/oauth/consent?authorization_id=${id}`);
+    for (const invalid of ["short", `${id}/x`, `${id}&next=/en`, ""])
+      expect(
+        localeSwitchHref(
+          "/oauth/consent",
+          new URLSearchParams({ authorization_id: invalid }),
+          "es",
+        ),
+      ).toBe("/oauth/consent");
+    expect(
+      localeSwitchHref(
+        "/assistants",
+        new URLSearchParams({ authorization_id: id }),
+        "es",
+      ),
+    ).toBe("/assistants");
+  });
+
   test("localizes every known internal return path on locale changes", () => {
     const status = "/runs/run-id/status";
     for (const [returnTo, expected] of [
