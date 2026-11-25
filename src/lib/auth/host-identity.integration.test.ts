@@ -44,11 +44,7 @@ describe("host identity claims", () => {
       `;
 
       expect(
-        await claimHostIdentity(
-          sql,
-          userId,
-          ` HOST.${suffix}@Example.COM `,
-        ),
+        await claimHostIdentity(sql, userId, ` HOST.${suffix}@Example.COM `),
       ).toBe(target.id);
       const [claimed] = await sql<{ auth_user_id: string | null }[]>`
         select auth_user_id from public.hosts where id = ${target.id}
@@ -74,7 +70,8 @@ describe("host identity claims", () => {
       values (${home.id}, 'First', 'en'), (${home.id}, 'Second', 'es')
       returning id
     `;
-    if (!hosts[0] || !hosts[1]) throw new Error("Failed to seed conflict hosts");
+    if (!hosts[0] || !hosts[1])
+      throw new Error("Failed to seed conflict hosts");
 
     try {
       await sql`
@@ -93,11 +90,7 @@ describe("host identity claims", () => {
       `;
 
       await expect(
-        claimHostIdentity(
-          sql,
-          userId,
-          `second.${suffix}@example.com`,
-        ),
+        claimHostIdentity(sql, userId, `second.${suffix}@example.com`),
       ).rejects.toThrow(/conflict/i);
       const [second] = await sql<{ auth_user_id: string | null }[]>`
         select auth_user_id from public.hosts where id = ${hosts[1].id}

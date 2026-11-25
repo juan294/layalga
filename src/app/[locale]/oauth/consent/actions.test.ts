@@ -98,7 +98,7 @@ const decided = () => [
 
 describe("assistant consent actions", () => {
   it("reviews a known assistant and never returns its self-asserted name", async () => {
-    const state = await continueAssistantConsent(ID);
+    const state = await continueAssistantConsent(ID, "guest@example.com");
     expect(state).toEqual({
       status: "review",
       email: "guest@example.com",
@@ -117,6 +117,7 @@ describe("assistant consent actions", () => {
     async (decision, call, query) => {
       expect(await decideAssistantAccess(ID, decision)).toEqual({
         status: "redirect",
+        email: "guest@example.com",
         assistant: "claude",
         url: `${CALLBACK}?${query}&state=s`,
       });
@@ -143,7 +144,7 @@ describe("assistant consent actions", () => {
         status: "not_allowed",
       });
     mocks.getAuthorizationDetails.mockResolvedValue(answer);
-    expect(await continueAssistantConsent(ID)).toEqual({
+    expect(await continueAssistantConsent(ID, "guest@example.com")).toEqual({
       status: "not_allowed",
     });
   });
@@ -155,12 +156,28 @@ describe("assistant consent actions", () => {
       error: null,
     });
     for (const state of [
-      await continueAssistantConsent(ID),
+      await continueAssistantConsent(ID, "guest@example.com"),
       await decideAssistantAccess(ID, "allow"),
     ])
-      expect(state).toEqual({ status: "continue", assistant: "claude", url });
+      expect(state).toEqual({
+        status: "continue",
+        email: "guest@example.com",
+        assistant: "claude",
+        url,
+      });
     expect(decided()).toEqual([]);
   });
+
+  it.each(["other@example.com", "", undefined, null, 7])(
+    "shows the account again when the page showed another: %s",
+    async (shown) => {
+      expect(await continueAssistantConsent(ID, shown)).toEqual({
+        status: "start",
+        email: "guest@example.com",
+      });
+      expect(mocks.getAuthorizationDetails).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ["unknown", () => (allowlist = [])],
@@ -178,7 +195,7 @@ describe("assistant consent actions", () => {
     ],
   ])("refuses an assistant that is %s", async (_, change) => {
     change();
-    expect(await continueAssistantConsent(ID)).toEqual({
+    expect(await continueAssistantConsent(ID, "guest@example.com")).toEqual({
       status: "not_allowed",
     });
     expect(await decideAssistantAccess(ID, "allow")).toEqual({
@@ -227,7 +244,9 @@ describe("assistant consent actions", () => {
     "stops with %s before reading the request when %s",
     async (status, _, change) => {
       change();
-      expect(await continueAssistantConsent(ID)).toEqual({ status });
+      expect(await continueAssistantConsent(ID, "guest@example.com")).toEqual({
+        status,
+      });
       expect(await decideAssistantAccess(ID, "allow")).toEqual({ status });
       expect(mocks.getAuthorizationDetails).not.toHaveBeenCalled();
       expect(decided()).toEqual([]);
@@ -245,7 +264,9 @@ describe("assistant consent actions", () => {
     "a".repeat(129),
     [ID],
   ])("refuses a request ID of the wrong form: %s", async (id) => {
-    expect(await continueAssistantConsent(id)).toEqual({ status: "invalid" });
+    expect(await continueAssistantConsent(id, "guest@example.com")).toEqual({
+      status: "invalid",
+    });
     expect(await decideAssistantAccess(id, "allow")).toEqual({
       status: "invalid",
     });
@@ -285,7 +306,9 @@ describe("assistant consent actions", () => {
       expect(await decideAssistantAccess(ID, decision)).toEqual({ status });
 
     mocks.getAuthorizationDetails.mockResolvedValue({ data: null, error });
-    expect(await continueAssistantConsent(ID)).toEqual({ status });
+    expect(await continueAssistantConsent(ID, "guest@example.com")).toEqual({
+      status,
+    });
     expect(decided()).toHaveLength(2);
   });
 

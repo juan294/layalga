@@ -46,6 +46,16 @@ async function depsFor(
   };
 }
 
+/** Continue, from a page that shows the signed-in account. */
+async function review(authorizationId: string, deps: ConsentDeps) {
+  const shown = await startConsent(authorizationId, deps);
+  return reviewConsent(
+    authorizationId,
+    shown.status === "start" ? shown.email : undefined,
+    deps,
+  );
+}
+
 async function authorization(id: string) {
   const [row] = await admin<
     { status: string; userId: string | null; hasCode: boolean }[]
@@ -76,7 +86,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     });
     expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
 
-    expect(await reviewConsent(authorizationId, deps)).toEqual({
+    expect(await review(authorizationId, deps)).toEqual({
       status: "review",
       email: user.email,
       assistant: "claude",
@@ -94,7 +104,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
     await startConsent(authorizationId, await depsFor(first));
     const deps = await depsFor(second);
-    expect(await reviewConsent(authorizationId, deps)).toMatchObject({
+    expect(await review(authorizationId, deps)).toMatchObject({
       status: "review",
       email: second.email,
     });
@@ -113,7 +123,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
     // The request now belongs to the second account.
     const other = await depsFor(first);
-    expect(await reviewConsent(authorizationId, other)).toEqual({
+    expect(await review(authorizationId, other)).toEqual({
       status: "ended",
     });
     expect(await decideConsent(authorizationId, "deny", other)).toEqual({
@@ -121,12 +131,26 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     });
   });
 
+  it("shows the new account when it changed after the page was shown", async () => {
+    const shown = await fixtures.user();
+    const current = await fixtures.user();
+    const client = await fixtures.client();
+    // The current account consented earlier, so a read would approve at once.
+    expect((await codeFlow(current, client)).status).toBe(200);
+    const { authorizationId } = await startAuthorization(client);
+
+    expect(
+      await reviewConsent(authorizationId, shown.email, await depsFor(current)),
+    ).toEqual({ status: "start", email: current.email });
+    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+  });
+
   it("denies with the assistant's own callback and creates no grant", async () => {
     const user = await fixtures.user();
     const client = await fixtures.client();
     const { authorizationId } = await startAuthorization(client);
     const deps = await depsFor(user);
-    await reviewConsent(authorizationId, deps);
+    await review(authorizationId, deps);
 
     const decided = await decideConsent(authorizationId, "deny", deps);
     expect(decided).toMatchObject({ status: "redirect" });
@@ -147,14 +171,14 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       ["allow", "allow"],
     ] as const) {
       const { authorizationId } = await startAuthorization(client);
-      await reviewConsent(authorizationId, deps);
+      await review(authorizationId, deps);
       expect(await decideConsent(authorizationId, first, deps)).toMatchObject({
         status: "redirect",
       });
       expect(await decideConsent(authorizationId, second, deps)).toEqual({
         status: "ended",
       });
-      expect(await reviewConsent(authorizationId, deps)).toEqual({
+      expect(await review(authorizationId, deps)).toEqual({
         status: "ended",
       });
       await deps.supabase.auth.oauth.revokeGrant({ clientId: client });
@@ -168,12 +192,12 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       const client = await fixtures.client();
       const { authorizationId } = await startAuthorization(client);
       const deps = await depsFor(user);
-      if (moment === "after") await reviewConsent(authorizationId, deps);
+      if (moment === "after") await review(authorizationId, deps);
       await admin`update auth.oauth_authorizations
         set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
         where authorization_id=${authorizationId}`;
 
-      expect(await reviewConsent(authorizationId, deps)).toEqual({
+      expect(await review(authorizationId, deps)).toEqual({
         status: "ended",
       });
       expect(await decideConsent(authorizationId, "allow", deps)).toEqual({
@@ -185,7 +209,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
   it("ends an unknown request", async () => {
     const deps = await depsFor(await fixtures.user());
-    expect(await reviewConsent("a".repeat(32), deps)).toEqual({
+    expect(await review("a".repeat(32), deps)).toEqual({
       status: "ended",
     });
   });
@@ -202,8 +226,12 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     });
     expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
 
-    const state = await reviewConsent(authorizationId, deps);
-    expect(state).toMatchObject({ status: "continue", assistant: "claude" });
+    const state = await review(authorizationId, deps);
+    expect(state).toMatchObject({
+      status: "continue",
+      email: user.email,
+      assistant: "claude",
+    });
     const url = new URL((state as { url: string }).url);
     expect(`${url.origin}${url.pathname}`).toBe(FIXTURE_CALLBACK);
     expect(url.searchParams.get("code")).toBeTruthy();
@@ -217,8 +245,8 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       await startAuthorization(client),
       await startAuthorization(client),
     ];
-    await reviewConsent(one.authorizationId, deps);
-    await reviewConsent(two.authorizationId, deps);
+    await review(one.authorizationId, deps);
+    await review(two.authorizationId, deps);
     await decideConsent(one.authorizationId, "allow", deps);
 
     const denied = await decideConsent(two.authorizationId, "deny", deps);
@@ -269,7 +297,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       });
       const deps = await depsFor(user);
 
-      expect(await reviewConsent(authorizationId, deps)).toEqual({
+      expect(await review(authorizationId, deps)).toEqual({
         status: "not_allowed",
       });
       expect(await decideConsent(authorizationId, "allow", deps)).toEqual({
@@ -289,7 +317,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     const deps = await depsFor(user);
 
     // Auth approves the request on this read. The hook refuses its code.
-    expect(await reviewConsent(authorizationId, deps)).toEqual({
+    expect(await review(authorizationId, deps)).toEqual({
       status: "not_allowed",
     });
     const [row] = await admin<{ code: string }[]>`
@@ -312,7 +340,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
       for (const state of [
         await startConsent(authorizationId, deps),
-        await reviewConsent(authorizationId, deps),
+        await review(authorizationId, deps),
         await decideConsent(authorizationId, "allow", deps),
       ])
         expect(state).toEqual({ status: "host" });
@@ -328,7 +356,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
     for (const state of [
       await startConsent(authorizationId, deps),
-      await reviewConsent(authorizationId, deps),
+      await review(authorizationId, deps),
       await decideConsent(authorizationId, "allow", deps),
     ])
       expect(state).toEqual({ status: "sign_in" });
@@ -347,7 +375,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
 
     for (const state of [
       await startConsent(authorizationId, deps),
-      await reviewConsent(authorizationId, deps),
+      await review(authorizationId, deps),
       await decideConsent(authorizationId, "allow", deps),
     ])
       expect(state).toEqual({ status: "sign_in" });
@@ -359,7 +387,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     const client = await fixtures.client();
     const { authorizationId } = await startAuthorization(client);
     const deps = await depsFor(user);
-    await reviewConsent(authorizationId, deps);
+    await review(authorizationId, deps);
     await authCall("POST", "/auth/v1/logout?scope=local", {
       token: user.accessToken,
     });
@@ -378,9 +406,10 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     const { authorizationId } = await startAuthorization(client, {
       scope: "openid offline_access email profile",
     });
-    expect(
-      await reviewConsent(authorizationId, await depsFor(user)),
-    ).toMatchObject({ status: "review", scopes: ["email", "profile"] });
+    expect(await review(authorizationId, await depsFor(user))).toMatchObject({
+      status: "review",
+      scopes: ["email", "profile"],
+    });
   });
 
   it("reads the allowlist with the rights of the web runtime", async () => {

@@ -124,7 +124,8 @@ describe("connected assistants page", () => {
     async (locale, date) => {
       const html = await render(locale);
       const { list } = (locale === "es" ? es : en).Assistants;
-      expect(html).toContain(list.connectedOn.replace("{date}", date));
+      expect(html).toContain(`${list.connectedOn} <time`);
+      expect(html).toContain(`>${date}</time>`);
       for (const note of [
         list.noteAtOnce,
         list.noteSignOut,

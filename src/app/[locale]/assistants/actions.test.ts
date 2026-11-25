@@ -84,6 +84,8 @@ describe("disconnect an assistant", () => {
 
   it("reports a failure when the list still holds the assistant", async () => {
     expect(await submit()).toEqual({ status: "failed" });
+    // The row that the page shows is the one that Auth still holds.
+    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -97,12 +99,12 @@ describe("disconnect an assistant", () => {
     expect(await submit()).toEqual({ status: "disconnected" });
   });
 
-  it("reports a failure when the list cannot be read again", async () => {
+  it("does not claim a result when the list cannot be read again", async () => {
     mocks.listGrants.mockResolvedValueOnce(listed).mockResolvedValueOnce({
       data: null,
       error: new AuthRetryableFetchError("fetch failed", 0),
     });
-    expect(await submit()).toEqual({ status: "failed" });
+    expect(await submit()).toEqual({ status: "unconfirmed" });
   });
 
   it.each(["", "other", "00000000-0000-4000-8000-000000000009"])(
@@ -110,6 +112,7 @@ describe("disconnect an assistant", () => {
     async (clientId) => {
       expect(await submit(clientId)).toEqual({ status: "gone" });
       expect(mocks.revokeGrant).not.toHaveBeenCalled();
+      expect(mocks.refresh).toHaveBeenCalledOnce();
     },
   );
 
@@ -139,9 +142,9 @@ describe("disconnect an assistant", () => {
     expect(mocks.listGrants).not.toHaveBeenCalled();
   });
 
-  it("keeps the row when a call throws", async () => {
+  it("does not claim a result when a call throws", async () => {
     mocks.revokeGrant.mockRejectedValue(new Error("secret"));
-    expect(await submit()).toEqual({ status: "failed" });
+    expect(await submit()).toEqual({ status: "unconfirmed" });
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(
       "secret",
     );

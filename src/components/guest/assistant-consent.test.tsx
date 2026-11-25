@@ -122,10 +122,16 @@ describe("assistant consent view", () => {
   it.each(["continue", "redirect"] as const)(
     "shows the assistant's address only as a link: %s",
     (status) => {
-      const html = render({ status, assistant: "claude", url: URL_ });
+      const html = render({
+        status,
+        email: "guest@example.com",
+        assistant: "claude",
+        url: URL_,
+      });
       expect(html).toContain(`href="${URL_.replace("&", "&amp;")}"`);
       expect(count(html, /<a /g)).toBe(1);
       expect(html).toContain("Claude");
+      expect(html).toContain("guest@example.com");
     },
   );
 
@@ -152,10 +158,15 @@ describe("assistant consent view", () => {
     }
   });
 
-  it("has a different text for every state", () => {
-    const titles = Object.values(en.Assistants.states).map(
-      ({ title }) => title,
-    );
-    expect(new Set(titles).size).toBe(titles.length);
+  it.each([
+    ["English", en],
+    ["Spanish", es],
+  ])("has a different text for every state in %s", (_, messages) => {
+    const states = Object.values(messages.Assistants.states);
+    for (const texts of [
+      states.map(({ title }) => title),
+      states.flatMap((state) => ("body" in state ? [state.body] : [])),
+    ])
+      expect(new Set(texts).size).toBe(texts.length);
   });
 });

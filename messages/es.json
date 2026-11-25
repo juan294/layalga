@@ -790,14 +790,14 @@
     "states": {
       "start": {
         "title": "Comprueba primero tu cuenta",
-        "body": "Continúa solo si acabas de iniciar esto en tu asistente. Si alguien te ha enviado este enlace, cierra esta página."
+        "body": "Continúa solo si acabas de empezar esto en tu asistente. Si alguien te ha enviado este enlace, cierra esta página."
       },
       "review": {
         "title": "{assistant} pide conectarse a tu cuenta"
       },
       "continue": {
         "title": "Ya habías conectado {assistant}",
-        "body": "Sigue el enlace solo si acabas de iniciar esto en tu asistente. Si alguien te ha traído aquí, cierra esta página."
+        "body": "Sigue el enlace solo si acabas de empezar esto en tu asistente. Si alguien te ha traído aquí, cierra esta página."
       },
       "redirect": {
         "title": "Volviendo a {assistant}",
@@ -805,15 +805,15 @@
       },
       "off": {
         "title": "Las conexiones con asistentes están desactivadas",
-        "body": "Ahora ningún asistente puede conectarse a L’Ayalga. Aun así, puedes desconectar uno."
+        "body": "Ahora ningún asistente puede conectarse a L’Ayalga."
       },
       "invalid": {
         "title": "Este enlace no está completo",
-        "body": "Vuelve a tu asistente y conéctalo de nuevo."
+        "body": "Abre de nuevo el enlace desde tu asistente."
       },
       "sign_in": {
         "title": "Inicia sesión para continuar",
-        "body": "Inicia sesión con la cuenta de Google que quieras usar. No se conecta nada hasta que lo permitas."
+        "body": "Inicia sesión con la cuenta de Google que quieras usar. Iniciar sesión no conecta nada por sí solo."
       },
       "host": {
         "title": "Una cuenta de anfitrión no puede conectar un asistente",
@@ -824,11 +824,11 @@
         "body": "L’Ayalga no reconoce este asistente, o está desactivado. Puedes buscar una estancia en este sitio web."
       },
       "ended": {
-        "title": "Esta petición ha terminado",
+        "title": "Esta petición ya no es válida",
         "body": "Vuelve a tu asistente y conéctalo de nuevo."
       },
       "unavailable": {
-        "title": "No se ha podido comprobar esta petición",
+        "title": "Este paso no ha terminado",
         "body": "Vuelve a intentarlo dentro de un minuto."
       }
     },
@@ -837,12 +837,12 @@
       "signInHelp": "Inicia sesión con la cuenta de Google que conectaste.",
       "empty": "No hay ningún asistente conectado a esta cuenta.",
       "unrecognized": "no reconocido",
-      "connectedOn": "Conectado el {date}",
+      "connectedOn": "Conectado el",
       "disconnect": "Desconectar",
       "disconnectNamed": "Desconectar {assistant}",
       "disconnecting": "Desconectando…",
-      "disconnected": "Desconectado.",
-      "failed": "No se ha desconectado. Vuelve a intentarlo.",
+      "disconnected": "Desconectado: {assistant}.",
+      "failed": "No se ha desconectado: {assistant}. Vuelve a intentarlo.",
       "gone": "Ese asistente no está conectado a esta cuenta.",
       "off": "Ahora los asistentes no pueden usar estas conexiones y la lista no está disponible. No tienes que hacer nada.",
       "unavailable": "No se ha podido cargar la lista.",
@@ -850,7 +850,9 @@
       "noteAtOnce": "La desconexión es inmediata.",
       "noteSignOut": "Cerrar sesión en L’Ayalga no desconecta un asistente.",
       "noteStale": "Si el asistente sigue mostrando una conexión, quita L’Ayalga allí y vuelve a añadirla.",
-      "noteClaudeCode": "Claude Code no es compatible."
-    }
+      "noteClaudeCode": "Claude Code no es compatible.",
+      "unconfirmed": "No hemos podido confirmar la desconexión de {assistant}. Comprueba la lista y vuelve a intentarlo."
+    },
+    "accountChanged": "La cuenta con la que has iniciado sesión ha cambiado. Compruébala antes de continuar."
   }
 }

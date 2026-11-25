@@ -9,8 +9,9 @@ import { consentDeps } from "@/lib/auth/assistant-consent-deps";
 
 export async function continueAssistantConsent(
   authorizationId: unknown,
+  shownEmail: unknown,
 ): Promise<ConsentState> {
-  return reviewConsent(authorizationId, await consentDeps());
+  return reviewConsent(authorizationId, shownEmail, await consentDeps());
 }
 
 export async function decideAssistantAccess(

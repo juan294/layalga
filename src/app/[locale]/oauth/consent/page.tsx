@@ -7,9 +7,10 @@ import type { AppLocale } from "@/i18n/routing";
 import { startConsent } from "@/lib/auth/assistant-consent";
 import { consentDeps } from "@/lib/auth/assistant-consent-deps";
 
+// "no-referrer" would also hide the origin from this site's own sign-out form.
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  referrer: "same-origin",
 };
 
 export default async function ConsentPage({

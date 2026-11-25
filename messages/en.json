@@ -805,15 +805,15 @@
       },
       "off": {
         "title": "Assistant connections are switched off",
-        "body": "No assistant can connect to L’Ayalga now. You can still disconnect one."
+        "body": "No assistant can connect to L’Ayalga now."
       },
       "invalid": {
         "title": "This link is not complete",
-        "body": "Return to your assistant and connect again."
+        "body": "Open the link from your assistant again."
       },
       "sign_in": {
         "title": "Sign in to continue",
-        "body": "Sign in with the Google account that you want to use. Nothing is connected until you allow it."
+        "body": "Sign in with the Google account that you want to use. Signing in alone connects nothing."
       },
       "host": {
         "title": "A host account cannot connect an assistant",
@@ -828,7 +828,7 @@
         "body": "Return to your assistant and connect again."
       },
       "unavailable": {
-        "title": "This request could not be checked",
+        "title": "This step did not finish",
         "body": "Try again in a minute."
       }
     },
@@ -837,12 +837,12 @@
       "signInHelp": "Sign in with the Google account that you connected.",
       "empty": "No assistant is connected to this account.",
       "unrecognized": "unrecognized",
-      "connectedOn": "Connected on {date}",
+      "connectedOn": "Connected on",
       "disconnect": "Disconnect",
       "disconnectNamed": "Disconnect {assistant}",
       "disconnecting": "Disconnecting…",
-      "disconnected": "Disconnected.",
-      "failed": "Not disconnected. Try again.",
+      "disconnected": "Disconnected: {assistant}.",
+      "failed": "Not disconnected: {assistant}. Try again.",
       "gone": "That assistant is not connected to this account.",
       "off": "Assistants cannot use these connections now, and the list is not available. You do not need to do anything.",
       "unavailable": "The list could not be loaded.",
@@ -850,7 +850,9 @@
       "noteAtOnce": "Disconnecting takes effect at once.",
       "noteSignOut": "Signing out of L’Ayalga does not disconnect an assistant.",
       "noteStale": "If the assistant still shows a connection, remove L’Ayalga there and add it again.",
-      "noteClaudeCode": "Claude Code is not supported."
-    }
+      "noteClaudeCode": "Claude Code is not supported.",
+      "unconfirmed": "We could not confirm that {assistant} is disconnected. Check the list and try again."
+    },
+    "accountChanged": "The signed-in account changed. Check it before you continue."
   }
 }

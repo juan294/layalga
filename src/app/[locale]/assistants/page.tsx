@@ -28,22 +28,19 @@ export default async function AssistantsPage({
     database: getDatabaseConnection().db,
     supabase: await createClient(),
   });
-  const date = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeZone: "UTC",
-  });
   return (
     <RequestShell title={t("navigation")}>
       <div className={styles.assistantStack}>
         <p>{t("list.intro")}</p>
         {list.status === "ok" && (
           <ConnectedAssistants
+            locale={locale}
             connections={list.connections.map(
               ({ clientId, assistant, clientName, connectedAt }) => ({
                 clientId,
                 name: assistant ? ASSISTANTS[assistant].name : clientName,
                 recognized: assistant !== null,
-                connectedOn: date.format(new Date(connectedAt)),
+                connectedAt,
               }),
             )}
           />

@@ -435,6 +435,11 @@
   margin: 0;
 }
 
+.assistantStack > a,
+.assistantStack > button {
+  justify-self: start;
+}
+
 .assistantStack dd {
   overflow-wrap: anywhere;
 }
@@ -507,4 +512,17 @@
   color: var(--guest-muted);
   display: block;
   margin-top: 0.2rem;
+}
+
+.assistantResult {
+  font-weight: 600;
+  margin: 0;
+}
+
+.assistantResult:focus {
+  outline: none;
+}
+
+.assistantResult:not(:empty) {
+  margin-bottom: 0.8rem;
 }

@@ -27,7 +27,8 @@ export type Connections =
   | { status: "sign_in" | "off" | "unavailable" };
 
 export type DisconnectResult = {
-  status: "disconnected" | "failed" | "gone" | "sign_in" | "off";
+  status:
+    "disconnected" | "failed" | "unconfirmed" | "gone" | "sign_in" | "off";
 };
 
 export interface ConnectionDeps {
@@ -67,7 +68,8 @@ export async function disconnectAssistant(
 ): Promise<DisconnectResult> {
   try {
     const before = await listGrants(supabase);
-    if (before.status !== "ok") return undecided(before.status);
+    if (before.status === "unavailable") return { status: "failed" };
+    if (before.status !== "ok") return before;
     const grant = before.grants.find(({ client }) => client.id === clientId);
     if (!grant) return { status: "gone" };
 
@@ -77,20 +79,15 @@ export async function disconnectAssistant(
     if (error) reportActionError("assistant_disconnect_failed", error);
 
     const after = await listGrants(supabase);
-    if (after.status !== "ok") return undecided(after.status);
+    if (after.status === "unavailable") return { status: "unconfirmed" };
+    if (after.status !== "ok") return after;
     return after.grants.some(({ client }) => client.id === clientId)
       ? { status: "failed" }
       : { status: "disconnected" };
   } catch (error) {
     reportActionError("assistant_disconnect_failed", error);
-    return { status: "failed" };
+    return { status: "unconfirmed" };
   }
-}
-
-function undecided(
-  status: "sign_in" | "off" | "unavailable",
-): DisconnectResult {
-  return { status: status === "unavailable" ? "failed" : status };
 }
 
 async function listGrants(supabase: ConnectionDeps["supabase"]) {

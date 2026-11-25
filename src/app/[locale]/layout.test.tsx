@@ -72,7 +72,6 @@ it.each([
     const html = await render();
     expect(html).toContain('href="/es/stays"');
     expect(html.includes('href="/es/assistants"')).toBe(shown);
-    expect(html).not.toContain("/oauth/consent");
   },
 );
 

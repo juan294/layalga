@@ -164,7 +164,7 @@ describe("assistant consent page", () => {
   it("keeps the address out of search engines and referrers", () => {
     expect(metadata).toMatchObject({
       robots: { index: false, follow: false },
-      referrer: "no-referrer",
+      referrer: "same-origin",
     });
   });
 });

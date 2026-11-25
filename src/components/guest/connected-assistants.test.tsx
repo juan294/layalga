@@ -19,7 +19,7 @@ const row = {
   clientId: "5b88d492-348d-4f5a-8c00-55a8dfe0aee4",
   name: "Claude",
   recognized: true,
-  connectedOn: "Nov 25, 2026",
+  connectedAt: "2026-11-25T23:44:08.553565Z",
 };
 
 function render(
@@ -29,31 +29,35 @@ function render(
   mocks.result = status && { status };
   return renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
-      <ConnectedAssistants connections={connections} />
+      <ConnectedAssistants locale="en" connections={connections} />
     </NextIntlClientProvider>,
   );
 }
 
+const statusText = (html: string) =>
+  html.match(/<p[^>]*role="status"[^>]*>(.*?)<\/p>/)?.[1];
+
 describe("connected assistants list", () => {
-  it("keeps the row and asks to try again after a failed disconnect", () => {
-    const html = render("failed");
-    expect(html).toContain(`<p role="alert">${en.Assistants.list.failed}</p>`);
-    expect(html).toContain("<strong>Claude</strong>");
-    expect(html).toContain('data-testid="assistant-disconnect"');
-  });
+  it.each(["disconnected", "failed", "unconfirmed", "gone"] as const)(
+    "announces the result in the element that was there before: %s",
+    (status) => {
+      expect(statusText(render(status))).toBe(
+        en.Assistants.list[status].replace("{assistant}", "Assistant"),
+      );
+      expect(statusText(render(null))).toBe("");
+    },
+  );
 
   it("confirms a disconnect after the last row is gone", () => {
     const html = render("disconnected", []);
-    expect(html).toContain(
-      `<p role="status">${en.Assistants.list.disconnected}</p>`,
-    );
+    expect(statusText(html)).toContain("Disconnected");
     expect(html).toContain(en.Assistants.list.empty);
   });
 
-  it("says nothing before an action", () => {
-    const html = render(null);
-    expect(html).not.toContain("role=");
-    expect(html).toContain('aria-label="Disconnect Claude"');
+  it("dates a connection in one zone until the viewer's zone is known", () => {
+    expect(render(null)).toContain(
+      '<time dateTime="2026-11-25T23:44:08.553565Z">Nov 25, 2026</time>',
+    );
   });
 
   it("names an unrecognized client as such, also for a screen reader", () => {

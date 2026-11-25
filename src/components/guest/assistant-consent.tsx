@@ -74,6 +74,7 @@ export function AssistantConsent({
         nextPath={path}
         label={label}
         className={styles.secondaryButton}
+        disabled={pending}
       />
     );
   }
@@ -87,6 +88,7 @@ export function AssistantConsent({
       <section className={styles.assistantStack}>
         {title()}
         {failed}
+        {state !== initial && <p role="alert">{t("accountChanged")}</p>}
         <dl className={styles.factList}>
           <dt>{t("account")}</dt>
           <dd>{state.email}</dd>
@@ -98,7 +100,9 @@ export function AssistantConsent({
             className={styles.primaryButton}
             data-testid="assistant-continue"
             disabled={!idle}
-            onClick={() => run(() => continueAssistantConsent(authorizationId))}
+            onClick={() =>
+              run(() => continueAssistantConsent(authorizationId, state.email))
+            }
           >
             {pending ? t("checking") : t("continue")}
           </button>
@@ -175,8 +179,14 @@ export function AssistantConsent({
     <section className={styles.assistantStack}>
       {title()}
       {failed}
+      {"email" in state && (
+        <dl className={styles.factList}>
+          <dt>{t("account")}</dt>
+          <dd>{state.email}</dd>
+        </dl>
+      )}
       <p>{t(`states.${state.status}.body`)}</p>
-      <div>{nextAction()}</div>
+      {nextAction()}
     </section>
   );
 

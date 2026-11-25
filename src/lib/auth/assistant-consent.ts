@@ -15,8 +15,6 @@ import { isAssistantConsentPath } from "./safe-next-path";
 import { lookUpSessionUser } from "./session-user";
 import { verifiedGoogleGuestEmail } from "./verified-guest-email";
 
-export type ConsentDecision = "allow" | "deny";
-
 export type ConsentState =
   | {
       status:
@@ -37,10 +35,16 @@ export type ConsentState =
       /** Requested scopes beyond sign-in and refresh. */
       scopes: string[];
     }
-  /** An earlier consent. Only the guest may follow this URL. */
-  | { status: "continue"; assistant: AssistantName; url: string }
-  /** The answer to the decision that the guest just made. */
-  | { status: "redirect"; assistant: AssistantName; url: string };
+  /**
+   * `continue` is an earlier consent: only the guest may follow the URL.
+   * `redirect` answers the decision that the guest just made.
+   */
+  | {
+      status: "continue" | "redirect";
+      email: string;
+      assistant: AssistantName;
+      url: string;
+    };
 
 export interface ConsentDeps {
   enabled: boolean;
@@ -67,13 +71,19 @@ export function startConsent(
   });
 }
 
-/** The request itself, after the guest chose to continue. */
+/** The request itself, after the guest chose to continue with the shown account. */
 export function reviewConsent(
   authorizationId: unknown,
+  shownEmail: unknown,
   deps: ConsentDeps,
 ): Promise<ConsentState> {
   return guarded(async () => {
-    const request = await consentRequest(authorizationId, deps);
+    const guest = await consentGuest(authorizationId, deps);
+    if (guest.status !== "ok") return guest;
+    // The account can change behind an open page.
+    if (guest.email !== shownEmail)
+      return { status: "start", email: guest.email };
+    const request = await consentRequest(guest, deps);
     if (request.status !== "ok") return request;
     const { email, assistant, redirectUri, scopes } = request;
     return {
@@ -95,7 +105,9 @@ export function decideConsent(
   return guarded(async () => {
     if (decision !== "allow" && decision !== "deny")
       return { status: "invalid" };
-    const request = await consentRequest(authorizationId, deps);
+    const guest = await consentGuest(authorizationId, deps);
+    if (guest.status !== "ok") return guest;
+    const request = await consentRequest(guest, deps);
     if (request.status !== "ok") return request;
     const { oauth } = deps.supabase.auth;
     const answer = decision === "allow" ? "approve" : "deny";
@@ -107,6 +119,7 @@ export function decideConsent(
     return returnsTo(data.redirect_url, request.redirectUri)
       ? {
           status: "redirect",
+          email: request.email,
           assistant: request.assistant,
           url: data.redirect_url,
         }
@@ -134,10 +147,11 @@ async function consentGuest(authorizationId: unknown, deps: ConsentDeps) {
   return { status: "ok", authorizationId, email } as const;
 }
 
-async function consentRequest(rawId: unknown, deps: ConsentDeps) {
-  const guest = await consentGuest(rawId, deps);
-  if (guest.status !== "ok") return guest;
-  const { authorizationId, email } = guest;
+/** Auth refuses a request that is bound to another account. */
+async function consentRequest(
+  { authorizationId, email }: { authorizationId: string; email: string },
+  deps: ConsentDeps,
+) {
   const { data, error } =
     await deps.supabase.auth.oauth.getAuthorizationDetails(authorizationId);
   if (error) return failure(error);
@@ -152,7 +166,12 @@ async function consentRequest(rawId: unknown, deps: ConsentDeps) {
       returnsTo(url, redirectUri),
     );
     return client
-      ? ({ status: "continue", assistant: client.assistant, url } as const)
+      ? ({
+          status: "continue",
+          email,
+          assistant: client.assistant,
+          url,
+        } as const)
       : ({ status: "not_allowed" } as const);
   }
   const client = allowed.find(

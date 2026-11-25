@@ -10,11 +10,13 @@ export function SignInButton({
   nextPath = `/${locale}`,
   label,
   className = "postcard__button postcard__button--primary",
+  disabled = false,
 }: {
   locale: AppLocale;
   nextPath?: string;
   label?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const t = useTranslations("SignIn");
   const [error, setError] = useState(false);
@@ -55,7 +57,7 @@ export function SignInButton({
         data-testid="google-sign-in"
         type="button"
         onClick={signIn}
-        disabled={pending}
+        disabled={disabled || pending}
       >
         {pending ? t("connecting") : (label ?? t("googleAction"))}
       </button>

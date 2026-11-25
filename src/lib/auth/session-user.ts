@@ -1,6 +1,7 @@
 import "@/core/server-only";
 
 import {
+  AuthUnknownError,
   isAuthApiError,
   isAuthRetryableFetchError,
   type SupabaseClient,
@@ -49,10 +50,11 @@ function noSession(error: unknown): SessionLookup {
   return { status: authIsDown(error) ? "unavailable" : "signed_out" };
 }
 
-/** A failure of the sign-in service itself, not an answer about this session. */
-export function authIsDown(error: unknown): boolean {
+/** A failure of the sign-in service or its gateway, not an answer about this session. */
+function authIsDown(error: unknown): boolean {
   return (
     isAuthRetryableFetchError(error) ||
+    error instanceof AuthUnknownError ||
     (isAuthApiError(error) && error.status === 429)
   );
 }

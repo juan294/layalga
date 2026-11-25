@@ -70,6 +70,19 @@ const continueButton = (page: Page) => page.getByTestId("assistant-continue");
 const decision = (page: Page, answer: "allow" | "deny") =>
   page.getByTestId(`assistant-${answer}`);
 
+/** Where Google sign-in would return to. Google itself is never opened. */
+async function signInTarget(page: Page, label: string) {
+  let prepared: { next: string } | undefined;
+  await page.route("**/auth/prepare", (route) => {
+    prepared = route.request().postDataJSON() as { next: string };
+    return route.abort();
+  });
+  await page.getByRole("button", { name: label }).click();
+  await expect.poll(() => prepared).toBeDefined();
+  await page.unroute("**/auth/prepare");
+  return prepared!.next;
+}
+
 async function openReview(page: Page, id: string) {
   await page.goto(consentPath(id));
   await continueButton(page).click();
@@ -147,7 +160,9 @@ test("a guest approves Claude, sees it listed and disconnects it", async ({
   const row = page.getByRole("listitem").filter({ hasText: "Claude" });
   await expect(row.first()).toContainText("Connected on");
   await page.getByRole("button", { name: "Disconnect Claude" }).click();
-  await expect(main.getByRole("status")).toHaveText(t.list.disconnected);
+  const result = main.getByRole("status");
+  await expect(result).toHaveText("Disconnected: Claude.");
+  await expect(result).toBeFocused();
   await expect(main).toContainText(t.list.empty);
   await expect(page.getByTestId("assistant-disconnect")).toHaveCount(0);
   expect((await refreshClient(client, token.body.refresh_token)).status).toBe(
@@ -305,13 +320,7 @@ test("sign-in problems keep the request", async ({
   await context.clearCookies({ name: /^sb-/ });
   await decision(page, "allow").click();
   await expect(main).toContainText(t.states.sign_in.title);
-  let prepared: unknown;
-  await page.route("**/auth/prepare", (route) => {
-    prepared = route.request().postDataJSON();
-    return route.abort();
-  });
-  await page.getByTestId("google-sign-in").click();
-  await expect.poll(() => prepared).toEqual({ next: path });
+  expect(await signInTarget(page, t.signIn)).toBe(path);
   await requester.signIn(context);
   await openReview(page, authorizationId);
 });
@@ -332,11 +341,17 @@ test("another account can complete a request that the first only opened", async 
     await requester.signIn(context);
     await page.goto(consentPath(authorizationId));
     await expect(page.getByRole("main")).toContainText(requester.email);
-    await expect(
-      page.getByRole("button", { name: t.useAnother }),
-    ).toBeEnabled();
+    expect(await signInTarget(page, t.useAnother)).toBe(
+      consentPath(authorizationId),
+    );
+    // The account changes behind the open page: Continue shows the new one first.
     await other.signIn(context);
-    await openReview(page, authorizationId);
+    await continueButton(page).click();
+    await expect(page.getByRole("main")).toContainText(t.accountChanged);
+    await expect(page.getByRole("main")).toContainText(other.email);
+    await expect(continueButton(page)).toBeEnabled();
+    await continueButton(page).click();
+    await expect(decision(page, "allow")).toBeEnabled();
     await expect(page.getByRole("main")).toContainText(other.email);
 
     // The request is now bound: the first account cannot answer it.
@@ -358,6 +373,15 @@ for (const [name, options, redirectUri] of [
       allow: null,
     },
     "https://claude-ai.example/cb",
+  ],
+  [
+    "a known client whose callback changed",
+    {
+      name: "Claude",
+      registered: "https://claude.ai/api/mcp/other",
+      allow: {},
+    },
+    "https://claude.ai/api/mcp/other",
   ],
   [
     "a disabled client",
@@ -391,35 +415,80 @@ for (const [name, options, redirectUri] of [
     expect(arrivals).toEqual([]);
   });
 
-test("a host cannot connect an assistant, and an expired request ends", async ({
+test("an expired request ends", async ({
   page,
   context,
-  household,
   requester,
   assistants,
 }) => {
-  const client = await assistants.client();
-  const expired = await startAuthorization(client);
+  const { authorizationId } = await startAuthorization(
+    await assistants.client(),
+  );
   const admin = localAdmin();
   try {
     await admin`update auth.oauth_authorizations
       set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
-      where authorization_id=${expired.authorizationId}`;
+      where authorization_id=${authorizationId}`;
   } finally {
     await admin.end({ timeout: 5 });
   }
   await requester.signIn(context);
-  await page.goto(consentPath(expired.authorizationId));
-  await continueButton(page).click();
-  const main = page.getByRole("main");
-  await expect(main).toContainText(t.states.ended.body);
-
-  await household.db`update public.hosts set auth_user_id=${requester.userId} where id=${household.hostIds[0]!}`;
-  const { authorizationId } = await startAuthorization(client);
   await page.goto(consentPath(authorizationId));
-  await expect(main).toContainText(t.states.host.title);
-  await expect(continueButton(page)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: t.useAnother })).toBeEnabled();
+  await continueButton(page).click();
+  await expect(page.getByRole("main")).toContainText(t.states.ended.body);
+});
+
+for (const kind of ["bound", "prepared"])
+  test(`a ${kind} host cannot connect an assistant and can choose another account`, async ({
+    page,
+    context,
+    household,
+    requester,
+    assistants,
+  }) => {
+    const hostId = household.hostIds[0]!;
+    if (kind === "bound")
+      await household.db`update public.hosts set auth_user_id=${requester.userId} where id=${hostId}`;
+    else
+      await household.db`insert into public.host_identity_claims(normalized_email,host_id,home_id)
+        values(${requester.email},${hostId},${household.homeId})`;
+    const { authorizationId } = await startAuthorization(
+      await assistants.client(),
+    );
+    await requester.signIn(context);
+    await page.goto(consentPath(authorizationId));
+    await expect(page.getByRole("main")).toContainText(t.states.host.title);
+    await expect(continueButton(page)).toHaveCount(0);
+    // The website stays one link away.
+    await expect(
+      page.getByRole("link", { name: en.PublicStays.find }),
+    ).toHaveAttribute("href", "/en/stays");
+    expect(await signInTarget(page, t.useAnother)).toBe(
+      consentPath(authorizationId),
+    );
+  });
+
+test("a guest can sign out from consent and from the list behind it", async ({
+  page,
+  context,
+  requester,
+  assistants,
+}) => {
+  const { authorizationId } = await startAuthorization(
+    await assistants.client(),
+  );
+  const signOut = page.getByRole("button", { name: en.Brand.signOut });
+  await requester.signIn(context);
+  await openReview(page, authorizationId);
+  await signOut.click();
+  await expect(page).toHaveURL(/\/en\/sign-in$/);
+
+  await requester.signIn(context);
+  await openReview(page, authorizationId);
+  await page.getByRole("link", { name: t.manage }).click();
+  await expect(page).toHaveURL(/\/en\/assistants$/);
+  await signOut.click();
+  await expect(page).toHaveURL(/\/en\/sign-in$/);
 });
 
 test("sign-out keeps the connection, and the list accepts only its own clients", async ({
@@ -466,7 +535,7 @@ test("sign-out keeps the connection, and the list accepts only its own clients",
       (input.value = "00000000-0000-4000-8000-000000000009"),
   );
   await button.click();
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(
+  await expect(page.getByRole("main").getByRole("status")).toHaveText(
     t.list.gone,
   );
   await expect(button).toBeVisible();
@@ -551,9 +620,27 @@ for (const tag of ["", "@mobile "])
         await expectInsideSheet(page, `${locale} review`);
         await allow.focus();
         await expect(allow).toBeFocused();
-        expect(
-          await allow.evaluate((node) => getComputedStyle(node).outlineStyle),
-        ).not.toBe("none");
+        await expect(allow).toHaveCSS("outline-width", "3px");
+
+        const refusedClient = await assistants.client({ allow: null });
+        for (const [state, request] of [
+          ["continue", (await startAuthorization(client)).authorizationId],
+          [
+            "not_allowed",
+            (await startAuthorization(refusedClient)).authorizationId,
+          ],
+          ["ended", "a".repeat(32)],
+        ] as const) {
+          await page.goto(consentPath(request, locale));
+          await continueButton(page).click();
+          await expect(
+            page.getByRole("heading", {
+              name: say(`states.${state}.title`, { assistant: "Claude" }),
+            }),
+          ).toBeFocused();
+          await expectTouchSafe(page, `${locale} ${colorScheme} ${state}`);
+          await expectInsideSheet(page, `${locale} ${state}`);
+        }
 
         await page.goto(`/${locale}/assistants`);
         await expect(

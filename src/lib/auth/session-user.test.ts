@@ -1,4 +1,8 @@
-import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import {
+  AuthApiError,
+  AuthRetryableFetchError,
+  AuthUnknownError,
+} from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
 import { getSessionUser, lookUpSessionUser } from "./session-user";
@@ -89,6 +93,10 @@ describe("web session lookup", () => {
   it.each([
     ["cannot be reached", new AuthRetryableFetchError("fetch failed", 0)],
     ["fails", new AuthRetryableFetchError("unavailable", 503)],
+    [
+      "is hidden behind a gateway page",
+      new AuthUnknownError("not JSON", new SyntaxError("<html>")),
+    ],
     ["is busy", new AuthApiError("slow down", 429, "over_request_rate_limit")],
   ])("does not call a guest signed out when Auth %s", async (_, error) => {
     expect(await lookUpSessionUser(failing(error))).toEqual({
