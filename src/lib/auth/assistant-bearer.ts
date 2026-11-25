@@ -10,26 +10,25 @@ import {
 import { z } from "zod";
 
 import { ASSISTANT_AUDIENCE } from "@/core/assistant-access/audience";
+import {
+  enabledClient,
+  type AssistantClient,
+  type AssistantName,
+} from "@/core/assistant-access/clients";
 import { takeRequest } from "@/core/assistant-access/rate-limit";
 import type { Clock } from "@/core/clock";
-import { sqlClient, type DatabaseClient } from "@/core/db/client";
+import type { DatabaseClient } from "@/core/db/client";
 
 import { isHostAccount } from "./host-account";
 import { verifiedGoogleGuestEmail } from "./verified-guest-email";
 
-export type AssistantName = "claude" | "chatgpt";
-
-export interface AssistantPrincipal {
-  userId: string;
-  clientId: string;
-  assistant: AssistantName;
-}
+export type AssistantPrincipal = AssistantClient & { userId: string };
 
 export type AssistantAccess =
   | { status: "ok"; principal: AssistantPrincipal }
   | { status: "refused" }
   | { status: "unavailable" }
-  | { status: "limited"; retryAfter: number };
+  | { status: "limited"; principal: AssistantPrincipal; retryAfter: number };
 
 export type AssistantKeys = JWTVerifyGetKey & {
   jwks(): JSONWebKeySet | undefined;
@@ -39,7 +38,8 @@ export interface AssistantBearerDeps {
   database: DatabaseClient;
   clock: Clock;
   supabase: { url: string; key: string };
-  jwks: AssistantKeys;
+  /** The signing keys of `supabase.url` by default. */
+  jwks?: AssistantKeys;
   fetch?: typeof fetch;
 }
 
@@ -55,21 +55,9 @@ const ENDED_CONNECTION = new Set([
   "bad_jwt",
 ]);
 
-/** Failures of the token itself. Any other verification failure is an outage. */
-const INVALID_TOKEN = [
-  errors.JWSInvalid,
-  errors.JWTInvalid,
-  errors.JWTExpired,
-  errors.JWTClaimValidationFailed,
-  errors.JWSSignatureVerificationFailed,
-  errors.JOSEAlgNotAllowed,
-  errors.JOSENotSupported,
-  errors.JWKSNoMatchingKey,
-  errors.JWKSMultipleMatchingKeys,
-];
-
 const tokenClaims = z.object({
   aud: z.literal(ASSISTANT_AUDIENCE),
+  exp: z.number(),
   iat: z.number(),
   sub: z.uuid(),
   client_id: z.uuid(),
@@ -82,6 +70,9 @@ const authUser = z.object({
   email_confirmed_at: z.string().nullish(),
   identities: z.array(z.object({ provider: z.string() })).nullish(),
 });
+const authError = z.object({ error_code: z.string() });
+
+class KeysUnavailable extends Error {}
 
 const keySets = new Map<string, AssistantKeys>();
 
@@ -120,27 +111,27 @@ export async function resolveAssistant(
 
   let assistant: AssistantName | undefined;
   try {
-    const [client] = await sqlClient(deps.database)<
-      { client_id: string; assistant: AssistantName }[]
-    >`
-      select client_id, assistant from public.assistant_clients
-      where client_id = ${claims.client_id} and enabled
-    `;
+    const client = await enabledClient(deps.database, claims.client_id);
     if (!client) return refused("refused_client");
     assistant = client.assistant;
 
     const userId = claims.sub;
+    const principal = { userId, ...client };
     if (await isHostAccount(deps.database, userId, null))
       return refused("refused_host", assistant);
     const allowance = await takeRequest(
       deps.database,
       userId,
-      client.client_id,
+      client.clientId,
       now,
     );
     if (!allowance.allowed) {
       log("info", "limited", assistant);
-      return { status: "limited", retryAfter: allowance.retryAfter };
+      return {
+        status: "limited",
+        principal,
+        retryAfter: allowance.retryAfter,
+      };
     }
 
     const user = await readUser(token, deps);
@@ -152,10 +143,7 @@ export async function resolveAssistant(
       return refused("refused_identity", assistant);
     if (await isHostAccount(deps.database, userId, email))
       return refused("refused_host", assistant);
-    return {
-      status: "ok",
-      principal: { userId, clientId: client.client_id, assistant },
-    };
+    return { status: "ok", principal };
   } catch (error) {
     // Database and connection errors carry a code; a fault in this code does not.
     const database = error instanceof Error && "code" in error;
@@ -169,14 +157,13 @@ export async function resolveAssistant(
 async function verifiedClaims(
   token: string,
   now: Date,
-  deps: AssistantBearerDeps,
+  { supabase, jwks = assistantKeys(supabase.url) }: AssistantBearerDeps,
 ) {
   try {
-    const { payload } = await jwtVerify(token, deps.jwks, {
+    const { payload } = await jwtVerify(token, availableKeys(jwks), {
       algorithms: ["ES256"],
-      issuer: issuerOf(deps.supabase.url),
+      issuer: issuerOf(supabase.url),
       audience: ASSISTANT_AUDIENCE,
-      requiredClaims: ["exp", "iat"],
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
       currentDate: now,
     });
@@ -186,12 +173,28 @@ async function verifiedClaims(
       ? claims.data
       : ("invalid" as const);
   } catch (error) {
-    // No token can match a key while Auth publishes none.
-    if (deps.jwks.jwks()?.keys.length === 0) return "unavailable" as const;
-    return INVALID_TOKEN.some((type) => error instanceof type)
-      ? ("invalid" as const)
-      : ("unavailable" as const);
+    return error instanceof KeysUnavailable
+      ? ("unavailable" as const)
+      : ("invalid" as const);
   }
+}
+
+/** Reading the keys is the only step of a verification that can meet an outage. */
+function availableKeys(jwks: AssistantKeys): JWTVerifyGetKey {
+  return async (header, token) => {
+    try {
+      return await jwks(header, token);
+    } catch (error) {
+      const published = jwks.jwks()?.keys.length;
+      if (
+        published &&
+        (error instanceof errors.JWKSNoMatchingKey ||
+          error instanceof errors.JWKSMultipleMatchingKeys)
+      )
+        throw error;
+      throw new KeysUnavailable();
+    }
+  };
 }
 
 async function readUser(token: string, deps: AssistantBearerDeps) {
@@ -209,26 +212,14 @@ async function readUser(token: string, deps: AssistantBearerDeps) {
       },
     );
     const body: unknown = await response.json();
-    if (response.status !== 200)
-      return ENDED_CONNECTION.has(errorCode(body))
-        ? ("ended" as const)
-        : ("unavailable" as const);
-    const { email, email_confirmed_at, identities, id } = authUser.parse(body);
-    return {
-      id,
-      email: email ?? undefined,
-      email_confirmed_at: email_confirmed_at ?? undefined,
-      identities: identities ?? undefined,
-    };
+    if (response.status === 200) return authUser.parse(body);
+    const error = authError.safeParse(body);
+    return error.success && ENDED_CONNECTION.has(error.data.error_code)
+      ? ("ended" as const)
+      : ("unavailable" as const);
   } catch {
     return "unavailable" as const;
   }
-}
-
-function errorCode(body: unknown): string {
-  return body && typeof body === "object" && "error_code" in body
-    ? String(body.error_code)
-    : "";
 }
 
 function refused(outcome: string, assistant?: AssistantName): AssistantAccess {

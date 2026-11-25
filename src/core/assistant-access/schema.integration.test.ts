@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { applyDataRetention } from "@/core/data-retention";
-import { localAdmin, localSupabase } from "@/test-support/assistant-oauth";
+import { localAdmin, localSupabase } from "@/test-support/local-supabase";
 
 const db = postgres(localSupabase().databaseUrl, { max: 1, prepare: false });
 const PRIVILEGES = [

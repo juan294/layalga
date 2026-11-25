@@ -1,8 +1,10 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import postgres, { type Sql } from "postgres";
+import { decodeJwt } from "jose";
+import type { Sql } from "postgres";
 
-import { createDatabase } from "@/core/db/client";
+import { createFixtureHost } from "./host-account-cases";
+import { localSupabase } from "./local-supabase";
 
 export const FIXTURE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 
@@ -20,60 +22,11 @@ interface AuthCall {
   form?: Record<string, string>;
 }
 
-export interface AuthAnswer {
+interface AuthAnswer {
   status: number;
   location: string | null;
   text: string;
   body: Record<string, unknown>;
-}
-
-function isLocal(value: string) {
-  return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(value).hostname);
-}
-
-/** The disposable local stack only. Refuses any other database or Auth URL. */
-export function localSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54621";
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
-  const databaseUrl =
-    process.env.DATABASE_URL ??
-    "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
-  if (!isLocal(url) || !isLocal(databaseUrl))
-    throw new Error("Assistant fixtures require local Supabase");
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    new URL(databaseUrl).port !== "54622"
-  )
-    throw new Error(
-      "Set NEXT_PUBLIC_SUPABASE_URL to the stack that owns DATABASE_URL",
-    );
-  // The default postgres login cannot switch to the Auth and runtime roles.
-  const admin = new URL(databaseUrl);
-  admin.username = "supabase_admin";
-  return {
-    url,
-    key,
-    issuer: `${url}/auth/v1`,
-    databaseUrl,
-    adminUrl: admin.toString(),
-  };
-}
-
-export function localAdmin(role?: string) {
-  return postgres(localSupabase().adminUrl, {
-    max: 1,
-    prepare: false,
-    ...(role ? { connection: { role } } : {}),
-  });
-}
-
-/** The client that production builds, with the rights of the web runtime. */
-export function localWebDatabase() {
-  const url = new URL(localSupabase().adminUrl);
-  url.searchParams.set("role", "layalga_web_runtime");
-  return createDatabase(url.toString());
 }
 
 export async function authCall(
@@ -112,31 +65,35 @@ export async function authCall(
   };
 }
 
-export function tokenClaims(token: unknown): Record<string, unknown> {
-  if (typeof token !== "string") throw new Error("No token was issued");
-  return JSON.parse(
-    Buffer.from(token.split(".")[1] ?? "", "base64url").toString(),
-  ) as Record<string, unknown>;
-}
+export const tokenClaims = (token: unknown) => decodeJwt(String(token));
 
 /** A confirmed local account, with a synthetic Google identity by default. */
-export async function createAssistantUser(
+async function createAssistantUser(
   sql: Sql,
   { google = true }: { google?: boolean } = {},
 ): Promise<FixtureUser> {
   const email = `assistant-${randomUUID()}@fixture.test`;
   const password = randomUUID();
-  const signUp = await authCall("POST", "/auth/v1/signup", {
+  const { status, text, body } = await authCall("POST", "/auth/v1/signup", {
     json: { email, password },
   });
-  const id = (signUp.body.user as { id?: string } | undefined)?.id;
-  if (!id)
-    throw new Error(`Local sign-up failed: ${signUp.status} ${signUp.text}`);
-  if (google)
-    await sql`insert into auth.identities(provider_id,user_id,identity_data,provider,created_at,updated_at)
-      values(${"google-" + id},${id},${sql.json({ sub: id, email, email_verified: true })},'google',now(),now())`;
-  const signIn = await webSignIn({ email, password });
-  return { id, email, password, ...signIn };
+  const id = (body.user as { id?: string } | undefined)?.id;
+  if (!id) throw new Error(`Local sign-up failed: ${status} ${text}`);
+  try {
+    if (google)
+      await sql`insert into auth.identities(provider_id,user_id,identity_data,provider,created_at,updated_at)
+        values(${"google-" + id},${id},${sql.json({ sub: id, email, email_verified: true })},'google',now(),now())`;
+  } catch (error) {
+    await sql`delete from auth.users where id=${id}`;
+    throw error;
+  }
+  return {
+    id,
+    email,
+    password,
+    accessToken: String(body.access_token),
+    refreshToken: String(body.refresh_token),
+  };
 }
 
 export async function webSignIn({
@@ -155,7 +112,7 @@ export async function webSignIn({
 }
 
 /** Registers a public client the way an administrator does, without a secret. */
-export async function registerClient(
+async function registerClient(
   sql: Sql,
   redirectUris: string = FIXTURE_CALLBACK,
 ): Promise<string> {
@@ -166,7 +123,7 @@ export async function registerClient(
   return id;
 }
 
-export async function allowClient(
+async function allowClient(
   sql: Sql,
   clientId: string,
   { redirectUri = FIXTURE_CALLBACK, enabled = true } = {},
@@ -175,16 +132,16 @@ export async function allowClient(
     values(${clientId},'claude',${redirectUri},${enabled})`;
 }
 
-export async function deleteClient(sql: Sql, clientId: string) {
+async function deleteClient(sql: Sql, clientId: string) {
   await sql`delete from public.assistant_clients where client_id=${clientId}`;
   await sql`delete from auth.oauth_clients where id=${clientId}`;
+  await sql`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;
 }
 
 /** The complete authorization code flow with PKCE; returns the token answer. */
 export async function codeFlow(
   user: Pick<FixtureUser, "accessToken">,
   clientId: string,
-  { redirectUri = FIXTURE_CALLBACK, scope = "openid" } = {},
 ): Promise<AuthAnswer> {
   const verifier = randomBytes(32).toString("base64url");
   const authorize = await authCall(
@@ -192,8 +149,8 @@ export async function codeFlow(
     `/auth/v1/oauth/authorize?${new URLSearchParams({
       response_type: "code",
       client_id: clientId,
-      redirect_uri: redirectUri,
-      scope,
+      redirect_uri: FIXTURE_CALLBACK,
+      scope: "openid",
       state: "fixture",
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
@@ -207,15 +164,13 @@ export async function codeFlow(
   if (!authorizationId)
     throw new Error(`No authorization was started: ${authorize.status}`);
   const path = `/auth/v1/oauth/authorizations/${authorizationId}`;
-  const details = await authCall("GET", path, { token: user.accessToken });
-  let redirect: unknown = details.body.redirect_url;
-  if (!redirect) {
-    const consent = await authCall("POST", `${path}/consent`, {
-      token: user.accessToken,
-      json: { action: "approve" },
-    });
-    redirect = consent.body.redirect_url;
-  }
+  // The read binds the request to this account.
+  await authCall("GET", path, { token: user.accessToken });
+  const consent = await authCall("POST", `${path}/consent`, {
+    token: user.accessToken,
+    json: { action: "approve" },
+  });
+  const redirect = consent.body.redirect_url;
   const code =
     typeof redirect === "string" && new URL(redirect).searchParams.get("code");
   if (!code) throw new Error("No authorization code was issued");
@@ -223,7 +178,7 @@ export async function codeFlow(
     form: {
       grant_type: "authorization_code",
       code,
-      redirect_uri: redirectUri,
+      redirect_uri: FIXTURE_CALLBACK,
       client_id: clientId,
       code_verifier: verifier,
     },
@@ -238,4 +193,38 @@ export function refreshClient(clientId: string, refreshToken: unknown) {
       client_id: clientId,
     },
   });
+}
+
+/** Builds accounts, clients and hosts, and removes them in reverse order. */
+export function assistantFixtures(db: Sql, admin: Sql) {
+  const cleanups: (() => Promise<unknown>)[] = [];
+  return {
+    async user(options?: { google?: boolean }) {
+      const user = await createAssistantUser(db, options);
+      cleanups.push(() => db`delete from auth.users where id=${user.id}`);
+      return user;
+    },
+    /** A registered client; `allow: null` leaves it off the allowlist. */
+    async client({
+      allow = {},
+      registered,
+    }: {
+      allow?: { redirectUri?: string; enabled?: boolean } | null;
+      registered?: string;
+    } = {}) {
+      const id = await registerClient(admin, registered);
+      cleanups.push(() => deleteClient(admin, id));
+      if (allow) await allowClient(admin, id, allow);
+      return id;
+    },
+    async host(options?: Parameters<typeof createFixtureHost>[1]) {
+      const host = await createFixtureHost(db, options);
+      cleanups.push(host.cleanup);
+      return host.hostId;
+    },
+    defer: (cleanup: () => Promise<unknown>) => cleanups.push(cleanup),
+    async cleanup() {
+      for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+    },
+  };
 }

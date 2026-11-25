@@ -56,24 +56,21 @@ afterAll(async () => {
   await unreachable.end({ timeout: 1 });
 });
 
-const valid = () => ({
+const valid = (): Record<string, unknown> => ({
   iss: `${SUPABASE_URL}/auth/v1`,
-  aud: ASSISTANT_AUDIENCE as unknown,
-  sub: USER as unknown,
-  client_id: CLIENT as unknown,
-  session_id: SESSION as unknown,
-  iat: seconds(-60) as unknown,
-  exp: seconds(600) as unknown,
+  aud: ASSISTANT_AUDIENCE,
+  sub: USER,
+  client_id: CLIENT,
+  session_id: SESSION,
+  iat: seconds(-60),
+  exp: seconds(600),
 });
 
 function sign(
   change: Record<string, unknown> = {},
   { key = keys.privateKey, kid = "current" as string | null } = {},
 ) {
-  const payload: Record<string, unknown> = { ...valid(), ...change };
-  for (const [name, value] of Object.entries(payload))
-    if (value === undefined) delete payload[name];
-  return new SignJWT(payload)
+  return new SignJWT({ ...valid(), ...change })
     .setProtectedHeader({ alg: "ES256", typ: "JWT", ...(kid ? { kid } : {}) })
     .sign(key);
 }
@@ -194,13 +191,11 @@ describe("resolveAssistant before the database", () => {
 
   it("refuses HS256 and unsigned tokens", async () => {
     const secret = new TextEncoder().encode("a-shared-secret-of-32-characters");
-    const hs256 = await new SignJWT(valid() as Record<string, unknown>)
+    const hs256 = await new SignJWT(valid())
       .setProtectedHeader({ alg: "HS256", kid: "current" })
       .sign(secret);
     expect(await resolve(`Bearer ${hs256}`)).toBe("refused_token");
-    const unsigned = new UnsecuredJWT(
-      valid() as Record<string, unknown>,
-    ).encode();
+    const unsigned = new UnsecuredJWT(valid()).encode();
     expect(await resolve(`Bearer ${unsigned}`)).toBe("refused_token");
     expect(await resolve(`Bearer ${unsigned}c2ln`)).toBe("refused_token");
   });
@@ -210,7 +205,7 @@ describe("resolveAssistant before the database", () => {
     const jwks = createLocalJWKSet({
       keys: [{ ...(await exportJWK(rsa.publicKey)), alg: "RS256", kid: "rsa" }],
     });
-    const token = await new SignJWT(valid() as Record<string, unknown>)
+    const token = await new SignJWT(valid())
       .setProtectedHeader({ alg: "RS256", kid: "rsa" })
       .sign(rsa.privateKey);
     expect(await resolve(`Bearer ${token}`, { jwks })).toBe("refused_token");

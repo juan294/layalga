@@ -54,8 +54,8 @@ declare
   token_user uuid;
   token_email text;
 begin
-  if not coalesce(event -> 'claims' ? 'client_id', false)
-    and not coalesce(starts_with(event ->> 'authentication_method', 'oauth_provider/'), false) then
+  if (event -> 'claims' ? 'client_id'
+    or starts_with(event ->> 'authentication_method', 'oauth_provider/')) is not true then
     return event;
   end if;
 

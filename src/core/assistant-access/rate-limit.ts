@@ -1,20 +1,17 @@
 import { sqlClient, type DatabaseClient } from "@/core/db/client";
 
-const SPAN_SECONDS = { minute: 60, day: 86_400 } as const;
 const ACCOUNT_MINUTE_LIMIT = 60;
 const ACCOUNT_DAY_LIMIT = 1_000;
 const CLIENT_MINUTE_LIMIT = 1_200;
-
-type Span = keyof typeof SPAN_SECONDS;
-type Window = { subject: string; span: Span; limit: number };
 
 export type RequestAllowance =
   { allowed: true } | { allowed: false; retryAfter: number };
 
 /**
- * Counts one request of a connected assistant. Every caller locks its windows
- * in the same order, and the shared client window last. An account over its
- * own limit does not spend the client window.
+ * Counts one request of a connected assistant in one statement. Each part
+ * reads the part before it, so every caller locks the account minute, the
+ * account day and then the shared client window. An account over its own limit
+ * does not spend the client window.
  */
 export async function takeRequest(
   database: DatabaseClient,
@@ -22,44 +19,47 @@ export async function takeRequest(
   clientId: string,
   now: Date,
 ): Promise<RequestAllowance> {
+  const sql = sqlClient(database);
   const account = `account:${userId}:${clientId}`;
-  return sqlClient(database).begin(async (transaction) => {
-    const take = async ({ subject, span, limit }: Window) => {
-      const startedBefore = new Date(
-        now.getTime() - SPAN_SECONDS[span] * 1000,
-      ).toISOString();
-      const [row] = await transaction<{ requests: number; ends_in: number }[]>`
-        insert into public.assistant_request_windows as current
-          (subject, span, started_at, requests)
-        values (${subject}, ${span}, ${now.toISOString()}, 1)
-        on conflict (subject, span) do update set
-          requests = case when current.started_at <= ${startedBefore}
-            then 1 else current.requests + 1 end,
-          started_at = case when current.started_at <= ${startedBefore}
-            then excluded.started_at else current.started_at end
-        returning requests,
-          ceil(extract(epoch from started_at - ${startedBefore}::timestamptz))::integer as ends_in
-      `;
-      if (!row) throw new Error("The request window was not counted");
-      return row.requests <= limit ? 0 : row.ends_in;
-    };
-
-    let retryAfter = Math.max(
-      await take({
-        subject: account,
-        span: "minute",
-        limit: ACCOUNT_MINUTE_LIMIT,
-      }),
-      await take({ subject: account, span: "day", limit: ACCOUNT_DAY_LIMIT }),
-    );
-    if (retryAfter === 0)
-      retryAfter = await take({
-        subject: `client:${clientId}`,
-        span: "minute",
-        limit: CLIENT_MINUTE_LIMIT,
-      });
-    return retryAfter === 0
-      ? { allowed: true }
-      : { allowed: false, retryAfter };
-  });
+  const client = `client:${clientId}`;
+  const at = sql`${now.toISOString()}::timestamptz`;
+  // Not '1 day', whose length depends on the time zone of the session.
+  const span = sql`case current.span when 'minute' then interval '1 minute' else interval '24 hours' end`;
+  const count = sql`
+    on conflict (subject, span) do update set
+      requests = case when current.started_at + ${span} <= ${at}
+        then 1 else current.requests + 1 end,
+      started_at = case when current.started_at + ${span} <= ${at}
+        then ${at} else current.started_at end
+    returning requests,
+      ceil(extract(epoch from current.started_at + ${span} - ${at}))::integer as ends_in
+  `;
+  const [row] = await sql<{ retry_after: number }[]>`
+    with account_minute as (
+      insert into public.assistant_request_windows as current (subject, span, started_at, requests)
+      values (${account}, 'minute', ${at}, 1)
+      ${count}
+    ), account_day as (
+      insert into public.assistant_request_windows as current (subject, span, started_at, requests)
+      select ${account}, 'day', ${at}, 1 from account_minute
+      ${count}
+    ), client_minute as (
+      insert into public.assistant_request_windows as current (subject, span, started_at, requests)
+      select ${client}, 'minute', ${at}, 1 from account_minute, account_day
+      where account_minute.requests <= ${ACCOUNT_MINUTE_LIMIT}::integer
+        and account_day.requests <= ${ACCOUNT_DAY_LIMIT}::integer
+      ${count}
+    )
+    select coalesce(max(ends_in), 0)::integer as retry_after from (
+      select ends_in from account_minute where requests > ${ACCOUNT_MINUTE_LIMIT}::integer
+      union all
+      select ends_in from account_day where requests > ${ACCOUNT_DAY_LIMIT}::integer
+      union all
+      select ends_in from client_minute where requests > ${CLIENT_MINUTE_LIMIT}::integer
+    ) as exceeded
+  `;
+  if (!row) throw new Error("The request was not counted");
+  return row.retry_after === 0
+    ? { allowed: true }
+    : { allowed: false, retryAfter: row.retry_after };
 }

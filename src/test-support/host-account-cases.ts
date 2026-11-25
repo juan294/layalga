@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { Sql } from "postgres";
 
+import { createFixtureHousehold } from "./fixture-household";
+
 /**
  * One matrix for both implementations of "this account belongs to a host":
  * `isHostAccount` in TypeScript and the access token hook in SQL.
@@ -42,6 +44,36 @@ export const HOST_ACCOUNT_CASES: readonly {
   },
 ];
 
+type FixtureHost = Awaited<ReturnType<typeof createFixtureHost>>;
+
+/** One host of a new household, bound to an account or prepared for an email. */
+export async function createFixtureHost(
+  sql: Sql,
+  {
+    authUserId,
+    preparedEmail,
+  }: { authUserId?: string; preparedEmail?: string } = {},
+) {
+  const { homeId, hostIds, cleanup } = await createFixtureHousehold(sql, {
+    label: `Assistant host ${randomUUID()}`,
+    tokenSecret: "no guest link is issued",
+    rooms: [],
+    parties: [],
+  });
+  const hostId = hostIds[0]!;
+  try {
+    if (authUserId)
+      await sql`update public.hosts set auth_user_id=${authUserId} where id=${hostId}`;
+    if (preparedEmail)
+      await sql`insert into public.host_identity_claims(normalized_email,host_id,home_id)
+        values(${preparedEmail},${hostId},${homeId})`;
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+  return { hostId, cleanup };
+}
+
 export async function withHostAccountCase<T>(
   sql: Sql,
   entry: (typeof HOST_ACCOUNT_CASES)[number],
@@ -51,18 +83,17 @@ export async function withHostAccountCase<T>(
   const address = `host-case-${userId}@fixture.test`;
   await sql`insert into auth.users(id,email,aud,role,created_at,updated_at)
     values(${userId},${address},'authenticated','authenticated',now(),now())`;
-  const [home] = await sql<{ id: string }[]>`
-    insert into public.homes(name,timezone) values(${`Host case ${userId}`},'Europe/Madrid') returning id`;
+  let host: FixtureHost | undefined;
   try {
-    const [host] = await sql<{ id: string }[]>`
-      insert into public.hosts(home_id,display_name,locale,auth_user_id)
-      values(${home!.id},'Case host','en',${entry.bound ? userId : null}) returning id`;
-    if (entry.prepared)
-      await sql`insert into public.host_identity_claims(normalized_email,host_id,home_id)
-        values(${entry.prepared === "same" ? address : `other-${address}`},${host!.id},${home!.id})`;
+    host = await createFixtureHost(sql, {
+      authUserId: entry.bound ? userId : undefined,
+      preparedEmail:
+        entry.prepared &&
+        (entry.prepared === "same" ? address : `other-${address}`),
+    });
     return await run({ userId, email: entry.email?.(address) ?? address });
   } finally {
-    await sql`delete from public.homes where id=${home!.id}`;
+    await host?.cleanup();
     await sql`delete from auth.users where id=${userId}`;
   }
 }

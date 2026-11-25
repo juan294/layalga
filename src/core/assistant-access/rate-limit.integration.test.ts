@@ -3,10 +3,7 @@ import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  localSupabase,
-  localWebDatabase,
-} from "@/test-support/assistant-oauth";
+import { localSupabase, localWebDatabase } from "@/test-support/local-supabase";
 
 import { takeRequest } from "./rate-limit";
 
@@ -82,6 +79,14 @@ describe("takeRequest", () => {
       allowed: true,
     });
     expect((await counts())["account:minute"]).toBe(1);
+    for (let count = 2; count <= 60; count += 1)
+      expect(await takeRequest(web, user, client, at(80))).toEqual({
+        allowed: true,
+      });
+    expect(await takeRequest(web, user, client, at(80))).toEqual({
+      allowed: false,
+      retryAfter: 50,
+    });
   });
 
   it("allows 1,000 requests in 24 hours from the first request", async () => {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import postgres, { type Sql, type TransactionSql } from "postgres";
+import postgres, { type TransactionSql } from "postgres";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -9,19 +9,14 @@ import {
 } from "@/test-support/host-account-cases";
 import {
   FIXTURE_CALLBACK,
-  allowClient,
   authCall,
   codeFlow,
-  createAssistantUser,
-  deleteClient,
-  localAdmin,
-  localSupabase,
   refreshClient,
-  registerClient,
   tokenClaims,
   webSignIn,
-  type FixtureUser,
+  assistantFixtures,
 } from "@/test-support/assistant-oauth";
+import { localAdmin, localSupabase } from "@/test-support/local-supabase";
 
 import { ASSISTANT_AUDIENCE } from "./audience";
 
@@ -32,11 +27,9 @@ const HOOK_TABLES = ["assistant_clients", "hosts", "host_identity_claims"];
 
 const db = postgres(localSupabase().databaseUrl, { max: 2, prepare: false });
 const admin = localAdmin();
-const cleanups: (() => Promise<unknown>)[] = [];
+const fixtures = assistantFixtures(db, admin);
 
-afterEach(async () => {
-  for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
-});
+afterEach(() => fixtures.cleanup());
 afterAll(async () => {
   await db.end({ timeout: 5 });
   await admin.end({ timeout: 5 });
@@ -76,40 +69,14 @@ function hookEvent({
   };
 }
 
-async function callHook(event: unknown, sql: Sql | TransactionSql = admin) {
-  const run = async (tx: TransactionSql) => {
-    await tx`set local role supabase_auth_admin`;
-    const [row] = await tx<{ result: Record<string, unknown> }[]>`
-      select private.access_token_hook(${JSON.stringify(event)}::text::jsonb) as result`;
-    return row!.result;
-  };
-  return "begin" in sql ? sql.begin(run) : run(sql as TransactionSql);
+async function callHookIn(tx: TransactionSql, event: unknown) {
+  await tx`set local role supabase_auth_admin`;
+  const [row] = await tx<{ result: Record<string, unknown> }[]>`
+    select private.access_token_hook(${JSON.stringify(event)}::text::jsonb) as result`;
+  return row!.result;
 }
 
-async function newClient(
-  allow: { redirectUri?: string; enabled?: boolean } | null = {},
-  registered?: string,
-) {
-  const id = await registerClient(admin, registered);
-  cleanups.push(() => deleteClient(admin, id));
-  if (allow) await allowClient(admin, id, allow);
-  return id;
-}
-
-async function newUser(options?: { google?: boolean }): Promise<FixtureUser> {
-  const user = await createAssistantUser(db, options);
-  cleanups.push(() => db`delete from auth.users where id=${user.id}`);
-  return user;
-}
-
-async function newHost() {
-  const [home] = await db<{ id: string }[]>`
-    insert into public.homes(name,timezone) values(${`Hook ${randomUUID()}`},'Europe/Madrid') returning id`;
-  cleanups.push(() => db`delete from public.homes where id=${home!.id}`);
-  const [host] = await db<{ id: string }[]>`
-    insert into public.hosts(home_id,display_name,locale) values(${home!.id},'Hook host','en') returning id`;
-  return host!.id;
-}
+const callHook = (event: unknown) => admin.begin((tx) => callHookIn(tx, event));
 
 describe("access token hook: web tokens", () => {
   it.each(["password", "oauth", "token_refresh", "recovery", "otp", "totp"])(
@@ -135,7 +102,7 @@ describe("access token hook: web tokens", () => {
   );
 
   it("needs no table, while a client token is refused without them", async () => {
-    const client = await newClient();
+    const client = await fixtures.client();
     const web = hookEvent({ method: "password" });
     const assistant = hookEvent({ claims: { client_id: client } });
     expect(await callHook(assistant)).toHaveProperty(
@@ -155,8 +122,8 @@ describe("access token hook: web tokens", () => {
             await tx`revoke all (${tx(name)}) on ${tx(`public.${table}`)} from supabase_auth_admin`;
           await tx`alter table ${tx(`public.${table}`)} rename to ${tx(`${table}_gone`)}`;
         }
-        expect(await callHook(web, tx)).toEqual(web);
-        expect(await callHook(assistant, tx)).toEqual(REFUSAL);
+        expect(await callHookIn(tx, web)).toEqual(web);
+        expect(await callHookIn(tx, assistant)).toEqual(REFUSAL);
         throw rollback;
       }),
     ).rejects.toBe(rollback);
@@ -165,7 +132,7 @@ describe("access token hook: web tokens", () => {
 
 describe("access token hook: client tokens", () => {
   it("issues the assistant audience to an enabled client for a guest", async () => {
-    const client = await newClient();
+    const client = await fixtures.client();
     const event = hookEvent({
       method: "oauth_provider/authorization_code",
       claims: { client_id: client },
@@ -198,26 +165,31 @@ describe("access token hook: client tokens", () => {
 
   const other = "https://claude.ai/api/mcp/other";
   it.each<[string, () => Promise<string>]>([
-    ["disabled", () => newClient({ enabled: false })],
-    ["not on the allowlist", () => newClient(null)],
+    ["disabled", () => fixtures.client({ allow: { enabled: false } })],
+    ["not on the allowlist", () => fixtures.client({ allow: null })],
     [
       "registered with two callbacks",
-      () => newClient({}, `${FIXTURE_CALLBACK},${other}`),
+      () => fixtures.client({ registered: `${FIXTURE_CALLBACK},${other}` }),
     ],
-    ["registered with another callback", () => newClient({}, other)],
+    [
+      "registered with another callback",
+      () => fixtures.client({ registered: other }),
+    ],
     [
       "allowlisted with another callback",
-      () => newClient({ redirectUri: other }),
+      () => fixtures.client({ allow: { redirectUri: other } }),
     ],
     [
       "registered on a lookalike domain",
       () =>
-        newClient({}, "https://claude.ai.evil.example/api/mcp/auth_callback"),
+        fixtures.client({
+          registered: "https://claude.ai.evil.example/api/mcp/auth_callback",
+        }),
     ],
     [
       "deleted",
       async () => {
-        const id = await newClient();
+        const id = await fixtures.client();
         await admin`update auth.oauth_clients set deleted_at=now() where id=${id}`;
         return id;
       },
@@ -225,7 +197,7 @@ describe("access token hook: client tokens", () => {
     [
       "removed from Auth",
       async () => {
-        const id = await newClient();
+        const id = await fixtures.client();
         await admin`delete from auth.oauth_clients where id=${id}`;
         return id;
       },
@@ -258,7 +230,7 @@ describe("access token hook: client tokens", () => {
   });
 
   it("refuses an event without a usable user or email", async () => {
-    const client = await newClient();
+    const client = await fixtures.client();
     const claims = { client_id: client };
     for (const event of [
       hookEvent({ userId: null, email: "a@fixture.test", claims }),
@@ -272,7 +244,7 @@ describe("access token hook: client tokens", () => {
   it.each(HOST_ACCOUNT_CASES)(
     "applies the host rule to $name",
     async (entry) => {
-      const client = await newClient();
+      const client = await fixtures.client();
       await withHostAccountCase(db, entry, async ({ userId, email }) => {
         const result = await callHook(
           hookEvent({ userId, email, claims: { client_id: client } }),
@@ -286,16 +258,17 @@ describe("access token hook: client tokens", () => {
 
 describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   it("leaves web sign-in and refresh unchanged", async () => {
-    const user = await newUser();
+    const user = await fixtures.user();
+    const web = await webSignIn(user);
     const refreshed = await authCall(
       "POST",
       "/auth/v1/token?grant_type=refresh_token",
       {
-        json: { refresh_token: user.refreshToken },
+        json: { refresh_token: web.refreshToken },
       },
     );
     expect(refreshed.status).toBe(200);
-    for (const token of [user.accessToken, refreshed.body.access_token]) {
+    for (const token of [web.accessToken, refreshed.body.access_token]) {
       const claims = tokenClaims(token);
       expect(claims).toMatchObject({
         sub: user.id,
@@ -312,8 +285,8 @@ describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("gives an enabled client the assistant token for openid, and keeps it on refresh", async () => {
-    const user = await newUser();
-    const client = await newClient();
+    const user = await fixtures.user();
+    const client = await fixtures.client();
     const issued = await codeFlow(user, client);
     expect(issued.status).toBe(200);
     const refreshed = await refreshClient(client, issued.body.refresh_token);
@@ -339,14 +312,16 @@ describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("refuses the code exchange of a disabled client and of a host", async () => {
-    const user = await newUser();
-    const disabled = await codeFlow(user, await newClient({ enabled: false }));
+    const user = await fixtures.user();
+    const disabled = await codeFlow(
+      user,
+      await fixtures.client({ allow: { enabled: false } }),
+    );
     expect(disabled.status).toBe(403);
     expect(disabled.body).not.toHaveProperty("access_token");
 
-    const client = await newClient();
-    const hostId = await newHost();
-    await db`update public.hosts set auth_user_id=${user.id} where id=${hostId}`;
+    const client = await fixtures.client();
+    await fixtures.host({ authUserId: user.id });
     const host = await codeFlow(user, client);
     expect(host.status).toBe(403);
     expect(host.body).not.toHaveProperty("access_token");
@@ -356,11 +331,10 @@ describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("refuses refresh while a guest is a host, and accepts the same token afterwards", async () => {
-    const user = await newUser();
-    const client = await newClient();
+    const user = await fixtures.user();
+    const client = await fixtures.client();
     const issued = await codeFlow(user, client);
-    const hostId = await newHost();
-    await db`update public.hosts set auth_user_id=${user.id} where id=${hostId}`;
+    const hostId = await fixtures.host({ authUserId: user.id });
     const refused = await refreshClient(client, issued.body.refresh_token);
     expect(refused.status).toBe(403);
     expect(refused.body).not.toHaveProperty("access_token");
@@ -376,12 +350,12 @@ describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("keeps the client out of the Data API, also after a grant to authenticated", async () => {
-    const user = await newUser();
-    const issued = await codeFlow(user, await newClient());
+    const user = await fixtures.user();
+    const issued = await codeFlow(user, await fixtures.client());
     const token = String(issued.body.access_token);
     const probe = `assistant_probe_${randomUUID().replaceAll("-", "")}`;
     await db`create table ${db(`public.${probe}`)} (id integer)`;
-    cleanups.push(async () => {
+    fixtures.defer(async () => {
       await db`drop table ${db(`public.${probe}`)}`;
       await db`notify pgrst, 'reload schema'`;
     });
@@ -415,8 +389,8 @@ describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("lets the substituted role read its identity, while grants stay with the owner", async () => {
-    const user = await newUser();
-    const client = await newClient();
+    const user = await fixtures.user();
+    const client = await fixtures.client();
     const issued = await codeFlow(user, client);
     const token = String(issued.body.access_token);
     expect((await authCall("GET", "/auth/v1/user", { token })).body.id).toBe(

@@ -5,7 +5,7 @@ import {
   HOST_ACCOUNT_CASES,
   withHostAccountCase,
 } from "@/test-support/host-account-cases";
-import { localAdmin, localSupabase } from "@/test-support/assistant-oauth";
+import { localAdmin, localSupabase } from "@/test-support/local-supabase";
 
 import { isHostAccount } from "./host-account";
 

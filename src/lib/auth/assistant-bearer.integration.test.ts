@@ -16,16 +16,15 @@ import {
 import { ASSISTANT_AUDIENCE } from "@/core/assistant-access/audience";
 import { FakeClock, SystemClock } from "@/core/clock";
 import {
-  allowClient,
   authCall,
   codeFlow,
-  createAssistantUser,
-  deleteClient,
+  assistantFixtures,
+} from "@/test-support/assistant-oauth";
+import {
   localAdmin,
   localSupabase,
   localWebDatabase,
-  registerClient,
-} from "@/test-support/assistant-oauth";
+} from "@/test-support/local-supabase";
 
 import {
   assistantKeys,
@@ -37,7 +36,7 @@ const local = localSupabase();
 const db = postgres(local.databaseUrl, { max: 2, prepare: false });
 const admin = localAdmin();
 const web = localWebDatabase();
-const cleanups: (() => Promise<unknown>)[] = [];
+const fixtures = assistantFixtures(db, admin);
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -45,36 +44,11 @@ beforeEach(() => {
 });
 afterEach(async () => {
   vi.restoreAllMocks();
-  for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+  await fixtures.cleanup();
 });
 afterAll(async () => {
   await Promise.all([db, admin, web.sql].map((sql) => sql.end({ timeout: 5 })));
 });
-
-async function newClient(enabled = true) {
-  const id = await registerClient(admin);
-  await allowClient(admin, id, { enabled });
-  cleanups.push(async () => {
-    await deleteClient(admin, id);
-    await db`delete from public.assistant_request_windows where subject like ${`%${id}`}`;
-  });
-  return id;
-}
-
-async function newHost(
-  authUserId: string | null = null,
-  preparedEmail?: string,
-) {
-  const [home] = await db<{ id: string }[]>`
-    insert into public.homes(name,timezone) values(${`Bearer ${randomUUID()}`},'Europe/Madrid') returning id`;
-  cleanups.push(() => db`delete from public.homes where id=${home!.id}`);
-  const [host] = await db<{ id: string }[]>`
-    insert into public.hosts(home_id,display_name,locale,auth_user_id)
-    values(${home!.id},'Bearer host','en',${authUserId}) returning id`;
-  if (preparedEmail)
-    await db`insert into public.host_identity_claims(normalized_email,host_id,home_id)
-      values(${preparedEmail},${host!.id},${home!.id})`;
-}
 
 /** The logged outcome names the check that decided. */
 const loggedOutcome = () =>
@@ -89,9 +63,8 @@ describe("resolveAssistant on local Auth", { timeout: 30_000 }, () => {
   });
 
   async function connect(options?: { google?: boolean }) {
-    const user = await createAssistantUser(db, options);
-    cleanups.push(() => db`delete from auth.users where id=${user.id}`);
-    const client = await newClient();
+    const user = await fixtures.user(options);
+    const client = await fixtures.client();
     const issued = await codeFlow(user, client);
     expect(issued.status).toBe(200);
     return {
@@ -128,7 +101,7 @@ describe("resolveAssistant on local Auth", { timeout: 30_000 }, () => {
   });
 
   it("refuses a web token", async () => {
-    const { user } = await connect();
+    const user = await fixtures.user();
     expect(await refusal(`Bearer ${user.accessToken}`)).toBe("refused_token");
   });
 
@@ -168,13 +141,13 @@ describe("resolveAssistant on local Auth", { timeout: 30_000 }, () => {
 
   it("refuses a guest who became a host", async () => {
     const { user, header } = await connect();
-    await newHost(user.id);
+    await fixtures.host({ authUserId: user.id });
     expect(await refusal(header)).toBe("refused_host");
   });
 
   it("refuses a guest whose email was prepared for a host", async () => {
     const { user, header } = await connect();
-    await newHost(null, user.email);
+    await fixtures.host({ preparedEmail: user.email });
     expect(await refusal(header)).toBe("refused_host");
   });
 
@@ -221,7 +194,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
       clock = new FakeClock(NOW),
     }: { client?: string; clock?: FakeClock } = {},
   ) {
-    const clientId = client ?? (await newClient());
+    const clientId = client ?? (await fixtures.client());
     const seconds = Math.floor(NOW.getTime() / 1000);
     const token = await new SignJWT({
       client_id: clientId,
@@ -343,7 +316,10 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   });
 
   it("refuses a disabled and an unknown client before Auth and before a count", async () => {
-    for (const client of [await newClient(false), randomUUID()]) {
+    for (const client of [
+      await fixtures.client({ allow: { enabled: false } }),
+      randomUUID(),
+    ]) {
       const { result, fetchUser } = await scripted(
         () => Response.json(user()),
         { client },
@@ -360,14 +336,14 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   it("refuses a host before Auth, and a prepared host email in another case after it", async () => {
     await db`insert into auth.users(id,email,aud,role,created_at,updated_at)
       values(${userId},${user().email},'authenticated','authenticated',now(),now())`;
-    cleanups.push(() => db`delete from auth.users where id=${userId}`);
-    await newHost(userId);
+    fixtures.defer(() => db`delete from auth.users where id=${userId}`);
+    await fixtures.host({ authUserId: userId });
     const bound = await scripted(() => Response.json(user()));
     expect(bound.result).toEqual({ status: "refused" });
     expect(bound.fetchUser).not.toHaveBeenCalled();
 
     userId = randomUUID();
-    await newHost(null, user().email);
+    await fixtures.host({ preparedEmail: user().email });
     const prepared = await scripted(() =>
       Response.json(user({ email: user().email.toUpperCase() })),
     );
@@ -376,7 +352,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   });
 
   it("limits before Auth, and recovers when the window ends", async () => {
-    const client = await newClient();
+    const client = await fixtures.client();
     await db`insert into public.assistant_request_windows(subject,span,started_at,requests)
       values(${`account:${userId}:${client}`},'minute',${NOW},60)`;
     const clock = new FakeClock(NOW);
@@ -384,7 +360,11 @@ describe("resolveAssistant with a scripted Auth answer", () => {
       client,
       clock,
     });
-    expect(limited.result).toEqual({ status: "limited", retryAfter: 60 });
+    expect(limited.result).toEqual({
+      status: "limited",
+      principal: { userId, clientId: client, assistant: "claude" },
+      retryAfter: 60,
+    });
     expect(limited.fetchUser).not.toHaveBeenCalled();
     clock.advance(60_000);
     expect(
