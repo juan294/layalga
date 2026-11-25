@@ -4,6 +4,10 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Updated the AWS SDK clients 3.1173.0 to 3.1175.0 and the ADOT distro 0.14.0 to 0.15.0. The AgentCore bundle changes, so the next release deploys it.
+
 ## [2.5.3] - 2026-11-25
 
 A sign-in security release for the web app. It has no migrations.
