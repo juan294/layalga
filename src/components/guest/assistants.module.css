@@ -22,6 +22,23 @@
   overflow-wrap: anywhere;
 }
 
+/* Beside its label, an address would break in the middle on a phone. */
+@media (max-width: 36rem) {
+  .stack dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stack dl dt {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .stack dl dd {
+    padding-top: 0.2rem;
+    text-align: left;
+  }
+}
+
 .stateTitle {
   font-family: var(--font-fraunces, Georgia, serif);
   font-size: clamp(1.5rem, 4vw, 2rem);

@@ -629,6 +629,17 @@ for (const tag of ["", "@mobile "])
         ).toBeEnabled();
         await expectTouchSafe(page, `${locale} ${colorScheme} start`);
         await expectInsideSheet(page, `${locale} start`);
+        // An ordinary address stays readable on one line.
+        await page.locator("main dd").evaluate((node) => {
+          node.textContent = "ana.garcia@example.com";
+        });
+        expect(
+          await page.locator("main dd").evaluate((node) => {
+            const text = document.createRange();
+            text.selectNodeContents(node);
+            return text.getClientRects().length;
+          }),
+        ).toBe(1);
 
         await continueButton(page).focus();
         await page.keyboard.press("Enter");
