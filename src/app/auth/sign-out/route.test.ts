@@ -28,6 +28,26 @@ describe("POST /auth/sign-out", () => {
     expect(response.cookies.get("layalga_demo_host")).toBeUndefined();
   });
 
+  test("answers within seconds while revocation never completes", async () => {
+    vi.useFakeTimers();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    signOut.mockReturnValue(new Promise(() => {}));
+    const pending = POST(
+      request("http://localhost:3008", "en", "sb-ref-auth-token=a"),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    const response = await pending;
+
+    expect(response.status).toBe(303);
+    expect(response.cookies.get("sb-ref-auth-token")).toMatchObject({
+      value: "",
+      expires: new Date(0),
+    });
+    expect(log).toHaveBeenCalledExactlyOnceWith("[SIGN_OUT_REVOKE_FAILED]");
+    log.mockRestore();
+    vi.useRealTimers();
+  });
+
   test("rejects a cross-origin request before changing the session", async () => {
     const response = await POST(request("https://evil.example", "en"));
 
@@ -42,7 +62,7 @@ describe("POST /auth/sign-out", () => {
     expect(response.status).toBe(303);
     expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toMatchObject({
       value: "",
-      maxAge: 0,
+      expires: new Date(0),
       path: "/",
       httpOnly: true,
     });
@@ -53,11 +73,11 @@ describe("POST /auth/sign-out", () => {
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(response.cookies.get("layalga_request_browser")).toMatchObject({
       value: "",
-      maxAge: 0,
+      expires: new Date(0),
     });
     expect(response.cookies.get(GUEST_EMAIL_COOKIE)).toMatchObject({
       value: "",
-      maxAge: 0,
+      expires: new Date(0),
     });
   });
 
@@ -87,7 +107,7 @@ describe("POST /auth/sign-out", () => {
     ])
       expect(response.cookies.get(name)).toMatchObject({
         value: "",
-        maxAge: 0,
+        expires: new Date(0),
         path: "/",
       });
     expect(response.cookies.get("NEXT_LOCALE")).toBeUndefined();
