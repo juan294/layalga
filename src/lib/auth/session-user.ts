@@ -1,3 +1,5 @@
+import "@/core/server-only";
+
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 /**

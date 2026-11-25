@@ -26,6 +26,13 @@ describe("web session user", () => {
       ),
     ).toBeNull();
   });
+  it("refuses any client_id claim, even an empty one", async () => {
+    expect(
+      await getSessionUser(
+        client(user, { sub: "user-1", aud: "authenticated", client_id: "" }),
+      ),
+    ).toBeNull();
+  });
   it("refuses a token meant for another audience", async () => {
     expect(
       await getSessionUser(

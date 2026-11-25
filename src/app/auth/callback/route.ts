@@ -56,7 +56,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           }
         }
       }
-      await supabase.auth.signOut();
+      // Only this sign-in failed; keep the account's other sessions.
+      await supabase.auth.signOut({ scope: "local" });
       if (isRequesterPath(next)) return failedRequestSignIn(request, next);
       if (guestTokenFromPath(next)) {
         const failed = new URL(next, authRequestOrigin(request));

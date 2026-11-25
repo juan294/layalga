@@ -3,12 +3,35 @@ import { join } from "node:path";
 
 import { expect, it } from "vitest";
 
-// `getUser()` also accepts tokens of connected OAuth clients. Web code must use
-// getSessionUser; sign-out only ends the session it finds.
+// `getUser()` also accepts tokens of connected OAuth clients, and `getSession()`
+// verifies nothing. Web code must use getSessionUser. Sign-out only ends the
+// session it finds, and the proxy only refreshes cookies.
 const ALLOWED = [
   "src/app/auth/sign-out/route.ts",
   "src/lib/auth/session-user.ts",
+  "src/lib/supabase/proxy.ts",
 ];
+
+// Any mention counts, so destructuring, aliases, bind and computed access match.
+const SESSION_READ = /\bget(User|Claims|Session)\b/;
+
+function withoutComments(source: string) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
+it("recognizes every spelling of a direct session read", () => {
+  for (const source of [
+    "supabase.auth.getUser()",
+    "const { getUser } = supabase.auth",
+    "client.auth?.getClaims()",
+    'auth["getSession"]()',
+    "auth.getUser.bind(auth)",
+  ])
+    expect(SESSION_READ.test(withoutComments(source)), source).toBe(true);
+  expect(SESSION_READ.test(withoutComments("await getSessionUser(a)"))).toBe(
+    false,
+  );
+});
 
 it("resolves every web user through getSessionUser", () => {
   const callers = readdirSync("src", { recursive: true, encoding: "utf8" })
@@ -16,9 +39,7 @@ it("resolves every web user through getSessionUser", () => {
     .filter((name) => /\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name))
     .filter((name) => !name.startsWith(join("src", "test-support")))
     .filter((name) =>
-      /\.auth\s*\.\s*getUser\(/.test(
-        readFileSync(name, "utf8").replace(/^\s*(\/\/|\/?\*).*$/gm, ""),
-      ),
+      SESSION_READ.test(withoutComments(readFileSync(name, "utf8"))),
     );
   expect(callers.sort()).toEqual(ALLOWED);
 });

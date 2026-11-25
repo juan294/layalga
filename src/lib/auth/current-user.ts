@@ -11,7 +11,7 @@ import { toAccountIdentity, type AccountIdentity } from "./account-identity";
 /**
  * The verified Supabase Auth user, looked up once per rendered request. Only
  * server components and the helpers they call may use it: route handlers and
- * server actions need their own fresh `auth.getUser()`.
+ * server actions need their own fresh `getSessionUser()`.
  */
 export const getAuthUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
