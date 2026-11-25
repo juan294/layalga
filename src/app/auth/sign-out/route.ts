@@ -13,21 +13,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const form = await request.formData();
   const locale = form.get("locale") === "es" ? "es" : "en";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) {
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) {
-      return NextResponse.json({ error: "sign_out_failed" }, { status: 500 });
-    }
-  }
+  // Signing out of this device must not depend on the sign-in service. Only the
+  // server-side revocation can fail, so the cookies are removed in every case.
+  const revoked = await supabase.auth.signOut({ scope: "local" }).then(
+    ({ error }) => !error,
+    () => false,
+  );
+  if (!revoked) console.error("[SIGN_OUT_REVOKE_FAILED]");
 
   const response = NextResponse.redirect(
     new URL(`/${locale}/sign-in`, authRequestOrigin(request)),
     303,
   );
-  for (const name of [GUEST_EMAIL_COOKIE, DRAFT_BROWSER_COOKIE])
+  const sessionCookies = request.cookies
+    .getAll()
+    .map(({ name }) => name)
+    .filter((name) => /^sb-.+-auth-token/.test(name));
+  for (const name of [
+    GUEST_EMAIL_COOKIE,
+    DRAFT_BROWSER_COOKIE,
+    ...sessionCookies,
+  ])
     response.cookies.set(name, "", {
       httpOnly: true,
       maxAge: 0,

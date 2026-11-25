@@ -4,13 +4,9 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 
 // `getUser()` also accepts tokens of connected OAuth clients, and `getSession()`
-// verifies nothing. Web code must use getSessionUser. Sign-out only ends the
-// session it finds, and the proxy only refreshes cookies.
-const ALLOWED = [
-  "src/app/auth/sign-out/route.ts",
-  "src/lib/auth/session-user.ts",
-  "src/lib/supabase/proxy.ts",
-];
+// verifies nothing. Web code must use getSessionUser. The proxy only refreshes
+// cookies.
+const ALLOWED = ["src/lib/auth/session-user.ts", "src/lib/supabase/proxy.ts"];
 
 // Any mention counts, so destructuring, aliases, bind and computed access match.
 const SESSION_READ = /\bget(User|Claims|Session)\b/;
