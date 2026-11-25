@@ -4,7 +4,7 @@ import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { applyDataRetention } from "@/core/data-retention";
-import { localSupabase } from "@/test-support/assistant-oauth";
+import { localAdmin, localSupabase } from "@/test-support/assistant-oauth";
 
 const db = postgres(localSupabase().databaseUrl, { max: 1, prepare: false });
 const PRIVILEGES = [
@@ -15,6 +15,7 @@ const PRIVILEGES = [
   "truncate",
   "references",
   "trigger",
+  "maintain",
 ];
 const HOOK = "private.access_token_hook(jsonb)";
 
@@ -65,6 +66,51 @@ describe("assistant access schema", () => {
       expect(await tablePrivileges(role, table)).toEqual(expected);
     },
   );
+
+  it.each(["layalga_agent_runtime", "anon", "authenticated", "service_role"])(
+    "denies %s when it reads or writes",
+    async (role) => {
+      const sql = localAdmin(role);
+      try {
+        for (const table of [
+          "assistant_clients",
+          "assistant_request_windows",
+        ]) {
+          const name = sql(`public.${table}`);
+          for (const statement of [
+            () => sql`select 1 from ${name}`,
+            () => sql`insert into ${name} default values`,
+            () => sql`delete from ${name}`,
+          ])
+            await expect(statement()).rejects.toMatchObject({ code: "42501" });
+        }
+        await expect(
+          sql`select private.access_token_hook('{}'::jsonb)`,
+        ).rejects.toMatchObject({ code: "42501" });
+      } finally {
+        await sql.end({ timeout: 5 });
+      }
+    },
+  );
+
+  it("keeps the web runtime from activating a client or erasing a count", async () => {
+    const web = localAdmin("layalga_web_runtime");
+    try {
+      expect(await web`select 1 from public.assistant_clients`).toBeDefined();
+      for (const statement of [
+        () =>
+          web`insert into public.assistant_clients(client_id,assistant,redirect_uri)
+            values(${randomUUID()},'claude','https://claude.ai/a')`,
+        () => web`update public.assistant_clients set enabled=true`,
+        () => web`delete from public.assistant_clients`,
+        () => web`delete from public.assistant_request_windows`,
+        () => web`select private.access_token_hook('{}'::jsonb)`,
+      ])
+        await expect(statement()).rejects.toMatchObject({ code: "42501" });
+    } finally {
+      await web.end({ timeout: 5 });
+    }
+  });
 
   it("lets Auth read one column of each host table", async () => {
     expect(await readableColumns("supabase_auth_admin", "hosts")).toEqual([
@@ -120,44 +166,57 @@ describe("assistant access schema", () => {
     expect(functions).toEqual([]);
   });
 
-  it("starts with no client, and accepts one exact https callback", async () => {
+  it("disables a new client, and accepts one exact https callback", async () => {
     const id = randomUUID();
     const insert = (redirectUri: string, assistant = "claude") =>
       db`insert into public.assistant_clients(client_id,assistant,redirect_uri) values(${id},${assistant},${redirectUri}) returning enabled`;
-    expect(await insert("https://claude.ai/api/mcp/auth_callback")).toEqual([
-      { enabled: false },
-    ]);
-    await db`delete from public.assistant_clients where client_id=${id}`;
-    for (const callback of [
-      "http://claude.ai/callback",
-      "https://claude.ai/a,https://evil.example/b",
-      "https://claude.ai/a?next=b",
-      "https://claude.ai/a#b",
-      "https://claude.ai/a b",
-      "https://",
-      `https://claude.ai/${"a".repeat(500)}`,
-      "cursor://callback",
-    ])
-      await expect(insert(callback), callback).rejects.toMatchObject({
+    try {
+      expect(await insert("https://claude.ai/api/mcp/auth_callback")).toEqual([
+        { enabled: false },
+      ]);
+      await db`delete from public.assistant_clients where client_id=${id}`;
+      for (const callback of [
+        "http://claude.ai/callback",
+        "https://claude.ai/a,https://evil.example/b",
+        "https://claude.ai/a?next=b",
+        "https://claude.ai/a#b",
+        "https://claude.ai/a b",
+        "https://",
+        `https://claude.ai/${"a".repeat(500)}`,
+        "cursor://callback",
+      ])
+        await expect(insert(callback), callback).rejects.toMatchObject({
+          code: "23514",
+        });
+      await expect(
+        insert("https://claude.ai/a", "other"),
+      ).rejects.toMatchObject({
         code: "23514",
       });
-    await expect(insert("https://claude.ai/a", "other")).rejects.toMatchObject({
-      code: "23514",
-    });
+    } finally {
+      await db`delete from public.assistant_clients where client_id=${id}`;
+    }
   });
 
   it("bounds the request windows", async () => {
-    const insert = (subject: string, span: string, requests: number) =>
-      db`insert into public.assistant_request_windows(subject,span,started_at,requests) values(${subject},${span},now(),${requests})`;
-    await expect(insert("a", "hour", 1)).rejects.toMatchObject({
-      code: "23514",
-    });
-    await expect(insert("a", "day", 0)).rejects.toMatchObject({
-      code: "23514",
-    });
-    await expect(insert("a".repeat(101), "day", 1)).rejects.toMatchObject({
-      code: "23514",
-    });
+    const subject = `bounds:${randomUUID()}`;
+    try {
+      const insert = (id: string, span: string, requests: number) =>
+        db`insert into public.assistant_request_windows(subject,span,started_at,requests) values(${id},${span},now(),${requests})`;
+      await expect(insert(subject, "hour", 1)).rejects.toMatchObject({
+        code: "23514",
+      });
+      await expect(insert(subject, "day", 0)).rejects.toMatchObject({
+        code: "23514",
+      });
+      await expect(
+        insert(subject.padEnd(101, "a"), "day", 1),
+      ).rejects.toMatchObject({
+        code: "23514",
+      });
+    } finally {
+      await db`delete from public.assistant_request_windows where subject like ${`${subject}%`}`;
+    }
   });
 
   it("deletes request windows two days after they start", async () => {

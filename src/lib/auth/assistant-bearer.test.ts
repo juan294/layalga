@@ -78,32 +78,53 @@ function sign(
     .sign(key);
 }
 
-const resolve = async (
+/** The logged outcome, which names the check that decided. */
+async function resolve(
   header: string | null,
   change: Partial<AssistantBearerDeps> = {},
-) => (await resolveAssistant(header, { ...deps, ...change })).status;
+) {
+  vi.mocked(console.info).mockClear();
+  vi.mocked(console.error).mockClear();
+  const { status } = await resolveAssistant(header, { ...deps, ...change });
+  const logs = [
+    ...vi.mocked(console.info).mock.calls,
+    ...vi.mocked(console.error).mock.calls,
+  ];
+  expect(logs).toHaveLength(1);
+  const { outcome } = logs[0]![1] as { outcome: string };
+  expect(outcome.split("_")[0]).toBe(status);
+  return outcome;
+}
 
 describe("resolveAssistant before the database", () => {
   it("accepts a valid token as far as the database", async () => {
-    expect(await resolve(`Bearer ${await sign()}`)).toBe("unavailable");
-    expect(await resolve(`bearer ${await sign()}`)).toBe("unavailable");
+    expect(await resolve(`Bearer ${await sign()}`)).toBe(
+      "unavailable_database",
+    );
+    expect(await resolve(`bearer ${await sign()}`)).toBe(
+      "unavailable_database",
+    );
     expect(await resolve(`Bearer ${await sign({ exp: seconds(-4) })}`)).toBe(
-      "unavailable",
+      "unavailable_database",
     );
     expect(await resolve(`Bearer ${await sign({ iat: seconds(4) })}`)).toBe(
-      "unavailable",
+      "unavailable_database",
     );
   });
 
-  it("reads the header only", async () => {
-    const token = await sign();
-    const request = new Request(
-      `https://example.test/api/mcp?access_token=${token}`,
-      {
-        headers: { cookie: `sb-project-auth-token=${token}` },
-      },
+  it("accepts a Supabase URL with a trailing slash", async () => {
+    expect(
+      await resolve(`Bearer ${await sign()}`, {
+        supabase: { url: `${SUPABASE_URL}/`, key: "publishable" },
+      }),
+    ).toBe("unavailable_database");
+  });
+
+  it("separates a fault of this code from a database outage", async () => {
+    const database = { $client: undefined } as unknown as typeof unreachable;
+    expect(await resolve(`Bearer ${await sign()}`, { database })).toBe(
+      "unavailable_internal",
     );
-    expect(await resolve(request.headers.get("authorization"))).toBe("refused");
   });
 
   it("refuses two headers", async () => {
@@ -111,7 +132,7 @@ describe("resolveAssistant before the database", () => {
     const headers = new Headers();
     headers.append("authorization", `Bearer ${token}`);
     headers.append("authorization", `Bearer ${token}`);
-    expect(await resolve(headers.get("authorization"))).toBe("refused");
+    expect(await resolve(headers.get("authorization"))).toBe("refused_token");
   });
 
   it.each([
@@ -123,7 +144,7 @@ describe("resolveAssistant before the database", () => {
     "Bearer a.b.c",
     "Basic YTpi",
   ])("refuses the header %j", async (header) => {
-    expect(await resolve(header)).toBe("refused");
+    expect(await resolve(header)).toBe("refused_token");
   });
 
   it("refuses a malformed header around a valid token", async () => {
@@ -137,7 +158,7 @@ describe("resolveAssistant before the database", () => {
       `Bearer ${token}.x`,
       `Bearer ${token.slice(0, -4)}AAAA`,
     ])
-      expect(await resolve(header), header).toBe("refused");
+      expect(await resolve(header), header).toBe("refused_token");
   });
 
   it.each<[string, Record<string, unknown>]>([
@@ -160,7 +181,7 @@ describe("resolveAssistant before the database", () => {
     ["no session_id", { session_id: undefined }],
     ["a malformed session_id", { session_id: "session" }],
   ])("refuses a token with %s", async (_name, change) => {
-    expect(await resolve(`Bearer ${await sign(change)}`)).toBe("refused");
+    expect(await resolve(`Bearer ${await sign(change)}`)).toBe("refused_token");
   });
 
   it("refuses another key, with and without its key ID", async () => {
@@ -168,7 +189,7 @@ describe("resolveAssistant before the database", () => {
     for (const kid of ["current", "unknown", null])
       expect(
         await resolve(`Bearer ${await sign({}, { key: privateKey, kid })}`),
-      ).toBe("refused");
+      ).toBe("refused_token");
   });
 
   it("refuses HS256 and unsigned tokens", async () => {
@@ -176,12 +197,12 @@ describe("resolveAssistant before the database", () => {
     const hs256 = await new SignJWT(valid() as Record<string, unknown>)
       .setProtectedHeader({ alg: "HS256", kid: "current" })
       .sign(secret);
-    expect(await resolve(`Bearer ${hs256}`)).toBe("refused");
+    expect(await resolve(`Bearer ${hs256}`)).toBe("refused_token");
     const unsigned = new UnsecuredJWT(
       valid() as Record<string, unknown>,
     ).encode();
-    expect(await resolve(`Bearer ${unsigned}`)).toBe("refused");
-    expect(await resolve(`Bearer ${unsigned}c2ln`)).toBe("refused");
+    expect(await resolve(`Bearer ${unsigned}`)).toBe("refused_token");
+    expect(await resolve(`Bearer ${unsigned}c2ln`)).toBe("refused_token");
   });
 
   it("refuses another published algorithm", async () => {
@@ -192,7 +213,7 @@ describe("resolveAssistant before the database", () => {
     const token = await new SignJWT(valid() as Record<string, unknown>)
       .setProtectedHeader({ alg: "RS256", kid: "rsa" })
       .sign(rsa.privateKey);
-    expect(await resolve(`Bearer ${token}`, { jwks })).toBe("refused");
+    expect(await resolve(`Bearer ${token}`, { jwks })).toBe("refused_token");
   });
 
   it("refuses a token without a key ID while two keys are published", async () => {
@@ -205,14 +226,14 @@ describe("resolveAssistant before the database", () => {
       keys: [await publish("old"), await publish("new")],
     });
     const token = await sign({}, { kid: null });
-    expect(await resolve(`Bearer ${token}`, { jwks })).toBe("refused");
+    expect(await resolve(`Bearer ${token}`, { jwks })).toBe("refused_token");
   });
 
   it("refuses a payload that is not an object and an unknown critical header", async () => {
     const list = await new CompactSign(new TextEncoder().encode("[]"))
       .setProtectedHeader({ alg: "ES256", kid: "current" })
       .sign(keys.privateKey);
-    expect(await resolve(`Bearer ${list}`)).toBe("refused");
+    expect(await resolve(`Bearer ${list}`)).toBe("refused_token");
     const [, payload, signature] = (await sign()).split(".");
     const critical = Buffer.from(
       JSON.stringify({
@@ -223,7 +244,7 @@ describe("resolveAssistant before the database", () => {
       }),
     ).toString("base64url");
     expect(await resolve(`Bearer ${critical}.${payload}.${signature}`)).toBe(
-      "refused",
+      "refused_token",
     );
   });
 
@@ -231,6 +252,7 @@ describe("resolveAssistant before the database", () => {
     ["fails", async () => new Response("bad gateway", { status: 502 })],
     ["is not JSON", async () => new Response("<html>")],
     ["is not a key set", async () => Response.json({ message: "no" })],
+    ["is empty", async () => Response.json({ keys: [] })],
     ["cannot be reached", () => Promise.reject(new TypeError("fetch failed"))],
     [
       "times out",
@@ -241,7 +263,7 @@ describe("resolveAssistant before the database", () => {
       [customFetch]: answer,
     });
     expect(await resolve(`Bearer ${await sign()}`, { jwks })).toBe(
-      "unavailable",
+      "unavailable_keys",
     );
   });
 
@@ -256,9 +278,9 @@ describe("resolveAssistant before the database", () => {
     });
     expect(
       await resolve(`Bearer ${await sign({}, { kid: "unknown" })}`, { jwks }),
-    ).toBe("refused");
+    ).toBe("refused_token");
     expect(await resolve(`Bearer ${await sign()}`, { jwks })).toBe(
-      "unavailable",
+      "unavailable_database",
     );
   });
 
@@ -267,14 +289,11 @@ describe("resolveAssistant before the database", () => {
   });
 
   it("logs a category without the token or an identity", async () => {
-    vi.mocked(console.info).mockClear();
-    vi.mocked(console.error).mockClear();
-    const token = await sign();
-    await resolve(`Bearer ${token}`);
-    await resolve(`Bearer ${await sign({ aud: "authenticated" })}`);
+    await resolve(`Bearer ${await sign()}`);
     expect(vi.mocked(console.error).mock.calls).toEqual([
       ["[ASSISTANT_AUTH]", { outcome: "unavailable_database" }],
     ]);
+    await resolve(`Bearer ${await sign({ aud: "authenticated" })}`);
     expect(vi.mocked(console.info).mock.calls).toEqual([
       ["[ASSISTANT_AUTH]", { outcome: "refused_token" }],
     ]);

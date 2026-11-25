@@ -1,4 +1,4 @@
-/** Only use a user returned by getSessionUser, never submitted metadata. */
+/** Only use a user that Auth gave getSessionUser or the bearer resolver, never submitted metadata. */
 export function verifiedGoogleGuestEmail(
   user: {
     email?: string;

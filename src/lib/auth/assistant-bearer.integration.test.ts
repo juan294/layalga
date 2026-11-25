@@ -23,6 +23,7 @@ import {
   deleteClient,
   localAdmin,
   localSupabase,
+  localWebDatabase,
   registerClient,
 } from "@/test-support/assistant-oauth";
 
@@ -35,7 +36,7 @@ import {
 const local = localSupabase();
 const db = postgres(local.databaseUrl, { max: 2, prepare: false });
 const admin = localAdmin();
-const web = localAdmin("layalga_web_runtime");
+const web = localWebDatabase();
 const cleanups: (() => Promise<unknown>)[] = [];
 
 beforeEach(() => {
@@ -47,7 +48,7 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
 });
 afterAll(async () => {
-  await Promise.all([db, admin, web].map((sql) => sql.end({ timeout: 5 })));
+  await Promise.all([db, admin, web.sql].map((sql) => sql.end({ timeout: 5 })));
 });
 
 async function newClient(enabled = true) {
@@ -75,9 +76,13 @@ async function newHost(
       values(${preparedEmail},${host!.id},${home!.id})`;
 }
 
-describe("resolveAssistant on local Auth", () => {
+/** The logged outcome names the check that decided. */
+const loggedOutcome = () =>
+  (vi.mocked(console.info).mock.lastCall?.[1] as { outcome?: string })?.outcome;
+
+describe("resolveAssistant on local Auth", { timeout: 30_000 }, () => {
   const live = (): AssistantBearerDeps => ({
-    database: web,
+    database: web.db,
     clock: new SystemClock(),
     supabase: { url: local.url, key: local.key },
     jwks: assistantKeys(local.url),
@@ -88,12 +93,29 @@ describe("resolveAssistant on local Auth", () => {
     cleanups.push(() => db`delete from auth.users where id=${user.id}`);
     const client = await newClient();
     const issued = await codeFlow(user, client);
+    expect(issued.status).toBe(200);
     return {
       user,
       client,
       header: `Bearer ${String(issued.body.access_token)}`,
     };
   }
+
+  async function refusal(header: string) {
+    vi.mocked(console.info).mockClear();
+    expect(await resolveAssistant(header, live())).toEqual({
+      status: "refused",
+    });
+    return loggedOutcome();
+  }
+
+  /** The code that Auth itself answers for this token. */
+  const authCode = async (header: string) =>
+    (
+      await authCall("GET", "/auth/v1/user", {
+        token: header.slice("Bearer ".length),
+      })
+    ).body.error_code;
 
   it("accepts the token that Auth issues to an enabled client", async () => {
     const { user, client, header } = await connect();
@@ -107,9 +129,7 @@ describe("resolveAssistant on local Auth", () => {
 
   it("refuses a web token", async () => {
     const { user } = await connect();
-    expect(
-      await resolveAssistant(`Bearer ${user.accessToken}`, live()),
-    ).toEqual({ status: "refused" });
+    expect(await refusal(`Bearer ${user.accessToken}`)).toBe("refused_token");
   });
 
   it("refuses a revoked grant at once", async () => {
@@ -117,55 +137,56 @@ describe("resolveAssistant on local Auth", () => {
     await authCall("DELETE", `/auth/v1/user/oauth/grants?client_id=${client}`, {
       token: user.accessToken,
     });
-    expect(await resolveAssistant(header, live())).toEqual({
-      status: "refused",
-    });
+    expect(await authCode(header)).toBe("session_not_found");
+    expect(await refusal(header)).toBe("refused_connection");
   });
 
-  it("refuses a deleted and a banned user", async () => {
-    const deleted = await connect();
-    await db`delete from auth.users where id=${deleted.user.id}`;
-    expect(await resolveAssistant(deleted.header, live())).toEqual({
-      status: "refused",
-    });
-    const banned = await connect();
-    await db`update auth.users set banned_until=now()+interval '1 day' where id=${banned.user.id}`;
-    expect(await resolveAssistant(banned.header, live())).toEqual({
-      status: "refused",
-    });
+  it("refuses a deleted user", async () => {
+    const { user, header } = await connect();
+    await db`delete from auth.users where id=${user.id}`;
+    expect(await authCode(header)).toBe("user_not_found");
+    expect(await refusal(header)).toBe("refused_connection");
+  });
+
+  it("refuses a banned user", async () => {
+    const { user, header } = await connect();
+    await db`update auth.users set banned_until=now()+interval '1 day' where id=${user.id}`;
+    expect(await authCode(header)).toBe("user_banned");
+    expect(await refusal(header)).toBe("refused_connection");
+  });
+
+  it("knows the code of a token that Auth cannot verify", async () => {
+    const { header } = await connect();
+    expect(await authCode(`${header.slice(0, -6)}AAAAAA`)).toBe("bad_jwt");
   });
 
   it("refuses a client disabled after it connected", async () => {
     const { client, header } = await connect();
     await admin`update public.assistant_clients set enabled=false where client_id=${client}`;
-    expect(await resolveAssistant(header, live())).toEqual({
-      status: "refused",
-    });
+    expect(await refusal(header)).toBe("refused_client");
   });
 
-  it("refuses a guest who became a host or was prepared as one", async () => {
-    const bound = await connect();
-    await newHost(bound.user.id);
-    expect(await resolveAssistant(bound.header, live())).toEqual({
-      status: "refused",
-    });
-    const prepared = await connect();
-    await newHost(null, prepared.user.email);
-    expect(await resolveAssistant(prepared.header, live())).toEqual({
-      status: "refused",
-    });
+  it("refuses a guest who became a host", async () => {
+    const { user, header } = await connect();
+    await newHost(user.id);
+    expect(await refusal(header)).toBe("refused_host");
   });
 
-  it("refuses an account without a confirmed Google identity", async () => {
-    const password = await connect({ google: false });
-    expect(await resolveAssistant(password.header, live())).toEqual({
-      status: "refused",
-    });
-    const unconfirmed = await connect();
-    await db`update auth.users set email_confirmed_at=null where id=${unconfirmed.user.id}`;
-    expect(await resolveAssistant(unconfirmed.header, live())).toEqual({
-      status: "refused",
-    });
+  it("refuses a guest whose email was prepared for a host", async () => {
+    const { user, header } = await connect();
+    await newHost(null, user.email);
+    expect(await refusal(header)).toBe("refused_host");
+  });
+
+  it("refuses an account without a Google identity", async () => {
+    const { header } = await connect({ google: false });
+    expect(await refusal(header)).toBe("refused_identity");
+  });
+
+  it("refuses an account without a confirmed email", async () => {
+    const { user, header } = await connect();
+    await db`update auth.users set email_confirmed_at=null where id=${user.id}`;
+    expect(await refusal(header)).toBe("refused_identity");
   });
 });
 
@@ -217,7 +238,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
       answer(String(url), init ?? {}),
     );
     const result = await resolveAssistant(`Bearer ${token}`, {
-      database: web,
+      database: web.db,
       clock,
       supabase: { url: local.url, key: "publishable" },
       jwks,
@@ -296,19 +317,17 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   });
 
   it("stops a user read that takes longer than its limit", async () => {
-    vi.spyOn(AbortSignal, "timeout").mockImplementation((limit) => {
-      expect(limit).toBe(3_000);
-      return AbortSignal.abort(new DOMException("timed out", "TimeoutError"));
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockImplementation(() =>
+        AbortSignal.abort(new DOMException("timed out", "TimeoutError")),
+      );
+    const { result } = await scripted((_url, init) => {
+      init.signal?.throwIfAborted();
+      return Response.json(user());
     });
-    try {
-      const { result } = await scripted((_url, init) => {
-        init.signal?.throwIfAborted();
-        return Response.json(user());
-      });
-      expect(result).toEqual({ status: "unavailable" });
-    } finally {
-      vi.mocked(AbortSignal.timeout).mockRestore();
-    }
+    expect(result).toEqual({ status: "unavailable" });
+    expect(timeout).toHaveBeenCalledWith(3_000);
   });
 
   it.each<[string, Record<string, unknown>]>([
@@ -320,6 +339,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   ])("refuses %s", async (_name, change) => {
     const { result } = await scripted(() => Response.json(user(change)));
     expect(result).toEqual({ status: "refused" });
+    expect(loggedOutcome()).toBe("refused_identity");
   });
 
   it("refuses a disabled and an unknown client before Auth and before a count", async () => {
@@ -329,6 +349,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
         { client },
       );
       expect(result).toEqual({ status: "refused" });
+      expect(loggedOutcome()).toBe("refused_client");
       expect(fetchUser).not.toHaveBeenCalled();
       expect(
         await db`select 1 from public.assistant_request_windows where subject like ${`%${client}`}`,

@@ -36,9 +36,10 @@ grant select (auth_user_id) on public.hosts to supabase_auth_admin;
 grant select (normalized_email) on public.host_identity_claims to supabase_auth_admin;
 create policy auth_hook_assistant_clients on public.assistant_clients
   for select to supabase_auth_admin using (true);
-create policy auth_hook_hosts on public.hosts
-  for select to supabase_auth_admin using (true);
+-- The same lock order as a host sign-in.
 create policy auth_hook_host_identity_claims on public.host_identity_claims
+  for select to supabase_auth_admin using (true);
+create policy auth_hook_hosts on public.hosts
   for select to supabase_auth_admin using (true);
 
 -- Auth runs this for every token. A web token must come back unchanged: that

@@ -42,9 +42,9 @@ it("resolves every web user through getSessionUser", () => {
   expect(sourcesMatching(SESSION_READ)).toEqual(ALLOWED);
 });
 
-// Auth answers `/user` for a connected client's token too. Only the bearer
-// resolver may ask it, after its own checks.
-const USER_ENDPOINT = /\/user(?:\?[^`"']*)?[`"']/;
+// Auth answers these endpoints for a connected client's token too. Only the
+// bearer resolver may ask `/user`, after its own checks.
+const USER_ENDPOINT = /\/user(?:info)?(?:\?[^`"']*)?[`"']/;
 
 it("recognizes every spelling of the user endpoint", () => {
   for (const source of [
@@ -53,6 +53,7 @@ it("recognizes every spelling of the user endpoint", () => {
     "fetch(new URL('/auth/v1/user', url))",
     'const endpoint = base + "/user"; fetch(endpoint)',
     "fetch(`${issuer}/user?fields=id`)",
+    'fetch(base + "/oauth/userinfo")',
   ])
     expect(USER_ENDPOINT.test(withoutComments(source)), source).toBe(true);
   for (const source of [

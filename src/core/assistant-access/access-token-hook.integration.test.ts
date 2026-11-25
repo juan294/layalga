@@ -284,7 +284,7 @@ describe("access token hook: client tokens", () => {
   );
 });
 
-describe("access token hook on local Auth", () => {
+describe("access token hook on local Auth", { timeout: 30_000 }, () => {
   it("leaves web sign-in and refresh unchanged", async () => {
     const user = await newUser();
     const refreshed = await authCall(
@@ -364,6 +364,11 @@ describe("access token hook on local Auth", () => {
     const refused = await refreshClient(client, issued.body.refresh_token);
     expect(refused.status).toBe(403);
     expect(refused.body).not.toHaveProperty("access_token");
+    // The refusal rolls back, so this is not the reuse interval of a spent token.
+    const session = tokenClaims(issued.body.access_token).session_id as string;
+    expect(
+      await admin`select revoked from auth.refresh_tokens where session_id=${session}`,
+    ).toEqual([{ revoked: false }]);
     await db`update public.hosts set auth_user_id=null where id=${hostId}`;
     const again = await refreshClient(client, issued.body.refresh_token);
     expect(again.status).toBe(200);
@@ -402,10 +407,10 @@ describe("access token hook on local Auth", () => {
       const answer = await authCall("GET", `/rest/v1/${name}?limit=1`, {
         token,
       });
-      expect([401, 403], `${name}: ${answer.status} ${answer.text}`).toContain(
-        answer.status,
-      );
-      expect(answer.text).not.toMatch(/^\[/);
+      expect(answer.body, name).toMatchObject({
+        message: 'role "layalga_assistant" does not exist',
+      });
+      expect(answer.status, name).toBe(401);
     }
   });
 

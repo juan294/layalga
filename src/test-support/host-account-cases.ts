@@ -9,7 +9,7 @@ import type { Sql } from "postgres";
 export const HOST_ACCOUNT_CASES: readonly {
   name: string;
   bound?: boolean;
-  /** Prepared in host_identity_claims; `@` stands for the account's address. */
+  /** The email prepared in host_identity_claims: the account's own, or another. */
   prepared?: "same" | "other";
   email?: (address: string) => string;
   host: boolean;

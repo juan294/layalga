@@ -28,7 +28,7 @@ export async function takeRequest(
       const startedBefore = new Date(
         now.getTime() - SPAN_SECONDS[span] * 1000,
       ).toISOString();
-      const [row] = await transaction<{ requests: number; started_at: Date }[]>`
+      const [row] = await transaction<{ requests: number; ends_in: number }[]>`
         insert into public.assistant_request_windows as current
           (subject, span, started_at, requests)
         values (${subject}, ${span}, ${now.toISOString()}, 1)
@@ -37,12 +37,11 @@ export async function takeRequest(
             then 1 else current.requests + 1 end,
           started_at = case when current.started_at <= ${startedBefore}
             then excluded.started_at else current.started_at end
-        returning requests, started_at
+        returning requests,
+          ceil(extract(epoch from started_at - ${startedBefore}::timestamptz))::integer as ends_in
       `;
       if (!row) throw new Error("The request window was not counted");
-      if (row.requests <= limit) return 0;
-      const endsAt = row.started_at.getTime() + SPAN_SECONDS[span] * 1000;
-      return Math.ceil((endsAt - now.getTime()) / 1000);
+      return row.requests <= limit ? 0 : row.ends_in;
     };
 
     let retryAfter = Math.max(

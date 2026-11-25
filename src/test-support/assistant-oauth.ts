@@ -2,6 +2,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import postgres, { type Sql } from "postgres";
 
+import { createDatabase } from "@/core/db/client";
+
 export const FIXTURE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 
 export interface FixtureUser {
@@ -16,7 +18,6 @@ interface AuthCall {
   token?: string;
   json?: Record<string, unknown>;
   form?: Record<string, string>;
-  key?: string;
 }
 
 export interface AuthAnswer {
@@ -41,6 +42,13 @@ export function localSupabase() {
     "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
   if (!isLocal(url) || !isLocal(databaseUrl))
     throw new Error("Assistant fixtures require local Supabase");
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    new URL(databaseUrl).port !== "54622"
+  )
+    throw new Error(
+      "Set NEXT_PUBLIC_SUPABASE_URL to the stack that owns DATABASE_URL",
+    );
   // The default postgres login cannot switch to the Auth and runtime roles.
   const admin = new URL(databaseUrl);
   admin.username = "supabase_admin";
@@ -61,17 +69,24 @@ export function localAdmin(role?: string) {
   });
 }
 
+/** The client that production builds, with the rights of the web runtime. */
+export function localWebDatabase() {
+  const url = new URL(localSupabase().adminUrl);
+  url.searchParams.set("role", "layalga_web_runtime");
+  return createDatabase(url.toString());
+}
+
 export async function authCall(
   method: string,
   path: string,
-  { token, json, form, key }: AuthCall = {},
+  { token, json, form }: AuthCall = {},
 ): Promise<AuthAnswer> {
   const local = localSupabase();
   const response = await fetch(`${local.url}${path}`, {
     method,
     redirect: "manual",
     headers: {
-      apikey: key ?? local.key,
+      apikey: local.key,
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(json ? { "content-type": "application/json" } : {}),
       ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}),

@@ -4,6 +4,7 @@ import {
   createRemoteJWKSet,
   errors,
   jwtVerify,
+  type JSONWebKeySet,
   type JWTVerifyGetKey,
 } from "jose";
 import { z } from "zod";
@@ -30,11 +31,15 @@ export type AssistantAccess =
   | { status: "unavailable" }
   | { status: "limited"; retryAfter: number };
 
+export type AssistantKeys = JWTVerifyGetKey & {
+  jwks(): JSONWebKeySet | undefined;
+};
+
 export interface AssistantBearerDeps {
   database: DatabaseClient;
   clock: Clock;
   supabase: { url: string; key: string };
-  jwks: JWTVerifyGetKey;
+  jwks: AssistantKeys;
   fetch?: typeof fetch;
 }
 
@@ -78,12 +83,13 @@ const authUser = z.object({
   identities: z.array(z.object({ provider: z.string() })).nullish(),
 });
 
-const keySets = new Map<string, JWTVerifyGetKey>();
+const keySets = new Map<string, AssistantKeys>();
 
-const issuerOf = (supabaseUrl: string) => `${supabaseUrl}/auth/v1`;
+const issuerOf = (supabaseUrl: string) =>
+  `${supabaseUrl.replace(/\/+$/, "")}/auth/v1`;
 
 /** The signing keys of Auth, cached for this process. */
-export function assistantKeys(supabaseUrl: string): JWTVerifyGetKey {
+export function assistantKeys(supabaseUrl: string): AssistantKeys {
   const url = `${issuerOf(supabaseUrl)}/.well-known/jwks.json`;
   let keys = keySets.get(url);
   if (!keys) {
@@ -150,8 +156,13 @@ export async function resolveAssistant(
       status: "ok",
       principal: { userId, clientId: client.client_id, assistant },
     };
-  } catch {
-    return unavailable("unavailable_database", assistant);
+  } catch (error) {
+    // Database and connection errors carry a code; a fault in this code does not.
+    const database = error instanceof Error && "code" in error;
+    return unavailable(
+      database ? "unavailable_database" : "unavailable_internal",
+      assistant,
+    );
   }
 }
 
@@ -175,6 +186,8 @@ async function verifiedClaims(
       ? claims.data
       : ("invalid" as const);
   } catch (error) {
+    // No token can match a key while Auth publishes none.
+    if (deps.jwks.jwks()?.keys.length === 0) return "unavailable" as const;
     return INVALID_TOKEN.some((type) => error instanceof type)
       ? ("invalid" as const)
       : ("unavailable" as const);

@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 
 // supabase/config.toml describes local stacks. Pushing it would switch the
 // hosted Auth hook and OAuth server on.
-const CONFIG_PUSH = /\bconfig\b["',\s]+push\b(?!\.)/;
+const CONFIG_PUSH = /\bconfig\b[^\n;&|]*\bpush\b(?!\.)/;
 
 function filesUnder(directory: string): string[] {
   return readdirSync(directory, { recursive: true, withFileTypes: true })
@@ -18,6 +18,7 @@ it("recognizes a pushed configuration", () => {
     "supabase config push",
     "pnpm dlx supabase@2.116.0 --yes config  push --project-ref ref",
     'execFileSync("supabase", ["config", "push"])',
+    "supabase config --project-ref ref push",
   ])
     expect(CONFIG_PUSH.test(command), command).toBe(true);
   expect(CONFIG_PUSH.test("git config push.default simple")).toBe(false);
@@ -25,7 +26,13 @@ it("recognizes a pushed configuration", () => {
 
 it("never pushes the local Supabase configuration", () => {
   const files = [
-    ...["scripts", ".github", ".githooks", ".claude/hooks"].flatMap(filesUnder),
+    ...[
+      "scripts",
+      ".github",
+      ".githooks",
+      ".claude/hooks",
+      ".codex/hooks",
+    ].flatMap(filesUnder),
     "package.json",
     "vercel.json",
   ];

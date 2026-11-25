@@ -1,19 +1,17 @@
 import { randomUUID } from "node:crypto";
 
 import postgres from "postgres";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { localAdmin, localSupabase } from "@/test-support/assistant-oauth";
+import {
+  localSupabase,
+  localWebDatabase,
+} from "@/test-support/assistant-oauth";
 
 import { takeRequest } from "./rate-limit";
 
 const db = postgres(localSupabase().databaseUrl, { max: 2, prepare: false });
-const web = localAdmin("layalga_web_runtime");
-const pool = postgres(localSupabase().adminUrl, {
-  max: 12,
-  prepare: false,
-  connection: { role: "layalga_web_runtime" },
-});
+const web = localWebDatabase().sql;
 const START = new Date("2026-11-25T12:00:00Z");
 const at = (seconds: number) => new Date(START.getTime() + seconds * 1000);
 
@@ -42,12 +40,20 @@ beforeEach(() => {
   user = randomUUID();
   client = randomUUID();
 });
+afterEach(async () => {
+  await db`delete from public.assistant_request_windows where subject like ${`%:${client}`}`;
+});
 afterAll(async () => {
-  await db`delete from public.assistant_request_windows where started_at >= ${at(-200_000)} and started_at < ${at(200_000)}`;
-  await Promise.all([db, web, pool].map((sql) => sql.end({ timeout: 5 })));
+  await Promise.all([db, web].map((sql) => sql.end({ timeout: 5 })));
 });
 
 describe("takeRequest", () => {
+  it("runs on the production client with the web role", async () => {
+    expect(await web`select current_user as role`).toEqual([
+      { role: "layalga_web_runtime" },
+    ]);
+  });
+
   it("counts the first request in each window", async () => {
     expect(await takeRequest(web, user, client, START)).toEqual({
       allowed: true,
@@ -137,7 +143,7 @@ describe("takeRequest", () => {
     const users = [user, randomUUID(), randomUUID()];
     const results = await Promise.all(
       Array.from({ length: 210 }, (_, index) =>
-        takeRequest(pool, users[index % 3]!, client, at(5)),
+        takeRequest(web, users[index % 3]!, client, at(5)),
       ),
     );
     expect(results.filter((result) => result.allowed)).toHaveLength(180);
@@ -145,6 +151,5 @@ describe("takeRequest", () => {
       "account:minute": 70,
       "client:minute": 180,
     });
-    await db`delete from public.assistant_request_windows where subject like ${`account:%:${client}`}`;
   });
 });
