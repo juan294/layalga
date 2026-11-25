@@ -78,8 +78,11 @@ async function signInTarget(page: Page, label: string) {
     prepared = route.request().postDataJSON() as { next: string };
     return route.abort();
   });
-  await page.getByRole("button", { name: label }).click();
-  await expect.poll(() => prepared).toBeDefined();
+  // A click before hydration does nothing.
+  await expect(async () => {
+    await page.getByRole("button", { name: label }).click({ timeout: 1_000 });
+    await expect.poll(() => prepared, { timeout: 1_000 }).toBeDefined();
+  }).toPass();
   await page.unroute("**/auth/prepare");
   return prepared!.next;
 }
@@ -449,6 +452,65 @@ for (const kind of ["bound", "prepared"])
       consentPath(authorizationId),
     );
   });
+
+test("each disconnect result names the assistant that it belongs to", async ({
+  page,
+  context,
+  requester,
+  assistants,
+}) => {
+  const known = await assistants.client();
+  const unknown = await assistants.client({ name: "Trip helper" });
+  for (const id of [known, unknown])
+    await codeFlow({ accessToken: await requester.accessToken() }, id);
+  await assistants.forget(unknown);
+  await requester.signIn(context);
+  await page.goto("/en/assistants");
+  const result = page.getByRole("main").getByRole("status");
+  await page
+    .getByRole("button", { name: "Disconnect Claude", exact: true })
+    .click();
+  await expect(result).toHaveText("Disconnected: Claude.");
+
+  // The next answer is not there yet, so nothing about it may be claimed.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let posts = 0;
+  await page.route("**/en/assistants", async (route) => {
+    if (route.request().method() === "POST") {
+      posts++;
+      await held;
+    }
+    await route.continue();
+  });
+  await page
+    .getByRole("button", { name: "Disconnect Trip helper (unrecognized)" })
+    .click();
+  await expect.poll(() => posts).toBe(1);
+  await expect(result).toHaveText("Disconnected: Claude.");
+  release();
+  await expect(result).toHaveText("Disconnected: Trip helper (unrecognized).");
+  await expect(page.getByRole("main")).toContainText(t.list.empty);
+});
+
+test.describe("in Spain", () => {
+  test.use({ timezoneId: "Europe/Madrid" });
+  test("the connection date is the guest's own day", async ({
+    page,
+    context,
+    requester,
+    assistants,
+  }) => {
+    const client = await assistants.client();
+    await codeFlow({ accessToken: await requester.accessToken() }, client);
+    await assistants.grantedAt(client, "2026-07-01T22:30:00Z");
+    await requester.signIn(context);
+    await page.goto("/en/assistants");
+    await expect(page.getByRole("main").locator("time")).toHaveText(
+      "Jul 2, 2026",
+    );
+  });
+});
 
 test("a guest can sign out from consent and from the list behind it", async ({
   page,

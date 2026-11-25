@@ -1,6 +1,6 @@
 import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DisconnectResult } from "@/lib/auth/connected-assistants";
 
@@ -26,7 +26,7 @@ function render(
   status: DisconnectResult["status"] | null,
   connections = [row],
 ) {
-  mocks.result = status && { status };
+  mocks.result = status && { status, name: "Trip helper" };
   return renderToStaticMarkup(
     <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
       <ConnectedAssistants locale="en" connections={connections} />
@@ -37,12 +37,14 @@ function render(
 const statusText = (html: string) =>
   html.match(/<p[^>]*role="status"[^>]*>(.*?)<\/p>/)?.[1];
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("connected assistants list", () => {
   it.each(["disconnected", "failed", "unconfirmed", "gone"] as const)(
     "announces the result in the element that was there before: %s",
     (status) => {
       expect(statusText(render(status))).toBe(
-        en.Assistants.list[status].replace("{assistant}", "Assistant"),
+        en.Assistants.list[status].replace("{assistant}", "Trip helper"),
       );
       expect(statusText(render(null))).toBe("");
     },
@@ -55,6 +57,7 @@ describe("connected assistants list", () => {
   });
 
   it("dates a connection in one zone until the viewer's zone is known", () => {
+    vi.stubEnv("TZ", "Asia/Tokyo");
     expect(render(null)).toContain(
       '<time dateTime="2026-11-25T23:44:08.553565Z">Nov 25, 2026</time>',
     );

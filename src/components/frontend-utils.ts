@@ -105,7 +105,7 @@ export function formatHouseholdDateTime(
 export function formatHouseholdDate(
   value: string,
   locale: string,
-  timeZone: string | undefined,
+  timeZone: string,
 ): string {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",

@@ -119,9 +119,12 @@ describe("assistant consent view", () => {
       );
   });
 
-  it.each(["continue", "redirect"] as const)(
+  it.each([
+    ["continue", "Go to Claude"],
+    ["redirect", "Return to Claude"],
+  ] as const)(
     "shows the assistant's address only as a link: %s",
-    (status) => {
+    (status, label) => {
       const html = render({
         status,
         email: "guest@example.com",
@@ -130,7 +133,7 @@ describe("assistant consent view", () => {
       });
       expect(html).toContain(`href="${URL_.replace("&", "&amp;")}"`);
       expect(count(html, /<a /g)).toBe(1);
-      expect(html).toContain("Claude");
+      expect(html).toContain(`>${label}</a>`);
       expect(html).toContain("guest@example.com");
     },
   );

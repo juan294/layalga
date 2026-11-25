@@ -259,6 +259,8 @@ export function assistantFixtures(db: Sql, admin: Sql) {
       admin`update auth.oauth_authorizations
         set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
         where authorization_id=${authorizationId}`,
+    grantedAt: (clientId: string, time: string) =>
+      admin`update auth.oauth_consents set granted_at=${time} where client_id=${clientId}`,
     /** Takes a client off the allowlist. */
     forget: (clientId: string) =>
       admin`delete from public.assistant_clients where client_id=${clientId}`,

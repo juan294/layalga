@@ -1,8 +1,8 @@
 import "@/core/server-only";
 
 import {
-  AuthUnknownError,
   isAuthApiError,
+  isAuthError,
   isAuthRetryableFetchError,
   type SupabaseClient,
   type User,
@@ -54,7 +54,7 @@ function noSession(error: unknown): SessionLookup {
 function authIsDown(error: unknown): boolean {
   return (
     isAuthRetryableFetchError(error) ||
-    error instanceof AuthUnknownError ||
+    (isAuthError(error) && error.name === "AuthUnknownError") ||
     (isAuthApiError(error) && error.status === 429)
   );
 }

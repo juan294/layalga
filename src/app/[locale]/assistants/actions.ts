@@ -8,14 +8,16 @@ import {
 } from "@/lib/auth/connected-assistants";
 import { createClient } from "@/lib/supabase/server";
 
+/** The result carries the submitted name, because its row can be gone. */
 export async function disconnect(
-  _previous: DisconnectResult | null,
+  _previous: unknown,
   form: FormData,
-): Promise<DisconnectResult> {
+): Promise<DisconnectResult & { name: string }> {
   const result = await disconnectAssistant(form.get("clientId"), {
     supabase: await createClient(),
   });
   // Show the list that Auth holds now, whatever the result.
   refresh();
-  return result;
+  const name = form.get("name");
+  return { ...result, name: typeof name === "string" ? name : "" };
 }
