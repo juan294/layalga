@@ -5,7 +5,7 @@ import {
 } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { webSession } from "@/test-support/web-session";
+import { googleUser as user, webSession } from "@/test-support/web-session";
 
 const CLIENT = "5b88d492-348d-4f5a-8c00-55a8dfe0aee4";
 
@@ -36,12 +36,6 @@ vi.mock("@/core/db/client", () => ({
 
 import { disconnect } from "./actions";
 
-const user = {
-  id: "user-1",
-  email: "guest@example.com",
-  email_confirmed_at: "2030-01-01",
-  identities: [{ provider: "google" }],
-};
 const listed = {
   data: [
     {

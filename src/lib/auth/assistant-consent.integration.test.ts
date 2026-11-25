@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import postgres from "postgres";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 
@@ -56,14 +54,6 @@ async function review(authorizationId: string, deps: ConsentDeps) {
   );
 }
 
-async function authorization(id: string) {
-  const [row] = await admin<
-    { status: string; userId: string | null; hasCode: boolean }[]
-  >`select status::text as status, user_id as "userId", authorization_code is not null as "hasCode"
-    from auth.oauth_authorizations where authorization_id=${id}`;
-  return row!;
-}
-
 async function grants(user: FixtureUser) {
   const { body } = await authCall("GET", "/auth/v1/user/oauth/grants", {
     token: user.accessToken,
@@ -84,7 +74,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       status: "start",
       email: user.email,
     });
-    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+    expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
 
     expect(await review(authorizationId, deps)).toEqual({
       status: "review",
@@ -93,7 +83,9 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       domain: "claude.ai",
       scopes: [],
     });
-    expect((await authorization(authorizationId)).userId).toBe(user.id);
+    expect((await fixtures.authorization(authorizationId)).userId).toBe(
+      user.id,
+    );
   });
 
   it("leaves the request to another account after a load by the first", async () => {
@@ -142,7 +134,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     expect(
       await reviewConsent(authorizationId, shown.email, await depsFor(current)),
     ).toEqual({ status: "start", email: current.email });
-    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+    expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
   });
 
   it("denies with the assistant's own callback and creates no grant", async () => {
@@ -193,9 +185,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       const { authorizationId } = await startAuthorization(client);
       const deps = await depsFor(user);
       if (moment === "after") await review(authorizationId, deps);
-      await admin`update auth.oauth_authorizations
-        set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
-        where authorization_id=${authorizationId}`;
+      await fixtures.expire(authorizationId);
 
       expect(await review(authorizationId, deps)).toEqual({
         status: "ended",
@@ -224,7 +214,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     expect(await startConsent(authorizationId, deps)).toMatchObject({
       status: "start",
     });
-    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+    expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
 
     const state = await review(authorizationId, deps);
     expect(state).toMatchObject({
@@ -303,7 +293,9 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       expect(await decideConsent(authorizationId, "allow", deps)).toEqual({
         status: "not_allowed",
       });
-      expect((await authorization(authorizationId)).status).toBe("pending");
+      expect((await fixtures.authorization(authorizationId)).status).toBe(
+        "pending",
+      );
       expect(await grants(user)).toEqual([]);
     },
   );
@@ -344,7 +336,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
         await decideConsent(authorizationId, "allow", deps),
       ])
         expect(state).toEqual({ status: "host" });
-      expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+      expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
     },
   );
 
@@ -360,7 +352,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       await decideConsent(authorizationId, "allow", deps),
     ])
       expect(state).toEqual({ status: "sign_in" });
-    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+    expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
   });
 
   it("treats a connected client's token in the cookie as signed out", async () => {
@@ -379,7 +371,7 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
       await decideConsent(authorizationId, "allow", deps),
     ])
       expect(state).toEqual({ status: "sign_in" });
-    expect(await authorization(authorizationId)).toEqual(UNTOUCHED);
+    expect(await fixtures.authorization(authorizationId)).toEqual(UNTOUCHED);
   });
 
   it("returns to sign-in when the session ended while consent was open", async () => {
@@ -409,24 +401,6 @@ describe("assistant consent on local Auth", { timeout: 60_000 }, () => {
     expect(await review(authorizationId, await depsFor(user))).toMatchObject({
       status: "review",
       scopes: ["email", "profile"],
-    });
-  });
-
-  it("reads the allowlist with the rights of the web runtime", async () => {
-    const client = await fixtures.client({
-      allow: {
-        redirectUri: `https://claude.ai/${randomUUID()}`,
-        enabled: false,
-      },
-      registered: "https://claude.ai/other",
-    });
-    const { listAllowlistedClients } =
-      await import("@/core/assistant-access/clients");
-    expect(await listAllowlistedClients(web.db)).toContainEqual({
-      clientId: client,
-      assistant: "claude",
-      redirectUri: expect.stringContaining("https://claude.ai/"),
-      enabled: false,
     });
   });
 });

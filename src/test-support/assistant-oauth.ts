@@ -247,6 +247,18 @@ export function assistantFixtures(db: Sql, admin: Sql) {
       cleanups.push(() => db`delete from auth.users where id=${user.id}`);
       return user;
     },
+    /** What Auth recorded for one authorization request. */
+    async authorization(authorizationId: string) {
+      const [row] = await admin<
+        { status: string; userId: string | null; hasCode: boolean }[]
+      >`select status::text as status, user_id as "userId", authorization_code is not null as "hasCode"
+        from auth.oauth_authorizations where authorization_id=${authorizationId}`;
+      return row!;
+    },
+    expire: (authorizationId: string) =>
+      admin`update auth.oauth_authorizations
+        set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
+        where authorization_id=${authorizationId}`,
     /** Takes a client off the allowlist. */
     forget: (clientId: string) =>
       admin`delete from public.assistant_clients where client_id=${clientId}`,

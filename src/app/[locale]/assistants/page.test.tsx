@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { webSession } from "@/test-support/web-session";
+import { googleUser as user, webSession } from "@/test-support/web-session";
 
 import en from "../../../../messages/en.json";
 import es from "../../../../messages/es.json";
@@ -17,25 +17,8 @@ const mocks = vi.hoisted(() => ({
   rows: vi.fn(),
 }));
 
-vi.mock("next-intl/server", async () => {
-  const { createTranslator } =
-    await vi.importActual<typeof import("next-intl")>("next-intl");
-  return {
-    setRequestLocale: vi.fn(),
-    getTranslations: async ({
-      locale,
-      namespace,
-    }: {
-      locale: "en" | "es";
-      namespace: "Assistants";
-    }) =>
-      createTranslator({
-        locale,
-        messages: locale === "es" ? es : en,
-        namespace,
-      }),
-  };
-});
+vi.mock("server-only", () => ({}));
+vi.mock("next-intl/server", () => import("@/test-support/next-intl-server"));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     auth: {
@@ -52,12 +35,6 @@ vi.mock("./actions", () => ({ disconnect: vi.fn() }));
 
 import AssistantsPage from "./page";
 
-const user = {
-  id: "user-1",
-  email: "guest@example.com",
-  email_confirmed_at: "2030-01-01",
-  identities: [{ provider: "google" }],
-};
 const grant = (id: string, name: string) => ({
   client: { id, name },
   scopes: ["openid"],
@@ -91,8 +68,6 @@ beforeEach(() => {
     {
       clientId: KNOWN,
       assistant: "claude",
-      redirectUri: "https://claude.ai/api/mcp/auth_callback",
-      enabled: false,
     },
   ]);
   mocks.listGrants.mockResolvedValue({

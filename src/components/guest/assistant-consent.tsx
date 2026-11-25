@@ -11,10 +11,12 @@ import {
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import type { AppLocale } from "@/i18n/routing";
 import type { ConsentState } from "@/lib/auth/assistant-consent";
+import { assistantConsentPath } from "@/lib/auth/safe-next-path";
 
 import { useHydrated } from "../use-hydrated";
 import { ASSISTANTS } from "./assistant-names";
-import styles from "./guest-ledger.module.css";
+import styles from "./assistants.module.css";
+import ledger from "./guest-ledger.module.css";
 
 const NAMED_SCOPES = ["email", "profile", "phone"] as const;
 
@@ -34,7 +36,7 @@ export function AssistantConsent({
   const [state, setState] = useState(initial);
   const [pending, start] = useTransition();
   const heading = useRef<HTMLHeadingElement>(null);
-  const path = `/${locale}/oauth/consent?authorization_id=${authorizationId}`;
+  const path = assistantConsentPath(locale, authorizationId);
   const idle = hydrated && !pending;
 
   // The next step replaces the focused button.
@@ -44,28 +46,20 @@ export function AssistantConsent({
 
   function run(action: () => Promise<ConsentState>) {
     start(async () => {
-      let next: ConsentState;
-      try {
-        next = await action();
-      } catch {
-        next = { status: "unavailable" };
-      }
+      const next = await action().catch((): ConsentState => ({
+        status: "unavailable",
+      }));
       setState(next);
       if (next.status === "redirect") window.location.assign(next.url);
     });
   }
 
-  const assistant =
-    "assistant" in state ? ASSISTANTS[state.assistant] : undefined;
-  const name = assistant?.name ?? "";
-
-  function title() {
-    return (
-      <h2 className={styles.stateTitle} ref={heading} tabIndex={-1}>
-        {t(`states.${state.status}.title`, { assistant: name })}
-      </h2>
-    );
-  }
+  const name = "assistant" in state ? ASSISTANTS[state.assistant].name : "";
+  const title = (
+    <h2 className={styles.stateTitle} ref={heading} tabIndex={-1}>
+      {t(`states.${state.status}.title`, { assistant: name })}
+    </h2>
+  );
 
   function signIn(label: string) {
     return (
@@ -73,52 +67,18 @@ export function AssistantConsent({
         locale={locale}
         nextPath={path}
         label={label}
-        className={styles.secondaryButton}
+        className={ledger.secondaryButton}
         disabled={pending}
       />
     );
   }
 
-  const failed = authFailed && state === initial && (
-    <p role="alert">{t("authFailed")}</p>
-  );
-
-  if (state.status === "start")
-    return (
-      <section className={styles.assistantStack}>
-        {title()}
-        {failed}
-        {state !== initial && <p role="alert">{t("accountChanged")}</p>}
-        <dl className={styles.factList}>
-          <dt>{t("account")}</dt>
-          <dd>{state.email}</dd>
-        </dl>
-        <p className={styles.notice}>{t("states.start.body")}</p>
-        <div className={styles.decision}>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            data-testid="assistant-continue"
-            disabled={!idle}
-            onClick={() =>
-              run(() => continueAssistantConsent(authorizationId, state.email))
-            }
-          >
-            {pending ? t("checking") : t("continue")}
-          </button>
-          {signIn(t("useAnother"))}
-        </div>
-      </section>
-    );
-
   if (state.status === "review") {
     const vendor = ASSISTANTS[state.assistant].vendor;
-    const decide = (decision: "allow" | "deny") =>
-      run(() => decideAssistantAccess(authorizationId, decision));
     return (
-      <section className={styles.assistantStack}>
-        {title()}
-        <dl className={styles.factList}>
+      <section className={styles.stack}>
+        {title}
+        <dl className={ledger.factList}>
           <dt>{t("assistant")}</dt>
           <dd>{name}</dd>
           <dt>{t("answersGoTo")}</dt>
@@ -145,9 +105,9 @@ export function AssistantConsent({
             })}
           />
         )}
-        <p className={styles.notice}>{t("vendorReads", { vendor })}</p>
+        <p className={ledger.notice}>{t("vendorReads", { vendor })}</p>
         <div>
-          <p className={styles.assistantLine}>
+          <p className={styles.line}>
             {t("signOutKeeps", { assistant: name })}
           </p>
           <Link className={styles.actionLink} href={`/${locale}/assistants`}>
@@ -160,10 +120,12 @@ export function AssistantConsent({
               <button
                 key={decision}
                 type="button"
-                className={styles.secondaryButton}
+                className={ledger.secondaryButton}
                 data-testid={`assistant-${decision}`}
                 disabled={!idle}
-                onClick={() => decide(decision)}
+                onClick={() =>
+                  run(() => decideAssistantAccess(authorizationId, decision))
+                }
               >
                 {t(decision)}
               </button>
@@ -176,22 +138,46 @@ export function AssistantConsent({
   }
 
   return (
-    <section className={styles.assistantStack}>
-      {title()}
-      {failed}
+    <section className={styles.stack}>
+      {title}
+      {authFailed && state === initial && <p role="alert">{t("authFailed")}</p>}
+      {state.status === "start" && state !== initial && (
+        <p role="alert">{t("accountChanged")}</p>
+      )}
       {"email" in state && (
-        <dl className={styles.factList}>
+        <dl className={ledger.factList}>
           <dt>{t("account")}</dt>
           <dd>{state.email}</dd>
         </dl>
       )}
-      <p>{t(`states.${state.status}.body`)}</p>
+      <p className={state.status === "start" ? ledger.notice : undefined}>
+        {t(`states.${state.status}.body`)}
+      </p>
       {nextAction()}
     </section>
   );
 
   function nextAction() {
     switch (state.status) {
+      case "start":
+        return (
+          <div className={styles.decision}>
+            <button
+              type="button"
+              className={ledger.primaryButton}
+              data-testid="assistant-continue"
+              disabled={!idle}
+              onClick={() =>
+                run(() =>
+                  continueAssistantConsent(authorizationId, state.email),
+                )
+              }
+            >
+              {pending ? t("checking") : t("continue")}
+            </button>
+            {signIn(t("useAnother"))}
+          </div>
+        );
       case "continue":
       case "redirect":
         return (

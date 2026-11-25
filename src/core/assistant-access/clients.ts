@@ -7,19 +7,22 @@ export interface AssistantClient {
   assistant: AssistantName;
 }
 
-/** A row of the allowlist, enabled or not. */
-export interface AllowlistedClient extends AssistantClient {
-  redirectUri: string;
-  enabled: boolean;
+/** The clients that may connect now, each with its exact callback. */
+export async function listEnabledClients(
+  database: DatabaseClient,
+): Promise<(AssistantClient & { redirectUri: string })[]> {
+  return sqlClient(database)<(AssistantClient & { redirectUri: string })[]>`
+    select client_id as "clientId", assistant, redirect_uri as "redirectUri"
+    from public.assistant_clients where enabled
+  `;
 }
 
-/** The whole allowlist: one row for each registered assistant. */
-export async function listAllowlistedClients(
+/** Also disabled clients: a guest can still hold a connection to one. */
+export async function listKnownClients(
   database: DatabaseClient,
-): Promise<AllowlistedClient[]> {
-  return sqlClient(database)<AllowlistedClient[]>`
-    select client_id as "clientId", assistant, redirect_uri as "redirectUri", enabled
-    from public.assistant_clients
+): Promise<AssistantClient[]> {
+  return sqlClient(database)<AssistantClient[]>`
+    select client_id as "clientId", assistant from public.assistant_clients
   `;
 }
 

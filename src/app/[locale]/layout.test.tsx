@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { googleUser as guest } from "@/test-support/web-session";
+
 import en from "../../../messages/en.json";
 
 const mocks = vi.hoisted(() => ({ user: null as unknown }));
@@ -39,13 +41,6 @@ vi.mock("@/core/booking/stay-requests", () => ({
 }));
 
 import LocaleLayout from "./layout";
-
-const guest = {
-  id: "user-1",
-  email: "guest@example.com",
-  email_confirmed_at: "2030-01-01",
-  identities: [{ provider: "google" }],
-};
 
 async function render() {
   return renderToStaticMarkup(

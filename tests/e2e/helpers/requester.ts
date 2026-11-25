@@ -3,6 +3,8 @@ import type { BrowserContext } from "@playwright/test";
 import { createServerClient } from "@supabase/ssr";
 import type { Sql } from "postgres";
 
+import { webSignIn } from "../../../src/test-support/assistant-oauth";
+
 /** An unclaimed local user with a synthetic Google identity and real Auth cookies. */
 export async function createFixtureRequester(db: Sql) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -38,12 +40,8 @@ export async function createFixtureRequester(db: Sql) {
       email,
       cleanup,
       /** A new web session of this account, outside the browser. */
-      async accessToken() {
-        const login = await client.auth.signInWithPassword({ email, password });
-        if (login.error || !login.data.session)
-          throw new Error("Could not sign in the local requester");
-        return login.data.session.access_token;
-      },
+      accessToken: async () =>
+        (await webSignIn({ email, password })).accessToken,
       async signIn(context: Pick<BrowserContext, "addCookies">) {
         const login = await client.auth.signInWithPassword({ email, password });
         if (login.error || !login.data.session)

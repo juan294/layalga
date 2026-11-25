@@ -5,7 +5,7 @@ import {
 } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { webSession } from "@/test-support/web-session";
+import { googleUser as user, webSession } from "@/test-support/web-session";
 
 const CLIENT = "5b88d492-348d-4f5a-8c00-55a8dfe0aee4";
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
@@ -42,12 +42,6 @@ vi.mock("@/core/db/client", () => ({
 
 import { continueAssistantConsent, decideAssistantAccess } from "./actions";
 
-const user = {
-  id: "user-1",
-  email: "guest@example.com",
-  email_confirmed_at: "2030-01-01",
-  identities: [{ provider: "google" }],
-};
 const details = {
   authorization_id: ID,
   redirect_uri: CALLBACK,
@@ -59,7 +53,6 @@ const row = {
   clientId: CLIENT,
   assistant: "claude",
   redirectUri: CALLBACK,
-  enabled: true,
 };
 
 let host: boolean;
@@ -181,7 +174,6 @@ describe("assistant consent actions", () => {
 
   it.each([
     ["unknown", () => (allowlist = [])],
-    ["disabled", () => (allowlist = [{ ...row, enabled: false }])],
     [
       "known by another callback",
       () => (allowlist = [{ ...row, redirectUri: `${CALLBACK}/other` }]),

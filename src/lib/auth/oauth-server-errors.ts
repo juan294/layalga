@@ -3,7 +3,7 @@ import {
   type AuthError,
 } from "@supabase/supabase-js";
 
-export type OAuthServerFailure = "off" | "sign_in" | "ended" | "unavailable";
+type OAuthServerFailure = "off" | "sign_in" | "ended" | "unavailable";
 
 /** Auth answers these for an unknown, expired, used or foreign request. */
 const ENDED_REQUEST = new Set([

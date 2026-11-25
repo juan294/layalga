@@ -3,17 +3,17 @@ import "@/core/server-only";
 import type { AuthError, SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  listAllowlistedClients,
+  listEnabledClients,
   type AssistantName,
 } from "@/core/assistant-access/clients";
 import type { DatabaseClient } from "@/core/db/client";
 import { reportActionError } from "@/lib/server/action-errors";
 
+import { googleGuest } from "./google-guest";
 import { isHostAccount } from "./host-account";
 import { oauthServerFailure } from "./oauth-server-errors";
-import { isAssistantConsentPath } from "./safe-next-path";
-import { lookUpSessionUser } from "./session-user";
-import { verifiedGoogleGuestEmail } from "./verified-guest-email";
+import { isAuthorizationId } from "./safe-next-path";
+import { lookUpSessionUser, type SessionLookup } from "./session-user";
 
 export type ConsentState =
   | {
@@ -50,6 +50,8 @@ export interface ConsentDeps {
   enabled: boolean;
   database: DatabaseClient;
   supabase: Pick<SupabaseClient, "auth">;
+  /** The lookup that a rendered page already made. An action makes its own. */
+  session?: () => Promise<SessionLookup>;
 }
 
 const BASIC_SCOPES = new Set(["openid", "offline_access"]);
@@ -91,7 +93,7 @@ export function reviewConsent(
       email,
       assistant,
       domain: new URL(redirectUri).host,
-      scopes: scopes.filter((scope) => !BASIC_SCOPES.has(scope)),
+      scopes,
     };
   });
 }
@@ -110,11 +112,10 @@ export function decideConsent(
     const request = await consentRequest(guest, deps);
     if (request.status !== "ok") return request;
     const { oauth } = deps.supabase.auth;
-    const answer = decision === "allow" ? "approve" : "deny";
-    const { data, error } = await oauth[`${answer}Authorization`](
-      request.authorizationId,
-      { skipBrowserRedirect: true },
-    );
+    const options = { skipBrowserRedirect: true };
+    const { data, error } = await (decision === "allow"
+      ? oauth.approveAuthorization(request.authorizationId, options)
+      : oauth.denyAuthorization(request.authorizationId, options));
     if (error) return failure(error);
     return returnsTo(data.redirect_url, request.redirectUri)
       ? {
@@ -129,20 +130,14 @@ export function decideConsent(
 
 async function consentGuest(authorizationId: unknown, deps: ConsentDeps) {
   if (!deps.enabled) return { status: "off" } as const;
-  if (
-    typeof authorizationId !== "string" ||
-    !isAssistantConsentPath(
-      `/en/oauth/consent?authorization_id=${authorizationId}`,
-    )
-  )
+  if (!isAuthorizationId(authorizationId))
     return { status: "invalid" } as const;
-  const session = await lookUpSessionUser(deps.supabase);
-  if (session.status === "unavailable")
-    return { status: "unavailable" } as const;
-  if (session.status === "signed_out") return { status: "sign_in" } as const;
-  const email = verifiedGoogleGuestEmail(session.user);
-  if (!email) return { status: "sign_in" } as const;
-  if (await isHostAccount(deps.database, session.user.id, email))
+  const guest = googleGuest(
+    await (deps.session?.() ?? lookUpSessionUser(deps.supabase)),
+  );
+  if (guest.status !== "ok") return guest;
+  const { userId, email } = guest;
+  if (await isHostAccount(deps.database, userId, email))
     return { status: "host" } as const;
   return { status: "ok", authorizationId, email } as const;
 }
@@ -156,9 +151,7 @@ async function consentRequest(
     await deps.supabase.auth.oauth.getAuthorizationDetails(authorizationId);
   if (error) return failure(error);
 
-  const allowed = (await listAllowlistedClients(deps.database)).filter(
-    (client) => client.enabled,
-  );
+  const allowed = await listEnabledClients(deps.database);
   if (!("authorization_id" in data)) {
     // An earlier consent names no client, so its callback identifies it.
     const url = data.redirect_url;
@@ -185,7 +178,9 @@ async function consentRequest(
     email,
     assistant: client.assistant,
     redirectUri: client.redirectUri,
-    scopes: data.scope.split(" ").filter(Boolean),
+    scopes: data.scope
+      .split(" ")
+      .filter((scope) => scope && !BASIC_SCOPES.has(scope)),
   } as const;
 }
 

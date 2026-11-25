@@ -53,7 +53,7 @@ describe("connected assistants on local Auth", { timeout: 60_000 }, () => {
     const unknown = await fixtures.client({ name: "Claude" });
     await codeFlow(user, known);
     await codeFlow(user, unknown);
-    await admin`delete from public.assistant_clients where client_id=${unknown}`;
+    await fixtures.forget(unknown);
     // A disabled assistant stays recognizable, so the guest can disconnect it.
     await admin`update public.assistant_clients set enabled=false where client_id=${known}`;
 

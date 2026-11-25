@@ -5,6 +5,7 @@ import { AssistantConsent } from "@/components/guest/assistant-consent";
 import { RequestShell } from "@/components/guest/request-shell";
 import type { AppLocale } from "@/i18n/routing";
 import { startConsent } from "@/lib/auth/assistant-consent";
+import { lookUpAuthUser } from "@/lib/auth/current-user";
 import { consentDeps } from "@/lib/auth/assistant-consent-deps";
 
 // "no-referrer" would also hide the origin from this site's own sign-out form.
@@ -27,7 +28,10 @@ export default async function ConsentPage({
   setRequestLocale(locale);
   const { authorization_id: authorizationId, auth } = await searchParams;
   const t = await getTranslations({ locale, namespace: "Assistants" });
-  const initial = await startConsent(authorizationId, await consentDeps());
+  const initial = await startConsent(authorizationId, {
+    ...(await consentDeps()),
+    session: lookUpAuthUser,
+  });
   return (
     <RequestShell title={t("consentTitle")}>
       <noscript>

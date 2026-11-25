@@ -3,17 +3,17 @@ import "@/core/server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
-  listAllowlistedClients,
+  listKnownClients,
   type AssistantName,
 } from "@/core/assistant-access/clients";
 import type { DatabaseClient } from "@/core/db/client";
 import { reportActionError } from "@/lib/server/action-errors";
 
+import { googleGuest } from "./google-guest";
 import { oauthServerFailure } from "./oauth-server-errors";
-import { lookUpSessionUser } from "./session-user";
-import { verifiedGoogleGuestEmail } from "./verified-guest-email";
+import { lookUpSessionUser, type SessionLookup } from "./session-user";
 
-export interface ConnectedAssistant {
+interface ConnectedAssistant {
   clientId: string;
   /** Null when the allowlist does not hold the client. */
   assistant: AssistantName | null;
@@ -34,6 +34,8 @@ export type DisconnectResult = {
 export interface ConnectionDeps {
   database: DatabaseClient;
   supabase: Pick<SupabaseClient, "auth">;
+  /** The lookup that a rendered page already made. An action makes its own. */
+  session?: () => Promise<SessionLookup>;
 }
 
 /** Hosts too: a guest can become a host after connecting an assistant. */
@@ -41,15 +43,15 @@ export async function listConnections(
   deps: ConnectionDeps,
 ): Promise<Connections> {
   try {
-    const grants = await listGrants(deps.supabase);
+    const grants = await guestGrants(deps);
     if (grants.status !== "ok") return grants;
-    const allowlist = await listAllowlistedClients(deps.database);
+    const known = await listKnownClients(deps.database);
     return {
       status: "ok",
       connections: grants.grants.map(({ client, granted_at }) => ({
         clientId: client.id,
         assistant:
-          allowlist.find(({ clientId }) => clientId === client.id)?.assistant ??
+          known.find(({ clientId }) => clientId === client.id)?.assistant ??
           null,
         clientName: client.name,
         connectedAt: granted_at,
@@ -67,7 +69,7 @@ export async function disconnectAssistant(
   { supabase }: Pick<ConnectionDeps, "supabase">,
 ): Promise<DisconnectResult> {
   try {
-    const before = await listGrants(supabase);
+    const before = await guestGrants({ supabase });
     if (before.status === "unavailable") return { status: "failed" };
     if (before.status !== "ok") return before;
     const grant = before.grants.find(({ client }) => client.id === clientId);
@@ -78,7 +80,7 @@ export async function disconnectAssistant(
     });
     if (error) reportActionError("assistant_disconnect_failed", error);
 
-    const after = await listGrants(supabase);
+    const after = await readGrants(supabase);
     if (after.status === "unavailable") return { status: "unconfirmed" };
     if (after.status !== "ok") return after;
     return after.grants.some(({ client }) => client.id === clientId)
@@ -90,12 +92,15 @@ export async function disconnectAssistant(
   }
 }
 
-async function listGrants(supabase: ConnectionDeps["supabase"]) {
-  const session = await lookUpSessionUser(supabase);
-  if (session.status === "unavailable")
-    return { status: "unavailable" } as const;
-  if (session.status !== "signed_in" || !verifiedGoogleGuestEmail(session.user))
-    return { status: "sign_in" } as const;
+async function guestGrants({
+  supabase,
+  session,
+}: Pick<ConnectionDeps, "supabase" | "session">) {
+  const guest = googleGuest(await (session?.() ?? lookUpSessionUser(supabase)));
+  return guest.status === "ok" ? readGrants(supabase) : guest;
+}
+
+async function readGrants(supabase: ConnectionDeps["supabase"]) {
   const { data, error } = await supabase.auth.oauth.listGrants();
   if (!error) return { status: "ok", grants: data } as const;
   const failure = oauthServerFailure(error);

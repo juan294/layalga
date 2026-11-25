@@ -4,11 +4,13 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SignInButton } from "@/app/[locale]/sign-in/sign-in-button";
 import { ASSISTANTS } from "@/components/guest/assistant-names";
 import { ConnectedAssistants } from "@/components/guest/connected-assistants";
-import styles from "@/components/guest/guest-ledger.module.css";
+import styles from "@/components/guest/assistants.module.css";
+import ledger from "@/components/guest/guest-ledger.module.css";
 import { RequestShell } from "@/components/guest/request-shell";
 import { getDatabaseConnection } from "@/core/db/client";
 import type { AppLocale } from "@/i18n/routing";
 import { listConnections } from "@/lib/auth/connected-assistants";
+import { lookUpAuthUser } from "@/lib/auth/current-user";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -27,10 +29,11 @@ export default async function AssistantsPage({
   const list = await listConnections({
     database: getDatabaseConnection().db,
     supabase: await createClient(),
+    session: lookUpAuthUser,
   });
   return (
     <RequestShell title={t("navigation")}>
-      <div className={styles.assistantStack}>
+      <div className={styles.stack}>
         <p>{t("list.intro")}</p>
         {list.status === "ok" && (
           <ConnectedAssistants
@@ -55,7 +58,7 @@ export default async function AssistantsPage({
               locale={locale}
               nextPath={path}
               label={t("signIn")}
-              className={styles.primaryButton}
+              className={ledger.primaryButton}
             />
           </>
         )}

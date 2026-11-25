@@ -6,6 +6,7 @@ import es from "../../messages/es.json" with { type: "json" };
 import {
   assistantFixtures,
   authCall,
+  codeFlow,
   exchangeCode,
   FIXTURE_CALLBACK,
   refreshClient,
@@ -240,31 +241,21 @@ test("an earlier consent waits for the guest at every step", async ({
   expect(arrivals).toHaveLength(1);
 
   const { authorizationId } = await startAuthorization(client);
-  const admin = localAdmin();
-  try {
-    const hasCode = async () =>
-      (
-        await admin`select authorization_code is not null as code from auth.oauth_authorizations
-          where authorization_id=${authorizationId}`
-      )[0]!.code as boolean;
-    await page.goto(consentPath(authorizationId));
-    await expect(continueButton(page)).toBeEnabled();
-    expect(await hasCode()).toBe(false);
+  await page.goto(consentPath(authorizationId));
+  await expect(continueButton(page)).toBeEnabled();
+  expect((await assistants.authorization(authorizationId)).hasCode).toBe(false);
 
-    await continueButton(page).click();
-    const link = page.getByRole("link", { name: "Go to Claude" });
-    await expect(link).toBeVisible();
-    expect(await hasCode()).toBe(true);
-    // Nothing leaves the page without the guest.
-    await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(new RegExp(authorizationId));
-    expect(arrivals).toHaveLength(1);
-    await link.click();
-    await page.waitForURL("https://claude.ai/**");
-    expect(arrivals).toHaveLength(2);
-  } finally {
-    await admin.end({ timeout: 5 });
-  }
+  await continueButton(page).click();
+  const link = page.getByRole("link", { name: "Go to Claude" });
+  await expect(link).toBeVisible();
+  expect((await assistants.authorization(authorizationId)).hasCode).toBe(true);
+  // Nothing leaves the page without the guest.
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveURL(new RegExp(authorizationId));
+  expect(arrivals).toHaveLength(1);
+  await link.click();
+  await page.waitForURL("https://claude.ai/**");
+  expect(arrivals).toHaveLength(2);
 });
 
 test("changing the language keeps the request", async ({
@@ -424,14 +415,7 @@ test("an expired request ends", async ({
   const { authorizationId } = await startAuthorization(
     await assistants.client(),
   );
-  const admin = localAdmin();
-  try {
-    await admin`update auth.oauth_authorizations
-      set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
-      where authorization_id=${authorizationId}`;
-  } finally {
-    await admin.end({ timeout: 5 });
-  }
+  await assistants.expire(authorizationId);
   await requester.signIn(context);
   await page.goto(consentPath(authorizationId));
   await continueButton(page).click();
@@ -442,16 +426,14 @@ for (const kind of ["bound", "prepared"])
   test(`a ${kind} host cannot connect an assistant and can choose another account`, async ({
     page,
     context,
-    household,
     requester,
     assistants,
   }) => {
-    const hostId = household.hostIds[0]!;
-    if (kind === "bound")
-      await household.db`update public.hosts set auth_user_id=${requester.userId} where id=${hostId}`;
-    else
-      await household.db`insert into public.host_identity_claims(normalized_email,host_id,home_id)
-        values(${requester.email},${hostId},${household.homeId})`;
+    await assistants.host(
+      kind === "bound"
+        ? { authUserId: requester.userId }
+        : { preparedEmail: requester.email },
+    );
     const { authorizationId } = await startAuthorization(
       await assistants.client(),
     );
@@ -524,7 +506,7 @@ test("sign-out keeps the connection, and the list accepts only its own clients",
   }
 
   // A guest who became a host keeps control of the connection.
-  await household.db`update public.hosts set auth_user_id=${requester.userId} where id=${household.hostIds[0]!}`;
+  await assistants.host({ authUserId: requester.userId });
   await requester.signIn(context);
   await page.goto("/en/assistants");
   const button = page.getByRole("button", { name: "Disconnect Claude" });
@@ -560,16 +542,8 @@ for (const tag of ["", "@mobile "])
     const unknown = await assistants.client({
       name: "Claude ".repeat(20).trim(),
     });
-    for (const id of [client, unknown]) {
-      const { authorizationId } = await startAuthorization(id);
-      const session = { token: await requester.accessToken() };
-      const path = `/auth/v1/oauth/authorizations/${authorizationId}`;
-      await authCall("GET", path, session);
-      await authCall("POST", `${path}/consent`, {
-        ...session,
-        json: { action: "approve" },
-      });
-    }
+    for (const id of [client, unknown])
+      await codeFlow({ accessToken: await requester.accessToken() }, id);
     await assistants.forget(unknown);
 
     for (const locale of ["en", "es"] as const)

@@ -1,7 +1,4 @@
-import {
-  isAssistantConsentPath,
-  isStaySearchPath,
-} from "@/lib/auth/safe-next-path";
+import { isAuthorizationId, isStaySearchPath } from "@/lib/auth/safe-next-path";
 
 const POLL_BASE_DELAY_MS = 1_500;
 const POLL_MAX_DELAY_MS = 30_000;
@@ -30,8 +27,7 @@ export function localeSwitchHref(
     }
   } else if (pathname === "/oauth/consent") {
     const id = searchParams.get("authorization_id");
-    const consent = `/${nextLocale}${pathname}?authorization_id=${id}`;
-    if (isAssistantConsentPath(consent)) setIf("authorization_id", id);
+    if (isAuthorizationId(id)) setIf("authorization_id", id);
   } else if (/^\/guest\/verify\/?$/.test(pathname)) {
     setIf("capability", searchParams.get("capability"));
   } else if (/^\/calendar\/?$/.test(pathname)) {
@@ -109,7 +105,7 @@ export function formatHouseholdDateTime(
 export function formatHouseholdDate(
   value: string,
   locale: string,
-  timeZone: string,
+  timeZone: string | undefined,
 ): string {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",

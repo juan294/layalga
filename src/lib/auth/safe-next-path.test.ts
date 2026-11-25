@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isAssistantConsentPath, isAssistantsPath } from "./safe-next-path";
+import {
+  assistantConsentPath,
+  isAssistantConsentPath,
+  isAssistantsPath,
+  isAuthorizationId,
+} from "./safe-next-path";
 
 const ID = "6qozma2yk5o6zzzh6t7ozzpowz2l4h5t";
 const consent = (query: string, locale = "en") =>
@@ -61,5 +66,27 @@ describe("isAssistantsPath", () => {
     "//evil.example/en/assistants",
   ])("refuses %s", (path) => {
     expect(isAssistantsPath(path)).toBe(false);
+  });
+});
+
+describe("isAuthorizationId", () => {
+  it.each([ID, "a".repeat(16), "Z-_9".repeat(32)])("accepts %s", (id) => {
+    expect(isAuthorizationId(id)).toBe(true);
+    expect(isAssistantConsentPath(assistantConsentPath("es", id))).toBe(true);
+  });
+
+  it.each([
+    undefined,
+    null,
+    7,
+    [ID],
+    "",
+    "a".repeat(15),
+    "a".repeat(129),
+    `${ID}\n`,
+    `${ID}/`,
+    `${ID}&x=1`,
+  ])("refuses %j", (id) => {
+    expect(isAuthorizationId(id)).toBe(false);
   });
 });
