@@ -4,6 +4,14 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- Web sign-in refuses access tokens issued to connected OAuth clients, so a connected app cannot act as a host or guest on the website. The OAuth server is off in production, so no such token exists today.
+
+### Fixed
+
+- A refused sign-in ends only that session. It previously signed the account out on every device.
+
 ## [2.5.2] - 2026-11-25
 
 A booking fix and a dependency update. It has no migrations and updates both the web app and the AgentCore runtime.
