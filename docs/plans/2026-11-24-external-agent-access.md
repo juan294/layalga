@@ -2,6 +2,8 @@
 
 Proposed plan for owner review. Planning baseline: 2026-11-24, branch `chore/post-v2.5.1`. No implementation is authorized by this document. Claims marked VERIFIED were read in source on that date; INFERRED claims need the Phase 1 spike.
 
+Phase 1 ran locally on 2026-11-25 and recommends Supabase Auth under four conditions: [spike result](../research/2026-11-25-external-agent-oauth-spike.md). It confirmed the risk in "Prerequisite security change". Phase 2 is not authorized.
+
 ## Outcome
 
 A guest who talks to ChatGPT or Claude can find a listed household, compare dates and rooms, prepare a request and read the hosts' answer. The guest signs in with Google before any lookup. A human presses Send on an L'Ayalga page. A host still makes the only booking decision. This extends the [guest booking channels contract](../architecture/guest-booking-channels.md); the website, conversation and WebMCP tools keep their behavior.
