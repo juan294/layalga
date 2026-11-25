@@ -226,7 +226,11 @@ export async function runReleaseProbes(
   const tokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
   const agentRouteSecret = requiredInternalSecret("AGENT_ROUTE_SECRET");
   const tickSecret = requiredInternalSecret("TICK_SECRET");
-  const sql = postgres(databaseUrl, { prepare: false, max: 8 });
+  const sql = postgres(databaseUrl, {
+    prepare: false,
+    max: 8,
+    max_pipeline: 1,
+  });
   const runId = randomUUID();
   const now = new Date();
   const [label, conflictLabel] = probeHomeLabels(runId);
@@ -426,7 +430,7 @@ async function probeHostCapture(context: ProbeContext): Promise<string> {
   );
   const [captured] = await sql<{ id: string }[]>`
     select id from public.invitations
-    where id = any(${sql.array(invitationIds)}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
+    where id = any(${invitationIds}::uuid[]) and status = 'tentative' and party_id = ${vega.partyId}
   `;
   assert.ok(captured, "the captured invitation must be tentative");
   const [metadata] =
@@ -828,7 +832,7 @@ async function runToTerminal(
     () => drainTicks(context),
     (exactRunIds) => context.sql`
       select id, status, result from public.runs
-      where id = any(${context.sql.array([...exactRunIds])}::uuid[])
+      where id = any(${[...exactRunIds]}::uuid[])
     `,
   );
 }
@@ -966,6 +970,7 @@ async function main(): Promise<void> {
   const options = parseReleaseCliOptions(process.argv.slice(2));
   if (options.cleanupOnly) {
     const sql = postgres(requiredEnvironment("DATABASE_URL"), {
+      max_pipeline: 1,
       prepare: false,
       max: 2,
     });

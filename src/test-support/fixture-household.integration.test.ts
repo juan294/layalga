@@ -29,7 +29,7 @@ async function residue(homeId: string, sessionIds: readonly string[]) {
       (select count(*)::int from public.parties where home_id = ${homeId}) as parties,
       (
         select count(*)::int from public.agent_sessions
-        where session_id = any(${db.array([...sessionIds])}::text[])
+        where session_id = any(${[...sessionIds]}::text[])
       ) as sessions
   `;
   return counts;

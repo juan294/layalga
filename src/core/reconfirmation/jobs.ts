@@ -629,7 +629,7 @@ async function claimDueJob(
         )
         and due_at <= ${now.toISOString()}
         and available_at <= ${now.toISOString()}
-        and id <> all(${transaction.array([...excludedJobIds])}::uuid[])
+        and id <> all(${[...excludedJobIds]}::uuid[])
         and (${homeId ?? null}::uuid is null or home_id = ${homeId ?? null})
       order by due_at, id
       limit 1
@@ -751,7 +751,7 @@ export async function reconcileStaleRuns(
         update public.pending_decisions
         set applied_run_id = null,
           application_error = 'The prior resume attempt exceeded its execution deadline.'
-        where applied_run_id = any(${transaction.array(rows.map(({ id }) => id))}::uuid[])
+        where applied_run_id = any(${rows.map(({ id }) => id)}::uuid[])
           and not exists (
             select 1 from public.audit_events
             where kind = 'decision_applied'

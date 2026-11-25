@@ -88,6 +88,7 @@ export async function forgetOrphanedMemoryFromEnvironment(
   const memoryId = requiredEnvironment("MEMORY_ID", env);
   const region = requiredEnvironment("AWS_REGION", env);
   const sql = postgres(requiredEnvironment("DATABASE_URL", env), {
+    max_pipeline: 1,
     prepare: false,
     max: 1,
   });
