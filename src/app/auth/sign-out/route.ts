@@ -6,6 +6,10 @@ import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 import { createClient } from "@/lib/supabase/server";
 
 const REVOKE_TIMEOUT_MS = 5_000;
+// Answers that mean no session was left to revoke.
+const SESSION_GONE = [400, 401, 403, 404];
+// Session chunks and PKCE verifiers written by @supabase/ssr.
+const SESSION_COOKIE = /^sb-[\w-]+-auth-token(-[\w-]+)?(\.\d+)?$/;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (request.headers.get("origin") !== authRequestOrigin(request)) {
@@ -20,7 +24,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let timer: NodeJS.Timeout | undefined;
   const revoked = await Promise.race([
     supabase.auth.signOut({ scope: "local" }).then(
-      ({ error }) => !error,
+      ({ error }) => !error || SESSION_GONE.includes(error.status ?? 0),
       () => false,
     ),
     new Promise<false>((resolve) => {
@@ -37,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const sessionCookies = request.cookies
     .getAll()
     .map(({ name }) => name)
-    .filter((name) => /^sb-.+-auth-token/.test(name));
+    .filter((name) => SESSION_COOKIE.test(name));
   for (const name of [
     GUEST_EMAIL_COOKIE,
     DRAFT_BROWSER_COOKIE,

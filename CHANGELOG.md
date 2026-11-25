@@ -10,7 +10,7 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Fixed
 
-- Sign-out removes the session from this device even when the sign-in service is unavailable, and answers within about five seconds.
+- Sign-out removes the session from this device even when the sign-in service does not answer, and returns within about five seconds. The service may then keep the session until it expires. A page loaded during the outage does not show the button.
 - A refused sign-in ends only that session. It previously signed the account out on every device.
 
 ## [2.5.2] - 2026-11-25
