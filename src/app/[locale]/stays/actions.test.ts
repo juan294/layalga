@@ -6,7 +6,8 @@ import { lookupHouseholds, lookupStays } from "./actions";
 // only the database boundary to count reads and simulate a transient outage.
 const { sql, getUser } = vi.hoisted(() => ({ sql: vi.fn(), getUser: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { getUser } }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(getUser),
 }));
 const verified = {
   id: "guest",

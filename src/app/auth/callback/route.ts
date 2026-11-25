@@ -12,6 +12,7 @@ import { isRequesterPath, isStaySearchPath } from "@/lib/auth/safe-next-path";
 import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
 import { hasPartyForUser } from "@/lib/auth/guest-account";
+import { getSessionUser } from "@/lib/auth/session-user";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -23,9 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const user = await getSessionUser(supabase);
       if (user) {
         const redirectTo = (path: string) =>
           clearOAuthNextCookie(
@@ -57,7 +56,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           }
         }
       }
-      await supabase.auth.signOut();
+      // Only this sign-in failed; keep the account's other sessions.
+      await supabase.auth.signOut({ scope: "local" });
       if (isRequesterPath(next)) return failedRequestSignIn(request, next);
       if (guestTokenFromPath(next)) {
         const failed = new URL(next, authRequestOrigin(request));

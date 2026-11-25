@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   user: null as { id: string } | null,
+  claims: {} as Record<string, unknown>,
   sql: vi.fn(),
   cookies: new Map<string, string>(),
 }));
@@ -19,9 +20,11 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: mocks.user } }) },
-  }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(
+      async () => ({ data: { user: mocks.user } }),
+      mocks.claims,
+    ),
 }));
 vi.mock("@/core/db/client", () => ({
   getDatabaseConnection: () => ({ sql: mocks.sql }),
@@ -32,6 +35,7 @@ import { getCurrentHost } from "./current-host";
 describe("getCurrentHost", () => {
   beforeEach(() => {
     mocks.user = null;
+    mocks.claims = {};
     mocks.sql.mockReset();
     mocks.cookies.clear();
   });
@@ -55,6 +59,14 @@ describe("getCurrentHost", () => {
         demo: true,
       },
     ]);
+
+    await expect(getCurrentHost()).resolves.toBeNull();
+    expect(mocks.sql).not.toHaveBeenCalled();
+  });
+
+  it("refuses a connected client's token for a host's account", async () => {
+    mocks.user = { id: "user-1" };
+    mocks.claims = { client_id: "assistant" };
 
     await expect(getCurrentHost()).resolves.toBeNull();
     expect(mocks.sql).not.toHaveBeenCalled();

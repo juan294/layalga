@@ -11,7 +11,13 @@ const claimPartyForUser = vi.fn();
 const hasPartyForUser = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth }),
+  createClient: async () => ({
+    auth: {
+      ...auth,
+      ...(await import("@/test-support/web-session")).webSession(auth.getUser)
+        .auth,
+    },
+  }),
 }));
 vi.mock("@/lib/auth/current-host", () => ({
   claimHostForUser: (...args: unknown[]) => claimHostForUser(...args),
@@ -108,7 +114,7 @@ describe("OAuth callback from the main sign-in page", () => {
     expect(location(await GET(callback("/en/requests")))).toBe(
       "/en/requests?auth=failed",
     );
-    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(auth.signOut).toHaveBeenCalledExactlyOnceWith({ scope: "local" });
     expect(claimHostForUser).not.toHaveBeenCalled();
   });
 
@@ -182,7 +188,7 @@ describe("OAuth callback from the main sign-in page", () => {
 
     expect(location(response)).toBe(`/en/g/${token}?claim=failed`);
     expect(claimHostForUser).not.toHaveBeenCalled();
-    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(auth.signOut).toHaveBeenCalledExactlyOnceWith({ scope: "local" });
   });
 
   it("returns to sign-in with a retry message when Google sends no code, as after a dismissed picker", async () => {
@@ -198,7 +204,7 @@ describe("OAuth callback from the main sign-in page", () => {
     const response = await GET(callback("/en"));
 
     expect(location(response)).toBe("/en/sign-in?error=not_a_host");
-    expect(auth.signOut).toHaveBeenCalledOnce();
+    expect(auth.signOut).toHaveBeenCalledExactlyOnceWith({ scope: "local" });
   });
 });
 

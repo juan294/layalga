@@ -6,9 +6,10 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const auth = vi.hoisted(() => ({ userId: "" }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({
-    auth: { getUser: async () => ({ data: { user: { id: auth.userId } } }) },
-  }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(async () => ({
+      data: { user: { id: auth.userId } },
+    })),
 }));
 
 import { claimPartyForUser } from "./party-claim";
