@@ -14,7 +14,8 @@ export function oauthNextPath(request: NextRequest): string {
 export function clearOAuthNextCookie<T extends NextResponse>(response: T): T {
   response.cookies.set(OAUTH_NEXT_COOKIE, "", {
     httpOnly: true,
-    maxAge: 0,
+    // Next.js drops Max-Age=0 when Supabase also writes cookies in this request.
+    expires: new Date(0),
     path: "/",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

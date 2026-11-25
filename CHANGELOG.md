@@ -4,6 +4,19 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-11-25
+
+A sign-in security release for the web app. It has no migrations.
+
+### Security
+
+- Web sign-in refuses access tokens issued to connected OAuth clients, so a connected app cannot act as a host or guest on the website. The OAuth server is off in production, so no such token exists today.
+
+### Fixed
+
+- Sign-out removes the session from this device even when the sign-in service does not answer, and returns within about five seconds. The service may then keep its own record of the session. A page that a signed-in account loads during the outage does not show the button.
+- A refused sign-in ends only that session. It previously signed the account out on every device.
+
 ## [2.5.2] - 2026-11-25
 
 A booking fix and a dependency update. It has no migrations and updates both the web app and the AgentCore runtime.

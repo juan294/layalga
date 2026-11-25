@@ -5,6 +5,18 @@ import { authRequestOrigin } from "@/lib/auth/oauth-next";
 import { GUEST_EMAIL_COOKIE } from "@/lib/auth/guest-email-cookie";
 import { createClient } from "@/lib/supabase/server";
 
+const REVOKE_TIMEOUT_MS = 5_000;
+// Answers that mean no session was left to revoke.
+const SESSION_GONE = [
+  "refresh_token_already_used",
+  "refresh_token_not_found",
+  "session_expired",
+  "session_not_found",
+  "user_not_found",
+];
+// Session chunks and PKCE verifiers written by @supabase/ssr.
+const SESSION_COOKIE = /^sb-[\w-]+-auth-token(-[\w-]+)?(\.\d+)?$/;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   if (request.headers.get("origin") !== authRequestOrigin(request)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -13,24 +25,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const form = await request.formData();
   const locale = form.get("locale") === "es" ? "es" : "en";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) {
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) {
-      return NextResponse.json({ error: "sign_out_failed" }, { status: 500 });
-    }
-  }
+  // Signing out of this device must not depend on the sign-in service. Only the
+  // server-side revocation can fail, so the cookies are removed in every case.
+  let timer: NodeJS.Timeout | undefined;
+  const revoked = await Promise.race([
+    supabase.auth.signOut({ scope: "local" }).then(
+      ({ error }) => !error || SESSION_GONE.includes(error.code ?? ""),
+      () => false,
+    ),
+    new Promise<false>((resolve) => {
+      timer = setTimeout(() => resolve(false), REVOKE_TIMEOUT_MS);
+    }),
+  ]);
+  clearTimeout(timer);
+  if (!revoked) console.error("[SIGN_OUT_REVOKE_FAILED]");
 
   const response = NextResponse.redirect(
     new URL(`/${locale}/sign-in`, authRequestOrigin(request)),
     303,
   );
-  for (const name of [GUEST_EMAIL_COOKIE, DRAFT_BROWSER_COOKIE])
+  const sessionCookies = request.cookies
+    .getAll()
+    .map(({ name }) => name)
+    .filter((name) => SESSION_COOKIE.test(name));
+  for (const name of [
+    GUEST_EMAIL_COOKIE,
+    DRAFT_BROWSER_COOKIE,
+    ...sessionCookies,
+  ])
     response.cookies.set(name, "", {
       httpOnly: true,
-      maxAge: 0,
+      // Next.js drops Max-Age=0 when Supabase also writes cookies in this request.
+      expires: new Date(0),
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

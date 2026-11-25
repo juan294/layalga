@@ -1,6 +1,6 @@
 # Current product and remaining work
 
-Updated November 24, 2026. Production runs v2.5.1 at `dc12595` (live health recorded in the release evidence, 2026-11-22), described under "Latest releases". Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
+Updated November 25, 2026. Production runs v2.5.2 at `c1e65fb` (live health recorded in the release evidence, 2026-11-25), described under "Latest releases". Both real-use launch releases are complete, and demo mode and its schema are gone. The [hackathon archive](archive/hackathon/README.md) keeps the judged submission. Dated research and earlier plans record decisions; they are not a current backlog.
 
 ## Implemented in the completion
 
@@ -46,3 +46,5 @@ v2.4.0 shipped 2026-11-19 (main `587f42c`, pull request #229, AgentCore runtime 
 v2.5.0 shipped 2026-11-21 (main `64d6aa1`, pull request #230, AgentCore runtime version 45; [changelog](../CHANGELOG.md#250---2026-11-21)): guest-initiated booking. Hosts can publish their household name, guests can find a listed home, compare dates and rooms and send a stay request, and one host confirms or declines it. Compatible browsers get four WebMCP tools. Four migrations dated 2026-11-21 (`20261121000100` to `20261121000400`) run before the web deploy.
 
 v2.5.1 shipped 2026-11-22 (main `dc12595`, pull request #231, AgentCore runtime version 46, no migrations; [changelog](../CHANGELOG.md#251---2026-11-22)): guests sign in with Google before they search for a household, check availability or prepare a stay. The sign-in restores the selected household and dates, and a draft belongs to the account that prepared it.
+
+v2.5.2 shipped 2026-11-25 (main `c1e65fb`, pull request #239, AgentCore runtime version 47, no migrations; [changelog](../CHANGELOG.md#252---2026-11-25)): the guest conversation fix and postgres.js 4.1.1 without pipelining outside transactions.

@@ -19,7 +19,8 @@ vi.mock("./current-guest", () => ({
 }));
 vi.mock("./guest-account", () => ({ partyIsClaimedByUser: mocks.claimed }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { getUser: mocks.user } }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(mocks.user),
 }));
 import { resolveGuestContactAuthority } from "./guest-contact-authority";
 

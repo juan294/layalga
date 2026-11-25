@@ -29,7 +29,8 @@ vi.mock("@/lib/auth/current-guest", () => ({
 }));
 vi.mock("@/lib/auth/current-host", () => ({ requireHost: mocks.host }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { getUser: mocks.user } }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(mocks.user),
 }));
 vi.mock("@/lib/auth/guest-account", () => ({
   partyIsClaimedByUser: mocks.claim,

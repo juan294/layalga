@@ -8,14 +8,13 @@ import { withdrawInvitation } from "@/core/booking/cancellation";
 import { cancellationReviewInput } from "@/core/booking/cancellation-input";
 import { getDatabaseConnection } from "@/core/db/client";
 import { partyIsClaimedByUser } from "@/lib/auth/guest-account";
+import { getSessionUser } from "@/lib/auth/session-user";
 import { createClient } from "@/lib/supabase/server";
 
 export async function cancelAccountVisit(formData: FormData): Promise<void> {
   const locale = formData.get("locale") === "es" ? "es" : "en";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser(supabase);
   if (!user) return;
   const review = cancellationReviewInput(formData);
   const invitationId = z.uuid().safeParse(formData.get("invitationId"));
