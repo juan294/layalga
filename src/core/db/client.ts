@@ -7,7 +7,7 @@ export function createDatabase(connectionString: string) {
   const sql = postgres(connectionString, {
     prepare: false,
     max: 4,
-    // Supavisor before 2.10 never answers pipelined queries in transaction mode.
+    // Supavisor before 2.10 can hang on queries pipelined outside a transaction.
     max_pipeline: 1,
     ...(process.env.NODE_ENV === "development" ? { idle_timeout: 15 } : {}),
   });

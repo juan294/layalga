@@ -106,7 +106,7 @@ describe("runtime database credentials", () => {
 });
 
 describe("transaction pooler compatibility", () => {
-  it("sends one query at a time on each pooled connection", async () => {
+  it("does not pipeline queries outside a transaction", async () => {
     const { sql } = createDatabase(
       "postgresql://postgres:postgres@127.0.0.1:54622/postgres",
     );
