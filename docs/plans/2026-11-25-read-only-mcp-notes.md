@@ -4,7 +4,7 @@ Plan: `2026-11-25-read-only-mcp.md`. Phase file: `phase-1.md` in `2026-11-25-rea
 
 ## Phase 1: token policy and bearer resolver (2026-11-25)
 
-Status: implemented and reviewed locally. **One acceptance item is open** (A1) and needs an owner decision. Not pushed, not merged.
+Status: implemented and reviewed locally. The owner chose the direction for A1 on 2026-11-25; it stays open until CI uses the new version. Phase acceptance is pending. Not pushed, not merged.
 
 ### Open acceptance item
 
@@ -24,7 +24,9 @@ A probe on both local stacks with synthetic accounts shows what the old version 
 Consequences:
 
 - `develop` CI would fail in the `integration` job, because `.github/workflows/ci.yml` pins 2.116.0. A workflow change follows the Sutura ownership rule, so this phase did not make one and did not weaken the test.
-- Activation must prove that hosted Auth is v2.198.0 or later. The spike recorded v2.198.0 for the hosted project; this phase read no hosted state. Phase 4 should add the check to the activation runbook.
+- Activation must prove that hosted Auth is v2.198.0 or later. The spike recorded v2.198.0 for the hosted project; this phase read no hosted state. Gate G0 in `phase-4.md` now requires it.
+
+Owner decision (2026-11-25): move the CI pin to CLI 3.3.0 through Sutura before this branch is pushed, keep the test unchanged, and require hosted Auth v2.198.0 or later before activation.
 
 ### Deviations
 
@@ -57,10 +59,12 @@ One independent read-only review returned 15 findings on `1eeb2be`, then 7 on th
 | 10: empty key set, trailing slash | Repaired |
 | 13: guard gaps | Repaired |
 | 14: round trips, log category, comment | Repaired, except the merge of the client and first host query: it would copy the host rule. `DataRetentionResult` unchanged: existing drift, the key is additive |
-| 15: a request refused for the minute also spends the day window; a web token with an empty or null `client_id` would be refused | Accepted as the literal plan. Owner information. Recheck the second before activation |
+| 15: a request refused for the minute also spends the day window; a web token with an empty or null `client_id` would be refused | The owner accepted the minute and day rule on 2026-11-25. Recheck the second before activation |
 | N1 to N7 of the second round | Repaired |
 | Simplify: shared fixtures, `decodeJwt`, schema reuse, key outage boundary, allowlist module, one rate statement, one sign-up for each fixture | Applied |
 | Simplify: share the local-URL check and Google identity insert with existing E2E helpers, move the push guard to `scripts/`, rethrow code faults, typed parameters, parallel test loops | Rejected: outside the phase, or the guard would match itself, or no precedent, or no useful gain |
+
+The repairs after the second round (`e14dba1..325edc5`) were read again by the coordinating session on 2026-11-25, without running tests: no defect found.
 
 Each rule of the hook, the resolver and the limiter was removed in turn, and a test failed each time (18 hook and 35 TypeScript changes, on `e14dba1` before the last repairs; one further change is equivalent).
 
@@ -76,4 +80,4 @@ Not run: any hosted read, the Strix scan (it precedes an integration push), and 
 - **Manual acceptance:** the owner reads the hook in `supabase/migrations/20261125000100_assistant_access.sql`.
 - **Resources:** both stacks are removed. The worktree and branch stay until acceptance. Record: `.rpi/local/mcp-phase-1-resources-2026-11-25.md` in the primary checkout.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
-- **Next:** decide A1, accept Phase 1, integrate locally into `develop`, then Phase 2 in a new session. Phase 2 reads `enabledClient` and `isHostAccount`. Phase 3 must publish the same issuer as `issuerOf` in `assistant-bearer.ts`.
+- **Next:** Sutura answers on the CI pin (A1), owner accepts Phase 1, integrate locally into `develop`, then Phase 2 in a new session. Phase 2 reads `enabledClient` and `isHostAccount`. Phase 3 must publish the same issuer as `issuerOf` in `assistant-bearer.ts`.
