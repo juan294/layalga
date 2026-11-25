@@ -43,7 +43,7 @@ Consequences:
 
 ### Facts recorded from local Auth
 
-Codes of `GET /user` for a client token on v2.198.0 and v2.196.0: revoked grant `session_not_found`, deleted user `user_not_found`, banned user `user_banned`, unverifiable token `bad_jwt`, all with HTTP 403. A soft-deleted row (`deleted_at` set directly) still answers 200; the product does not use soft deletion. Scope `openid` alone works, and its ID token has no email. The substituted role keeps `/user`, refresh and owner revocation working, so the fallback was not needed. The Data API answers 401 because the role does not exist.
+Codes of `GET /user` for a client token on v2.198.0 and v2.196.0: revoked grant `session_not_found`, deleted user `user_not_found`, banned user `user_banned`, unverifiable token `bad_jwt`. All came with HTTP 403 on v2.198.0; the status was not recorded on v2.196.0. A soft-deleted row (`deleted_at` set directly) still answers 200; the product does not use soft deletion. Scope `openid` alone works, and its ID token has no email. The substituted role keeps `/user`, refresh and owner revocation working, so the fallback was not needed. The Data API answers 401 because the role does not exist.
 
 ### Review
 
@@ -62,7 +62,7 @@ One independent read-only review returned 15 findings on `1eeb2be`, then 7 on th
 | Simplify: shared fixtures, `decodeJwt`, schema reuse, key outage boundary, allowlist module, one rate statement, one sign-up for each fixture | Applied |
 | Simplify: share the local-URL check and Google identity insert with existing E2E helpers, move the push guard to `scripts/`, rethrow code faults, typed parameters, parallel test loops | Rejected: outside the phase, or the guard would match itself, or no precedent, or no useful gain |
 
-Each rule of the hook, the resolver and the limiter was removed in turn, and a test failed each time (18 hook and 35 TypeScript changes; one further change is equivalent).
+Each rule of the hook, the resolver and the limiter was removed in turn, and a test failed each time (18 hook and 35 TypeScript changes, on `e14dba1` before the last repairs; one further change is equivalent).
 
 ### Evidence
 
