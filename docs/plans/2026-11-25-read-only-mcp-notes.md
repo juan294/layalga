@@ -4,9 +4,9 @@ Plan: `2026-11-25-read-only-mcp.md`. Phase file: `phase-1.md` in `2026-11-25-rea
 
 ## Phase 1: token policy and bearer resolver (2026-11-25)
 
-Status: implemented and reviewed locally. The owner chose the direction for A1 on 2026-11-25; it stays open until CI uses the new version. Phase acceptance is pending. Not pushed, not merged.
+Status: accepted by the owner on 2026-11-25 and merged locally into `develop`.
 
-### Open acceptance item
+### Acceptance item A1 (resolved)
 
 **A1. CLI 2.116.0 does not pass one Phase 1 test.** VERIFIED: CLI 2.116.0 starts Auth v2.196.0. There, 122 of the 123 Phase 1 integration tests pass. `access-token-hook.integration.test.ts` fails where a client token must get 403 from the grant endpoints, because Auth answers 200. The vendor added this refusal in Auth [v2.198.0](https://github.com/supabase/auth/releases/tag/v2.198.0) (2026-11-16, "restrict OAuth client access tokens to OAuth endpoints"). CLI 2.120.0 still starts v2.197.0, and CLI 3.3.0 starts v2.198.0.
 
@@ -25,6 +25,8 @@ Consequences:
 
 - `develop` CI would fail in the `integration` job, because `.github/workflows/ci.yml` pins 2.116.0. A workflow change follows the Sutura ownership rule, so this phase did not make one and did not weaken the test.
 - Activation must prove that hosted Auth is v2.198.0 or later. The spike recorded v2.198.0 for the hosted project; this phase read no hosted state. Gate G0 in `phase-4.md` now requires it.
+
+Resolution: commit `868291d` pins CLI 3.3.0 in `ci.yml`. Sutura answered that it is an ordinary dependency pin. Local evidence only until the first hosted run.
 
 Owner decision (2026-11-25): move the CI pin to CLI 3.3.0 through Sutura before this branch is pushed, keep the test unchanged, and require hosted Auth v2.198.0 or later before activation.
 
@@ -78,6 +80,6 @@ Not run: any hosted read, the Strix scan (it precedes an integration push), and 
 
 - **Scope:** Phase 1 only, local. Base `c4dc312`, branch `feat/mcp-phase-1-token-policy`, worktree `/Users/juan/code/layalga-mcp-phase-1`.
 - **Manual acceptance:** the owner reads the hook in `supabase/migrations/20261125000100_assistant_access.sql`.
-- **Resources:** both stacks are removed. The worktree and branch stay until acceptance. Record: `.rpi/local/mcp-phase-1-resources-2026-11-25.md` in the primary checkout.
+- **Resources:** both stacks are removed. The worktree and branch stay until the push is verified. Record: `.rpi/local/mcp-phase-1-resources-2026-11-25.md` in the primary checkout.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
-- **Next:** Sutura answers on the CI pin (A1), owner accepts Phase 1, integrate locally into `develop`, then Phase 2 in a new session. Phase 2 reads `enabledClient` and `isHostAccount`. Phase 3 must publish the same issuer as `issuerOf` in `assistant-bearer.ts`.
+- **Next:** Phase 2 in a new session. Phase 2 reads `enabledClient` and `isHostAccount`. Phase 3 must publish the same issuer as `issuerOf` in `assistant-bearer.ts`.
