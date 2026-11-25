@@ -420,7 +420,25 @@
   margin: 1.1rem 0;
 }
 
-/* Assistant consent and connected assistants. */
+/* Assistant consent and connected assistants. The column must not grow with a
+   long address or client name. */
+.assistantStack {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  line-height: 1.5;
+}
+
+.assistantStack > p,
+.assistantStack > dl,
+.assistantLine {
+  margin: 0;
+}
+
+.assistantStack dd {
+  overflow-wrap: anywhere;
+}
+
 .stateTitle {
   font-family: var(--font-fraunces, Georgia, serif);
   font-size: clamp(1.5rem, 4vw, 2rem);

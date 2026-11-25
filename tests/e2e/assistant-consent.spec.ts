@@ -57,6 +57,15 @@ function cspViolations(page: Page) {
   return found;
 }
 
+/** A long address or name must wrap inside the sheet. */
+async function expectInsideSheet(page: Page, state: string) {
+  const sheet = await page.locator("main article").evaluate((node) => ({
+    content: node.scrollWidth,
+    width: node.clientWidth,
+  }));
+  expect(sheet.content, state).toBeLessThanOrEqual(sheet.width);
+}
+
 const continueButton = (page: Page) => page.getByTestId("assistant-continue");
 const decision = (page: Page, answer: "allow" | "deny") =>
   page.getByTestId(`assistant-${answer}`);
@@ -514,6 +523,7 @@ for (const tag of ["", "@mobile "])
           page.getByRole("button", { name: say("useAnother") }),
         ).toBeEnabled();
         await expectTouchSafe(page, `${locale} ${colorScheme} start`);
+        await expectInsideSheet(page, `${locale} start`);
 
         await continueButton(page).focus();
         await page.keyboard.press("Enter");
@@ -538,6 +548,7 @@ for (const tag of ["", "@mobile "])
         expect(one!.width).toBeCloseTo(two!.width, 0);
         expect(one!.height).toBeCloseTo(two!.height, 0);
         await expectTouchSafe(page, `${locale} ${colorScheme} review`);
+        await expectInsideSheet(page, `${locale} review`);
         await allow.focus();
         await expect(allow).toBeFocused();
         expect(
@@ -558,5 +569,6 @@ for (const tag of ["", "@mobile "])
           `(${say("list.unrecognized")})`,
         );
         await expectTouchSafe(page, `${locale} ${colorScheme} assistants`);
+        await expectInsideSheet(page, `${locale} assistants`);
       }
   });

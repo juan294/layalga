@@ -84,7 +84,7 @@ export function AssistantConsent({
 
   if (state.status === "start")
     return (
-      <section className={styles.formStack}>
+      <section className={styles.assistantStack}>
         {title()}
         {failed}
         <dl className={styles.factList}>
@@ -112,7 +112,7 @@ export function AssistantConsent({
     const decide = (decision: "allow" | "deny") =>
       run(() => decideAssistantAccess(authorizationId, decision));
     return (
-      <section className={styles.formStack}>
+      <section className={styles.assistantStack}>
         {title()}
         <dl className={styles.factList}>
           <dt>{t("assistant")}</dt>
@@ -143,32 +143,36 @@ export function AssistantConsent({
         )}
         <p className={styles.notice}>{t("vendorReads", { vendor })}</p>
         <div>
-          <p>{t("signOutKeeps", { assistant: name })}</p>
+          <p className={styles.assistantLine}>
+            {t("signOutKeeps", { assistant: name })}
+          </p>
           <Link className={styles.actionLink} href={`/${locale}/assistants`}>
             {t("manage")}
           </Link>
         </div>
-        <div aria-busy={pending} className={styles.decision}>
-          {(["allow", "deny"] as const).map((decision) => (
-            <button
-              key={decision}
-              type="button"
-              className={styles.secondaryButton}
-              data-testid={`assistant-${decision}`}
-              disabled={!idle}
-              onClick={() => decide(decision)}
-            >
-              {t(decision)}
-            </button>
-          ))}
+        <div aria-busy={pending}>
+          <div className={styles.decision}>
+            {(["allow", "deny"] as const).map((decision) => (
+              <button
+                key={decision}
+                type="button"
+                className={styles.secondaryButton}
+                data-testid={`assistant-${decision}`}
+                disabled={!idle}
+                onClick={() => decide(decision)}
+              >
+                {t(decision)}
+              </button>
+            ))}
+          </div>
+          <p role="status">{pending ? t("answering") : null}</p>
         </div>
-        <p role="status">{pending ? t("answering") : null}</p>
       </section>
     );
   }
 
   return (
-    <section className={styles.formStack}>
+    <section className={styles.assistantStack}>
       {title()}
       {failed}
       <p>{t(`states.${state.status}.body`)}</p>

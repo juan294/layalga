@@ -34,7 +34,7 @@ export default async function AssistantsPage({
   });
   return (
     <RequestShell title={t("navigation")}>
-      <div className={styles.formStack}>
+      <div className={styles.assistantStack}>
         <p>{t("list.intro")}</p>
         {list.status === "ok" && (
           <ConnectedAssistants
