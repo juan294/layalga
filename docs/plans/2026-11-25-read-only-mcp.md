@@ -1,6 +1,6 @@
 # Read-only MCP endpoint for guest booking
 
-Specification for Phase 2 of [ChatGPT and Claude access to guest booking](2026-11-24-external-agent-access.md). Planning baseline: 2026-11-25, branch `plan/read-only-mcp`, commit `1f618a7` (the `develop` tip on that date), worktree `/Users/juan/code/layalga-plan-mcp`. Planning only. This document authorizes no implementation, push, hosted setting, credential, deployment or client registration.
+Specification for Phase 2 of [ChatGPT and Claude access to guest booking](2026-11-24-external-agent-access.md). Planning baseline: 2026-11-25, branch `plan/read-only-mcp`, commit `1f618a7` (the `develop` tip on that date), worktree `/Users/juan/code/layalga-plan-mcp`. **Accepted by the owner on 2026-11-25, including both limits below.** Acceptance covers the specification. This document authorizes no implementation, push, hosted setting, credential, deployment or client registration.
 
 Claim labels: VERIFIED was read or run in this session, or is recorded as VERIFIED in the [Phase 1 spike](../research/2026-11-25-external-agent-oauth-spike.md). SOURCE was read by a delegated research pass on 2026-11-25 in the named vendor document or source file, and not re-read by the coordinator. INFERRED needs a test that this plan names.
 
@@ -19,9 +19,9 @@ A guest who talks to Claude, and later ChatGPT, can find a listed household, com
 | Four phases, one dark release | Owner, 2026-11-25, this session |
 | Claude pilot first, then both directories | Parent plan |
 
-## Two limits to accept with this plan
+## Two accepted limits
 
-1. **The sign-in service exposes the guest's identity to a connected assistant.** VERIFIED in the spike: a client token can call `GET /auth/v1/user` and `/auth/v1/oauth/userinfo`, which return email, identities and metadata. Supabase has no setting for this in the sources read. L’Ayalga's tools never send these fields, and the hook removes email, phone and profile data from the access token, but an assistant vendor that calls Supabase directly can read them. The owner rule "no notes or email" therefore holds for tool data and not for the sign-in service. The consent page and the privacy notice state this in plain words. Acceptance of this plan accepts this limit. A dedicated authorization server would remove it.
+1. **The sign-in service exposes the guest's identity to a connected assistant.** VERIFIED in the spike: a client token can call `GET /auth/v1/user` and `/auth/v1/oauth/userinfo`, which return email, identities and metadata. Supabase has no setting for this in the sources read. L’Ayalga's tools never send these fields, and the hook removes email, phone and profile data from the access token, but an assistant vendor that calls Supabase directly can read them. The owner rule "no notes or email" therefore holds for tool data and not for the sign-in service. The consent page and the privacy notice state this in plain words. The owner accepted this limit on 2026-11-25. A dedicated authorization server would remove it.
 2. **A host account cannot connect an assistant**, including an email prepared in `host_identity_claims` that has not signed in. The pilot therefore needs a Google account that belongs to neither host.
 
 ## Design
@@ -182,10 +182,10 @@ CI starts Supabase with CLI 2.116.0 and the spike used 3.3.0. Phase 1 also runs 
 
 ## Handoff
 
-- **Objective and scope:** specification only, for owner review. Next workflow: `/rpi-implement` Phase 1 in a new isolated worktree from `develop`, after acceptance. Another session prepares v2.5.3 on `develop`; rebase the implementation base onto the released commit.
-- **Entry conditions for Phase 1:** this plan accepted, including both limits above. No hosted action is needed for Phases 1 to 4.
+- **Objective and scope:** specification only, accepted on 2026-11-25. Next workflow: `/rpi-implement` Phase 1 in a new session and isolated worktree from `develop`, when the owner starts it. Another session prepares v2.5.3 on `develop`; rebase the implementation base onto the released commit.
+- **Entry conditions for Phase 1:** met: this plan is accepted, including both limits above. This branch must be integrated locally into `develop`, or the implementation worktree must contain its commits. No hosted action is needed for Phases 1 to 4.
 - **Evidence:** repository reads and searches at `1f618a7`; spike branch `spike/external-agent-oauth` read and not merged; installed type declarations for `@supabase/auth-js` 2.119.2 and `@modelcontextprotocol/server` 2.3.0; Supabase CLI 3.3.0 strings and the public Management API schema for setting names. Vendor documents are SOURCE claims.
 - **Not run:** no test, stack, hosted read or client connection. Docker was listed only; a stack `layalga-rel253` belongs to the other session and was not touched.
 - **Review:** one independent read-only review on 2026-11-25 returned 23 findings (6 high, 9 medium, 8 low). All were accepted and are in this text. It did not read Auth source, hosted roles or vendor documents, and it ran no test.
 - **Overlay:** no `.rpi/project/rpi-plan.md` exists; no declared override was applied.
-- **Local resources:** none allocated. The worktree stays until the owner accepts or rejects the plan.
+- **Local resources:** none allocated. The worktree stays until the branch is integrated.

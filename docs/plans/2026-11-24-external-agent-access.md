@@ -2,7 +2,7 @@
 
 Proposed plan for owner review. Planning baseline: 2026-11-24, branch `chore/post-v2.5.1`. No implementation is authorized by this document. Claims marked VERIFIED were read in source on that date; INFERRED claims need the Phase 1 spike.
 
-Phase 1 ran locally on 2026-11-25 and recommends Supabase Auth under four conditions: [spike result](../research/2026-11-25-external-agent-oauth-spike.md). It confirmed the risk in "Prerequisite security change". The owner accepted that choice on 2026-11-25 and authorized Phase 2, starting with the token rejection as a separate change. The OAuth server stays disabled until its four conditions hold. Phase 2 has a [detailed specification](2026-11-25-read-only-mcp.md), proposed for owner review.
+Phase 1 ran locally on 2026-11-25 and recommends Supabase Auth under four conditions: [spike result](../research/2026-11-25-external-agent-oauth-spike.md). It confirmed the risk in "Prerequisite security change". The owner accepted that choice on 2026-11-25 and authorized Phase 2, starting with the token rejection as a separate change. The OAuth server stays disabled until its four conditions hold. Phase 2 has a [detailed specification](2026-11-25-read-only-mcp.md), accepted on 2026-11-25.
 
 ## Outcome
 
