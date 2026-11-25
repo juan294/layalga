@@ -11,7 +11,13 @@ const claimPartyForUser = vi.fn();
 const hasPartyForUser = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth }),
+  createClient: async () => ({
+    auth: {
+      ...auth,
+      ...(await import("@/test-support/web-session")).webSession(auth.getUser)
+        .auth,
+    },
+  }),
 }));
 vi.mock("@/lib/auth/current-host", () => ({
   claimHostForUser: (...args: unknown[]) => claimHostForUser(...args),

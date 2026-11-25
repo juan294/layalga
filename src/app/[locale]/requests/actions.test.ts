@@ -30,7 +30,8 @@ vi.mock("@/core/booking/stay-requests", () => ({
   findSubmittedStayRequest: api.existing,
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: async () => ({ auth: { getUser: api.getUser } }),
+  createClient: async () =>
+    (await import("@/test-support/web-session")).webSession(api.getUser),
 }));
 import {
   prepareStayRequest,

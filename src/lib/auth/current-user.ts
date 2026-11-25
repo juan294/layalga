@@ -3,6 +3,7 @@ import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { cache } from "react";
 
+import { getSessionUser } from "@/lib/auth/session-user";
 import { createClient } from "@/lib/supabase/server";
 
 import { toAccountIdentity, type AccountIdentity } from "./account-identity";
@@ -14,10 +15,7 @@ import { toAccountIdentity, type AccountIdentity } from "./account-identity";
  */
 export const getAuthUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  return getSessionUser(supabase);
 });
 
 export async function getCurrentAccount(): Promise<AccountIdentity | null> {

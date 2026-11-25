@@ -8,6 +8,7 @@ import {
 import { getDatabaseConnection } from "@/core/db/client";
 import { getCurrentGuestInvitation } from "./current-guest";
 import { partyIsClaimedByUser } from "./guest-account";
+import { getSessionUser } from "@/lib/auth/session-user";
 import { createClient } from "@/lib/supabase/server";
 import { verifiedGoogleGuestEmail } from "./verified-guest-email";
 
@@ -21,9 +22,7 @@ export async function resolveGuestContactAuthority(
   context: GuestContactContext,
 ) {
   const db = getDatabaseConnection().db;
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser();
+  const user = await getSessionUser(await createClient());
   const invitation =
     context.kind === "token"
       ? await findInvitationByToken(db, context.token)
