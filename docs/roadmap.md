@@ -47,4 +47,4 @@ v2.5.0 shipped 2026-11-21 (main `64d6aa1`, pull request #230, AgentCore runtime 
 
 v2.5.1 shipped 2026-11-22 (main `dc12595`, pull request #231, AgentCore runtime version 46, no migrations; [changelog](../CHANGELOG.md#251---2026-11-22)): guests sign in with Google before they search for a household, check availability or prepare a stay. The sign-in restores the selected household and dates, and a draft belongs to the account that prepared it.
 
-v2.5.2 was deployed on 2026-11-25 (main `c1e65fb`, pull request #239, AgentCore runtime version 47, no migrations; [changelog](../CHANGELOG.md#252---2026-11-25)): the guest conversation fix and postgres.js 4.1.1 without pipelining outside transactions.
+v2.5.2 shipped 2026-11-25 (main `c1e65fb`, pull request #239, AgentCore runtime version 47, no migrations; [changelog](../CHANGELOG.md#252---2026-11-25)): the guest conversation fix and postgres.js 4.1.1 without pipelining outside transactions.
