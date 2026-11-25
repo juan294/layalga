@@ -4,6 +4,10 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.5.3] - 2026-11-25
+
+A sign-in security release for the web app. It has no migrations.
+
 ### Security
 
 - Web sign-in refuses access tokens issued to connected OAuth clients, so a connected app cannot act as a host or guest on the website. The OAuth server is off in production, so no such token exists today.
