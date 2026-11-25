@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   closeDatabase,
+  createDatabase,
   getDatabaseConnection,
   validateRuntimeDatabaseUrl,
 } from "./client";
@@ -101,5 +102,16 @@ describe("runtime database credentials", () => {
       if (previous === undefined) delete process.env.DATABASE_URL;
       else process.env.DATABASE_URL = previous;
     }
+  });
+});
+
+describe("transaction pooler compatibility", () => {
+  it("sends one query at a time on each pooled connection", async () => {
+    const { sql } = createDatabase(
+      "postgresql://postgres:postgres@127.0.0.1:54622/postgres",
+    );
+    expect(sql.options.max_pipeline).toBe(1);
+    expect(sql.options.prepare).toBe(false);
+    await sql.end();
   });
 });

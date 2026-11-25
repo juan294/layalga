@@ -226,7 +226,11 @@ export async function runReleaseProbes(
   const tokenSecret = requiredEnvironment("LINK_TOKEN_SECRET");
   const agentRouteSecret = requiredInternalSecret("AGENT_ROUTE_SECRET");
   const tickSecret = requiredInternalSecret("TICK_SECRET");
-  const sql = postgres(databaseUrl, { prepare: false, max: 8 });
+  const sql = postgres(databaseUrl, {
+    prepare: false,
+    max: 8,
+    max_pipeline: 1,
+  });
   const runId = randomUUID();
   const now = new Date();
   const [label, conflictLabel] = probeHomeLabels(runId);
@@ -966,6 +970,7 @@ async function main(): Promise<void> {
   const options = parseReleaseCliOptions(process.argv.slice(2));
   if (options.cleanupOnly) {
     const sql = postgres(requiredEnvironment("DATABASE_URL"), {
+      max_pipeline: 1,
       prepare: false,
       max: 2,
     });

@@ -41,7 +41,11 @@ export async function runAgentCoreSmoke(): Promise<SmokeRunResult> {
     throw new Error("APP_URL is required for the AgentCore smoke test");
   }
 
-  const sql = postgres(databaseUrl, { prepare: false, max: 2 });
+  const sql = postgres(databaseUrl, {
+    prepare: false,
+    max: 2,
+    max_pipeline: 1,
+  });
   // A probe label, so `release:probes -- --cleanup-only` can remove it.
   const runId = randomUUID();
   const household = await createFixtureHousehold(sql, {

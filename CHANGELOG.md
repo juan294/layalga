@@ -14,7 +14,7 @@ A booking fix and a dependency update. It has no migrations and updates both the
 
 ### Changed
 
-- Updated `postgres` (postgres.js) 3.4.9 to 4.1.1. The server now infers parameter types, so list values are passed as plain parameters. The web app and the AgentCore runtime both use this driver.
+- Updated `postgres` (postgres.js) 3.4.9 to 4.1.1, which the web app and the AgentCore runtime both use. Version 4 removes `sql.array()`, so list values are plain parameters. It also pipelines pooled queries by default, and Supavisor before 2.10 never answers those in transaction mode, so every production connection sets `max_pipeline: 1`. A database query that hangs after this release points to the driver: roll back both the web app and AgentCore.
 - Updated `@strands-agents/sdk` 1.25.0 to 1.26.0, the AWS SDK clients 3.1169.0 to 3.1173.0, the ADOT distro 0.13.0 to 0.14.0, `@supabase/supabase-js` 2.119.0 to 2.119.2 and `next-intl` 4.15.1 to 4.15.3.
 - The CodeQL and dependency review workflow actions were updated, and Dependabot moves the two CodeQL actions together.
 
