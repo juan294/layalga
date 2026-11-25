@@ -750,5 +750,107 @@
     "not_found": "This request is unavailable to this household.",
     "decidedBy": "Decision recorded by {name}.",
     "reopen": "Reopen request"
+  },
+  "Assistants": {
+    "navigation": "Connected assistants",
+    "consentTitle": "Connect an assistant",
+    "noScript": "Signing in and approving need JavaScript. Turn it on and reload this page, or use an invitation link from your host.",
+    "authFailed": "Sign-in did not finish. Try again with your Google account.",
+    "account": "Google account",
+    "signIn": "Continue with Google",
+    "useAnother": "Use another account",
+    "continue": "Continue",
+    "checking": "Checking…",
+    "allow": "Allow",
+    "deny": "Do not allow",
+    "answering": "Sending your answer…",
+    "assistant": "Assistant",
+    "answersGoTo": "Answers go to",
+    "canRead": "It can read",
+    "readHouseholds": "Listed households",
+    "readDates": "Available dates",
+    "readRooms": "Rooms and their terms",
+    "readStatus": "The status of the requests from this account",
+    "cannot": "It cannot",
+    "cannotSend": "Send, change or withdraw a request",
+    "alsoAsks": "It also asks for",
+    "scope": {
+      "email": "Your email address",
+      "profile": "Your name and picture",
+      "phone": "Your phone number",
+      "other": "Another permission, called “{scope}”"
+    },
+    "vendorReads": "{vendor} receives these answers. Through the sign-in service, {vendor} could also read your account’s name, email address and picture.",
+    "signOutKeeps": "Signing out of L’Ayalga does not disconnect {assistant}.",
+    "manage": "See connected assistants",
+    "findStay": "Find a stay",
+    "retry": "Try again",
+    "goTo": "Go to {assistant}",
+    "returnTo": "Return to {assistant}",
+    "states": {
+      "start": {
+        "title": "Check your account first",
+        "body": "Continue only if you just started this in your assistant. If somebody sent you this link, close this page."
+      },
+      "review": {
+        "title": "{assistant} asks to connect to your account"
+      },
+      "continue": {
+        "title": "You connected {assistant} before",
+        "body": "Follow the link only if you just started this in your assistant. If somebody sent you here, close this page."
+      },
+      "redirect": {
+        "title": "Returning to {assistant}",
+        "body": "If this page stays open, follow the link."
+      },
+      "off": {
+        "title": "Assistant connections are switched off",
+        "body": "No assistant can connect to L’Ayalga now. You can still disconnect one."
+      },
+      "invalid": {
+        "title": "This link is not complete",
+        "body": "Return to your assistant and connect again."
+      },
+      "sign_in": {
+        "title": "Sign in to continue",
+        "body": "Sign in with the Google account that you want to use. Nothing is connected until you allow it."
+      },
+      "host": {
+        "title": "A host account cannot connect an assistant",
+        "body": "Use a Google account that does not belong to a host."
+      },
+      "not_allowed": {
+        "title": "This assistant cannot connect",
+        "body": "L’Ayalga does not recognize this assistant, or it is switched off. You can find a stay on this website."
+      },
+      "ended": {
+        "title": "This request has ended",
+        "body": "Return to your assistant and connect again."
+      },
+      "unavailable": {
+        "title": "This request could not be checked",
+        "body": "Try again in a minute."
+      }
+    },
+    "list": {
+      "intro": "A connected assistant can read listed households, dates, rooms and the status of your requests. It cannot send, change or withdraw a request.",
+      "signInHelp": "Sign in with the Google account that you connected.",
+      "empty": "No assistant is connected to this account.",
+      "unrecognized": "unrecognized",
+      "connectedOn": "Connected on {date}",
+      "disconnect": "Disconnect",
+      "disconnectNamed": "Disconnect {assistant}",
+      "disconnecting": "Disconnecting…",
+      "disconnected": "Disconnected.",
+      "failed": "Not disconnected. Try again.",
+      "gone": "That assistant is not connected to this account.",
+      "off": "Assistants cannot use these connections now, and the list is not available. You do not need to do anything.",
+      "unavailable": "The list could not be loaded.",
+      "notesTitle": "Good to know",
+      "noteAtOnce": "Disconnecting takes effect at once.",
+      "noteSignOut": "Signing out of L’Ayalga does not disconnect an assistant.",
+      "noteStale": "If the assistant still shows a connection, remove L’Ayalga there and add it again.",
+      "noteClaudeCode": "Claude Code is not supported."
+    }
   }
 }

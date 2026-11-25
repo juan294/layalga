@@ -419,3 +419,74 @@
 .reviewNavigation {
   margin: 1.1rem 0;
 }
+
+/* Assistant consent and connected assistants. */
+.stateTitle {
+  font-family: var(--font-fraunces, Georgia, serif);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.stateTitle:focus {
+  outline: none;
+}
+
+.factTitle {
+  font-family: var(--font-jetbrains-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+}
+
+.plainList {
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.decision {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+}
+
+.actionLink {
+  align-items: center;
+  color: inherit;
+  display: inline-flex;
+  font-weight: 600;
+  min-height: var(--interactive-target);
+}
+
+.connections {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.connections li {
+  align-items: center;
+  border-bottom: 1px solid var(--guest-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: space-between;
+  overflow-wrap: anywhere;
+  padding: 0.9rem 0;
+}
+
+.connections li > div {
+  flex: 1 1 12rem;
+}
+
+.connections small {
+  color: var(--guest-muted);
+  display: block;
+  margin-top: 0.2rem;
+}

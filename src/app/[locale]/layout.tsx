@@ -19,6 +19,7 @@ import { getCurrentHost } from "@/lib/auth/current-host";
 import { getAuthUser, getCurrentAccount } from "@/lib/auth/current-user";
 import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { hasRequesterStayRequests } from "@/core/booking/stay-requests";
+import { assistantAccessOn } from "@/lib/server/env";
 import { buildSiteMetadata } from "@/lib/site-metadata";
 
 // Stamps data-theme on <html> before first paint, so a user whose stored
@@ -146,6 +147,11 @@ export default async function LocaleLayout({
                 {hasRequests && (
                   <Link href={`/${locale}/requests`}>
                     {booking("StayRequests.history")}
+                  </Link>
+                )}
+                {assistantAccessOn() && (
+                  <Link href={`/${locale}/assistants`}>
+                    {booking("Assistants.navigation")}
                   </Link>
                 )}
               </nav>

@@ -247,6 +247,9 @@ export function assistantFixtures(db: Sql, admin: Sql) {
       cleanups.push(() => db`delete from auth.users where id=${user.id}`);
       return user;
     },
+    /** Takes a client off the allowlist. */
+    forget: (clientId: string) =>
+      admin`delete from public.assistant_clients where client_id=${clientId}`,
     /** A registered client; `allow: null` leaves it off the allowlist. */
     async client({
       allow = {},

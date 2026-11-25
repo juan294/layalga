@@ -37,6 +37,13 @@ export async function createFixtureRequester(db: Sql) {
       userId,
       email,
       cleanup,
+      /** A new web session of this account, outside the browser. */
+      async accessToken() {
+        const login = await client.auth.signInWithPassword({ email, password });
+        if (login.error || !login.data.session)
+          throw new Error("Could not sign in the local requester");
+        return login.data.session.access_token;
+      },
       async signIn(context: Pick<BrowserContext, "addCookies">) {
         const login = await client.auth.signInWithPassword({ email, password });
         if (login.error || !login.data.session)

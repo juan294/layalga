@@ -1,6 +1,6 @@
 import "@/core/server-only";
 
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { AuthError, SupabaseClient } from "@supabase/supabase-js";
 
 import {
   listAllowlistedClients,
@@ -103,7 +103,7 @@ export function decideConsent(
       request.authorizationId,
       { skipBrowserRedirect: true },
     );
-    if (error) return { status: oauthServerFailure(error) };
+    if (error) return failure(error);
     return returnsTo(data.redirect_url, request.redirectUri)
       ? {
           status: "redirect",
@@ -126,11 +126,10 @@ async function consentGuest(authorizationId: unknown, deps: ConsentDeps) {
   const session = await lookUpSessionUser(deps.supabase);
   if (session.status === "unavailable")
     return { status: "unavailable" } as const;
-  const user: User | null =
-    session.status === "signed_in" ? session.user : null;
-  const email = verifiedGoogleGuestEmail(user);
-  if (!user || !email) return { status: "sign_in" } as const;
-  if (await isHostAccount(deps.database, user.id, email))
+  if (session.status === "signed_out") return { status: "sign_in" } as const;
+  const email = verifiedGoogleGuestEmail(session.user);
+  if (!email) return { status: "sign_in" } as const;
+  if (await isHostAccount(deps.database, session.user.id, email))
     return { status: "host" } as const;
   return { status: "ok", authorizationId, email } as const;
 }
@@ -141,7 +140,7 @@ async function consentRequest(rawId: unknown, deps: ConsentDeps) {
   const { authorizationId, email } = guest;
   const { data, error } =
     await deps.supabase.auth.oauth.getAuthorizationDetails(authorizationId);
-  if (error) return { status: oauthServerFailure(error) } as const;
+  if (error) return failure(error);
 
   const allowed = (await listAllowlistedClients(deps.database)).filter(
     (client) => client.enabled,
@@ -169,6 +168,13 @@ async function consentRequest(rawId: unknown, deps: ConsentDeps) {
     redirectUri: client.redirectUri,
     scopes: data.scope.split(" ").filter(Boolean),
   } as const;
+}
+
+function failure(error: AuthError) {
+  const status = oauthServerFailure(error);
+  if (status === "unavailable")
+    reportActionError("assistant_consent_failed", error);
+  return { status };
 }
 
 /** The allowlist holds no query or fragment, so the prefix fixes origin and path. */

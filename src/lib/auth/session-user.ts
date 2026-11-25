@@ -11,7 +11,8 @@ type AuthClient = Pick<SupabaseClient, "auth">;
 
 export type SessionLookup =
   | { status: "signed_in"; user: User }
-  | { status: "signed_out" | "unavailable" };
+  | { status: "signed_out" }
+  | { status: "unavailable" };
 
 /**
  * The verified user of a direct web sign-in. Supabase `getUser()` also accepts
