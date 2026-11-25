@@ -28,7 +28,7 @@ export type AssistantAccess =
   | { status: "ok"; principal: AssistantPrincipal }
   | { status: "refused" }
   | { status: "unavailable" }
-  | { status: "limited"; principal: AssistantPrincipal; retryAfter: number };
+  | { status: "limited"; assistant: AssistantName; retryAfter: number };
 
 export type AssistantKeys = JWTVerifyGetKey & {
   jwks(): JSONWebKeySet | undefined;
@@ -80,7 +80,7 @@ const issuerOf = (supabaseUrl: string) =>
   `${supabaseUrl.replace(/\/+$/, "")}/auth/v1`;
 
 /** The signing keys of Auth, cached for this process. */
-export function assistantKeys(supabaseUrl: string): AssistantKeys {
+function assistantKeys(supabaseUrl: string): AssistantKeys {
   const url = `${issuerOf(supabaseUrl)}/.well-known/jwks.json`;
   let keys = keySets.get(url);
   if (!keys) {
@@ -116,7 +116,6 @@ export async function resolveAssistant(
     assistant = client.assistant;
 
     const userId = claims.sub;
-    const principal = { userId, ...client };
     if (await isHostAccount(deps.database, userId, null))
       return refused("refused_host", assistant);
     const allowance = await takeRequest(
@@ -129,7 +128,7 @@ export async function resolveAssistant(
       log("info", "limited", assistant);
       return {
         status: "limited",
-        principal,
+        assistant,
         retryAfter: allowance.retryAfter,
       };
     }
@@ -143,7 +142,7 @@ export async function resolveAssistant(
       return refused("refused_identity", assistant);
     if (await isHostAccount(deps.database, userId, email))
       return refused("refused_host", assistant);
-    return { status: "ok", principal };
+    return { status: "ok", principal: { userId, ...client } };
   } catch (error) {
     // Database and connection errors carry a code; a fault in this code does not.
     const database = error instanceof Error && "code" in error;
@@ -157,16 +156,20 @@ export async function resolveAssistant(
 async function verifiedClaims(
   token: string,
   now: Date,
-  { supabase, jwks = assistantKeys(supabase.url) }: AssistantBearerDeps,
+  { supabase, jwks }: AssistantBearerDeps,
 ) {
   try {
-    const { payload } = await jwtVerify(token, availableKeys(jwks), {
-      algorithms: ["ES256"],
-      issuer: issuerOf(supabase.url),
-      audience: ASSISTANT_AUDIENCE,
-      clockTolerance: CLOCK_TOLERANCE_SECONDS,
-      currentDate: now,
-    });
+    const { payload } = await jwtVerify(
+      token,
+      availableKeys(supabase.url, jwks),
+      {
+        algorithms: ["ES256"],
+        issuer: issuerOf(supabase.url),
+        audience: ASSISTANT_AUDIENCE,
+        clockTolerance: CLOCK_TOLERANCE_SECONDS,
+        currentDate: now,
+      },
+    );
     const claims = tokenClaims.safeParse(payload);
     const latestIssue = now.getTime() / 1000 + CLOCK_TOLERANCE_SECONDS;
     return claims.success && claims.data.iat <= latestIssue
@@ -180,12 +183,17 @@ async function verifiedClaims(
 }
 
 /** Reading the keys is the only step of a verification that can meet an outage. */
-function availableKeys(jwks: AssistantKeys): JWTVerifyGetKey {
+function availableKeys(
+  supabaseUrl: string,
+  configured: AssistantKeys | undefined,
+): JWTVerifyGetKey {
   return async (header, token) => {
+    let keys: AssistantKeys | undefined;
     try {
-      return await jwks(header, token);
+      keys = configured ?? assistantKeys(supabaseUrl);
+      return await keys(header, token);
     } catch (error) {
-      const published = jwks.jwks()?.keys.length;
+      const published = keys?.jwks()?.keys.length;
       if (
         published &&
         (error instanceof errors.JWKSNoMatchingKey ||

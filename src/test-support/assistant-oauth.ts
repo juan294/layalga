@@ -224,7 +224,10 @@ export function assistantFixtures(db: Sql, admin: Sql) {
     },
     defer: (cleanup: () => Promise<unknown>) => cleanups.push(cleanup),
     async cleanup() {
-      for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
+      const failures: unknown[] = [];
+      for (const cleanup of cleanups.splice(0).reverse())
+        await cleanup().catch((error: unknown) => failures.push(error));
+      if (failures.length) throw failures[0];
     },
   };
 }

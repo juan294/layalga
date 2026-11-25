@@ -17,12 +17,13 @@ export function localSupabase() {
     "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
   if (!isLocal(url) || !isLocal(databaseUrl))
     throw new Error("These fixtures require local Supabase");
+  // The default Auth and the default database belong to one stack.
   if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    new URL(databaseUrl).port !== "54622"
+    (new URL(url).port === "54621") !==
+    (new URL(databaseUrl).port === "54622")
   )
     throw new Error(
-      "Set NEXT_PUBLIC_SUPABASE_URL to the stack that owns DATABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_URL and DATABASE_URL name different stacks",
     );
   // The default postgres login cannot switch to the Auth and runtime roles.
   const admin = new URL(databaseUrl);

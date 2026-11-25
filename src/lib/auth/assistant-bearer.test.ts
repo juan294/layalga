@@ -262,6 +262,15 @@ describe("resolveAssistant before the database", () => {
     );
   });
 
+  it("is unavailable when the Supabase URL is not a URL", async () => {
+    expect(
+      await resolve(`Bearer ${await sign()}`, {
+        supabase: { url: "not a url", key: "publishable" },
+        jwks: undefined,
+      }),
+    ).toBe("unavailable_keys");
+  });
+
   it("refuses an unknown key ID of a remote key set that answers", async () => {
     const jwk = {
       ...(await exportJWK(keys.publicKey)),

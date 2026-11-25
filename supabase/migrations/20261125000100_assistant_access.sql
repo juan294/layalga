@@ -108,7 +108,11 @@ returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare result jsonb; deleted integer;
 begin
   result := private.apply_data_retention_before_assistant_access(p_now);
-  delete from public.assistant_request_windows where started_at < p_now - interval '2 days';
+  -- A window that a request is counting now is not waited for.
+  delete from public.assistant_request_windows where (subject, span) in (
+    select subject, span from public.assistant_request_windows
+    where started_at < p_now - interval '2 days' for update skip locked
+  );
   get diagnostics deleted = row_count;
   return result || jsonb_build_object('deletedAssistantWindows', deleted);
 end $$;

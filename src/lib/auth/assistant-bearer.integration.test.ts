@@ -26,11 +26,7 @@ import {
   localWebDatabase,
 } from "@/test-support/local-supabase";
 
-import {
-  assistantKeys,
-  resolveAssistant,
-  type AssistantBearerDeps,
-} from "./assistant-bearer";
+import { resolveAssistant, type AssistantBearerDeps } from "./assistant-bearer";
 
 const local = localSupabase();
 const db = postgres(local.databaseUrl, { max: 2, prepare: false });
@@ -59,7 +55,6 @@ describe("resolveAssistant on local Auth", { timeout: 30_000 }, () => {
     database: web.db,
     clock: new SystemClock(),
     supabase: { url: local.url, key: local.key },
-    jwks: assistantKeys(local.url),
   });
 
   async function connect(options?: { google?: boolean }) {
@@ -340,6 +335,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
     await fixtures.host({ authUserId: userId });
     const bound = await scripted(() => Response.json(user()));
     expect(bound.result).toEqual({ status: "refused" });
+    expect(loggedOutcome()).toBe("refused_host");
     expect(bound.fetchUser).not.toHaveBeenCalled();
 
     userId = randomUUID();
@@ -348,6 +344,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
       Response.json(user({ email: user().email.toUpperCase() })),
     );
     expect(prepared.result).toEqual({ status: "refused" });
+    expect(loggedOutcome()).toBe("refused_host");
     expect(prepared.fetchUser).toHaveBeenCalledTimes(1);
   });
 
@@ -362,7 +359,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
     });
     expect(limited.result).toEqual({
       status: "limited",
-      principal: { userId, clientId: client, assistant: "claude" },
+      assistant: "claude",
       retryAfter: 60,
     });
     expect(limited.fetchUser).not.toHaveBeenCalled();

@@ -80,7 +80,7 @@ describe("assistant access schema", () => {
           for (const statement of [
             () => sql`select 1 from ${name}`,
             () => sql`insert into ${name} default values`,
-            () => sql`delete from ${name}`,
+            () => sql`delete from ${name} where false`,
           ])
             await expect(statement()).rejects.toMatchObject({ code: "42501" });
         }
@@ -101,9 +101,9 @@ describe("assistant access schema", () => {
         () =>
           web`insert into public.assistant_clients(client_id,assistant,redirect_uri)
             values(${randomUUID()},'claude','https://claude.ai/a')`,
-        () => web`update public.assistant_clients set enabled=true`,
-        () => web`delete from public.assistant_clients`,
-        () => web`delete from public.assistant_request_windows`,
+        () => web`update public.assistant_clients set enabled=true where false`,
+        () => web`delete from public.assistant_clients where false`,
+        () => web`delete from public.assistant_request_windows where false`,
         () => web`select private.access_token_hook('{}'::jsonb)`,
       ])
         await expect(statement()).rejects.toMatchObject({ code: "42501" });
