@@ -7,7 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 
 const REVOKE_TIMEOUT_MS = 5_000;
 // Answers that mean no session was left to revoke.
-const SESSION_GONE = [400, 401, 403, 404];
+const SESSION_GONE = [
+  "refresh_token_already_used",
+  "refresh_token_not_found",
+  "session_expired",
+  "session_not_found",
+  "user_not_found",
+];
 // Session chunks and PKCE verifiers written by @supabase/ssr.
 const SESSION_COOKIE = /^sb-[\w-]+-auth-token(-[\w-]+)?(\.\d+)?$/;
 
@@ -24,7 +30,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let timer: NodeJS.Timeout | undefined;
   const revoked = await Promise.race([
     supabase.auth.signOut({ scope: "local" }).then(
-      ({ error }) => !error || SESSION_GONE.includes(error.status ?? 0),
+      ({ error }) => !error || SESSION_GONE.includes(error.code ?? ""),
       () => false,
     ),
     new Promise<false>((resolve) => {

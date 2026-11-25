@@ -1,8 +1,4 @@
-import {
-  AuthApiError,
-  AuthRetryableFetchError,
-  AuthSessionMissingError,
-} from "@supabase/supabase-js";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -47,10 +43,14 @@ describe("POST /auth/sign-out", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  test("does not report a session that was already rejected", async () => {
-    signOut.mockResolvedValue({
-      error: new AuthApiError("gone", 400, "refresh_token_not_found"),
-    });
+  test.each([
+    "refresh_token_already_used",
+    "refresh_token_not_found",
+    "session_expired",
+    "session_not_found",
+    "user_not_found",
+  ])("does not report a session that is already gone: %s", async (code) => {
+    signOut.mockResolvedValue({ error: new AuthApiError("gone", 400, code) });
     const response = await POST(request("http://localhost:3008", "en"));
 
     expect(response.status).toBe(303);
@@ -99,7 +99,6 @@ describe("POST /auth/sign-out", () => {
   });
 
   test("ends email guest authority even without a Google session", async () => {
-    signOut.mockResolvedValue({ error: new AuthSessionMissingError() });
     const response = await POST(request("http://localhost:3008", "en"));
 
     expect(response.status).toBe(303);
@@ -142,6 +141,13 @@ describe("POST /auth/sign-out", () => {
       () =>
         signOut.mockResolvedValue({
           error: new AuthApiError("slow down", 429, "over_request_rate_limit"),
+        }),
+    ],
+    [
+      "rejects the API key",
+      () =>
+        signOut.mockResolvedValue({
+          error: new AuthApiError("Invalid API key", 401, undefined),
         }),
     ],
     ["throws", () => signOut.mockRejectedValue(new Error("network"))],
