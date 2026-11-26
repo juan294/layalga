@@ -17,7 +17,9 @@ import { searchPublicStays } from "../../src/core/booking/public-stay-search";
 import { submitStayRequest } from "../../src/core/booking/stay-requests";
 import { closeDatabase } from "../../src/core/db/client";
 import {
+  allowClient,
   authCall,
+  deleteClient,
   FIXTURE_CALLBACK,
   refreshClient,
   startAuthorization,
@@ -47,8 +49,11 @@ const criteria = {
   pets: 0,
 };
 
+let secretKey: string | undefined;
+
 /** The secret key of the local stack, for the Auth admin API only. */
 function localSecretKey(): string {
+  if (secretKey) return secretKey;
   const status = JSON.parse(
     execFileSync("supabase", ["status", "-o", "json"], {
       encoding: "utf8",
@@ -60,26 +65,17 @@ function localSecretKey(): string {
     throw new Error("supabase status names another stack than the fixtures");
   if (!status.SECRET_KEY)
     throw new Error("supabase status reported no secret key");
-  return status.SECRET_KEY;
+  return (secretKey = status.SECRET_KEY);
 }
 
 /** The Auth admin API, as an operator uses it at activation gate G4. */
-async function adminCall(method: string, path: string, body?: unknown) {
+function adminCall(
+  method: string,
+  path: string,
+  json?: Record<string, unknown>,
+) {
   const key = localSecretKey();
-  const response = await fetch(`${localSupabase().url}/auth/v1/admin${path}`, {
-    method,
-    headers: {
-      apikey: key,
-      authorization: `Bearer ${key}`,
-      ...(body ? { "content-type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await response.text();
-  return {
-    status: response.status,
-    body: (text ? JSON.parse(text) : {}) as Record<string, unknown>,
-  };
+  return authCall(method, `/auth/v1/admin${path}`, { key, token: key, json });
 }
 
 /** Claude, as far as the official client can play it: one connection and its tokens. */
@@ -230,15 +226,12 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
     clientId = String(registered.body.client_id);
     cleanups.push(async () => {
       await adminCall("DELETE", `/oauth/clients/${clientId}`);
-      // The admin API keeps a deleted row with deleted_at; remove it.
-      await admin`delete from public.assistant_clients where client_id=${clientId}`;
-      await admin`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;
-      await admin`delete from auth.oauth_clients where id=${clientId}`;
+      // The admin API keeps a deleted row with deleted_at; remove it too.
+      await deleteClient(admin, clientId);
     });
     expect(registered.body.registration_type).toBe("manual");
     expect(registered.body.redirect_uris).toEqual([FIXTURE_CALLBACK]);
-    await admin`insert into public.assistant_clients(client_id,assistant,redirect_uri,enabled)
-      values(${clientId},'claude',${FIXTURE_CALLBACK},true)`;
+    await allowClient(admin, clientId);
 
     const callback = interceptCallback(page);
     await callback.install();

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { Fragment } from "react";
 
 import styles from "@/components/guest/guest-ledger.module.css";
 import { routing } from "@/i18n/routing";
@@ -45,6 +44,13 @@ export default async function PrivacyPage({
   const t = await getTranslations({ locale, namespace: "Privacy" });
   // The assistant section applies only once assistants can connect.
   const assistants = assistantAccessOn();
+  const sections = assistants
+    ? PRIVACY_SECTIONS.flatMap((section) =>
+        section === "assistant"
+          ? [section, "connectedAssistants" as const]
+          : [section],
+      )
+    : PRIVACY_SECTIONS;
 
   return (
     <main className={styles.shell}>
@@ -55,24 +61,18 @@ export default async function PrivacyPage({
         <div className={styles.body}>
           <p>{t(assistants ? "updatedAssistants" : "updated")}</p>
           <p>{t("intro")}</p>
-          {PRIVACY_SECTIONS.map((section) => (
-            <Fragment key={section}>
-              <section>
-                <h2>{t(`${section}Title`)}</h2>
-                <p>{t(`${section}Body`)}</p>
-              </section>
-              {section === "assistant" && assistants && (
-                <section>
-                  <h2>{t("connectedAssistantsTitle")}</h2>
-                  <p>{t("connectedAssistantsBody")}</p>
-                  <p>
-                    <a href={`/${locale}/assistants`}>
-                      {t("connectedAssistantsLink")}
-                    </a>
-                  </p>
-                </section>
+          {sections.map((section) => (
+            <section key={section}>
+              <h2>{t(`${section}Title`)}</h2>
+              <p>{t(`${section}Body`)}</p>
+              {section === "connectedAssistants" && (
+                <p>
+                  <a href={`/${locale}/assistants`}>
+                    {t("connectedAssistantsLink")}
+                  </a>
+                </p>
               )}
-            </Fragment>
+            </section>
           ))}
           <a href={`/${locale}/sign-in`}>{t("backToSignIn")}</a>
         </div>

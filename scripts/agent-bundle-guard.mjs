@@ -1,18 +1,31 @@
 /**
+ * Fails the AgentCore bundle build when any esbuild input path matches.
+ *
+ * @param {{ inputs: Record<string, unknown> }} metafile
+ * @param {(path: string) => boolean} matches
+ * @param {string} label
+ */
+function assertAbsent(metafile, matches, label) {
+  const shipped = Object.keys(metafile.inputs).filter(matches);
+  if (shipped.length > 0) {
+    throw new Error(
+      `${label} must not ship in the AgentCore bundle: ${shipped.join(", ")}`,
+    );
+  }
+}
+
+/**
  * The scripted model is test-only. Fails the AgentCore bundle build when any
  * esbuild input path contains `scripted-model`.
  *
  * @param {{ inputs: Record<string, unknown> }} metafile
  */
 export function assertNoScriptedModel(metafile) {
-  const shipped = Object.keys(metafile.inputs).filter((path) =>
-    path.includes("scripted-model"),
+  assertAbsent(
+    metafile,
+    (path) => path.includes("scripted-model"),
+    "scripted model",
   );
-  if (shipped.length > 0) {
-    throw new Error(
-      `scripted model must not ship in the AgentCore bundle: ${shipped.join(", ")}`,
-    );
-  }
 }
 
 // The assistant endpoint, its route and the bearer resolver run on the web
@@ -29,12 +42,9 @@ const ASSISTANT_ENDPOINT =
  * @param {{ inputs: Record<string, unknown> }} metafile
  */
 export function assertNoAssistantEndpoint(metafile) {
-  const shipped = Object.keys(metafile.inputs).filter((path) =>
-    ASSISTANT_ENDPOINT.test(path),
+  assertAbsent(
+    metafile,
+    (path) => ASSISTANT_ENDPOINT.test(path),
+    "assistant endpoint",
   );
-  if (shipped.length > 0) {
-    throw new Error(
-      `assistant endpoint must not ship in the AgentCore bundle: ${shipped.join(", ")}`,
-    );
-  }
 }

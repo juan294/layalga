@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({
   hasLocale: (locales: readonly string[], locale: string) =>
@@ -43,10 +43,12 @@ const EXPECTED_SECTIONS = [
 ] as const;
 
 describe("privacy page", () => {
+  beforeEach(() => {
+    access.on = false;
+  });
+
   it("renders every section and a way back to sign-in", async () => {
-    const html = renderToStaticMarkup(
-      await PrivacyPage({ params: Promise.resolve({ locale: "es" }) }),
-    );
+    const html = await render();
 
     expect(html).toContain("<h1");
     expect(html).toContain("Privacy.title");
@@ -58,7 +60,6 @@ describe("privacy page", () => {
   });
 
   it("leaves out the assistant section and its date while assistants are off", async () => {
-    access.on = false;
     const html = await render();
     expect(html).toContain("Privacy.updated<");
     expect(html).not.toContain("Privacy.updatedAssistants");
@@ -67,22 +68,18 @@ describe("privacy page", () => {
 
   it("adds the assistant section after the coordinator, with its date, when assistants are on", async () => {
     access.on = true;
-    try {
-      const html = await render();
-      expect(html).toContain("Privacy.updatedAssistants<");
-      expect(html).not.toContain("Privacy.updated<");
-      const order = [
-        "Privacy.assistantTitle",
-        "Privacy.connectedAssistantsTitle",
-        "Privacy.connectedAssistantsBody",
-        "Privacy.servicesTitle",
-      ].map((key) => html.indexOf(key));
-      expect(order.every((at) => at >= 0)).toBe(true);
-      expect(order).toEqual([...order].sort((a, b) => a - b));
-      expect(html).toContain('href="/es/assistants"');
-    } finally {
-      access.on = false;
-    }
+    const html = await render();
+    expect(html).toContain("Privacy.updatedAssistants<");
+    expect(html).not.toContain("Privacy.updated<");
+    const order = [
+      "Privacy.assistantTitle",
+      "Privacy.connectedAssistantsTitle",
+      "Privacy.connectedAssistantsBody",
+      "Privacy.servicesTitle",
+    ].map((key) => html.indexOf(key));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(html).toContain('href="/es/assistants"');
   });
 
   it("dates the assistant notice and names the limits in both languages", () => {
