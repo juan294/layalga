@@ -371,6 +371,8 @@ describe("official client", { timeout: 60_000 }, () => {
         other.email,
         "Europe/Madrid",
         "2090-08-01",
+        // Notes and requests of both guests, room and host canaries.
+        "CANARY",
       ];
       const scan = (value: unknown, path: string): void => {
         if (Array.isArray(value))

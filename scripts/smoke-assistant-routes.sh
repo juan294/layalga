@@ -26,6 +26,14 @@ if [[ ! -f .next/BUILD_ID ]]; then
   printf 'BLOCKED: no production build; run pnpm run build first.\n' >&2
   exit 1
 fi
+# `next start` also reads these files, which could switch assistants on or
+# load real credentials. Run the smoke from a worktree without them.
+for file in .env .env.local .env.production .env.production.local; do
+  if [[ -e "$file" ]]; then
+    printf 'BLOCKED: %s exists; run the smoke where next start reads no env file.\n' "$file" >&2
+    exit 1
+  fi
+done
 if curl -s -o /dev/null --max-time 2 "${base}/"; then
   printf 'BLOCKED: port %s is already in use.\n' "$port" >&2
   exit 1

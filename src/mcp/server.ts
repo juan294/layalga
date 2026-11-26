@@ -18,7 +18,16 @@ import { TOOLS, callTool, type ToolContext } from "./tools";
 const MAX_BODY_BYTES = 64 * 1024;
 const OUTAGE_RETRY_SECONDS = 30;
 const ASSISTANT_ORIGINS = ["https://claude.ai", "https://chatgpt.com"];
-const LOGGED_METHOD = /^[a-z]+(?:\/[a-z_]+)*$/i;
+// Other names are logged as "other": the caller chooses the text.
+const LOGGED_METHODS = new Set([
+  "initialize",
+  "notifications/initialized",
+  "server/discover",
+  "tools/list",
+  "tools/call",
+  "subscriptions/listen",
+  "ping",
+]);
 
 export interface McpDeps {
   appUrl: string;
@@ -133,8 +142,7 @@ async function serve(
       ? message.id
       : null;
   const method = typeof message.method === "string" ? message.method : "";
-  entry.method =
-    method.length <= 64 && LOGGED_METHOD.test(method) ? method : "other";
+  entry.method = LOGGED_METHODS.has(method) ? method : "other";
   if (method === "tools/call") {
     const name = (message.params as { name?: unknown } | undefined)?.name;
     entry.tool = TOOLS.some((tool) => tool.name === name)
@@ -213,9 +221,12 @@ async function serve(
       extra: { [STATE]: state },
     },
   });
+  // A 2025-era answer is a stream that the SDK returns before the tool has
+  // run. Nothing here streams for long, so read it whole before the log.
+  const answer = await response.arrayBuffer();
   entry.outcome =
     state.outcome ?? (response.ok ? "ok" : `http_${response.status}`);
-  return response;
+  return new Response(answer, response);
 }
 
 function refuse(entry: LogEntry, outcome: string, status: number) {

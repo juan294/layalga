@@ -90,12 +90,13 @@ describe("tool list", () => {
         required: ["status"],
         additionalProperties: false,
       });
-      expect(tool.description).toMatch(/only a host confirms|from hosts/i);
+      expect(tool.description).toMatch(/come from hosts/);
     }
     for (const tool of TOOLS.slice(0, 2))
       expect(tool.description).toMatch(/website/);
     expect(TOOLS[1]!.description).toMatch(/provisional/);
-    expect(TOOLS[1]!.description).toMatch(/only a host confirms/i);
+    for (const tool of TOOLS.slice(1))
+      expect(tool.description).toMatch(/only a host confirms/i);
   });
 });
 

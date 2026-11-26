@@ -28,7 +28,10 @@ beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 const rpc = (method: string, params: Record<string, unknown> = {}, id = 1) => ({
   jsonrpc: "2.0",
@@ -268,6 +271,36 @@ describe("dispatch", () => {
       );
   });
 
+  it.each(["2025-11-25", "2026-07-28"])(
+    "logs the tool outcome after the %s answer is complete",
+    async (version) => {
+      // The status read waits for a database that refuses the connection.
+      vi.stubEnv("DATABASE_URL", "postgresql://nobody@127.0.0.1:1/none");
+      const legacy = version === "2025-11-25";
+      const body = {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: legacy
+          ? { name: "read_request_status", arguments: {} }
+          : rpc("tools/call", { name: "read_request_status", arguments: {} })
+              .params,
+      };
+      const response = await serve(
+        post(body, legacy ? { "mcp-protocol-version": version } : {}),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("unavailable");
+      expect(loggedLines()).toEqual([
+        expect.objectContaining({
+          method: "tools/call",
+          tool: "read_request_status",
+          outcome: "unavailable",
+        }),
+      ]);
+    },
+  );
+
   it("logs one line for each request, without values", async () => {
     await serve(
       post(
@@ -281,8 +314,9 @@ describe("dispatch", () => {
     resolve.mockResolvedValue({ status: "refused" });
     await serve(post(rpc("tools/list"), { origin: "https://evil.example" }));
     await serve(post(rpc("method-canary/x!")));
+    await serve(post(rpc("notifications/canary")));
     const lines = loggedLines();
-    expect(lines).toHaveLength(3);
+    expect(lines).toHaveLength(4);
     expect(lines[0]).toMatchObject({
       assistant: "claude",
       method: "tools/call",
@@ -292,6 +326,7 @@ describe("dispatch", () => {
     // The Origin check comes before the body is read.
     expect(lines[1]).toMatchObject({ method: "none", outcome: "origin" });
     expect(lines[2]).toMatchObject({ method: "other", outcome: "refused" });
+    expect(lines[3]).toMatchObject({ method: "other", outcome: "refused" });
     const logged = JSON.stringify([
       ...vi.mocked(console.info).mock.calls,
       ...vi.mocked(console.error).mock.calls,
