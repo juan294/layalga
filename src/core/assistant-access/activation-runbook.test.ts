@@ -127,9 +127,38 @@ describe("activation runbook", () => {
     for (const line of pushes) expect(line).toMatch(/^- Never run/);
     expect(runbook).not.toMatch(/sb_(?:secret|publishable)_\w+/);
     expect(runbook).not.toMatch(/\beyJ[\w-]{10,}/);
-    // Each time the secret key is read, it is removed again.
-    const reads = runbook.match(/^SB_SECRET="\$\(/gm) ?? [];
-    expect(reads.length).toBeGreaterThan(0);
-    expect(runbook.match(/^unset SB_SECRET$/gm)).toHaveLength(reads.length);
+    // The secret key is read in one place, into a function-local variable.
+    const reveals = runbook.match(/^.*reveal=true.*$/gm) ?? [];
+    expect(reveals).toHaveLength(1);
+    expect(reveals[0]).toMatch(/^ {2}key="\$\(mgmt /);
+    expect(runbook).toMatch(/^auth_admin\(\) \{\n {2}local key\n/m);
+    expect(runbook).not.toMatch(/^\s*(?:export\s+)?\w*SECRET\w*=/m);
+  });
+
+  it("names the hosted project on every SQL command, as the owner role", () => {
+    expect(runbook.match(/^.*supabase db query.*$/gm)).toEqual([
+      'sql() { supabase db query --remote="$PROJECT_REF" "$@"; }',
+    ]);
+    const commands = runbook.match(/^\s*sql .*$/gm) ?? [];
+    expect(commands.length).toBeGreaterThan(5);
+    for (const command of commands)
+      expect(command).not.toContain("--read-only");
+    // Every SQL file that a command runs is a block of this document.
+    const files = [...runbook.matchAll(/--file "\$SQL_DIR\/([\w-]+)\.sql"/g)];
+    expect(files).toHaveLength(runbook.match(/--file /g)!.length);
+    for (const [, name] of files)
+      expect(runbook, name).toMatch(
+        new RegExp(`File \`${name}\\.sql\`:\\n\\n *\`\`\`sql\\n`),
+      );
+  });
+
+  it("checks every client ID before a command uses it", () => {
+    const assigned = [...runbook.matchAll(/^\s*(\w+_CLIENT_ID)="\$\(/gm)].map(
+      ([, name]) => name!,
+    );
+    expect(assigned.length).toBeGreaterThan(1);
+    for (const name of assigned)
+      expect(runbook, name).toContain(`require_uuid "$${name}"`);
+    expect(runbook).toContain("ask_client_id() { read -r -p");
   });
 });
