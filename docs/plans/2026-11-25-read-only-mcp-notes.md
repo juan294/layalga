@@ -304,6 +304,8 @@ Not run: any hosted read or write, a real Claude or ChatGPT connection, a real G
 - G6 entry condition: a command that creates and removes a pilot household in production without touching the real household.
 - P2 and P4 cannot be measured as the plan words them without a change to `[MCP_REQUEST]` (Origin value, protocol version, `/user` time).
 
+Both points are addressed by the pilot preparation follow-up below.
+
 ### Handoff
 
 - **Scope:** Phase 4 only, local. Base `3cf866c` (local `develop`), branch `feat/mcp-phase-4-acceptance`, worktree `/Users/juan/code/layalga-mcp-phase-4`. Merged locally into `develop` on 2026-11-26.

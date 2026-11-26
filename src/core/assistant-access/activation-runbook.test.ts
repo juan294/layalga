@@ -4,6 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { FIXTURE_CALLBACK } from "@/test-support/assistant-oauth";
 
+import {
+  CREATE_ACKNOWLEDGEMENT,
+  REMOVE_ACKNOWLEDGEMENT,
+  parsePilotArguments,
+} from "../../../scripts/pilot-household";
+
 import { ASSISTANT_AUDIENCE } from "./audience";
 
 // The activation runbook names hosted settings that no code reads. Each one
@@ -172,5 +178,51 @@ describe("activation runbook", () => {
       /^mgmt\(\) \{\n {2}\[\[ -n "\$\{SUPABASE_ACCESS_TOKEN:-\}" \]\] \|\| \{/m,
     );
     expect(runbook).toContain("&& echo 'setup ready'");
+  });
+
+  it("creates and removes the pilot household through the command's own guards", () => {
+    const helper = runbook.match(
+      /^pilot_household\(\) \{\n {2}local url\n {2}read -rs [^\n]*\n.*\n {2}DATABASE_URL="\$url" pnpm run pilot:household -- "\$@" (.*)\n\}$/m,
+    );
+    expect(helper).not.toBeNull();
+    const fixed = helper![1]!
+      .replace('"$PROJECT_REF"', "abcdefghijklmnopqrst")
+      .replace('"$SQL_DIR/pilot"', "/records")
+      .split(" ");
+    const calls = [
+      ...runbook.matchAll(
+        /pilot_household (create|remove) --acknowledge '([^']+)'(.*)$/gm,
+      ),
+    ];
+    expect(calls.map(([, action]) => action)).toEqual(["create", "remove"]);
+    expect(calls.map(([, , acknowledgement]) => acknowledgement)).toEqual([
+      CREATE_ACKNOWLEDGEMENT,
+      REMOVE_ACKNOWLEDGEMENT,
+    ]);
+    // Each call parses as a production run of the named project.
+    for (const [, action, acknowledgement, rest] of calls) {
+      const extra = rest!.trim()
+        ? rest!
+            .trim()
+            .replace('"$PILOT_HOME_ID"', "3f6c1a2b-7d4e-4f10-9a8b-1c2d3e4f5a6b")
+            .split(" ")
+        : [];
+      expect(
+        parsePilotArguments([
+          action!,
+          "--acknowledge",
+          acknowledgement!,
+          ...extra,
+          ...fixed,
+        ]),
+      ).toMatchObject({
+        action,
+        target: "production",
+        projectRef: "abcdefghijklmnopqrst",
+        records: "/records",
+      });
+    }
+    expect(runbook).toContain("ask_pilot_home && pilot_household remove");
+    expect(runbook).toContain('require_uuid "$PILOT_HOME_ID"');
   });
 });

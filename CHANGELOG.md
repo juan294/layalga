@@ -7,6 +7,8 @@ All notable changes to L’Ayalga are documented in this file.
 ### Added
 
 - Read-only access for connected assistants, switched off. A guest can connect Claude to read listed households, dates, room terms and the status of their own requests through `/api/mcp`, after Google sign-in and approval on an L’Ayalga consent page. The assistant cannot send, change or withdraw anything. Guests see and disconnect assistants on a new **Connected assistants** page. Migration `20261125000100_assistant_access.sql` adds the client allowlist, request counts and an access token hook. `ASSISTANT_ACCESS` defaults to `none`, which keeps consent, the endpoint, the header link and the privacy section off; hosted activation follows `docs/release/assistant-access-activation.md`, one owner-authorized gate at a time.
+- The `[MCP_REQUEST]` log line also records the Origin as a class, the protocol version when the endpoint serves it, and the time of the Auth `/user` read (`userMs`), for pilot checks P2 and P4. It records no header or body text.
+- `pnpm run pilot:household -- create|remove` creates the synthetic published household of the assistant pilot and removes it by id (gate G6). It runs only with an explicit target and acknowledgement, keeps a record file as its marker, and never touches the real household.
 
 ### Changed
 

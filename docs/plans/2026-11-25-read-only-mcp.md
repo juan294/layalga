@@ -170,6 +170,8 @@ No check joins the release critical path. New tests run in the existing CI jobs.
 | Origin header from assistants | Absent, our own origin, `https://claude.ai` and `https://chatgpt.com` pass; others get 403 as MCP requires | P2: record the header Claude sends |
 | `/user` on every call | 3-second limit, no cache | P4: record p50 and p95 for 50 calls |
 
+The [pilot preparation addendum](2026-11-26-mcp-pilot-prep.md) (2026-11-26) adds the `[MCP_REQUEST]` fields that P2 and P4 read and the command that creates and removes the G6 pilot household.
+
 ## Out of scope
 
 Prepare and send (parent Phase 3), directory submission, dynamic registration, Claude Code, unauthenticated tool listing, per-tool scopes, notifications, resources, prompts, and any change to web sign-out.
