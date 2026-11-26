@@ -139,8 +139,8 @@ describe("activation runbook", () => {
     expect(runbook.match(/^.*supabase db query.*$/gm)).toEqual([
       'sql() { supabase db query --remote="$PROJECT_REF" "$@"; }',
     ]);
-    const commands = runbook.match(/^\s*sql .*$/gm) ?? [];
-    expect(commands.length).toBeGreaterThan(5);
+    const commands = runbook.match(/(?:^\s*|&&\s+|`)sql [^`\n]*/gm) ?? [];
+    expect(commands.length).toBeGreaterThan(10);
     for (const command of commands)
       expect(command).not.toContain("--read-only");
     // Every SQL file that a command runs is a block of this document.
@@ -160,5 +160,17 @@ describe("activation runbook", () => {
     for (const name of assigned)
       expect(runbook, name).toContain(`require_uuid "$${name}"`);
     expect(runbook).toContain("ask_client_id() { read -r -p");
+    // A failed check stops the command after it: no check stands alone.
+    const alone = runbook.match(
+      /^\s*(?:ask_client_id|ask_deployment|require_uuid "\$\w+")\s*$/gm,
+    );
+    expect(alone).toBeNull();
+  });
+
+  it("calls no API without a token and says when the setup is ready", () => {
+    expect(runbook).toMatch(
+      /^mgmt\(\) \{\n {2}\[\[ -n "\$\{SUPABASE_ACCESS_TOKEN:-\}" \]\] \|\| \{/m,
+    );
+    expect(runbook).toContain("&& echo 'setup ready'");
   });
 });

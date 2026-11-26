@@ -23,7 +23,10 @@ export AUTH_URL="https://${PROJECT_REF}.supabase.co/auth/v1"
 export SQL_DIR="$HOME/layalga-activation"
 mkdir -p "$SQL_DIR"
 read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN
-mgmt() { curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_ACCESS_TOKEN") "$@"; }
+mgmt() {
+  [[ -n "${SUPABASE_ACCESS_TOKEN:-}" ]] || { echo 'no access token: run the setup again' >&2; return 1; }
+  curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$SUPABASE_ACCESS_TOKEN") "$@"
+}
 auth_config() { mgmt "https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth" "$@"; }
 patch_auth() { auth_config -X PATCH -H 'content-type: application/json' --data @-; }
 assistant_settings() { auth_config | jq '{site_url, jwt_exp, oauth_server_enabled, oauth_server_allow_dynamic_registration, oauth_server_authorization_path, hook_custom_access_token_enabled, hook_custom_access_token_uri}'; }
@@ -46,10 +49,13 @@ open_consent() {
   open "$(printf '%s/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&scope=openid&state=check&code_challenge=%s&code_challenge_method=S256' \
     "$AUTH_URL" "$client" "$(jq -rn --arg v "$callback" '$v|@uri')" "$challenge")"
 }
-export SUPABASE_PUBLISHABLE_KEY="$(mgmt "https://api.supabase.com/v1/projects/${PROJECT_REF}/api-keys" | jq -r 'map(select(.type == "publishable"))[0].api_key')"
+SUPABASE_PUBLISHABLE_KEY="$(mgmt "https://api.supabase.com/v1/projects/${PROJECT_REF}/api-keys" | jq -r 'map(select(.type == "publishable"))[0].api_key')" \
+  && [[ "$SUPABASE_PUBLISHABLE_KEY" == sb_publishable_* ]] && export SUPABASE_PUBLISHABLE_KEY && echo 'setup ready'
 ```
 
-SQL runs with `sql`, which names the project explicitly, so the linked project does not matter. Hosted SQL runs as the project's own database role and without `--read-only`: the read-only role of the Management API holds neither the hook's execute right nor a way past the RLS of `public.assistant_clients`, so its proofs could not fail or could not read. Each proof statement is one `select`; the CLI asks for confirmation before it runs. Save each SQL block of this document as the named file in `$SQL_DIR`.
+The block ends with `setup ready`. If that line is missing, the token was empty or wrong: run the block again before any gate. `mgmt` refuses to call the API without a token.
+
+SQL runs with `sql`, which names the project explicitly, so the linked project does not matter. Hosted SQL runs as the project's own database role and without `--read-only`, for two reasons: only the migration owner and `supabase_auth_admin` can execute the hook (migration, `revoke` and `grant` after the function), so the dry run would fail as another role; and grant views such as `information_schema.role_table_grants` show only grants that the caller's roles take part in, so a count by another role could not fail. The proofs use catalog functions that answer for a named role. Each proof statement is one `select`; the CLI asks for confirmation before it runs. Save each SQL block of this document as the named file in `$SQL_DIR`.
 
 ## G0: preconditions (read only)
 
@@ -86,13 +92,14 @@ Action: none. Save the report outside the repository.
    gh api "repos/juan294/layalga/commits/main/check-runs" --jq '[.check_runs[].app.slug] | unique'
    ```
 
-6. `authenticated` holds no right on a public table or view and can execute no public function. Both counts must be 0. The catalog functions answer for `authenticated` whatever role runs them. File `g0-authenticated.sql`:
+6. `authenticated` holds no right on a public table or view, not even on one column, and can execute no public function. Both counts must be 0. The catalog functions answer for `authenticated` whatever role runs them. File `g0-authenticated.sql`:
 
    ```sql
    select
      (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
        where n.nspname = 'public' and c.relkind in ('r', 'v', 'm', 'p', 'f')
-         and has_table_privilege('authenticated', c.oid, 'select, insert, update, delete, truncate, references, trigger')) as table_rights,
+         and (has_table_privilege('authenticated', c.oid, 'select, insert, update, delete, truncate, references, trigger')
+           or has_any_column_privilege('authenticated', c.oid, 'select, insert, update, references'))) as table_rights,
      (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')) as executable_functions;
    ```
@@ -275,8 +282,8 @@ CLAUDE_CLIENT_ID="$(auth_admin -X POST -H 'content-type: application/json' "$AUT
 }
 JSON
 )"
-require_uuid "$CLAUDE_CLIENT_ID" && echo "$CLAUDE_CLIENT_ID"
-sql "insert into public.assistant_clients (client_id, assistant, redirect_uri, enabled) values ('$CLAUDE_CLIENT_ID', 'claude', 'https://claude.ai/api/mcp/auth_callback', false)"
+require_uuid "$CLAUDE_CLIENT_ID" && echo "$CLAUDE_CLIENT_ID" \
+  && sql "insert into public.assistant_clients (client_id, assistant, redirect_uri, enabled) values ('$CLAUDE_CLIENT_ID', 'claude', 'https://claude.ai/api/mcp/auth_callback', false)"
 ```
 
 The client ID is not secret. Record it in the release notes: G5, G6 and the kill switch read it with `ask_client_id`.
@@ -299,10 +306,13 @@ sql --file "$SQL_DIR/g4-readback.sql"
 Rollback: delete the row, then the client. The admin API sets `deleted_at`; the hook and the resolver refuse a deleted client.
 
 ```bash
-ask_client_id
-sql "delete from public.assistant_clients where client_id = '$CLAUDE_CLIENT_ID'"
-auth_admin -X DELETE "$AUTH_URL/admin/oauth/clients/$CLAUDE_CLIENT_ID"
+ask_client_id \
+  && sql "delete from public.assistant_clients where client_id = '$CLAUDE_CLIENT_ID'" \
+  && auth_admin -X DELETE "$AUTH_URL/admin/oauth/clients/$CLAUDE_CLIENT_ID" \
+  && sql --file "$SQL_DIR/g4-readback.sql"
 ```
+
+The readback must return no row for that client.
 
 ## G5: endpoint on
 
@@ -310,8 +320,7 @@ Action: set the switch in Vercel production, then an authorized redeploy of the 
 
 ```bash
 vercel env add ASSISTANT_ACCESS production
-ask_deployment
-vercel redeploy "$current" --target production --scope thecreativetoken
+ask_deployment && vercel redeploy "$current" --target production --scope thecreativetoken
 ```
 
 Proof. Steps 4 and 5 need the dedicated pilot Google account of G6, signed in on `$APP` in the browser that `open` uses: a host account sees the host refusal first.
@@ -322,8 +331,7 @@ Proof. Steps 4 and 5 need the dedicated pilot Google account of G6, signed in on
 4. Consent refuses the disabled Claude client. After **Continue**, the page says "This assistant cannot connect":
 
    ```bash
-   ask_client_id
-   open_consent "$CLAUDE_CLIENT_ID" https://claude.ai/api/mcp/auth_callback
+   ask_client_id && open_consent "$CLAUDE_CLIENT_ID" https://claude.ai/api/mcp/auth_callback
    ```
 
 5. A temporary client with another callback is refused at consent, then deleted. It gets no allowlist row and its own variable, so the Claude client is not touched:
@@ -339,10 +347,9 @@ Proof. Steps 4 and 5 need the dedicated pilot Google account of G6, signed in on
    }
    JSON
    )"
-   require_uuid "$CHECK_CLIENT_ID"
-   open_consent "$CHECK_CLIENT_ID" https://claude.ai/api/mcp/other_callback
+   require_uuid "$CHECK_CLIENT_ID" && open_consent "$CHECK_CLIENT_ID" https://claude.ai/api/mcp/other_callback
    # After Continue, the page says "This assistant cannot connect". Then:
-   auth_admin -X DELETE "$AUTH_URL/admin/oauth/clients/$CHECK_CLIENT_ID"
+   require_uuid "$CHECK_CLIENT_ID" && auth_admin -X DELETE "$AUTH_URL/admin/oauth/clients/$CHECK_CLIENT_ID"
    ```
 
 6. `$APP/en/privacy` shows the section "Connected assistants" with the new date.
@@ -352,8 +359,7 @@ Rollback: set `none` and redeploy.
 ```bash
 vercel env rm ASSISTANT_ACCESS production
 vercel env add ASSISTANT_ACCESS production   # value: none
-ask_deployment
-vercel redeploy "$current" --target production --scope thecreativetoken
+ask_deployment && vercel redeploy "$current" --target production --scope thecreativetoken
 ```
 
 ## G6: Claude pilot
@@ -363,9 +369,12 @@ Entry condition, open: the pilot needs a synthetic published household that last
 Action: enable the row. Use a dedicated Google account that is no host and has no prepared host email. In Claude, add a custom connector with URL `https://layalga.thecreativetoken.com/api/mcp` and the client ID from G4.
 
 ```bash
-ask_client_id
-sql "update public.assistant_clients set enabled = true where client_id = '$CLAUDE_CLIENT_ID'"
+ask_client_id \
+  && sql "update public.assistant_clients set enabled = true where client_id = '$CLAUDE_CLIENT_ID'" \
+  && sql --file "$SQL_DIR/g4-readback.sql"
 ```
+
+The readback must show the Claude row with `enabled` true. An unknown client ID changes no row and raises no error, so the readback is the proof.
 
 Proof, in this order. P6 first: a failure stops the pilot.
 
@@ -382,9 +391,12 @@ Proof, in this order. P6 first: a failure stops the pilot.
 Rollback: `enabled = false` (immediate), then the G5 rollback; remove the pilot household with the command decided at the entry condition.
 
 ```bash
-ask_client_id
-sql "update public.assistant_clients set enabled = false where client_id = '$CLAUDE_CLIENT_ID'"
+ask_client_id \
+  && sql "update public.assistant_clients set enabled = false where client_id = '$CLAUDE_CLIENT_ID'" \
+  && sql --file "$SQL_DIR/g4-readback.sql"
 ```
+
+The readback must show the Claude row with `enabled` false.
 
 ## G7: ChatGPT
 
@@ -396,15 +408,15 @@ Rollback: delete the row and the client as in the G4 rollback, with the ChatGPT 
 
 Start with the session setup. Run the steps of a row in the order shown.
 
-| Need                                                | Action                                                                                                                                                   | Effect                                                                                                                                                                                                                                                                                             |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stop one or all assistants now                      | `sql "update public.assistant_clients set enabled = false"` (for one: `ask_client_id`, then add `where client_id = '$CLAUDE_CLIENT_ID'`)                 | The next call is 401, refresh is refused and consent explains why. Grants stay, so it is reversible: enabling the row makes the same tokens work again (VERIFIED locally, journey step 7). A live access token can still read the guest's identity at Auth until it expires, at most one hour.     |
-| Stop a compromised vendor, including identity reads | Disable its rows; delete its client with the admin API (G4 rollback); then `sql "delete from auth.sessions where oauth_client_id = '$CLAUDE_CLIENT_ID'"` | Its tokens fail at `/user`, `/oauth/userinfo`, refresh and `/api/mcp`. Not reversible: guests connect again. Web sessions have no client ID and stay. The local journey (step 9) proves the effect, with a superuser connection; G1 step 5 proves that the hosted operator holds the delete right. |
-| Remove the endpoint                                 | After the rows are disabled: `ASSISTANT_ACCESS=none` and a redeploy (G5 rollback)                                                                        | 404. The assistants page still disconnects; consent links to it.                                                                                                                                                                                                                                   |
-| Stop authorization                                  | `"oauth_server_enabled": false` (G3 rollback)                                                                                                            | No new codes or refresh. Existing access tokens pass `/user` until they expire, at most one hour, but the disabled rows already stop them at `/api/mcp`. Disconnect is unavailable meanwhile.                                                                                                      |
-| Remove the hook                                     | Only after the OAuth server is off: `"hook_custom_access_token_enabled": false` (G2 rollback)                                                            | Web sign-in no longer depends on the hook.                                                                                                                                                                                                                                                         |
-| Web sign-in fails after G2                          | `"hook_custom_access_token_enabled": false` first, then `"oauth_server_enabled": false`. This is the one exception to the order.                         | Sign-in works again; `getSessionUser` and the audience check still refuse client tokens.                                                                                                                                                                                                           |
-| Drop the function                                   | Only when the hook is disabled and `assistant_settings` reads it back as disabled                                                                        | Dropping it earlier stops all sign-in.                                                                                                                                                                                                                                                             |
+| Need                                                | Action                                                                                                                                                                                                                                                                                             | Effect                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stop one or all assistants now                      | `sql "update public.assistant_clients set enabled = false"` (for one: `ask_client_id &&`, then add `where client_id = '$CLAUDE_CLIENT_ID'`), then `sql --file "$SQL_DIR/g4-readback.sql"`: every row that must stop shows `enabled` false. An unknown client ID changes no row and raises no error | The next call is 401, refresh is refused and consent explains why. Grants stay, so it is reversible: enabling the row makes the same tokens work again (VERIFIED locally, journey step 7). A live access token can still read the guest's identity at Auth until it expires, at most one hour.     |
+| Stop a compromised vendor, including identity reads | Disable its rows; delete its client with the admin API (G4 rollback); then `ask_client_id && sql "delete from auth.sessions where oauth_client_id = '$CLAUDE_CLIENT_ID'"`                                                                                                                          | Its tokens fail at `/user`, `/oauth/userinfo`, refresh and `/api/mcp`. Not reversible: guests connect again. Web sessions have no client ID and stay. The local journey (step 9) proves the effect, with a superuser connection; G1 step 5 proves that the hosted operator holds the delete right. |
+| Remove the endpoint                                 | After the rows are disabled: `ASSISTANT_ACCESS=none` and a redeploy (G5 rollback)                                                                                                                                                                                                                  | 404. The assistants page still disconnects; consent links to it.                                                                                                                                                                                                                                   |
+| Stop authorization                                  | `"oauth_server_enabled": false` (G3 rollback)                                                                                                                                                                                                                                                      | No new codes or refresh. Existing access tokens pass `/user` until they expire, at most one hour, but the disabled rows already stop them at `/api/mcp`. Disconnect is unavailable meanwhile.                                                                                                      |
+| Remove the hook                                     | Only after the OAuth server is off: `"hook_custom_access_token_enabled": false` (G2 rollback)                                                                                                                                                                                                      | Web sign-in no longer depends on the hook.                                                                                                                                                                                                                                                         |
+| Web sign-in fails after G2                          | `"hook_custom_access_token_enabled": false` first, then `"oauth_server_enabled": false`. This is the one exception to the order.                                                                                                                                                                   | Sign-in works again; `getSessionUser` and the audience check still refuse client tokens.                                                                                                                                                                                                           |
+| Drop the function                                   | Only when the hook is disabled and `assistant_settings` reads it back as disabled                                                                                                                                                                                                                  | Dropping it earlier stops all sign-in.                                                                                                                                                                                                                                                             |
 
 Rollback of the web app alone: a version before this release has no `/api/mcp`, which is safe. Do not roll back below v2.5.3 while the OAuth server is on, because the web rejection of client tokens would be lost; turn the server off first.
 
