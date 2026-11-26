@@ -1,13 +1,18 @@
-import { assistantEndpoint } from "@/core/assistant-access/audience";
+import { getOAuthProtectedResourceMetadataUrl } from "@modelcontextprotocol/server";
+
+import {
+  assistantEndpoint,
+  withoutTrailingSlash,
+} from "@/core/assistant-access/audience";
 import { issuerOf } from "@/lib/auth/assistant-bearer";
 
 export const ASSISTANT_SCOPE = "openid";
 
-const origin = (appUrl: string) => appUrl.replace(/\/+$/, "");
-
 /** The path-inserted discovery location of the endpoint (RFC 9728). */
 export function metadataUrl(appUrl: string): string {
-  return `${origin(appUrl)}/.well-known/oauth-protected-resource/api/mcp`;
+  return getOAuthProtectedResourceMetadataUrl(
+    new URL(assistantEndpoint(appUrl)),
+  );
 }
 
 /** Exactly one authorization server: Claude uses only the first. */
@@ -18,7 +23,7 @@ export function protectedResourceMetadata(appUrl: string, supabaseUrl: string) {
     scopes_supported: [ASSISTANT_SCOPE],
     bearer_methods_supported: ["header"],
     resource_name: "L’Ayalga",
-    resource_documentation: `${origin(appUrl)}/en/privacy`,
+    resource_documentation: `${withoutTrailingSlash(appUrl)}/en/privacy`,
   };
 }
 

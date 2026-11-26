@@ -1,3 +1,4 @@
+import { withoutTrailingSlash } from "@/core/assistant-access/audience";
 import type { StayQuery } from "@/core/booking/guest-lookup";
 import type {
   PublicRoomChoice,
@@ -9,13 +10,10 @@ import { staySearchKeys } from "@/lib/auth/safe-next-path";
 // Strict projections: each field that reaches an assistant vendor is named
 // here, so a new field in a core type stays out until this file changes.
 
-export type StayTerms = StayQuery;
-
 const REQUEST_LIMIT = 20;
 
-const origin = (appUrl: string) => appUrl.replace(/\/+$/, "");
 const staysPage = (appUrl: string, handle: string) =>
-  `${origin(appUrl)}/stays/${handle.toLowerCase()}`;
+  `${withoutTrailingSlash(appUrl)}/stays/${handle.toLowerCase()}`;
 
 export function householdsAnswer(
   result: {
@@ -34,12 +32,11 @@ export function householdsAnswer(
   };
 }
 
-type RoomTerms = Omit<PublicRoomChoice, "ref">;
-
-function roomTerms(room: PublicRoomChoice): RoomTerms {
+/** The terms that a guest reads, under the names of this answer. */
+function roomRow(room: PublicRoomChoice) {
   return {
-    guestLabel: room.guestLabel,
-    floorLabel: room.floorLabel,
+    name: room.guestLabel,
+    floor: room.floorLabel,
     sleepingArrangement: room.sleepingArrangement,
     overflowArrangement: room.overflowArrangement,
     standardCapacity: room.standardCapacity,
@@ -53,22 +50,19 @@ function roomTerms(room: PublicRoomChoice): RoomTerms {
  */
 export function staysAnswer(
   result: { options: readonly PublicStayOption[]; truncated: boolean },
-  terms: StayTerms,
+  terms: StayQuery,
   appUrl: string,
 ) {
   const labels = new Map<string, string>();
-  const rooms: ({ room: string; name: string; floor: string } & Omit<
-    RoomTerms,
-    "guestLabel" | "floorLabel"
-  >)[] = [];
+  const rooms: ({ room: string } & ReturnType<typeof roomRow>)[] = [];
   const label = (room: PublicRoomChoice) => {
-    const { guestLabel, floorLabel, ...rest } = roomTerms(room);
-    const key = JSON.stringify([guestLabel, floorLabel, rest]);
+    const row = roomRow(room);
+    const key = JSON.stringify(row);
     let name = labels.get(key);
     if (!name) {
       name = `r${labels.size + 1}`;
       labels.set(key, name);
-      rooms.push({ room: name, name: guestLabel, floor: floorLabel, ...rest });
+      rooms.push({ room: name, ...row });
     }
     return name;
   };
@@ -87,7 +81,7 @@ export function staysAnswer(
   });
   const search = new URLSearchParams();
   for (const key of staySearchKeys(true))
-    search.set(key, String(terms[key as keyof StayTerms]));
+    search.set(key, String(terms[key as keyof StayQuery]));
   return {
     rooms,
     stays,
@@ -110,6 +104,6 @@ export function requestsAnswer(
       visitStatus: receipt.visitStatus,
     })),
     truncated: receipts.length > REQUEST_LIMIT,
-    historyUrl: `${origin(appUrl)}/requests`,
+    historyUrl: `${withoutTrailingSlash(appUrl)}/requests`,
   };
 }

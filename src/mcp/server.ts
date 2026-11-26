@@ -11,9 +11,10 @@ import {
 
 import type { AssistantName } from "@/core/assistant-access/clients";
 import type { AssistantAccess } from "@/lib/auth/assistant-bearer";
+import { isPlainObject } from "@/lib/json-object";
 
 import { ASSISTANT_SCOPE, bearerChallenge } from "./resource";
-import { TOOLS, callTool, type ToolContext } from "./tools";
+import { TOOLS, callTool, toolNamed, type ToolContext } from "./tools";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const OUTAGE_RETRY_SECONDS = 30;
@@ -62,8 +63,10 @@ const handler = createMcpHandler(
         state.context,
       );
       state.outcome = status;
-      const tool = TOOLS.find((entry) => entry.name === params.name);
-      return server.projectCallToolResult(result, tool?.outputSchema);
+      return server.projectCallToolResult(
+        result,
+        toolNamed(params.name)?.outputSchema,
+      );
     });
     return server;
   },
@@ -135,20 +138,14 @@ async function serve(
     return refuse(entry, "body", 400);
   }
   // An array would hide several calls behind one count.
-  if (typeof body !== "object" || body === null || Array.isArray(body))
-    return refuse(entry, "body", 400);
-  const message = body as { id?: unknown; method?: unknown; params?: unknown };
+  if (!isPlainObject(body)) return refuse(entry, "body", 400);
   const id =
-    typeof message.id === "string" || typeof message.id === "number"
-      ? message.id
-      : null;
-  const method = typeof message.method === "string" ? message.method : "";
+    typeof body.id === "string" || typeof body.id === "number" ? body.id : null;
+  const method = typeof body.method === "string" ? body.method : "";
   entry.method = LOGGED_METHODS.has(method) ? method : "other";
   if (method === "tools/call") {
-    const name = (message.params as { name?: unknown } | undefined)?.name;
-    entry.tool = TOOLS.some((tool) => tool.name === name)
-      ? (name as string)
-      : "other";
+    const name = (body.params as { name?: unknown } | undefined)?.name;
+    entry.tool = toolNamed(name)?.name ?? "other";
   }
 
   const authorization = request.headers.get("authorization");
@@ -190,16 +187,12 @@ async function serve(
   // A listen stream would hold a function open for its whole duration.
   if (method === "subscriptions/listen") {
     entry.outcome = "listen";
-    return Response.json(
-      {
-        jsonrpc: "2.0",
-        id,
-        error: {
-          code: ProtocolErrorCode.MethodNotFound,
-          message: "Method not found",
-        },
-      },
-      { status: 404 },
+    return rpcError(
+      id,
+      404,
+      "Method not found",
+      {},
+      ProtocolErrorCode.MethodNotFound,
     );
   }
 
@@ -240,13 +233,10 @@ function rpcError(
   status: number,
   message: string,
   headers: Record<string, string>,
+  code: number = ProtocolErrorCode.InternalError,
 ) {
   return Response.json(
-    {
-      jsonrpc: "2.0",
-      id,
-      error: { code: ProtocolErrorCode.InternalError, message },
-    },
+    { jsonrpc: "2.0", id, error: { code, message } },
     { status, headers },
   );
 }

@@ -45,9 +45,14 @@ export function localAdmin(role?: string) {
   });
 }
 
-/** The client that production builds, with the rights of the web runtime. */
-export function localWebDatabase() {
+/** A local connection URL with the rights of the web runtime. */
+export function localWebDatabaseUrl() {
   const url = new URL(localSupabase().adminUrl);
   url.searchParams.set("role", "layalga_web_runtime");
-  return createDatabase(url.toString());
+  return url.toString();
+}
+
+/** The client that production builds, with the rights of the web runtime. */
+export function localWebDatabase() {
+  return createDatabase(localWebDatabaseUrl());
 }

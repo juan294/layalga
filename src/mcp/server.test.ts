@@ -20,6 +20,12 @@ const ok: AssistantAccess = {
   },
 };
 
+const limited: AssistantAccess = {
+  status: "limited",
+  assistant: "claude",
+  retryAfter: 17,
+};
+
 const resolve = vi.fn<McpDeps["resolve"]>();
 const deps: McpDeps = { appUrl: APP, resolve };
 
@@ -190,22 +196,14 @@ describe("authentication", () => {
   });
 
   it("answers a limited list call with 429 and the wait", async () => {
-    resolve.mockResolvedValue({
-      status: "limited",
-      assistant: "claude",
-      retryAfter: 17,
-    });
+    resolve.mockResolvedValue(limited);
     const response = await serve(post(rpc("tools/list")));
     expect(response.status).toBe(429);
     expect(response.headers.get("retry-after")).toBe("17");
   });
 
   it("answers a limited tool call with a tool result", async () => {
-    resolve.mockResolvedValue({
-      status: "limited",
-      assistant: "claude",
-      retryAfter: 17,
-    });
+    resolve.mockResolvedValue(limited);
     const response = await serve(
       post(
         rpc("tools/call", {

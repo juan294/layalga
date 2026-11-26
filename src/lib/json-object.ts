@@ -11,9 +11,14 @@ export function objectValue(value: unknown): Record<string, unknown> | null {
       return null;
     }
   }
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
+  return isPlainObject(value) ? value : null;
+}
+
+/** A key/value object: not null, not an array. */
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function stringArrayField(structured: unknown, key: string): string[] {

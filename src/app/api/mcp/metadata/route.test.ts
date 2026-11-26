@@ -28,8 +28,7 @@ it("describes the endpoint and its one authorization server", async () => {
 it.each([undefined, "none", "true"])(
   "answers 404 while ASSISTANT_ACCESS is %s",
   async (value) => {
-    if (value) vi.stubEnv("ASSISTANT_ACCESS", value);
-    else vi.stubEnv("ASSISTANT_ACCESS", undefined);
+    vi.stubEnv("ASSISTANT_ACCESS", value);
     const response = await GET();
     expect(response.status).toBe(404);
     expect(await response.text()).not.toContain("authorization_servers");
@@ -37,18 +36,14 @@ it.each([undefined, "none", "true"])(
 );
 
 it("serves both discovery locations from this route", async () => {
-  const rewrites = await nextConfig.rewrites!();
-  expect(rewrites).toEqual(
-    expect.arrayContaining([
-      {
-        source: "/.well-known/oauth-protected-resource",
-        destination: "/api/mcp/metadata",
-      },
-      {
-        source: "/.well-known/oauth-protected-resource/api/mcp",
-        destination: "/api/mcp/metadata",
-      },
-    ]),
-  );
-  expect(Array.isArray(rewrites) && rewrites).toHaveLength(2);
+  expect(await nextConfig.rewrites!()).toStrictEqual([
+    {
+      source: "/.well-known/oauth-protected-resource",
+      destination: "/api/mcp/metadata",
+    },
+    {
+      source: "/.well-known/oauth-protected-resource/api/mcp",
+      destination: "/api/mcp/metadata",
+    },
+  ]);
 });

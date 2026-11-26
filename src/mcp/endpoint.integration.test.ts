@@ -19,6 +19,7 @@ import {
 
 import { FakeClock } from "@/core/clock";
 import { closeDatabase } from "@/core/db/client";
+import { setPublicListing } from "@/core/booking/public-listings";
 import { searchPublicStays } from "@/core/booking/public-stay-search";
 import { submitStayRequest } from "@/core/booking/stay-requests";
 import { resolveAssistant } from "@/lib/auth/assistant-bearer";
@@ -33,6 +34,7 @@ import {
   localAdmin,
   localSupabase,
   localWebDatabase,
+  localWebDatabaseUrl,
 } from "@/test-support/local-supabase";
 
 import { POST } from "@/app/api/mcp/route";
@@ -45,8 +47,6 @@ const local = localSupabase();
 const db = postgres(local.databaseUrl, { max: 2, prepare: false });
 const admin = localAdmin();
 const web = localWebDatabase();
-const webUrl = new URL(local.adminUrl);
-webUrl.searchParams.set("role", "layalga_web_runtime");
 const fixtures = assistantFixtures(db, admin);
 const APP = "http://127.0.0.1:3048";
 const ENDPOINT = `${APP}/api/mcp`;
@@ -81,7 +81,6 @@ const ALLOWED_KEYS = new Set([
 
 const logs: unknown[][] = [];
 const secrets: string[] = [];
-const cleanups: (() => Promise<unknown>)[] = [];
 
 interface Household {
   handle: string;
@@ -107,7 +106,7 @@ async function household({ published = true } = {}): Promise<Household> {
     parties: [],
     tokenSecret: "fixture",
   });
-  cleanups.push(home.cleanup);
+  fixtures.defer(home.cleanup);
   const canaries = [
     `CANARY-home-${marker}`,
     `CANARY-room-${marker}`,
@@ -117,10 +116,11 @@ async function household({ published = true } = {}): Promise<Household> {
   await db`update public.rooms set name=${canaries[1]!} || '-' || display_order, private_notes=${canaries[2]!} where home_id=${home.homeId}`;
   await db`update public.hosts set display_name=${canaries[3]!} where home_id=${home.homeId}`;
   const name = `Synthetic Vega ${marker}`;
+  const host = { id: home.hostIds[0]!, homeId: home.homeId };
+  await setPublicListing(host, { published: true, displayName: name });
+  if (!published) await setPublicListing(host, { published: false });
   const [row] = await db<{ handle: string }[]>`
-    insert into public.household_public_listings (home_id, display_name, search_name, published)
-    values (${home.homeId}, ${name}, ${name.toLowerCase()}, ${published})
-    returning handle`;
+    select handle from public.household_public_listings where home_id=${home.homeId}`;
   return {
     handle: row!.handle,
     name,
@@ -168,7 +168,7 @@ async function connected(options?: { google?: boolean }) {
 }
 
 /** The route module itself, with its live resolver. */
-const route = (request: Request) => POST(request);
+const route = POST;
 
 function liveDeps(
   change: Partial<Parameters<typeof resolveAssistant>[1]> = {},
@@ -199,7 +199,7 @@ async function mcpClient(
     requestInit: { headers: { authorization: header } },
   });
   await client.connect(transport);
-  cleanups.push(() => client.close());
+  fixtures.defer(() => client.close());
   return client;
 }
 
@@ -249,16 +249,13 @@ beforeAll(() => {
   vi.stubEnv("APP_URL", APP);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", local.url);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", local.key);
-  vi.stubEnv("DATABASE_URL", webUrl.toString());
+  vi.stubEnv("DATABASE_URL", localWebDatabaseUrl());
   for (const level of ["info", "error", "warn", "log"] as const)
     vi.spyOn(console, level).mockImplementation((...args) => {
       logs.push(args);
     });
 });
-afterEach(async () => {
-  for (const cleanup of cleanups.splice(0).reverse()) await cleanup();
-  await fixtures.cleanup();
-});
+afterEach(() => fixtures.cleanup());
 afterAll(async () => {
   // Log capture over the whole file: no token, email, user ID or argument value.
   const text = JSON.stringify(logs);

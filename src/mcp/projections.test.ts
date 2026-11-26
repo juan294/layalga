@@ -1,14 +1,10 @@
 import { expect, it } from "vitest";
 
+import type { StayQuery } from "@/core/booking/guest-lookup";
 import type { PublicStayOption } from "@/core/booking/public-stay-search";
 import type { StayRequestReceipt } from "@/core/booking/stay-requests";
 
-import {
-  householdsAnswer,
-  requestsAnswer,
-  staysAnswer,
-  type StayTerms,
-} from "./projections";
+import { householdsAnswer, requestsAnswer, staysAnswer } from "./projections";
 
 const APP = "https://layalga.example";
 const HANDLE = "d5e0b5a2-5155-4f81-9ab4-05ab2630582f";
@@ -35,7 +31,7 @@ const option = (
   recommendedRoomRefs: recommended.map((index) => rooms[index]!.ref),
 });
 
-const terms: StayTerms = {
+const terms: StayQuery = {
   handle: HANDLE.toUpperCase(),
   from: "2032-07-01",
   to: "2032-07-28",

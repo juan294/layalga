@@ -36,12 +36,20 @@ const stayQuery = z
 
 export type StayQuery = z.infer<typeof stayQuery>;
 
+const householdName = z.string().trim().min(2).max(80);
+
+/** Valid stay criteria for one household, or null. */
+export function parseStayQuery(input: unknown): StayQuery | null {
+  const parsed = stayQuery.safeParse(input);
+  return parsed.success ? parsed.data : null;
+}
+
 /**
  * Published households whose name contains `name`. Callers check the session
  * first; a database failure propagates to them.
  */
 export async function findHouseholds(name: unknown) {
-  const query = z.string().trim().min(2).max(80).safeParse(name);
+  const query = householdName.safeParse(name);
   if (!query.success)
     return { status: "invalid" as const, listings: [], truncated: false };
   return {
@@ -54,9 +62,8 @@ export async function findHouseholds(name: unknown) {
 export async function findStays(
   input: unknown,
 ): Promise<PublicStaySearchResult> {
-  const parsed = stayQuery.safeParse(input);
-  if (!parsed.success)
-    return { status: "invalid", options: [], truncated: false };
-  const { handle, ...criteria } = parsed.data;
+  const query = parseStayQuery(input);
+  if (!query) return { status: "invalid", options: [], truncated: false };
+  const { handle, ...criteria } = query;
   return searchPublicStays(handle, criteria);
 }

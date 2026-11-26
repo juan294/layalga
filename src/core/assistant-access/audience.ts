@@ -2,7 +2,9 @@
 export const ASSISTANT_AUDIENCE =
   "https://layalga.thecreativetoken.com/api/mcp";
 
+export const withoutTrailingSlash = (url: string) => url.replace(/\/+$/, "");
+
 /** The assistant endpoint of an application URL. */
 export function assistantEndpoint(appUrl: string): string {
-  return `${appUrl.replace(/\/+$/, "")}/api/mcp`;
+  return `${withoutTrailingSlash(appUrl)}/api/mcp`;
 }

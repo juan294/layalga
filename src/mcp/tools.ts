@@ -9,25 +9,33 @@ import {
 
 import { MAX_ADULTS, MAX_CHILDREN, MAX_PETS } from "@/agent/task-limits";
 import { emptySchema } from "@/components/webmcp/contract";
-import { findHouseholds, findStays } from "@/core/booking/guest-lookup";
+import {
+  findHouseholds,
+  findStays,
+  parseStayQuery,
+} from "@/core/booking/guest-lookup";
 import {
   findHouseholdsSchema,
   searchStaysSchema,
 } from "@/core/booking/guest-lookup-schema";
+import { MAX_OPTION_WINDOW_DAYS } from "@/core/booking/option-window";
 import { listRequesterStayRequests } from "@/core/booking/stay-requests";
+import { isPlainObject } from "@/lib/json-object";
 
-import {
-  householdsAnswer,
-  requestsAnswer,
-  staysAnswer,
-  type StayTerms,
-} from "./projections";
+import { householdsAnswer, requestsAnswer, staysAnswer } from "./projections";
 
 export type ToolName =
   "find_households" | "search_stays" | "read_request_status";
 
-export type ToolStatus =
-  "success" | "none" | "invalid" | "not_found" | "unavailable" | "rate_limited";
+const STATUSES = [
+  "success",
+  "none",
+  "invalid",
+  "not_found",
+  "unavailable",
+  "rate_limited",
+] as const;
+export type ToolStatus = (typeof STATUSES)[number];
 
 export interface ToolContext {
   appUrl: string;
@@ -57,14 +65,6 @@ const annotations = {
 // ChatGPT reads the sign-in requirement of each tool here.
 const _meta = { securitySchemes: [{ type: "oauth2", scopes: ["openid"] }] };
 
-const STATUSES: ToolStatus[] = [
-  "success",
-  "none",
-  "invalid",
-  "not_found",
-  "unavailable",
-  "rate_limited",
-];
 const text = { type: "string" };
 const nullableText = { type: ["string", "null"] };
 const count = { type: "integer" };
@@ -158,13 +158,18 @@ export const TOOLS = [
   },
 ] satisfies (Tool & { name: ToolName })[];
 
+/** The tool of this name, or undefined. */
+export function toolNamed(name: unknown) {
+  return TOOLS.find((tool) => tool.name === name);
+}
+
 const NEXT = {
   unavailable: "L’Ayalga could not answer. Retry in a minute.",
   findInvalid:
     "Call find_households with one argument, name: the household name, 2 to 80 characters.",
   findNone:
     "No published household matches this name. Ask the guest for the exact name that the host shared, then retry.",
-  searchInvalid: `Call search_stays with handle from find_households, from and to as YYYY-MM-DD (from not in the past, to within 90 days of from), and nights (1 to 30, fitting between the dates), adults (1 to ${MAX_ADULTS}), children (0 to ${MAX_CHILDREN}) and pets (0 to ${MAX_PETS}) as JSON integers.`,
+  searchInvalid: `Call search_stays with handle from find_households, from and to as YYYY-MM-DD (from not in the past, to within ${MAX_OPTION_WINDOW_DAYS} days of from), and nights (1 to 30, fitting between the dates), adults (1 to ${MAX_ADULTS}), children (0 to ${MAX_CHILDREN}) and pets (0 to ${MAX_PETS}) as JSON integers.`,
   searchNotFound:
     "This household is not published now. Find it again with find_households.",
   searchNone:
@@ -193,9 +198,6 @@ function answer(
   };
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const COUNTS = ["nights", "adults", "children", "pets"] as const;
 
 /**
@@ -209,7 +211,7 @@ export async function callTool(
   context: ToolContext,
   using: ToolLookups = lookups,
 ): Promise<CallToolResult & { status: ToolStatus }> {
-  if (!TOOLS.some((tool) => tool.name === name))
+  if (!toolNamed(name))
     throw new ProtocolError(ProtocolErrorCode.InvalidParams, "Unknown tool");
   const { access, appUrl } = context;
   if (access.status === "limited")
@@ -220,7 +222,7 @@ export async function callTool(
   try {
     switch (name as ToolName) {
       case "find_households": {
-        if (!isRecord(args) || Object.keys(args).join() !== "name")
+        if (!isPlainObject(args) || Object.keys(args).join() !== "name")
           return answer("invalid", { next: NEXT.findInvalid });
         const result = await using.findHouseholds(args.name);
         if (result.status === "invalid")
@@ -231,27 +233,25 @@ export async function callTool(
       }
       case "search_stays": {
         // The website also accepts decimal strings; assistants send integers.
-        if (
-          !isRecord(args) ||
-          !COUNTS.every((key) => Number.isInteger(args[key]))
-        )
-          return answer("invalid", { next: NEXT.searchInvalid });
-        const result = await using.findStays(args);
+        const query =
+          isPlainObject(args) &&
+          COUNTS.every((key) => Number.isInteger(args[key]))
+            ? parseStayQuery(args)
+            : null;
+        if (!query) return answer("invalid", { next: NEXT.searchInvalid });
+        const result = await using.findStays(query);
         if (result.status === "invalid")
           return answer("invalid", { next: NEXT.searchInvalid });
         if (result.status === "not_found")
           return answer("not_found", { next: NEXT.searchNotFound });
         if (result.status === "none" || !result.options.length)
           return answer("none", { next: NEXT.searchNone });
-        return answer(
-          "success",
-          staysAnswer(result, args as unknown as StayTerms, appUrl),
-        );
+        return answer("success", staysAnswer(result, query, appUrl));
       }
       case "read_request_status": {
         if (
           args !== undefined &&
-          !(isRecord(args) && !Object.keys(args).length)
+          !(isPlainObject(args) && !Object.keys(args).length)
         )
           return answer("invalid", { next: NEXT.statusInvalid });
         const receipts = await using.listRequests(access.userId);
