@@ -310,7 +310,13 @@ export async function removePilotHousehold(
     throw new Error(
       `Home ${record.homeId} is not the pilot household; nothing was removed`,
     );
-  // Anyone signed in can find the listing, so requests may not be the pilot guest's.
+  // Anyone signed in can find the listing, so requests may not be the pilot
+  // guest's. A request needs a published listing, so none arrives after this.
+  if (row)
+    await sql`
+      update public.household_public_listings set published = false
+      where home_id = ${record.homeId}
+    `;
   const [requests] = await sql<{ count: number }[]>`
     select count(*)::int as count from public.stay_requests
     where home_id = ${record.homeId}
