@@ -164,7 +164,13 @@ INFERRED: `src/app/[locale]/guest/verify/page.tsx` also sets `no-referrer`, so i
 
 ## Phase 3: MCP endpoint and read tools (2026-11-26)
 
-Status: implemented locally, waiting for owner acceptance. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests. Nothing was pushed.
+Status: accepted by the owner on 2026-11-26 and merged locally into `develop`. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests.
+
+### Accepted decisions
+
+- **Links without a language prefix:** all three website links in tool answers (`historyUrl`, `pageUrl`, `continueUrl`) have no locale. The site redirects them by `Accept-Language` and keeps the query.
+- **Accepted limit L2:** no route-level test for a client token with another audience. The Phase 1 resolver tests pin the audience check; a route test would need the Auth signing key.
+- **Accepted limit L3:** a client that disconnects during a call gets a 500 that nobody reads. The request log stays correct and nothing leaks.
 
 ### Deviations
 
@@ -214,7 +220,7 @@ The endpoint tests ran the official client 2.3.1 in both eras against real Auth 
 
 ### Handoff
 
-- **Scope:** Phase 3 only, local. Base `3287a0a`, branch `feat/mcp-phase-3-endpoint`, worktree `/Users/juan/code/layalga-mcp-phase-3`. Not merged into `develop`.
+- **Scope:** Phase 3 only, local. Base `3287a0a`, branch `feat/mcp-phase-3-endpoint`, worktree `/Users/juan/code/layalga-mcp-phase-3`. Merged locally into `develop` on 2026-11-26.
 - **Manual acceptance:** none in the plan. The owner can read `src/mcp/tools.ts` for the tool descriptions and recovery texts, which assistants show to guests.
 - **Resources:** record `.rpi/local/mcp-phase-3-resources-2026-11-26.md` in the primary checkout. The stack and the mutation worktree are removed at the end of this phase; the record has the readback.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
