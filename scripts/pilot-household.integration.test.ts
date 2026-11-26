@@ -214,11 +214,12 @@ describe("pilot household on the local stack", { timeout: 60_000 }, () => {
     expect(removed).toMatchObject({
       status: "removed",
       removedHousehold: true,
+      removedStayRequests: 1,
     });
     expect(readRecord(record.homeId).status).toBe("removed");
     const [left] = await admin`
       select
-        (select count(*)::int from public.homes where id = ${record.homeId} or name like 'Pilot household %') as homes,
+        (select count(*)::int from public.homes where id = ${record.homeId} or name = ${record.marker}) as homes,
         (select count(*)::int from public.household_public_listings where handle = ${record.handle}) as listings,
         (select count(*)::int from public.stay_requests where home_id = ${record.homeId}) as requests,
         (select count(*)::int from public.rooms where home_id = ${record.homeId}) as rooms
@@ -269,6 +270,7 @@ describe("pilot household on the local stack", { timeout: 60_000 }, () => {
     expect(removed).toMatchObject({
       status: "removed",
       removedHousehold: false,
+      removedStayRequests: 0,
     });
     expect(existsSync(recordPath(records, homeId))).toBe(true);
   });

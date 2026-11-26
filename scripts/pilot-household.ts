@@ -22,6 +22,7 @@ import {
   removeFixtureHousehold,
 } from "../src/test-support/fixture-household";
 import {
+  connectionTarget,
   databaseNamesProject,
   isDirectExecution,
   isLoopbackDatabase,
@@ -41,6 +42,7 @@ import {
 export const CREATE_ACKNOWLEDGEMENT = "WRITE PILOT HOUSEHOLD";
 export const REMOVE_ACKNOWLEDGEMENT = "REMOVE PILOT HOUSEHOLD";
 export const PILOT_LIFETIME_DAYS = 14;
+const PRODUCTION_ROLE = "layalga_web";
 
 type Target = "local" | "production";
 interface Scope {
@@ -137,6 +139,12 @@ export function assertPilotTarget(
   if (!projectRef || !databaseNamesProject(databaseUrl, projectRef))
     throw new Error(
       `DATABASE_URL does not name Supabase project ${projectRef ?? "(none)"}; refusing.`,
+    );
+  // The non-owner web runtime login, never the database owner.
+  const { user } = connectionTarget(databaseUrl);
+  if (user !== PRODUCTION_ROLE && user !== `${PRODUCTION_ROLE}.${projectRef}`)
+    throw new Error(
+      `--target production connects as ${PRODUCTION_ROLE}, the web runtime login; refusing ${user}`,
     );
 }
 
@@ -290,7 +298,9 @@ export async function removePilotHousehold(
   sql: Sql,
   command: Scope & { homeId: string },
   { now }: { now: Date },
-): Promise<PilotRecord & { removedHousehold: boolean }> {
+): Promise<
+  PilotRecord & { removedHousehold: boolean; removedStayRequests: number }
+> {
   const record = prepareRemoval(command);
   // The id is the command's own; its name proves that the row is too.
   const [row] = await sql<{ name: string }[]>`
@@ -300,6 +310,11 @@ export async function removePilotHousehold(
     throw new Error(
       `Home ${record.homeId} is not the pilot household; nothing was removed`,
     );
+  // Anyone signed in can find the listing, so requests may not be the pilot guest's.
+  const [requests] = await sql<{ count: number }[]>`
+    select count(*)::int as count from public.stay_requests
+    where home_id = ${record.homeId}
+  `;
   if (row) await removeFixtureHousehold(sql, record.homeId, record.marker);
   const removed: PilotRecord = {
     ...record,
@@ -307,7 +322,11 @@ export async function removePilotHousehold(
     removedAt: now.toISOString(),
   };
   writeRecord(command.records, removed);
-  return { ...removed, removedHousehold: Boolean(row) };
+  return {
+    ...removed,
+    removedHousehold: Boolean(row),
+    removedStayRequests: requests?.count ?? 0,
+  };
 }
 
 function assertNotRealHousehold(homeId: string): void {

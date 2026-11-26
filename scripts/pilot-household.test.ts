@@ -175,7 +175,25 @@ describe("assertPilotTarget", () => {
       expect(() => assertPilotTarget(production, url)).not.toThrow();
   });
 
+  it("refuses a loopback URL whose host parameter points elsewhere", () => {
+    expect(() =>
+      assertPilotTarget(
+        local,
+        "postgresql://u:p@127.0.0.1:55922/postgres?host=remote.example.invalid",
+      ),
+    ).toThrow(/loopback/);
+  });
+
   it.each([
+    `postgresql://postgres.${REF}:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres`,
+    `postgresql://postgres:p@db.${REF}.supabase.co:5432/postgres`,
+    `postgresql://layalga_agent.${REF}:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres`,
+  ])("refuses another role than the web runtime for production: %s", (url) => {
+    expect(() => assertPilotTarget(production, url)).toThrow(/layalga_web/);
+  });
+
+  it.each([
+    `postgresql://layalga_web.${REF}:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres?host=remote.example.invalid`,
     "postgresql://u:p@127.0.0.1:55922/postgres",
     "postgresql://layalga_web.otherprojectref0000:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres",
     `postgresql://layalga_web.${REF}:p@pooler.example.com:6543/postgres`,

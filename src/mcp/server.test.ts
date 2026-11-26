@@ -313,6 +313,18 @@ describe("dispatch", () => {
     ]);
   });
 
+  it("still logs one line when the configured APP_URL is not a URL", async () => {
+    const broken = { appUrl: "not a url", resolve };
+    resolve.mockResolvedValue({ status: "refused" });
+    await serveMcp(
+      post(rpc("tools/list"), { origin: "https://claude.ai" }),
+      broken,
+    ).catch(() => undefined);
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ origin: "claude", method: "tools/list" }),
+    ]);
+  });
+
   it("logs a refused Origin as other, with outcome origin", async () => {
     await serve(post(rpc("tools/list"), { origin: "https://evil.example" }));
     expect(loggedLines()).toEqual([
@@ -325,6 +337,7 @@ describe("dispatch", () => {
     ["2025-11-25", "2025-11-25"],
     ["2025-06-18", "2025-06-18"],
     ["2025-03-26", "2025-03-26"],
+    ["2024-11-05", "2024-11-05"],
     ["1999-01-01", "other"],
     ["2026-07-28x", "other"],
   ])("logs the protocol header %j as %s", async (version, logged) => {

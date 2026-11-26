@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 
-import type { Sql } from "postgres";
+import postgres, { type Sql } from "postgres";
 
 export type ProbeTarget = "local" | "production";
 
@@ -102,27 +102,44 @@ export function parseReleaseCliOptions(
   };
 }
 
+/**
+ * The hosts and user that postgres.js connects with. A `host` query
+ * parameter overrides the host of the URL, so the URL alone is not proof.
+ * Building the client opens no connection.
+ */
+export function connectionTarget(databaseUrl: string): {
+  hosts: string[];
+  user: string;
+} {
+  const { host, user } = postgres(databaseUrl, { max: 1 }).options;
+  // A user given as a function cannot be checked, so it matches nothing.
+  return { hosts: host, user: typeof user === "string" ? user : "" };
+}
+
 /** A database on this machine: the only kind a local target may use. */
 export function isLoopbackDatabase(databaseUrl: string): boolean {
-  return ["127.0.0.1", "localhost", "[::1]"].includes(
-    new URL(databaseUrl).hostname,
+  const { hosts } = connectionTarget(databaseUrl);
+  return (
+    hosts.length > 0 &&
+    hosts.every((host) => ["127.0.0.1", "localhost", "::1"].includes(host))
   );
 }
 
 /**
- * Whether a connection URL names the Supabase project `projectRef`: as the
- * user `<role>.<ref>` on a Supabase pooler host, or the direct host
+ * Whether a connection names the Supabase project `projectRef`: as the user
+ * `<role>.<ref>` on Supabase pooler hosts, or the direct host
  * `db.<ref>.supabase.co`.
  */
 export function databaseNamesProject(
   databaseUrl: string,
   projectRef: string,
 ): boolean {
-  const url = new URL(databaseUrl);
+  const { hosts, user } = connectionTarget(databaseUrl);
+  if (!hosts.length) return false;
   return (
-    (decodeURIComponent(url.username).endsWith(`.${projectRef}`) &&
-      url.hostname.endsWith(".pooler.supabase.com")) ||
-    url.hostname === `db.${projectRef}.supabase.co`
+    (user.endsWith(`.${projectRef}`) &&
+      hosts.every((host) => host.endsWith(".pooler.supabase.com"))) ||
+    hosts.every((host) => host === `db.${projectRef}.supabase.co`)
   );
 }
 

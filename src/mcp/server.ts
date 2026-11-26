@@ -23,7 +23,8 @@ const ASSISTANT_ORIGINS = {
   "https://claude.ai": "claude",
   "https://chatgpt.com": "chatgpt",
 } as const;
-// The SDK exports the 2025 revisions only; it serves 2026-07-28 as well.
+// The SDK's list holds the revisions from 2024-10-07 to 2025-11-25; the
+// handler serves 2026-07-28 as well.
 const LOGGED_PROTOCOLS = new Set([
   ...SUPPORTED_PROTOCOL_VERSIONS,
   "2026-07-28",
@@ -253,7 +254,8 @@ function originClass(
   appUrl: string,
 ): LogEntry["origin"] {
   if (origin === null) return "absent";
-  if (origin === new URL(appUrl).origin) return "own";
+  // `parse`, not `new URL`: this runs before the log line's `try`.
+  if (origin === URL.parse(appUrl)?.origin) return "own";
   return Object.hasOwn(ASSISTANT_ORIGINS, origin)
     ? ASSISTANT_ORIGINS[origin as keyof typeof ASSISTANT_ORIGINS]
     : "other";
