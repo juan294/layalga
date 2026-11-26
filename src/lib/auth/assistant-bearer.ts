@@ -9,7 +9,10 @@ import {
 } from "jose";
 import { z } from "zod";
 
-import { ASSISTANT_AUDIENCE } from "@/core/assistant-access/audience";
+import {
+  ASSISTANT_AUDIENCE,
+  withoutTrailingSlash,
+} from "@/core/assistant-access/audience";
 import {
   enabledClient,
   type AssistantClient,
@@ -76,8 +79,8 @@ class KeysUnavailable extends Error {}
 
 const keySets = new Map<string, AssistantKeys>();
 
-const issuerOf = (supabaseUrl: string) =>
-  `${supabaseUrl.replace(/\/+$/, "")}/auth/v1`;
+export const issuerOf = (supabaseUrl: string) =>
+  `${withoutTrailingSlash(supabaseUrl)}/auth/v1`;
 
 /** The signing keys of Auth, cached for this process. */
 function assistantKeys(supabaseUrl: string): AssistantKeys {

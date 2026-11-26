@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  ASSISTANT_AUDIENCE,
+  assistantEndpoint,
+} from "@/core/assistant-access/audience";
+
 type Environment = Readonly<Record<string, string | undefined>>;
 
 const agentRuntimeSchema = z.enum(["local", "agentcore"]);
@@ -291,7 +296,7 @@ export function serverEnvironmentReadiness(
     "none",
     false,
   );
-  mode(
+  const assistantAccess = mode(
     "ASSISTANT_ACCESS",
     values.ASSISTANT_ACCESS,
     assistantAccessSchema.options,
@@ -305,6 +310,13 @@ export function serverEnvironmentReadiness(
     !z.url().safeParse(appUrl).success ||
     (production && !appUrl.startsWith("https://"))
   ) {
+    add("APP_URL", "invalid");
+  } else if (
+    productionWebContract &&
+    assistantAccess === "on" &&
+    assistantEndpoint(appUrl) !== ASSISTANT_AUDIENCE
+  ) {
+    // Tokens carry one fixed audience, so the published resource must equal it.
     add("APP_URL", "invalid");
   }
   const require = (key: keyof typeof values, minimum = 1) => {
