@@ -15,7 +15,8 @@ interface ResolvedListing extends PublicListing {
   timezone: string;
 }
 
-function normalizedName(value: string) {
+/** The form that discovery compares; stored as `search_name`. */
+export function normalizedName(value: string) {
   return value
     .normalize("NFD")
     .replace(/\p{M}/gu, "")

@@ -102,6 +102,30 @@ export function parseReleaseCliOptions(
   };
 }
 
+/** A database on this machine: the only kind a local target may use. */
+export function isLoopbackDatabase(databaseUrl: string): boolean {
+  return ["127.0.0.1", "localhost", "[::1]"].includes(
+    new URL(databaseUrl).hostname,
+  );
+}
+
+/**
+ * Whether a connection URL names the Supabase project `projectRef`: as the
+ * user `<role>.<ref>` on a Supabase pooler host, or the direct host
+ * `db.<ref>.supabase.co`.
+ */
+export function databaseNamesProject(
+  databaseUrl: string,
+  projectRef: string,
+): boolean {
+  const url = new URL(databaseUrl);
+  return (
+    (decodeURIComponent(url.username).endsWith(`.${projectRef}`) &&
+      url.hostname.endsWith(".pooler.supabase.com")) ||
+    url.hostname === `db.${projectRef}.supabase.co`
+  );
+}
+
 export async function responseJson<T>(
   response: Response,
   operation: string,
