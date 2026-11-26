@@ -3,6 +3,7 @@ import "@/core/server-only";
 import {
   ProtocolError,
   ProtocolErrorCode,
+  SUPPORTED_PROTOCOL_VERSIONS,
   Server,
   createMcpHandler,
   isJsonContentType,
@@ -18,7 +19,15 @@ import { TOOLS, callTool, toolNamed, type ToolContext } from "./tools";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const OUTAGE_RETRY_SECONDS = 30;
-const ASSISTANT_ORIGINS = ["https://claude.ai", "https://chatgpt.com"];
+const ASSISTANT_ORIGINS = {
+  "https://claude.ai": "claude",
+  "https://chatgpt.com": "chatgpt",
+} as const;
+// The SDK exports the 2025 revisions only; it serves 2026-07-28 as well.
+const LOGGED_PROTOCOLS = new Set([
+  ...SUPPORTED_PROTOCOL_VERSIONS,
+  "2026-07-28",
+]);
 // Other names are logged as "other": the caller chooses the text.
 const LOGGED_METHODS = new Set([
   "initialize",
@@ -32,7 +41,11 @@ const LOGGED_METHODS = new Set([
 
 export interface McpDeps {
   appUrl: string;
-  resolve(authorization: string | null): Promise<AssistantAccess>;
+  /** `onUserCheck` receives the time of the Auth `/user` read, when there is one. */
+  resolve(
+    authorization: string | null,
+    onUserCheck: (ms: number) => void,
+  ): Promise<AssistantAccess>;
 }
 
 /** What one request hands its tool handler, and what the handler reports. */
@@ -75,11 +88,15 @@ const handler = createMcpHandler(
   { legacy: "stateless", responseMode: "json", keepAliveMs: 0 },
 );
 
+/** Every value is from a fixed set or a number: the caller chooses header and body text. */
 interface LogEntry {
   assistant?: AssistantName;
+  origin: "absent" | "own" | "claude" | "chatgpt" | "other";
+  protocol: string;
   method: string;
   tool?: string;
   outcome: string;
+  userMs?: number;
 }
 
 /**
@@ -91,7 +108,18 @@ export async function serveMcp(
   deps: McpDeps,
 ): Promise<Response> {
   const started = performance.now();
-  const entry: LogEntry = { method: "none", outcome: "error" };
+  const version = request.headers.get("mcp-protocol-version");
+  const entry: LogEntry = {
+    origin: originClass(request.headers.get("origin"), deps.appUrl),
+    protocol:
+      version === null
+        ? "absent"
+        : LOGGED_PROTOCOLS.has(version)
+          ? version
+          : "other",
+    method: "none",
+    outcome: "error",
+  };
   try {
     const response = await serve(request, deps, entry);
     const headers = new Headers(response.headers);
@@ -119,12 +147,7 @@ async function serve(
     entry.outcome = "method_not_allowed";
     return new Response(null, { status: 405, headers: { allow: "POST" } });
   }
-  const origin = request.headers.get("origin");
-  if (
-    origin !== null &&
-    ![new URL(appUrl).origin, ...ASSISTANT_ORIGINS].includes(origin)
-  )
-    return refuse(entry, "origin", 403);
+  if (entry.origin === "other") return refuse(entry, "origin", 403);
   if (!isJsonContentType(request.headers.get("content-type")))
     return refuse(entry, "content_type", 415);
   // `parsedBody` skips the SDK's own size limit, so this route owns it.
@@ -149,7 +172,9 @@ async function serve(
   }
 
   const authorization = request.headers.get("authorization");
-  const access = await resolve(authorization);
+  const access = await resolve(authorization, (ms) => {
+    entry.userMs = Math.round(ms);
+  });
   if (access.status === "refused") {
     entry.outcome = "refused";
     return Response.json(
@@ -221,6 +246,17 @@ async function serve(
   entry.outcome =
     state.outcome ?? (response.ok ? "ok" : `http_${response.status}`);
   return new Response(answer, response);
+}
+
+function originClass(
+  origin: string | null,
+  appUrl: string,
+): LogEntry["origin"] {
+  if (origin === null) return "absent";
+  if (origin === new URL(appUrl).origin) return "own";
+  return Object.hasOwn(ASSISTANT_ORIGINS, origin)
+    ? ASSISTANT_ORIGINS[origin as keyof typeof ASSISTANT_ORIGINS]
+    : "other";
 }
 
 function refuse(entry: LogEntry, outcome: string, status: number) {

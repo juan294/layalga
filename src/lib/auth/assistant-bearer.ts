@@ -44,6 +44,8 @@ export interface AssistantBearerDeps {
   /** The signing keys of `supabase.url` by default. */
   jwks?: AssistantKeys;
   fetch?: typeof fetch;
+  /** Receives the duration of the `/user` read, including a failed one. */
+  onUserCheck?: (ms: number) => void;
 }
 
 const AUTH_TIMEOUT_MS = 3_000;
@@ -209,6 +211,7 @@ function availableKeys(
 }
 
 async function readUser(token: string, deps: AssistantBearerDeps) {
+  const started = performance.now();
   try {
     const response = await (deps.fetch ?? fetch)(
       `${issuerOf(deps.supabase.url)}/user`,
@@ -230,6 +233,8 @@ async function readUser(token: string, deps: AssistantBearerDeps) {
       : ("unavailable" as const);
   } catch {
     return "unavailable" as const;
+  } finally {
+    deps.onUserCheck?.(performance.now() - started);
   }
 }
 
