@@ -89,7 +89,8 @@ check() {
 # The privacy notice: the dated assistant section follows the switch.
 privacy_title="<h1>$(jq -r '.Privacy.title' messages/en.json)</h1>"
 privacy_section="<h2>$(jq -r '.Privacy.connectedAssistantsTitle' messages/en.json)</h2>"
-privacy_dated="$(jq -r '.Privacy.updatedAssistants' messages/en.json)"
+# Rendered markup only: the page also carries every message as JSON.
+privacy_dated="<p>$(jq -r '.Privacy.updatedAssistants' messages/en.json)</p>"
 privacy() {
   local html
   html="$(curl -s --fail --max-time 20 "${base}/en/privacy")" || {

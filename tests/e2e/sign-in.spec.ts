@@ -38,8 +38,12 @@ test("the privacy notice is public and linked from sign-in", async ({
   await page.getByRole("link", { name: "Privacy" }).click();
   await expect(page).toHaveURL(/\/en\/privacy$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privacy");
-  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(7);
+  // Browser tests run with ASSISTANT_ACCESS=on, which adds one section.
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(8);
   await expect(
     page.getByRole("heading", { name: "Guest-initiated requests" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Connected assistants" }),
   ).toBeVisible();
 });
