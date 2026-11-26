@@ -6,6 +6,7 @@ import { submitStayRequest } from "../../src/core/booking/stay-requests";
 import { decideRequestedStay } from "../../src/core/booking/decide-stay-request";
 import en from "../../messages/en.json" with { type: "json" };
 import es from "../../messages/es.json" with { type: "json" };
+import { evidencePath } from "./helpers/evidence";
 import { test } from "./helpers/household";
 import { createFixtureRequester } from "./helpers/requester";
 
@@ -90,7 +91,7 @@ for (const [locale, copy, device] of [
         .getAttribute("href");
       expect(structured).toContain("nights=14");
       await chat.screenshot({
-        path: testInfo.outputPath("conversation-options.png"),
+        path: evidencePath(testInfo, "conversation-options.png"),
       });
       await ask(locale === "en" ? "Choose option 2" : "Elige la opción 2");
       await expect(
@@ -114,9 +115,9 @@ for (const [locale, copy, device] of [
       await expect(
         page.getByText(copy.GuestConversation.commandHint, { exact: true }),
       ).toBeVisible();
-      await page
-        .getByRole("main")
-        .screenshot({ path: testInfo.outputPath("conversation-review.png") });
+      await page.getByRole("main").screenshot({
+        path: evidencePath(testInfo, "conversation-review.png"),
+      });
       await page
         .getByLabel(copy.GuestConversation.commandHint)
         .fill(locale === "en" ? "Did the hosts confirm?" : "¿Ya confirmaron?");

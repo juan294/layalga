@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
 import en from "../../messages/en.json" with { type: "json" };
 import es from "../../messages/es.json" with { type: "json" };
+import { evidencePath } from "./helpers/evidence";
 import { test } from "./helpers/household";
 
 test.use({ householdOptions: { parties: [] } });
@@ -138,7 +139,7 @@ for (const [locale, messages] of [
         await expect(first.getByText(stays.review)).toBeVisible();
         await expect(second.getByText(stays.review)).toBeVisible();
         await results.screenshot({
-          path: test.info().outputPath("stay-comparison.png"),
+          path: evidencePath(test.info(), "stay-comparison.png"),
         });
 
         await unpublish.click();
