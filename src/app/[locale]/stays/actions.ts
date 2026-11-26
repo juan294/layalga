@@ -1,35 +1,7 @@
 "use server";
 
 import { verifiedRequester } from "@/lib/auth/verified-requester";
-import { z } from "zod";
-import { guestSessionOptionInput } from "@/core/booking/guest-action-input";
-import { optionWindowIsAllowed } from "@/core/booking/option-window";
-import { discoverPublicListings } from "@/core/booking/public-listings";
-import { searchPublicStays } from "@/core/booking/public-stay-search";
-
-// Browser forms send decimal strings. Agent calls also accept JSON numbers.
-// Gate the wire types before the shared domain fields coerce and bound them.
-const fields = guestSessionOptionInput.shape;
-const count = (bounds: typeof fields.nights) =>
-  z.preprocess(
-    (value) =>
-      typeof value === "number" ||
-      (typeof value === "string" && /^\d+$/.test(value))
-        ? value
-        : Number.NaN,
-    bounds,
-  );
-const stayQuery = z
-  .strictObject({
-    handle: z.uuid(),
-    from: fields.from,
-    to: fields.to,
-    nights: count(fields.nights),
-    adults: count(fields.adults),
-    children: count(fields.children),
-    pets: count(fields.pets),
-  })
-  .refine(({ from, to }) => optionWindowIsAllowed(from, to));
+import { findHouseholds, findStays } from "@/core/booking/guest-lookup";
 
 export async function hasStaySession() {
   return Boolean(await verifiedRequester());
@@ -44,13 +16,7 @@ const signIn = {
 export async function lookupHouseholds(name: unknown) {
   try {
     if (!(await hasStaySession())) return { ...signIn, listings: [] };
-    const query = z.string().trim().min(2).max(80).safeParse(name);
-    if (!query.success)
-      return { status: "invalid" as const, listings: [], truncated: false };
-    return {
-      status: "success" as const,
-      ...(await discoverPublicListings(query.data)),
-    };
+    return await findHouseholds(name);
   } catch (error) {
     console.error("[PUBLIC_LISTING_SEARCH_FAILED]", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -62,11 +28,7 @@ export async function lookupHouseholds(name: unknown) {
 export async function lookupStays(input: unknown) {
   try {
     if (!(await hasStaySession())) return { ...signIn, options: [] };
-    const parsed = stayQuery.safeParse(input);
-    if (!parsed.success)
-      return { status: "invalid" as const, options: [], truncated: false };
-    const { handle, ...criteria } = parsed.data;
-    return await searchPublicStays(handle, criteria);
+    return await findStays(input);
   } catch (error) {
     console.error("[PUBLIC_STAY_SEARCH_FAILED]", {
       errorName: error instanceof Error ? error.name : "UnknownError",
