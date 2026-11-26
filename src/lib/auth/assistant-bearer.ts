@@ -76,7 +76,7 @@ class KeysUnavailable extends Error {}
 
 const keySets = new Map<string, AssistantKeys>();
 
-const issuerOf = (supabaseUrl: string) =>
+export const issuerOf = (supabaseUrl: string) =>
   `${supabaseUrl.replace(/\/+$/, "")}/auth/v1`;
 
 /** The signing keys of Auth, cached for this process. */

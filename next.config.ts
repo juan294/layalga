@@ -27,6 +27,14 @@ const nextConfig: NextConfig = {
     },
   },
   allowedDevOrigins: ["127.0.0.1"],
+  // Both discovery locations of the assistant endpoint (RFC 9728). A route
+  // folder named `.well-known` would fall outside the type check.
+  async rewrites() {
+    return [
+      "/.well-known/oauth-protected-resource",
+      "/.well-known/oauth-protected-resource/api/mcp",
+    ].map((source) => ({ source, destination: "/api/mcp/metadata" }));
+  },
   async headers() {
     return [
       {

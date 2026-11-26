@@ -34,9 +34,9 @@ describe("server environment", () => {
 
   it("accepts the scripted model in development and test", () => {
     for (const NODE_ENV of ["development", "test"]) {
-      expect(parseServerEnvironment({ NODE_ENV, MODEL: "scripted" }).model).toBe(
-        "scripted",
-      );
+      expect(
+        parseServerEnvironment({ NODE_ENV, MODEL: "scripted" }).model,
+      ).toBe("scripted");
     }
   });
 
@@ -218,6 +218,87 @@ describe("server environment", () => {
     });
 
     expect(readiness).toEqual({ ready: true, issues: [] });
+  });
+
+  describe("connected assistants in production", () => {
+    const web = {
+      NODE_ENV: "production",
+      VERCEL_ENV: "production",
+      AGENT_RUNTIME: "local",
+      MODEL: "bedrock",
+      BEDROCK_MODEL_ID: "us.anthropic.claude-sonnet-4-6",
+      AWS_REGION: "us-east-1",
+      SCHEDULER: "none",
+      APP_URL: "https://layalga.thecreativetoken.com",
+      DATABASE_URL: "postgresql://database.example/postgres",
+      NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable",
+      LINK_TOKEN_SECRET: "l".repeat(32),
+      CALENDAR_FEED_SECRET: "f".repeat(32),
+      AGENT_ROUTE_SECRET: "a".repeat(32),
+      CRON_SECRET: "c".repeat(32),
+    };
+
+    it("accepts the application URL whose endpoint is the token audience", () => {
+      for (const APP_URL of [web.APP_URL, `${web.APP_URL}/`])
+        expect(
+          serverEnvironmentReadiness({
+            ...web,
+            APP_URL,
+            ASSISTANT_ACCESS: "on",
+          }),
+        ).toEqual({ ready: true, issues: [] });
+    });
+
+    it("reports APP_URL when the endpoint differs from the token audience", () => {
+      for (const APP_URL of [
+        "https://layalga.example",
+        "https://layalga.thecreativetoken.com/en",
+        "https://www.layalga.thecreativetoken.com",
+      ])
+        expect(
+          serverEnvironmentReadiness({
+            ...web,
+            APP_URL,
+            ASSISTANT_ACCESS: "on",
+          }).issues,
+        ).toEqual([{ key: "APP_URL", code: "invalid" }]);
+    });
+
+    it("needs nothing new while assistants are off", () => {
+      const off = { ...web, APP_URL: "https://layalga.example" };
+      expect(serverEnvironmentReadiness(off)).toEqual({
+        ready: true,
+        issues: [],
+      });
+      expect(
+        serverEnvironmentReadiness({ ...off, ASSISTANT_ACCESS: "none" }),
+      ).toEqual({ ready: true, issues: [] });
+      expect(parseServerEnvironment(off).assistantAccess).toBe("none");
+    });
+
+    it("leaves the agent process and development out of the check", () => {
+      expect(
+        serverEnvironmentReadiness({
+          NODE_ENV: "development",
+          APP_URL: "http://127.0.0.1:3048",
+          ASSISTANT_ACCESS: "on",
+        }),
+      ).toEqual({ ready: true, issues: [] });
+      expect(
+        serverEnvironmentReadiness({
+          NODE_ENV: "production",
+          AGENT_EXECUTION_RUNTIME: "agentcore",
+          DATABASE_URL: "postgresql://database.example/postgres",
+          APP_URL: "https://layalga.example",
+          LINK_TOKEN_SECRET: "l".repeat(32),
+          MODEL: "bedrock",
+          BEDROCK_MODEL_ID: "us.anthropic.claude-sonnet-4-6",
+          AWS_REGION: "us-east-1",
+          ASSISTANT_ACCESS: "on",
+        }),
+      ).toEqual({ ready: true, issues: [] });
+    });
   });
 
   it("requires AgentCore and scheduler fields only when selected", () => {
