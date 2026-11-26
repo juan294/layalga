@@ -87,19 +87,23 @@ check() {
 }
 
 # The privacy notice: the dated assistant section follows the switch.
+privacy_title="<h1>$(jq -r '.Privacy.title' messages/en.json)</h1>"
 privacy_section="<h2>$(jq -r '.Privacy.connectedAssistantsTitle' messages/en.json)</h2>"
 privacy_dated="$(jq -r '.Privacy.updatedAssistants' messages/en.json)"
 privacy() {
   local html
-  html="$(curl -s --max-time 20 "${base}/en/privacy")"
-  if [[ "$html" == *"$privacy_section"* && "$html" == *"$privacy_dated"* ]]; then
+  html="$(curl -s --fail --max-time 20 "${base}/en/privacy")" || {
+    printf 'no page'
+    return
+  }
+  if [[ "$html" != *"$privacy_title"* ]]; then
+    printf 'no page'
+  elif [[ "$html" == *"$privacy_section"* && "$html" == *"$privacy_dated"* ]]; then
     printf 'shown'
   elif [[ "$html" == *"$privacy_section"* || "$html" == *"$privacy_dated"* ]]; then
     printf 'partial'
-  elif [[ "$html" == *"<h1"* ]]; then
-    printf 'absent'
   else
-    printf 'no page'
+    printf 'absent'
   fi
 }
 

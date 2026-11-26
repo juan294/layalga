@@ -34,6 +34,7 @@ describe("assertNoAssistantEndpoint", () => {
     "src/mcp/server.ts",
     "src/app/api/mcp/route.ts",
     "src/lib/auth/assistant-bearer.ts",
+    "../src/mcp/tools.ts",
   ])("fails when the AgentCore bundle includes %s", (path) => {
     expect(() =>
       assertNoAssistantEndpoint({
@@ -52,6 +53,8 @@ describe("assertNoAssistantEndpoint", () => {
           "src/core/assistant-access/audience.ts": {},
           "src/lib/server/env.ts": {},
           "src/agent/mcp-free-helper.ts": {},
+          // A dependency's own folders are not the project's endpoint.
+          "node_modules/@strands-agents/sdk/dist/src/mcp/client.js": {},
         },
       }),
     ).not.toThrow();

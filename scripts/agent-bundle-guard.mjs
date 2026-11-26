@@ -17,8 +17,10 @@ export function assertNoScriptedModel(metafile) {
 
 // The assistant endpoint, its route and the bearer resolver run on the web
 // only. The agent reads the shared audience constant through env.ts.
+// Metafile paths are relative to the working directory, so a dependency with
+// a `src/mcp` folder of its own stays outside the pattern.
 const ASSISTANT_ENDPOINT =
-  /(^|\/)src\/(mcp\/|app\/api\/mcp\/|lib\/auth\/assistant-bearer)/;
+  /^(?:\.\.\/)*src\/(?:mcp\/|app\/api\/mcp\/|lib\/auth\/assistant-bearer)/;
 
 /**
  * Fails the AgentCore bundle build when any esbuild input belongs to the

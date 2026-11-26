@@ -49,7 +49,6 @@ const criteria = {
 
 /** The secret key of the local stack, for the Auth admin API only. */
 function localSecretKey(): string {
-  if (process.env.SUPABASE_SECRET_KEY) return process.env.SUPABASE_SECRET_KEY;
   const status = JSON.parse(
     execFileSync("supabase", ["status", "-o", "json"], {
       encoding: "utf8",
@@ -57,8 +56,10 @@ function localSecretKey(): string {
     }),
   ) as { API_URL?: string; SECRET_KEY?: string };
   // The key must belong to the stack that the fixtures use.
-  if (status.API_URL !== localSupabase().url || !status.SECRET_KEY)
-    throw new Error("The local stack does not match NEXT_PUBLIC_SUPABASE_URL");
+  if (status.API_URL !== localSupabase().url)
+    throw new Error("supabase status names another stack than the fixtures");
+  if (!status.SECRET_KEY)
+    throw new Error("supabase status reported no secret key");
   return status.SECRET_KEY;
 }
 
@@ -186,12 +187,20 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
 }) => {
   const endpoint = `${baseURL}/api/mcp`;
   const local = localSupabase();
-  const household = await openHousehold({ parties: [] });
   const admin = localAdmin();
-  const requester = await createFixtureRequester(household.db);
-  const removeHost: (() => Promise<unknown>)[] = [];
+  // Everything the test creates, removed in reverse order and then counted.
+  const cleanups: (() => Promise<unknown>)[] = [];
+  const created = { homes: [] as string[], users: [] as string[] };
   let clientId = "";
+  let passed = false;
   try {
+    const household = await openHousehold({ parties: [] });
+    cleanups.push(() => household.close());
+    created.homes.push(household.homeId);
+    const requester = await createFixtureRequester(household.db);
+    cleanups.push(() => requester.cleanup());
+    created.users.push(requester.userId);
+
     const [listing] = await household.db<{ handle: string }[]>`
       insert into public.household_public_listings(home_id,display_name,search_name,published)
       values(${household.homeId},'Journey Vega','journey vega',true) returning handle`;
@@ -210,17 +219,24 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
     expect(pending.status).toBe("pending");
 
     // Gate G4 in the runbook: one public manual client with the exact callback.
-    const created = await adminCall("POST", "/oauth/clients", {
+    const registered = await adminCall("POST", "/oauth/clients", {
       client_name: "Claude",
       redirect_uris: [FIXTURE_CALLBACK],
       client_type: "public",
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
     });
-    expect(created.status).toBe(201);
-    clientId = String(created.body.client_id);
-    expect(created.body.registration_type).toBe("manual");
-    expect(created.body.redirect_uris).toEqual([FIXTURE_CALLBACK]);
+    expect(registered.status).toBe(201);
+    clientId = String(registered.body.client_id);
+    cleanups.push(async () => {
+      await adminCall("DELETE", `/oauth/clients/${clientId}`);
+      // The admin API keeps a deleted row with deleted_at; remove it.
+      await admin`delete from public.assistant_clients where client_id=${clientId}`;
+      await admin`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;
+      await admin`delete from auth.oauth_clients where id=${clientId}`;
+    });
+    expect(registered.body.registration_type).toBe("manual");
+    expect(registered.body.redirect_uris).toEqual([FIXTURE_CALLBACK]);
     await admin`insert into public.assistant_clients(client_id,assistant,redirect_uri,enabled)
       values(${clientId},'claude',${FIXTURE_CALLBACK},true)`;
 
@@ -396,7 +412,10 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
       const host = await createFixtureHost(household.db, {
         authUserId: requester.userId,
       });
-      removeHost.push(host.cleanup);
+      cleanups.push(host.cleanup);
+      const [bound] = await admin<{ homeId: string }[]>`
+        select home_id as "homeId" from public.hosts where id=${host.hostId}`;
+      created.homes.push(bound!.homeId);
       expect(await rawStatus(endpoint, liveToken)).toBe(401);
       const { authorizationId } = await startAuthorization(clientId);
       await page.goto(`/en/oauth/consent?authorization_id=${authorizationId}`);
@@ -446,34 +465,19 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
         page.getByRole("button", { name: en.Brand.signOut }),
       ).toBeVisible();
     });
+    passed = true;
   } finally {
-    for (const cleanup of removeHost) await cleanup();
-    if (clientId) {
-      await adminCall("DELETE", `/oauth/clients/${clientId}`);
-      // The admin API keeps a deleted row with deleted_at; remove it.
-      await admin`delete from public.assistant_clients where client_id=${clientId}`;
-      await admin`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;
-      await admin`delete from auth.oauth_clients where id=${clientId}`;
-    }
-    await requester.cleanup();
-    await household.close();
+    const problems: unknown[] = [];
+    for (const cleanup of cleanups.splice(0).reverse())
+      await cleanup().catch((error: unknown) => problems.push(error));
     try {
-      const [left] = await admin<
-        {
-          clients: number;
-          allowed: number;
-          windows: number;
-          sessions: number;
-          users: number;
-          homes: number;
-        }[]
-      >`select
+      const [left] = await admin<Record<string, number>[]>`select
           (select count(*)::int from auth.oauth_clients where id::text=${clientId}) as clients,
           (select count(*)::int from public.assistant_clients where client_id::text=${clientId}) as allowed,
           (select count(*)::int from public.assistant_request_windows where subject like ${`%:${clientId || "none"}`}) as windows,
           (select count(*)::int from auth.sessions where oauth_client_id::text=${clientId}) as sessions,
-          (select count(*)::int from auth.users where id=${requester.userId}) as users,
-          (select count(*)::int from public.homes where id=${household.homeId}) as homes`;
+          (select count(*)::int from auth.users where id::text = any(${created.users})) as users,
+          (select count(*)::int from public.homes where id::text = any(${created.homes})) as homes`;
       expect(left).toEqual({
         clients: 0,
         allowed: 0,
@@ -482,8 +486,14 @@ test("a guest connects Claude, reads three answers, and every stop holds", async
         users: 0,
         homes: 0,
       });
+    } catch (error) {
+      problems.push(error);
     } finally {
       await admin.end({ timeout: 5 });
     }
+    // A cleanup problem must not hide the failure of a step.
+    if (problems.length && passed) throw problems[0];
+    for (const problem of problems)
+      console.error("[assistant-access cleanup]", problem);
   }
 });
