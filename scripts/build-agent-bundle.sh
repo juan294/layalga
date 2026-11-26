@@ -44,10 +44,11 @@ const result = await build({
   outfile: process.env.AGENT_OUTFILE,
 });
 
-const { assertNoScriptedModel } = await import(
+const { assertNoAssistantEndpoint, assertNoScriptedModel } = await import(
   pathToFileURL(process.env.BUNDLE_GUARD).href
 );
 assertNoScriptedModel(result.metafile);
+assertNoAssistantEndpoint(result.metafile);
 
 const rootPackage = JSON.parse(await readFile(process.env.ROOT_PACKAGE, "utf8"));
 const builtins = new Set([
