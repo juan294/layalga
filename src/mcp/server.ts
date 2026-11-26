@@ -93,6 +93,7 @@ export async function serveMcp(
     const response = await serve(request, deps, entry);
     const headers = new Headers(response.headers);
     headers.set("cache-control", "no-store");
+    headers.delete("connection");
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

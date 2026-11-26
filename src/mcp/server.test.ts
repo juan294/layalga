@@ -291,6 +291,8 @@ describe("dispatch", () => {
       );
       expect(response.status).toBe(200);
       expect(await response.text()).toContain("unavailable");
+      // The answer is buffered, so no hop-by-hop header remains.
+      expect(response.headers.get("connection")).toBeNull();
       expect(loggedLines()).toEqual([
         expect.objectContaining({
           method: "tools/call",
