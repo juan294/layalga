@@ -136,6 +136,10 @@ it("keeps the tool objects the website registers", () => {
   const tools = createPublicStayTools({
     discover: vi.fn(),
     search: vi.fn(),
-  }).map(({ execute: _execute, ...tool }) => tool);
+  }).map((tool) =>
+    Object.fromEntries(
+      Object.entries(tool).filter(([key]) => key !== "execute"),
+    ),
+  );
   expect(tools).toStrictEqual(BASELINE);
 });
