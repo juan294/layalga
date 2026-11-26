@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Smoke of the assistant routes on the production server. Run it after
 # `pnpm run build`. It starts `next start` twice on a task-owned port: first
-# with no ASSISTANT_ACCESS (every URL is 404), then with `on` (metadata JSON
-# and a 401 challenge). The server is always stopped.
+# with no ASSISTANT_ACCESS (every URL is 404 and the privacy notice has no
+# assistant section), then with `on` (metadata JSON, a 401 challenge and the
+# section). The server is always stopped.
 #
 # The environment is synthetic and nothing connects to it: a request without a
 # token is refused before any database, key or Auth read.
@@ -85,6 +86,23 @@ check() {
   fi
 }
 
+# The privacy notice: the dated assistant section follows the switch.
+privacy_section="<h2>$(jq -r '.Privacy.connectedAssistantsTitle' messages/en.json)</h2>"
+privacy_dated="$(jq -r '.Privacy.updatedAssistants' messages/en.json)"
+privacy() {
+  local html
+  html="$(curl -s --max-time 20 "${base}/en/privacy")"
+  if [[ "$html" == *"$privacy_section"* && "$html" == *"$privacy_dated"* ]]; then
+    printf 'shown'
+  elif [[ "$html" == *"$privacy_section"* || "$html" == *"$privacy_dated"* ]]; then
+    printf 'partial'
+  elif [[ "$html" == *"<h1"* ]]; then
+    printf 'absent'
+  else
+    printf 'no page'
+  fi
+}
+
 status() { curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$@"; }
 post() {
   curl -s --max-time 10 -X POST "${base}/api/mcp" \
@@ -99,6 +117,7 @@ for path in "${metadata_paths[@]}"; do
 done
 check "dark POST /api/mcp" 404 "$(post -o /dev/null -w '%{http_code}')"
 check "dark GET /api/mcp" 404 "$(status "${base}/api/mcp")"
+check "dark privacy section" absent "$(privacy)"
 stop
 
 start ASSISTANT_ACCESS=on
@@ -116,6 +135,7 @@ check "on POST /api/mcp challenge" \
   "www-authenticate: Bearer resource_metadata=\"${public}/.well-known/oauth-protected-resource/api/mcp\", scope=\"openid\"" \
   "$(grep -i '^www-authenticate:' <<<"$headers" | tr -d '\r' | sed 's/^[Ww][Ww][Ww]-[Aa]uthenticate:/www-authenticate:/')"
 check "on GET /api/mcp" 405 "$(status "${base}/api/mcp")"
+check "on privacy section" shown "$(privacy)"
 stop
 
 if ((failures)); then

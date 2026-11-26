@@ -12,6 +12,10 @@ vi.mock("next-intl/server", () => ({
     (key: string) =>
       `${namespace}.${key}`,
 }));
+const access = vi.hoisted(() => ({ on: false }));
+vi.mock("@/lib/server/env", () => ({
+  assistantAccessOn: () => access.on,
+}));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("not found");
@@ -21,6 +25,11 @@ vi.mock("next/navigation", () => ({
 import en from "../../../../messages/en.json";
 import es from "../../../../messages/es.json";
 import PrivacyPage, { generateMetadata } from "./page";
+
+const render = async (locale: "en" | "es" = "es") =>
+  renderToStaticMarkup(
+    await PrivacyPage({ params: Promise.resolve({ locale }) }),
+  );
 
 // Assert the required content independently of the page's private section list.
 const EXPECTED_SECTIONS = [
@@ -46,6 +55,60 @@ describe("privacy page", () => {
       expect(html).toContain(`Privacy.${section}Body`);
     }
     expect(html).toContain('href="/es/sign-in"');
+  });
+
+  it("leaves out the assistant section and its date while assistants are off", async () => {
+    access.on = false;
+    const html = await render();
+    expect(html).toContain("Privacy.updated<");
+    expect(html).not.toContain("Privacy.updatedAssistants");
+    expect(html).not.toContain("Privacy.connectedAssistants");
+  });
+
+  it("adds the assistant section after the coordinator, with its date, when assistants are on", async () => {
+    access.on = true;
+    try {
+      const html = await render();
+      expect(html).toContain("Privacy.updatedAssistants<");
+      expect(html).not.toContain("Privacy.updated<");
+      const order = [
+        "Privacy.assistantTitle",
+        "Privacy.connectedAssistantsTitle",
+        "Privacy.connectedAssistantsBody",
+        "Privacy.servicesTitle",
+      ].map((key) => html.indexOf(key));
+      expect(order.every((at) => at >= 0)).toBe(true);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
+      expect(html).toContain('href="/es/assistants"');
+    } finally {
+      access.on = false;
+    }
+  });
+
+  it("dates the assistant notice and names the limits in both languages", () => {
+    for (const messages of [en, es]) {
+      expect(messages.Privacy.updatedAssistants).not.toBe(
+        messages.Privacy.updated,
+      );
+      expect(messages.Privacy.updatedAssistants).toMatch(/2026/);
+    }
+    // Owner decisions: what tools return, the sign-in service limit, sign-out.
+    for (const fact of [
+      "cannot send, change or withdraw",
+      "notes",
+      "sign-in service",
+      "Signing out",
+      "two days",
+    ])
+      expect(en.Privacy.connectedAssistantsBody).toContain(fact);
+    for (const fact of [
+      "No puede enviar, cambiar ni retirar",
+      "notas",
+      "servicio de inicio de sesión",
+      "Cerrar sesión",
+      "dos días",
+    ])
+      expect(es.Privacy.connectedAssistantsBody).toContain(fact);
   });
 
   it("titles the tab with the notice title", async () => {
