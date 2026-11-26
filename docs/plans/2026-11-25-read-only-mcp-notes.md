@@ -86,7 +86,7 @@ Not run: any hosted read, the Strix scan (it precedes an integration push), and 
 
 ## Phase 2: consent and connected assistants (2026-11-25)
 
-Status: implemented locally, waiting for the owner's acceptance. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests.
+Status: accepted by the owner on 2026-11-26, including limit L1, and merged locally into `develop`. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests.
 
 ### Deviations
 
@@ -104,9 +104,9 @@ Status: implemented locally, waiting for the owner's acceptance. The hosted OAut
 | Consent and list files | Logic is in `src/lib/auth/assistant-consent.ts` and `connected-assistants.ts`, with `google-guest.ts`, `oauth-server-errors.ts` and `assistant-consent-deps.ts` | Pages and actions stay thin | Real-Auth tests need injected sessions |
 | `referrer` not named | `no-referrer` makes the browser send no origin, so the sign-out form got 403 (reproduced) | `same-origin` | The query still does not reach another site |
 
-### Accepted limits to confirm
+### Accepted limit
 
-**L1.** After Auth approved a request (`redirect` and `continue` states), a language change or a reload shows "This request has ended", because the second read answers 400. The guest connects again from the assistant. Before the decision, a language change keeps the request. The plan's row "Guest changes language" promises the same request without this exception.
+**L1.** After Auth approved a request (`redirect` and `continue` states), a language change or a reload shows "This request has ended", because the second read answers 400. The guest connects again from the assistant. Before the decision, a language change keeps the request. The plan's row "Guest changes language" promises the same request without this exception. The owner accepted L1 on 2026-11-26: keeping the request would mean storing the authorization code in the browser.
 
 ### Facts recorded from local Auth v2.198.0
 
@@ -156,8 +156,8 @@ INFERRED: `src/app/[locale]/guest/verify/page.tsx` also sets `no-referrer`, so i
 
 ### Handoff
 
-- **Scope:** Phase 2 only, local. Base `792c2d1`, branch `feat/mcp-phase-2-consent`, worktree `/Users/juan/code/layalga-mcp-phase-2`. Not merged into `develop`.
+- **Scope:** Phase 2 only, local. Base `792c2d1`, branch `feat/mcp-phase-2-consent`, worktree `/Users/juan/code/layalga-mcp-phase-2`. Merged locally into `develop` on 2026-11-26.
 - **Manual acceptance:** the owner reads both pages in both languages and both themes. Screenshots: `.rpi/local/mcp-phase-2-screenshots` in the worktree (ignored by Git), eight `sheet-*.png` files and 72 single images, rendered from `4eb7309` with synthetic accounts.
-- **Resources:** the stack and the mutation worktree are removed; readback was zero. The worktree and branch stay until acceptance. Record: `.rpi/local/mcp-phase-2-resources-2026-11-25.md` in the primary checkout.
+- **Resources:** the stack and the mutation worktree are removed; readback was zero. The worktree and branch stay until the push is verified. Record: `.rpi/local/mcp-phase-2-resources-2026-11-25.md` in the primary checkout.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
-- **Next:** Phase 3 in a new session after acceptance. `ASSISTANT_ACCESS` exists; Phase 3 adds only its `APP_URL` check. Phase 4 step 6 can rely on the `not_allowed` text for a disabled client.
+- **Next:** Phase 3 in a new session. `ASSISTANT_ACCESS` exists; Phase 3 adds only its `APP_URL` check. Phase 4 step 6 can rely on the `not_allowed` text for a disabled client.

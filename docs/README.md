@@ -13,7 +13,7 @@ Start with the root README, the [current roadmap](roadmap.md) and the user manua
 | [Host sign-in identity notes](plans/2026-10-17-host-sign-in-identity-notes.md)                    | Implementation evidence, review dispositions and deviations for phases 1 and 2                |
 | [External agent access plan](plans/2026-11-24-external-agent-access.md) | Proposed: ChatGPT and Claude access through a remote MCP server with Google-backed account linking; awaits owner decisions |
 | [Read-only MCP plan](plans/2026-11-25-read-only-mcp.md) | Accepted specification of phase 2 of external agent access: token policy, consent, three read tools and activation gates |
-| [Read-only MCP notes](plans/2026-11-25-read-only-mcp-notes.md) | Phase 1 evidence, review dispositions and deviations |
+| [Read-only MCP notes](plans/2026-11-25-read-only-mcp-notes.md) | Phase 1 and 2 evidence, review dispositions, deviations and accepted limits |
 | [External agent OAuth spike](research/2026-11-25-external-agent-oauth-spike.md) | Phase 1 result: Supabase Auth is usable as the sign-in server under four conditions; local evidence only |
 | [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals     |
 
