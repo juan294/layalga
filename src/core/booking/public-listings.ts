@@ -15,8 +15,7 @@ interface ResolvedListing extends PublicListing {
   timezone: string;
 }
 
-/** The form that discovery compares; stored as `search_name`. */
-export function normalizedName(value: string) {
+function normalizedName(value: string) {
   return value
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -85,8 +84,9 @@ export async function getHostPublicListing(host: Host) {
 export async function setPublicListing(
   host: Host,
   change: Publication,
+  transaction?: TransactionSql,
 ): Promise<void> {
-  const { sql } = getDatabaseConnection();
+  const sql = transaction ?? getDatabaseConnection().sql;
   if (!change.published) {
     const rows = await sql`
       update public.household_public_listings l set published = false

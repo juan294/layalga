@@ -201,12 +201,11 @@ describe("activation runbook", () => {
     ]);
     // Each call parses as a production run of the named project.
     for (const [, action, acknowledgement, rest] of calls) {
-      const extra = rest!.trim()
-        ? rest!
-            .trim()
-            .replace('"$PILOT_HOME_ID"', "3f6c1a2b-7d4e-4f10-9a8b-1c2d3e4f5a6b")
-            .split(" ")
-        : [];
+      const extra = rest!
+        .trim()
+        .replace('"$PILOT_HOME_ID"', "3f6c1a2b-7d4e-4f10-9a8b-1c2d3e4f5a6b")
+        .split(" ")
+        .filter(Boolean);
       expect(
         parsePilotArguments([
           action!,

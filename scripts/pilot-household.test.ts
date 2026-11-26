@@ -52,6 +52,9 @@ const remove = (...extra: string[]) => [
   ...extra,
 ];
 
+const production = (...extra: string[]) =>
+  create(...extra).map((value) => (value === "local" ? "production" : value));
+
 function record(change: Partial<PilotRecord> = {}): PilotRecord {
   return {
     kind: "layalga-pilot-household",
@@ -87,13 +90,10 @@ describe("parsePilotArguments", () => {
   });
 
   it("needs a project for production and refuses one for local", () => {
-    const production = [
-      ...create().map((value) => (value === "local" ? "production" : value)),
-    ];
-    expect(() => parsePilotArguments(production)).toThrow(/--project-ref/);
-    expect(
-      parsePilotArguments([...production, "--project-ref", REF]),
-    ).toMatchObject({ target: "production", projectRef: REF });
+    expect(() => parsePilotArguments(production())).toThrow(/--project-ref/);
+    expect(parsePilotArguments(production("--project-ref", REF))).toMatchObject(
+      { target: "production", projectRef: REF },
+    );
     expect(() => parsePilotArguments(create("--project-ref", REF))).toThrow(
       /--project-ref/,
     );
@@ -236,19 +236,18 @@ describe("prepareCreation", () => {
 });
 
 describe("prepareRemoval", () => {
-  const command = { target: "local" as const, records, homeId: HOME };
+  const command = () => ({ target: "local" as const, records, homeId: HOME });
 
   it("returns the command's own record", () => {
     save(record());
-    expect(prepareRemoval({ ...command, records })).toEqual(record());
+    expect(prepareRemoval(command())).toEqual(record());
   });
 
   it("refuses when the record is missing", () => {
     save(record({ homeId: "4f6c1a2b-7d4e-4f10-9a8b-1c2d3e4f5a6b" }), HOME);
     expect(() =>
       prepareRemoval({
-        ...command,
-        records,
+        ...command(),
         homeId: "5f6c1a2b-7d4e-4f10-9a8b-1c2d3e4f5a6b",
       }),
     ).toThrow(/No pilot household record/);
@@ -262,7 +261,7 @@ describe("prepareRemoval", () => {
     ["an already removed household", { status: "removed" }],
   ])("refuses a record of %s", (_name, change) => {
     save({ ...record(), ...change });
-    expect(() => prepareRemoval({ ...command, records })).toThrow();
+    expect(() => prepareRemoval(command())).toThrow();
   });
 
   it("refuses a production removal of another project", () => {
@@ -289,8 +288,7 @@ describe("prepareRemoval", () => {
     save(record({ homeId: REAL_HOUSEHOLD_HOME_ID }), REAL_HOUSEHOLD_HOME_ID);
     expect(() =>
       prepareRemoval({
-        ...command,
-        records,
+        ...command(),
         homeId: REAL_HOUSEHOLD_HOME_ID,
       }),
     ).toThrow(/real household/);
@@ -299,7 +297,7 @@ describe("prepareRemoval", () => {
   it("never changes the record", () => {
     save(record());
     const before = readFileSync(recordPath(records, HOME), "utf8");
-    prepareRemoval({ ...command, records });
+    prepareRemoval(command());
     expect(readFileSync(recordPath(records, HOME), "utf8")).toBe(before);
   });
 });
@@ -322,14 +320,9 @@ describe("runPilotCommand", () => {
   });
 
   it("refuses a production run on a loopback database before it connects", async () => {
-    const production = [
-      ...create().map((value) => (value === "local" ? "production" : value)),
-      "--project-ref",
-      REF,
-    ];
-    await expect(runPilotCommand(production, env)).rejects.toThrow(
-      /does not name Supabase project/,
-    );
+    await expect(
+      runPilotCommand(production("--project-ref", REF), env),
+    ).rejects.toThrow(/does not name Supabase project/);
   });
 
   it("needs DATABASE_URL", async () => {

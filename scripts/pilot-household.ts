@@ -13,12 +13,12 @@ import postgres, { type Sql } from "postgres";
 import { z } from "zod";
 
 import {
-  normalizedName,
+  setPublicListing,
   validListingName,
 } from "../src/core/booking/public-listings";
 import { REAL_HOUSEHOLD_HOME_ID } from "../src/core/memory/orphans";
 import {
-  FIXTURE_ROOMS,
+  insertFixtureHome,
   removeFixtureHousehold,
 } from "../src/test-support/fixture-household";
 import {
@@ -248,37 +248,20 @@ export async function createPilotHousehold(
   let handle: string;
   try {
     handle = await sql.begin(async (transaction) => {
-      await transaction`
-        insert into public.homes (
-          id, name, timezone, pets_together_allowed, max_families_with_children
-        ) values (${homeId}, ${marker}, 'Europe/Madrid', false, 1)
-      `;
-      for (const [index, room] of FIXTURE_ROOMS.entries()) {
-        await transaction`
-          insert into public.rooms (
-            home_id, name, beds, guest_label, floor_label,
-            sleeping_arrangement, overflow_arrangement, maximum_capacity,
-            inventory_state, overflow_policy, display_order
-          ) values (
-            ${homeId}, ${room.name}, ${room.beds}, ${room.guestLabel},
-            ${room.floorLabel}, ${room.sleepingArrangement},
-            ${room.overflowArrangement}, ${room.maximumCapacity},
-            ${room.inventoryState}, ${room.overflowPolicy}, ${index + 1}
-          )
-        `;
-      }
       // No Auth user and no identity claim: nobody can sign in as this host.
-      await transaction`
-        insert into public.hosts (home_id, display_name, locale)
-        values (${homeId}, 'Pilot host', 'en')
-      `;
+      const { hostIds } = await insertFixtureHome(transaction, {
+        label: marker,
+        homeId,
+        hostNames: ["Pilot host"],
+      });
+      await setPublicListing(
+        { id: hostIds[0]!, homeId },
+        { published: true, displayName },
+        transaction,
+      );
       const [listing] = await transaction<{ handle: string }[]>`
-        insert into public.household_public_listings (
-          home_id, display_name, search_name, published
-        ) values (
-          ${homeId}, ${displayName}, ${normalizedName(displayName)}, true
-        )
-        returning handle
+        select handle from public.household_public_listings
+        where home_id = ${homeId}
       `;
       return listing!.handle;
     });
@@ -310,18 +293,22 @@ export async function removePilotHousehold(
     throw new Error(
       `Home ${record.homeId} is not the pilot household; nothing was removed`,
     );
-  // Anyone signed in can find the listing, so requests may not be the pilot
-  // guest's. A request needs a published listing, so none arrives after this.
-  if (row)
+  let removedStayRequests = 0;
+  if (row) {
+    // Anyone signed in can find the listing, so requests may not be the
+    // pilot guest's. A request needs a published listing, so none arrives
+    // after this update and the count is complete.
     await sql`
       update public.household_public_listings set published = false
       where home_id = ${record.homeId}
     `;
-  const [requests] = await sql<{ count: number }[]>`
-    select count(*)::int as count from public.stay_requests
-    where home_id = ${record.homeId}
-  `;
-  if (row) await removeFixtureHousehold(sql, record.homeId, record.marker);
+    const [requests] = await sql<{ count: number }[]>`
+      select count(*)::int as count from public.stay_requests
+      where home_id = ${record.homeId}
+    `;
+    removedStayRequests = requests!.count;
+    await removeFixtureHousehold(sql, record.homeId, record.marker);
+  }
   const removed: PilotRecord = {
     ...record,
     status: "removed",
@@ -331,7 +318,7 @@ export async function removePilotHousehold(
   return {
     ...removed,
     removedHousehold: Boolean(row),
-    removedStayRequests: requests?.count ?? 0,
+    removedStayRequests,
   };
 }
 

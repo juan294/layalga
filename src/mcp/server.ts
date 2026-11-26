@@ -19,10 +19,10 @@ import { TOOLS, callTool, toolNamed, type ToolContext } from "./tools";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const OUTAGE_RETRY_SECONDS = 30;
-const ASSISTANT_ORIGINS = {
-  "https://claude.ai": "claude",
-  "https://chatgpt.com": "chatgpt",
-} as const;
+const ASSISTANT_ORIGINS: ReadonlyMap<string, AssistantName> = new Map([
+  ["https://claude.ai", "claude"],
+  ["https://chatgpt.com", "chatgpt"],
+]);
 // The SDK's list holds the revisions from 2024-10-07 to 2025-11-25; the
 // handler serves 2026-07-28 as well.
 const LOGGED_PROTOCOLS = new Set([
@@ -92,7 +92,7 @@ const handler = createMcpHandler(
 /** Every value is from a fixed set or a number: the caller chooses header and body text. */
 interface LogEntry {
   assistant?: AssistantName;
-  origin: "absent" | "own" | "claude" | "chatgpt" | "other";
+  origin: "absent" | "own" | "other" | AssistantName;
   protocol: string;
   method: string;
   tool?: string;
@@ -109,15 +109,9 @@ export async function serveMcp(
   deps: McpDeps,
 ): Promise<Response> {
   const started = performance.now();
-  const version = request.headers.get("mcp-protocol-version");
   const entry: LogEntry = {
     origin: originClass(request.headers.get("origin"), deps.appUrl),
-    protocol:
-      version === null
-        ? "absent"
-        : LOGGED_PROTOCOLS.has(version)
-          ? version
-          : "other",
+    protocol: protocolClass(request.headers.get("mcp-protocol-version")),
     method: "none",
     outcome: "error",
   };
@@ -256,9 +250,12 @@ function originClass(
   if (origin === null) return "absent";
   // `parse`, not `new URL`: this runs before the log line's `try`.
   if (origin === URL.parse(appUrl)?.origin) return "own";
-  return Object.hasOwn(ASSISTANT_ORIGINS, origin)
-    ? ASSISTANT_ORIGINS[origin as keyof typeof ASSISTANT_ORIGINS]
-    : "other";
+  return ASSISTANT_ORIGINS.get(origin) ?? "other";
+}
+
+function protocolClass(version: string | null): string {
+  if (version === null) return "absent";
+  return LOGGED_PROTOCOLS.has(version) ? version : "other";
 }
 
 function refuse(entry: LogEntry, outcome: string, status: number) {

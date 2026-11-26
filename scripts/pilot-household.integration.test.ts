@@ -9,7 +9,6 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import postgres from "postgres";
 import {
   afterAll,
   afterEach,
@@ -25,15 +24,20 @@ import { submitStayRequest } from "../src/core/booking/stay-requests";
 import { closeDatabase } from "../src/core/db/client";
 import { REAL_HOUSEHOLD_HOME_ID } from "../src/core/memory/orphans";
 import { callTool } from "../src/mcp/tools";
-import { fixtureStay } from "../src/test-support/fixture-household";
+import {
+  fixtureStay,
+  removeFixtureHousehold,
+} from "../src/test-support/fixture-household";
 import {
   localAdmin,
   localSupabase,
+  localWebDatabase,
   localWebDatabaseUrl,
 } from "../src/test-support/local-supabase";
 
 import {
   createPilotHousehold,
+  pilotIdentity,
   prepareCreation,
   prepareRemoval,
   recordPath,
@@ -45,11 +49,7 @@ const APP = "http://127.0.0.1:3048";
 const local = localSupabase();
 const admin = localAdmin();
 // The command runs with the rights of the web runtime, as in production.
-const web = postgres(localWebDatabaseUrl(), {
-  max: 1,
-  prepare: false,
-  max_pipeline: 1,
-});
+const { sql: web } = localWebDatabase();
 let records: string;
 const created: string[] = [];
 const users: string[] = [];
@@ -61,7 +61,7 @@ beforeAll(() => {
 afterEach(async () => {
   // A failed test must not leave its household behind.
   for (const homeId of created.splice(0))
-    await admin`delete from public.homes where id = ${homeId} and name = ${`Pilot household ${homeId}`}`;
+    await removeFixtureHousehold(admin, homeId, pilotIdentity(homeId).marker);
   for (const id of users.splice(0))
     await admin`delete from auth.users where id = ${id}`;
 });
@@ -229,9 +229,7 @@ describe("pilot household on the local stack", { timeout: 60_000 }, () => {
       (await callTool("find_households", { name: record.displayName }, context))
         .status,
     ).toBe("none");
-    expect(() =>
-      prepareRemoval({ ...command(), homeId: record.homeId }),
-    ).toThrow(/removed/);
+    expect(() => prepareRemoval(owned)).toThrow(/removed/);
     expect(await realHousehold()).toEqual(real);
     expect(() => prepareCreation(command())).not.toThrow();
   });

@@ -218,15 +218,7 @@ describe("resolveAssistant with a scripted Auth answer", () => {
   }
 
   const slowly = <T>(ms: number, value: () => T) =>
-    new Promise<T>((done, fail) =>
-      setTimeout(() => {
-        try {
-          done(value());
-        } catch (error) {
-          fail(error);
-        }
-      }, ms),
-    );
+    new Promise<void>((done) => setTimeout(done, ms)).then(value);
 
   it.each<[string, () => Response]>([
     ["an accepted account", () => Response.json(user())],
