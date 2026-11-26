@@ -23,6 +23,8 @@ const e2eEnv = {
   MODEL: "scripted",
   SCHEDULER: "none",
   ASSISTANT_ACCESS: "on",
+  // Keeps the pages that tests/e2e/global-setup.ts compiles (next.config.ts).
+  E2E_KEEP_COMPILED_PAGES: "1",
 };
 Object.assign(process.env, e2eEnv);
 

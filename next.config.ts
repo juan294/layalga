@@ -15,6 +15,19 @@ export function buildSecurityHeaders() {
 
 export const securityHeaders = buildSecurityHeaders();
 
+/**
+ * Browser tests wait 5 s for a server action redirect, and a cold next dev
+ * compiles the target inside that response. `tests/e2e/global-setup.ts`
+ * compiles those pages first; next dev would drop them again after 60 s
+ * without use (at most 5 kept), so the browser tests keep them for the run.
+ */
+export function developmentPageRetention(
+  env: Record<string, string | undefined>,
+): NextConfig["onDemandEntries"] {
+  if (env.E2E_KEEP_COMPILED_PAGES !== "1") return undefined;
+  return { maxInactiveAge: 60 * 60 * 1000, pagesBufferLength: 1000 };
+}
+
 const nextConfig: NextConfig = {
   // Matches direct guest links, encoded guest return paths, capability queries
   // and assistant requests.
@@ -27,6 +40,7 @@ const nextConfig: NextConfig = {
     },
   },
   allowedDevOrigins: ["127.0.0.1"],
+  onDemandEntries: developmentPageRetention(process.env),
   // Both discovery locations of the assistant endpoint (RFC 9728). A route
   // folder named `.well-known` would fall outside the type check.
   async rewrites() {
