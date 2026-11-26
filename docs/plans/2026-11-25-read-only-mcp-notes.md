@@ -228,7 +228,7 @@ The endpoint tests ran the official client 2.3.1 in both eras against real Auth 
 
 ## Phase 4: acceptance, documents and activation runbook (2026-11-26)
 
-Status: implemented locally on branch `feat/mcp-phase-4-acceptance`; awaits owner acceptance. Nothing is pushed, merged into `develop` or released. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests. No runbook step was run against the hosted project; see the review incident below for one unintended request.
+Status: accepted by the owner on 2026-11-26 and merged locally into `develop`. Not released. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests. No runbook step was run against the hosted project; see the review incident below for one unintended request.
 
 ### Owner decisions carried into the documents
 
@@ -306,7 +306,8 @@ Not run: any hosted read or write, a real Claude or ChatGPT connection, a real G
 
 ### Handoff
 
-- **Scope:** Phase 4 only, local. Base `3cf866c` (local `develop`), branch `feat/mcp-phase-4-acceptance`, worktree `/Users/juan/code/layalga-mcp-phase-4`. Not merged into `develop`.
+- **Scope:** Phase 4 only, local. Base `3cf866c` (local `develop`), branch `feat/mcp-phase-4-acceptance`, worktree `/Users/juan/code/layalga-mcp-phase-4`. Merged locally into `develop` on 2026-11-26.
+- **Owner follow-ups (2026-11-26):** before any pilot, a short follow-up adds the G6 pilot household command and the `[MCP_REQUEST]` fields for P2 and P4 (Origin, protocol version, `/user` time).
 - **Manual acceptance:** the owner reads the privacy section in both languages and the runbook. Screenshots: `.rpi/local/mcp-phase-4-screenshots` in the worktree (ignored by Git), eight `privacy-{on,off}-{en,es}-{light,dark}.png` files rendered from `0240ad7`, whose privacy page and messages equal the candidate's. The owner decides separately on the release, G0 to G7, and the Strix scan before any integration push.
 - **Resources:** the stack is removed; readback was zero. Record: `.rpi/local/mcp-phase-4-resources-2026-11-26.md` in the primary checkout. The worktree and branch stay until acceptance.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
