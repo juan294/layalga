@@ -8,7 +8,12 @@ import {
   clearOAuthNextCookie,
   oauthNextPath,
 } from "@/lib/auth/oauth-next";
-import { isRequesterPath, isStaySearchPath } from "@/lib/auth/safe-next-path";
+import {
+  isAssistantConsentPath,
+  isAssistantsPath,
+  isRequesterPath,
+  isStaySearchPath,
+} from "@/lib/auth/safe-next-path";
 import { verifiedGoogleGuestEmail } from "@/lib/auth/verified-guest-email";
 import { claimPartyForUser } from "@/lib/auth/party-claim";
 import { hasPartyForUser } from "@/lib/auth/guest-account";
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           );
         const guestToken = guestTokenFromPath(next);
         const bookingReturn = isStaySearchPath(next);
-        if (isRequesterPath(next) || bookingReturn) {
+        if (isGuestReturn(next) || bookingReturn) {
           if (verifiedGoogleGuestEmail(user)) {
             // A pre-provisioned host can enter from the stay finder and open their dashboard later.
             if (bookingReturn) await claimHostForUser(user);
@@ -58,7 +63,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
       // Only this sign-in failed; keep the account's other sessions.
       await supabase.auth.signOut({ scope: "local" });
-      if (isRequesterPath(next)) return failedRequestSignIn(request, next);
+      if (isGuestReturn(next)) return failedSignInPlace(request, next);
       if (guestTokenFromPath(next)) {
         const failed = new URL(next, authRequestOrigin(request));
         failed.searchParams.set("claim", "failed");
@@ -73,11 +78,23 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
   }
 
-  if (isRequesterPath(next)) return failedRequestSignIn(request, next);
+  if (isGuestReturn(next)) return failedSignInPlace(request, next);
   return clearOAuthNextCookie(signInRedirect(request, next, "oauth_failed"));
 }
 
-function failedRequestSignIn(request: NextRequest, next: string) {
+/**
+ * Pages that any verified Google guest can return to. They never bind a
+ * prepared host, and they offer their own retry.
+ */
+function isGuestReturn(next: string): boolean {
+  return (
+    isRequesterPath(next) ||
+    isAssistantConsentPath(next) ||
+    isAssistantsPath(next)
+  );
+}
+
+function failedSignInPlace(request: NextRequest, next: string) {
   const retry = new URL(next, authRequestOrigin(request));
   retry.searchParams.set("auth", "failed");
   return clearOAuthNextCookie(NextResponse.redirect(retry));

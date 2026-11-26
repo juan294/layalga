@@ -16,12 +16,13 @@ export function buildSecurityHeaders() {
 export const securityHeaders = buildSecurityHeaders();
 
 const nextConfig: NextConfig = {
-  // Matches direct guest links, encoded guest return paths and capability queries.
+  // Matches direct guest links, encoded guest return paths, capability queries
+  // and assistant requests.
   logging: {
     incomingRequests: {
       ignore: [
         /(?:\/|%2f)g(?:\/|%2f)[^/?&#]+/i,
-        /[?&](?:token|capability)=[^&]+/i,
+        /[?&](?:token|capability|authorization_id)=[^&]+/i,
       ],
     },
   },

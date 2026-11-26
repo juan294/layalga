@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 export type ActionErrorCode =
+  | "assistant_consent_failed"
+  | "assistant_disconnect_failed"
+  | "assistant_list_failed"
   | "calendar_feed_issue_failed"
   | "calendar_feed_revoke_failed"
   | "email_settings_update_failed"

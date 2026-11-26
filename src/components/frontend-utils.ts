@@ -1,4 +1,4 @@
-import { isStaySearchPath } from "@/lib/auth/safe-next-path";
+import { isAuthorizationId, isStaySearchPath } from "@/lib/auth/safe-next-path";
 
 const POLL_BASE_DELAY_MS = 1_500;
 const POLL_MAX_DELAY_MS = 30_000;
@@ -25,6 +25,9 @@ export function localeSwitchHref(
     if (next && isStaySearchPath(next)) {
       setIf("next", next.replace(/^\/(en|es)\//, `/${nextLocale}/`));
     }
+  } else if (pathname === "/oauth/consent") {
+    const id = searchParams.get("authorization_id");
+    if (isAuthorizationId(id)) setIf("authorization_id", id);
   } else if (/^\/guest\/verify\/?$/.test(pathname)) {
     setIf("capability", searchParams.get("capability"));
   } else if (/^\/calendar\/?$/.test(pathname)) {

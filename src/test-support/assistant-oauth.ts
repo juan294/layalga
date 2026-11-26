@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
+import { createServerClient } from "@supabase/ssr";
 import { decodeJwt } from "jose";
 import type { Sql } from "postgres";
 
@@ -111,15 +112,44 @@ export async function webSignIn({
   };
 }
 
+/** A web client whose cookies hold these tokens, as in a browser. */
+export async function cookieClient({
+  accessToken,
+  refreshToken,
+}: Pick<FixtureUser, "accessToken" | "refreshToken">) {
+  const { url, key } = localSupabase();
+  const jar = new Map<string, string>();
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll: () => [...jar].map(([name, value]) => ({ name, value })),
+      setAll: (cookies) => {
+        for (const { name, value } of cookies) {
+          if (value) jar.set(name, value);
+          else jar.delete(name);
+        }
+      },
+    },
+  });
+  const { error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error) throw new Error(`Local session failed: ${error.message}`);
+  return supabase;
+}
+
 /** Registers a public client the way an administrator does, without a secret. */
 async function registerClient(
   sql: Sql,
-  redirectUris: string = FIXTURE_CALLBACK,
+  {
+    redirectUris = FIXTURE_CALLBACK,
+    name = "Fixture assistant",
+  }: { redirectUris?: string; name?: string } = {},
 ): Promise<string> {
   const id = randomUUID();
   // Auth reads the optional text columns as strings, so they cannot be null.
   await sql`insert into auth.oauth_clients(id,client_secret_hash,registration_type,redirect_uris,grant_types,client_name,client_uri,logo_uri,client_type,token_endpoint_auth_method)
-    values(${id},'','manual',${redirectUris},'authorization_code,refresh_token','Fixture assistant','','','public','none')`;
+    values(${id},'','manual',${redirectUris},'authorization_code,refresh_token',${name},'','','public','none')`;
   return id;
 }
 
@@ -138,20 +168,20 @@ async function deleteClient(sql: Sql, clientId: string) {
   await sql`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;
 }
 
-/** The complete authorization code flow with PKCE; returns the token answer. */
-export async function codeFlow(
-  user: Pick<FixtureUser, "accessToken">,
+/** The first step of an assistant: Auth redirects the browser to consent. */
+export async function startAuthorization(
   clientId: string,
-): Promise<AuthAnswer> {
+  { redirectUri = FIXTURE_CALLBACK, scope = "openid", state = "fixture" } = {},
+) {
   const verifier = randomBytes(32).toString("base64url");
   const authorize = await authCall(
     "GET",
     `/auth/v1/oauth/authorize?${new URLSearchParams({
       response_type: "code",
       client_id: clientId,
-      redirect_uri: FIXTURE_CALLBACK,
-      scope: "openid",
-      state: "fixture",
+      redirect_uri: redirectUri,
+      scope,
+      state,
       code_challenge: createHash("sha256").update(verifier).digest("base64url"),
       code_challenge_method: "S256",
     })}`,
@@ -163,6 +193,15 @@ export async function codeFlow(
     );
   if (!authorizationId)
     throw new Error(`No authorization was started: ${authorize.status}`);
+  return { authorizationId, verifier };
+}
+
+/** The complete authorization code flow with PKCE; returns the token answer. */
+export async function codeFlow(
+  user: Pick<FixtureUser, "accessToken">,
+  clientId: string,
+): Promise<AuthAnswer> {
+  const { authorizationId, verifier } = await startAuthorization(clientId);
   const path = `/auth/v1/oauth/authorizations/${authorizationId}`;
   // The read binds the request to this account.
   await authCall("GET", path, { token: user.accessToken });
@@ -174,6 +213,10 @@ export async function codeFlow(
   const code =
     typeof redirect === "string" && new URL(redirect).searchParams.get("code");
   if (!code) throw new Error("No authorization code was issued");
+  return exchangeCode(code, clientId, verifier);
+}
+
+export function exchangeCode(code: string, clientId: string, verifier: string) {
   return authCall("POST", "/auth/v1/oauth/token", {
     form: {
       grant_type: "authorization_code",
@@ -204,15 +247,37 @@ export function assistantFixtures(db: Sql, admin: Sql) {
       cleanups.push(() => db`delete from auth.users where id=${user.id}`);
       return user;
     },
+    /** What Auth recorded for one authorization request. */
+    async authorization(authorizationId: string) {
+      const [row] = await admin<
+        { status: string; userId: string | null; hasCode: boolean }[]
+      >`select status::text as status, user_id as "userId", authorization_code is not null as "hasCode"
+        from auth.oauth_authorizations where authorization_id=${authorizationId}`;
+      return row!;
+    },
+    expire: (authorizationId: string) =>
+      admin`update auth.oauth_authorizations
+        set created_at=now() - interval '1 hour', expires_at=now() - interval '1 minute'
+        where authorization_id=${authorizationId}`,
+    grantedAt: (clientId: string, time: string) =>
+      admin`update auth.oauth_consents set granted_at=${time} where client_id=${clientId}`,
+    /** Takes a client off the allowlist. */
+    forget: (clientId: string) =>
+      admin`delete from public.assistant_clients where client_id=${clientId}`,
     /** A registered client; `allow: null` leaves it off the allowlist. */
     async client({
       allow = {},
       registered,
+      name,
     }: {
       allow?: { redirectUri?: string; enabled?: boolean } | null;
       registered?: string;
+      name?: string;
     } = {}) {
-      const id = await registerClient(admin, registered);
+      const id = await registerClient(admin, {
+        redirectUris: registered,
+        name,
+      });
       cleanups.push(() => deleteClient(admin, id));
       if (allow) await allowClient(admin, id, allow);
       return id;
