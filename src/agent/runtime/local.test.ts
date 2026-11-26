@@ -82,6 +82,39 @@ describe("LocalAgentClient", () => {
     }
   });
 
+  it("logs the cause and only the fixed text of a session error", async () => {
+    const session = new Error(
+      "field=<pendingToolExecution.completedToolResults> | completed tool results must be an object",
+      { cause: new TypeError("private detail") },
+    );
+    session.name = "SessionError";
+    const other = new Error("private detail", { cause: "not an error" });
+    mocks.enqueueAgentTask.mockResolvedValue(result);
+    mocks.executeQueuedAgentRun
+      .mockRejectedValueOnce(session)
+      .mockRejectedValueOnce(other);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await new LocalAgentClient().enqueue(task);
+      await new LocalAgentClient().enqueue(task);
+      await Promise.resolve();
+      expect(error).toHaveBeenNthCalledWith(1, "[AGENT_QUEUE_AFTER_FAILED]", {
+        runId: result.runId,
+        errorName: "SessionError",
+        causeName: "TypeError",
+        detail:
+          "field=<pendingToolExecution.completedToolResults> | completed tool results must be an object",
+      });
+      expect(error).toHaveBeenNthCalledWith(2, "[AGENT_QUEUE_AFTER_FAILED]", {
+        runId: result.runId,
+        errorName: "Error",
+      });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it("can disable opportunistic execution and does not schedule non-queued results", async () => {
     const completed = { ...result, status: "completed" } as RunResult;
     mocks.enqueueAgentTask.mockResolvedValueOnce(result);

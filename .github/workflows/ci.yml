@@ -131,7 +131,7 @@ jobs:
       - name: Run browser tests
         run: pnpm run test:e2e
       - name: Upload acceptance traces
-        if: failure()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: acceptance-test-results

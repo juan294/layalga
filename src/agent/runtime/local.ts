@@ -37,7 +37,7 @@ export class LocalAgentClient implements AgentClient {
         executeQueuedAgentRun(result.runId, deps).catch((error: unknown) => {
           console.error("[AGENT_QUEUE_AFTER_FAILED]", {
             runId: result.runId,
-            errorName: error instanceof Error ? error.name : "UnknownError",
+            ...describeFailure(error),
           });
         }),
       );
@@ -51,4 +51,19 @@ export class LocalAgentClient implements AgentClient {
       await localRuntimeDeps(payload, { executionRuntime: "local" }),
     );
   }
+}
+
+/**
+ * Names only, as elsewhere. A Strands `SessionError` message is fixed SDK text
+ * about the restored session, so it is the one message that the log keeps.
+ */
+function describeFailure(error: unknown) {
+  if (!(error instanceof Error)) return { errorName: "UnknownError" };
+  return {
+    errorName: error.name,
+    ...(error.cause instanceof Error ? { causeName: error.cause.name } : {}),
+    ...(error.name === "SessionError"
+      ? { detail: error.message.slice(0, 300) }
+      : {}),
+  };
 }

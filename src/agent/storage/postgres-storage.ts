@@ -32,6 +32,7 @@ export interface SessionLease {
 export class LeaseLostError extends Error {
   constructor(runId: string) {
     super(`Agent run is no longer active: ${runId}`);
+    this.name = "LeaseLostError";
   }
 }
 

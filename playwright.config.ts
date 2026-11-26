@@ -35,7 +35,8 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: e2eBaseUrl,
-    trace: "on-first-retry",
+    // CI keeps the trace of a failed first attempt, also when a retry passes.
+    trace: process.env.CI ? "retain-on-first-failure" : "on-first-retry",
   },
   projects: [
     {
