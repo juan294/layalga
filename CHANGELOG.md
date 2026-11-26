@@ -4,6 +4,10 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Read-only access for connected assistants, switched off. A guest can connect Claude to read listed households, dates, room terms and the status of their own requests through `/api/mcp`, after Google sign-in and approval on an L’Ayalga consent page. The assistant cannot send, change or withdraw anything. Guests see and disconnect assistants on a new **Connected assistants** page. Migration `20261125000100_assistant_access.sql` adds the client allowlist, request counts and an access token hook. `ASSISTANT_ACCESS` defaults to `none`, which keeps consent, the endpoint, the header link and the privacy section off; hosted activation follows `docs/release/assistant-access-activation.md`, one owner-authorized gate at a time.
+
 ### Changed
 
 - Updated the AWS SDK clients 3.1173.0 to 3.1175.0 and the ADOT distro 0.14.0 to 0.15.0. The AgentCore bundle changes, so the next release deploys it.
