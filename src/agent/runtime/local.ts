@@ -53,17 +53,24 @@ export class LocalAgentClient implements AgentClient {
   }
 }
 
+/** A Strands session message starts with the restored field, for example `field=<a.b> | …`. */
+const SESSION_FIELD =
+  /^field=<([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*){0,7})>/;
+
 /**
- * Names only, as elsewhere. A Strands `SessionError` message is fixed SDK text
- * about the restored session, so it is the one message that the log keeps.
+ * Names only, as elsewhere. The Strands SDK does not export `SessionError`,
+ * and any code can use that name, so only a field path that matches the SDK's
+ * pattern is kept from its message; no free text reaches the log.
  */
 function describeFailure(error: unknown) {
   if (!(error instanceof Error)) return { errorName: "UnknownError" };
+  const field =
+    error.name === "SessionError"
+      ? SESSION_FIELD.exec(error.message)?.[1]
+      : undefined;
   return {
     errorName: error.name,
     ...(error.cause instanceof Error ? { causeName: error.cause.name } : {}),
-    ...(error.name === "SessionError"
-      ? { detail: error.message.slice(0, 300) }
-      : {}),
+    ...(field ? { field } : {}),
   };
 }
