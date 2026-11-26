@@ -19,6 +19,8 @@ export interface FixtureUser {
 
 interface AuthCall {
   token?: string;
+  /** Another API key, such as the secret key for the admin API. */
+  key?: string;
   json?: Record<string, unknown>;
   form?: Record<string, string>;
 }
@@ -33,14 +35,14 @@ interface AuthAnswer {
 export async function authCall(
   method: string,
   path: string,
-  { token, json, form }: AuthCall = {},
+  { token, key, json, form }: AuthCall = {},
 ): Promise<AuthAnswer> {
   const local = localSupabase();
   const response = await fetch(`${local.url}${path}`, {
     method,
     redirect: "manual",
     headers: {
-      apikey: local.key,
+      apikey: key ?? local.key,
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(json ? { "content-type": "application/json" } : {}),
       ...(form ? { "content-type": "application/x-www-form-urlencoded" } : {}),
@@ -153,7 +155,7 @@ async function registerClient(
   return id;
 }
 
-async function allowClient(
+export async function allowClient(
   sql: Sql,
   clientId: string,
   { redirectUri = FIXTURE_CALLBACK, enabled = true } = {},
@@ -162,7 +164,7 @@ async function allowClient(
     values(${clientId},'claude',${redirectUri},${enabled})`;
 }
 
-async function deleteClient(sql: Sql, clientId: string) {
+export async function deleteClient(sql: Sql, clientId: string) {
   await sql`delete from public.assistant_clients where client_id=${clientId}`;
   await sql`delete from auth.oauth_clients where id=${clientId}`;
   await sql`delete from public.assistant_request_windows where subject like ${`%:${clientId}`}`;

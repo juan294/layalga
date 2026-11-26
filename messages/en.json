@@ -138,6 +138,7 @@
   "Privacy": {
     "title": "Privacy",
     "updated": "Last updated November 21, 2026.",
+    "updatedAssistants": "Last updated November 26, 2026.",
     "intro": "L’Ayalga helps guests arrange a stay with a household. You can sign in with Google to look up a published home or use a private invitation. This notice explains what the app keeps and who can see it.",
     "signInTitle": "Google sign-in",
     "signInBody": "When you sign in with Google, L’Ayalga receives your name, email address and profile picture. It uses your email address to identify you as a host, a guest searching for a stay or sending a request, or a guest who has linked an invitation to this account. It also uses it to send hosts notices about their household and, if a guest asks for them, visit reminders. It does not read your mail, contacts or any other Google data.",
@@ -145,6 +146,9 @@
     "householdBody": "The app stores what hosts and guests enter to plan a visit: the invitation, the dates, the size of the party, room choices, notes and requests for approval. If you choose to get reminders by email, it also stores that address and your consent. You can turn the reminders off at any time.",
     "assistantTitle": "The coordinator",
     "assistantBody": "An AI coordinator that runs on Amazon Bedrock reads invitation and request text to suggest dates and rooms. Bookings change only through the app's own rules, and sensitive changes need a host's approval. To help with later visits, it remembers practical preferences for each family, such as arrival habits, room needs, pets and accessibility notes. Hosts can see these notes and erase them for any family. In the guest booking conversation, the app extracts scheduling words, dates and counts from your message. When model interpretation is enabled, only that filtered input goes to Amazon Bedrock. Household matching, room selection and private status checks run in the app. Your email, receipt and hosts’ private schedules are excluded from the model input.",
+    "connectedAssistantsTitle": "Connected assistants",
+    "connectedAssistantsBody": "You can connect an AI assistant, such as Claude, to your account. It can then look up listed households, compare dates and rooms, and read the status of your own stay requests. It cannot send, change or withdraw a request. You sign in with Google and approve each assistant on an L’Ayalga page; a host account cannot connect one. The answers that L’Ayalga gives an assistant contain household names, dates, room terms and request status, never your notes, your special requests or your email address. The company that runs the assistant, for example Anthropic for Claude, receives these answers. While an assistant is connected, that company can also read your name, email address and picture from the sign-in service. L’Ayalga cannot prevent this. Signing out of L’Ayalga does not disconnect an assistant: disconnect it on the page below. To limit how often an assistant can ask, L’Ayalga counts its requests for each account and deletes the counts after two days.",
+    "connectedAssistantsLink": "See and disconnect your assistants",
     "servicesTitle": "Services the app uses",
     "servicesBody": "Supabase stores the data and handles sign-in, Vercel hosts the website, and Amazon Web Services runs the coordinator and sends email. Google provides sign-in. L’Ayalga does not sell data, show ads or use tracking cookies. It sets only the cookies it needs for sign-in, guest access and your language.",
     "retentionTitle": "How long data is kept",

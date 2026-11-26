@@ -4,18 +4,18 @@ Start with the root README, the [current roadmap](roadmap.md) and the user manua
 
 ## Real-use launch
 
-| Document                                                                                          | What it is                                                                                    |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| [Demo mode removal and Google sign-in](research/2026-10-15-demo-mode-removal-and-google-login.md) | Research: every demo surface, the Google sign-in path, and the production state on 2026-10-15 |
-| [Real-use launch plan](plans/2026-10-15-real-use-launch.md)                                       | Six phases: test foundation, fixture probes, demo removal, documentation, two releases        |
-| [Real-use launch notes](plans/2026-10-15-real-use-launch-notes.md)                                | Implementation deviations, review dispositions and open owner decisions                       |
-| [Host sign-in identity plan](plans/2026-10-17-host-sign-in-identity.md)                           | Three phases: account chip in the header, Google account picker, host naming, release v2.3.0  |
-| [Host sign-in identity notes](plans/2026-10-17-host-sign-in-identity-notes.md)                    | Implementation evidence, review dispositions and deviations for phases 1 and 2                |
-| [External agent access plan](plans/2026-11-24-external-agent-access.md) | Proposed: ChatGPT and Claude access through a remote MCP server with Google-backed account linking; awaits owner decisions |
-| [Read-only MCP plan](plans/2026-11-25-read-only-mcp.md) | Accepted specification of phase 2 of external agent access: token policy, consent, three read tools and activation gates |
-| [Read-only MCP notes](plans/2026-11-25-read-only-mcp-notes.md) | Phase 1 to 3 evidence, review dispositions, deviations and accepted limits |
-| [External agent OAuth spike](research/2026-11-25-external-agent-oauth-spike.md) | Phase 1 result: Supabase Auth is usable as the sign-in server under four conditions; local evidence only |
-| [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals     |
+| Document                                                                                          | What it is                                                                                                                 |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [Demo mode removal and Google sign-in](research/2026-10-15-demo-mode-removal-and-google-login.md) | Research: every demo surface, the Google sign-in path, and the production state on 2026-10-15                              |
+| [Real-use launch plan](plans/2026-10-15-real-use-launch.md)                                       | Six phases: test foundation, fixture probes, demo removal, documentation, two releases                                     |
+| [Real-use launch notes](plans/2026-10-15-real-use-launch-notes.md)                                | Implementation deviations, review dispositions and open owner decisions                                                    |
+| [Host sign-in identity plan](plans/2026-10-17-host-sign-in-identity.md)                           | Three phases: account chip in the header, Google account picker, host naming, release v2.3.0                               |
+| [Host sign-in identity notes](plans/2026-10-17-host-sign-in-identity-notes.md)                    | Implementation evidence, review dispositions and deviations for phases 1 and 2                                             |
+| [External agent access plan](plans/2026-11-24-external-agent-access.md)                           | Proposed: ChatGPT and Claude access through a remote MCP server with Google-backed account linking; awaits owner decisions |
+| [Read-only MCP plan](plans/2026-11-25-read-only-mcp.md)                                           | Accepted specification of phase 2 of external agent access: token policy, consent, three read tools and activation gates   |
+| [Read-only MCP notes](plans/2026-11-25-read-only-mcp-notes.md)                                    | Phase 1 to 4 evidence, review dispositions, deviations and accepted limits                                                 |
+| [External agent OAuth spike](research/2026-11-25-external-agent-oauth-spike.md)                   | Phase 1 result: Supabase Auth is usable as the sign-in server under four conditions; local evidence only                   |
+| [Current roadmap](roadmap.md)                                                                     | Released capabilities, the real-use launch steps, guest-email work and accepted deferrals                                  |
 
 ## Hackathon archive
 
@@ -23,11 +23,11 @@ The [hackathon archive](archive/hackathon/README.md) keeps the AWS Agents for Hu
 
 ## For hosts and guests
 
-| Document                                         | What it is                                                                       |
-| ------------------------------------------------ | -------------------------------------------------------------------------------- |
-| [guides/host-manual.md](guides/host-manual.md)   | Host journey, decisions, current outcomes, household settings and administration |
-| [guides/guest-manual.md](guides/guest-manual.md) | Guest journey, room choice, requests, reminders, changes and cancellation        |
-| [architecture/guest-booking-channels.md](architecture/guest-booking-channels.md) | Public discovery, conversational booking, WebMCP and private request outcomes |
+| Document                                                                         | What it is                                                                                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| [guides/host-manual.md](guides/host-manual.md)                                   | Host journey, decisions, current outcomes, household settings and administration                            |
+| [guides/guest-manual.md](guides/guest-manual.md)                                 | Guest journey, room choice, requests, connected assistants, reminders, changes and cancellation             |
+| [architecture/guest-booking-channels.md](architecture/guest-booking-channels.md) | Public discovery, conversational booking, WebMCP, the remote assistant channel and private request outcomes |
 
 ## Architecture and decisions
 
@@ -48,6 +48,7 @@ The [hackathon archive](archive/hackathon/README.md) keeps the AWS Agents for Hu
 | [compliance/third-party-licenses.md](compliance/third-party-licenses.md)             | License inventory command                                                                         |
 
 - [Guest email production readiness](release/guest-email-readiness.md) — prepared guest SES policy, activation steps and delivery evidence limits.
+- [Connected-assistant activation](release/assistant-access-activation.md): gates G0 to G7 for the read-only MCP channel, each with its proof and rollback, and the kill switch. Each gate needs its own owner authorization.
 - [Email template design](design/email-templates/README.md) — the shared transactional email template, its design handoff, and where each automated email is rendered.
 
 ## Process history
