@@ -161,3 +161,61 @@ INFERRED: `src/app/[locale]/guest/verify/page.tsx` also sets `no-referrer`, so i
 - **Resources:** the stack and the mutation worktree are removed; readback was zero. The worktree and branch stay until the push is verified. Record: `.rpi/local/mcp-phase-2-resources-2026-11-25.md` in the primary checkout.
 - **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
 - **Next:** Phase 3 in a new session. `ASSISTANT_ACCESS` exists; Phase 3 adds only its `APP_URL` check. Phase 4 step 6 can rely on the `not_allowed` text for a disabled client.
+
+## Phase 3: MCP endpoint and read tools (2026-11-26)
+
+Status: implemented locally, waiting for owner acceptance. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests. Nothing was pushed.
+
+### Deviations
+
+| Plan said | Found | Chose | Why |
+| --- | --- | --- | --- |
+| Files of the phase | The route and the metadata route need the same issuer, resource URL and challenge | `src/mcp/resource.ts`; `assistantEndpoint` and `withoutTrailingSlash` next to the audience constant; `issuerOf` exported from `assistant-bearer.ts`; `isPlainObject` in `src/lib/json-object.ts`; `localWebDatabaseUrl` in the test fixtures | One definition of each URL rule |
+| The official client calls the tools "over HTTP on the running route" | A test cannot give `next start` a fake clock or a failing `/user` | The client calls the route module (`POST`) through its `fetch` option. The rate limit and outage tests call `serveMcp` with the live resolver and a fake clock or a failing fetch. `scripts/smoke-assistant-routes.sh` proves the rewrites and the dark state on `next start` | Same handler; the smoke covers the server |
+| `historyUrl` is `<APP_URL>/requests` | `pageUrl` and `continueUrl` also need a language | All three links have no locale. On a dev server, `/requests` and `/stays/<handle>?<terms>` answered 307 to `/en/...` or `/es/...` by `Accept-Language`, with the query kept (VERIFIED) | One link for both languages |
+| Readiness reports `APP_URL` | `parseServerEnvironment` could also throw | Readiness only, for the production web contract | A wrong value must not stop the website; `/api/health` is degraded |
+| `search_stays` takes JSON integers | The shared lookup also accepts decimal strings for the website forms | The tool refuses counts that are not JSON integers and parses the criteria itself before the lookup | Plan text; the parsed query builds `continueUrl` |
+| Each set of room terms appears once | Two rooms of one stay can have the same terms | The stay lists the label twice | The room count stays true |
+| Wrong content type | No status in the plan | 415 | HTTP rule |
+| 2026-07-28 requests | The SDK requires `Mcp-Method` and, for `tools/call`, `Mcp-Name` (VERIFIED: 400 with `-32020` without them) | Raw test requests send them; the official client sends them itself | Era rule |
+| 2025-11-25 answers | The SDK returns the SSE answer before the tool runs, so the log said `ok` for an outage (reviewer finding 1, reproduced by a red test) | The route reads the answer whole before the log line and drops the `connection` header | A buffered answer holds nothing open: `subscriptions/listen` is refused before dispatch and `keepAliveMs` is 0 |
+| Challenge text | A header value cannot hold `’` (VERIFIED: `TypeError` ByteString) | `error_description` names no product | Header rule |
+| `[MCP_REQUEST]` logs the method | A caller chooses the method text | Known methods only, else `other`; the tool name only when it is one of the three | No caller text in logs |
+| The size test uses 20 rooms and 12 stays | The answer is built from the lookup result | A unit test with a typed lookup result and every room text at its stored maximum | No database needed for the size |
+| The smoke is named in the plan | `next start` also reads `.env`, `.env.local`, `.env.production` and `.env.production.local` | The script stops with BLOCKED when one exists, clears the environment with `env -i`, and is not a `package.json` script | Run it where no env file can switch assistants on |
+
+### Review
+
+One independent read-only reviewer, two rounds: 7 findings on `f0e23f2` (1 medium), 2 on the repairs, approved on `57b2ed1`. Four simplify reviewers (reuse, simplification, efficiency, altitude) read `5fe94b9`.
+
+| Finding | Disposition |
+| --- | --- |
+| 1 MEDIUM: a 2025-era tool call logs `ok` and too short a time | Reproduced with a red test, repaired in `57b2ed1` |
+| 2: the smoke depends on env files in its folder | Repaired |
+| 3: the value scan omits the notes canaries | Repaired: `CANARY` is a forbidden value |
+| 4: an either-or description test | Repaired |
+| 5: caller-chosen method names in the log | Repaired |
+| 6: wrong audience only through a web token at the route | Kept: a client token with another `aud` needs the Auth signing key; Phase 1 resolver tests pin the audience check |
+| 7: Phase 3 deviations missing | This section |
+| 8: `connection` header on a buffered answer | Repaired with a test |
+| 9: a client that leaves during a call gets a 500 that nobody reads | Kept: the log stays correct and nothing leaks |
+| Simplify: one trailing-slash helper, the SDK's metadata URL, one tool lookup, the parsed query for the link, a hoisted name schema, one JSON-RPC error helper, statuses from one list, one room row, the option window constant, a shared record guard, `setPublicListing`, one teardown stack, the shared web runtime URL, smaller test assertions | Applied in `4b5a334` |
+| Simplify: zod parsers for the argument shapes, a looser WebMCP schema type, one request builder for two test files, a buffered body built once, memoized dependencies, seeding the rate window, one OAuth flow for several tests, `Promise.all` in the resolver, deriving the allowed keys from the output schemas | Rejected: three tools do not need a parser layer; outside the phase; the two builders differ; microseconds per request; the full 60-call run proves each request counts once and the file takes under 2 seconds; tests stay isolated; the key list is the test's own oracle |
+
+Each rule was removed in turn and a test failed each time: 33 changes on `f0e23f2`, then 35 on `4b5a334`. One survived on `4b5a334` (the tool's own parse of the criteria); three cases were restored to the "before any lookup" list in `e9c805b`, and it then failed.
+
+### Evidence
+
+Candidate `e9c805b`, CLI 3.3.0, Auth v2.198.0, hook and OAuth server on, disposable stack `layalga-mcp3` after a fresh reset, in this order, all with exit 0: bootstrap; typecheck; lint; `pnpm run test` (1,616 tests in 222 files); coverage (1,204 tests, 57.89 % statements); `test:integration` (412 in 58 files, including `src/mcp/endpoint.integration.test.ts`); build; `SMOKE_PORT=3048 bash scripts/smoke-assistant-routes.sh` (11 checks on `next start`); E2E (76, no retry, no flaky test); local release probes on port 3048 (11 passed); `test:migration:rooms`. No existing test expectation changed; `actions.test.ts` is unchanged. The commit that adds this section changes documents only.
+
+`tests/e2e/guest-link.spec.ts:15` passed. This phase does not touch that path.
+
+The endpoint tests ran the official client 2.3.1 in both eras against real Auth tokens, with the web runtime role as `DATABASE_URL`. Not run: any hosted read, a real Claude or ChatGPT connection, a real Google sign-in, and the Strix scan (it precedes an integration push).
+
+### Handoff
+
+- **Scope:** Phase 3 only, local. Base `3287a0a`, branch `feat/mcp-phase-3-endpoint`, worktree `/Users/juan/code/layalga-mcp-phase-3`. Not merged into `develop`.
+- **Manual acceptance:** none in the plan. The owner can read `src/mcp/tools.ts` for the tool descriptions and recovery texts, which assistants show to guests.
+- **Resources:** record `.rpi/local/mcp-phase-3-resources-2026-11-26.md` in the primary checkout. The stack and the mutation worktree are removed at the end of this phase; the record has the readback.
+- **Overlay:** no `.rpi/project/rpi-implement.md` exists; no declared override was applied.
+- **Next:** Phase 4 in a new session after acceptance: the browser run from 401 to a tool result to disconnect, the privacy, architecture and runbook documents, and the bundle check. The bundle now also contains `src/core/assistant-access/audience.ts` (two exports, no import) through `env.ts`; nothing from `src/mcp` or the resolver.
