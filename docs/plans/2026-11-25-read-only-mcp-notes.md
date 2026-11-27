@@ -317,7 +317,7 @@ Both points are addressed by the pilot preparation follow-up below.
 
 ## Pilot preparation follow-up (2026-11-26)
 
-Status: implemented and locally verified, awaiting owner acceptance. Not merged into `develop`, not pushed, not released. Owner decision of 2026-11-26 ("go ahead with your recommendations"); scope in the [addendum](2026-11-26-mcp-pilot-prep.md). No hosted read or setting, no production database access and no runbook step was run. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests.
+Status: accepted by the owner on 2026-11-27, including the 14-day limit and the public listing while the pilot household exists, and merged locally into `develop`. Not released. Owner decision of 2026-11-26 ("go ahead with your recommendations"); scope in the [addendum](2026-11-26-mcp-pilot-prep.md). No hosted read or setting, no production database access and no runbook step was run. The hosted OAuth server stays off and `ASSISTANT_ACCESS` stays `none` outside tests.
 
 ### What changed
 
