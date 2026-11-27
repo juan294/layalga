@@ -131,7 +131,7 @@ describe("assistant consent view", () => {
         assistant: "claude",
         url: URL_,
       });
-      expect(html).toContain(`href="${URL_.replace("&", "&amp;")}"`);
+      expect(html).toContain(`href="${URL_.replaceAll("&", "&amp;")}"`);
       expect(count(html, /<a /g)).toBe(1);
       expect(html).toContain(`>${label}</a>`);
       expect(html).toContain("guest@example.com");
