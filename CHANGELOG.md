@@ -4,6 +4,10 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-27
+
+Read-only access for connected assistants, shipped switched off, plus two fixes. One migration: `20261125000100_assistant_access.sql`. The AgentCore bundle changes (dependency updates), so this release deploys it.
+
 ### Added
 
 - Read-only access for connected assistants, switched off. A guest can connect Claude to read listed households, dates, room terms and the status of their own requests through `/api/mcp`, after Google sign-in and approval on an L’Ayalga consent page. The assistant cannot send, change or withdraw anything. Guests see and disconnect assistants on a new **Connected assistants** page. Migration `20261125000100_assistant_access.sql` adds the client allowlist, request counts and an access token hook. `ASSISTANT_ACCESS` defaults to `none`, which keeps consent, the endpoint, the header link and the privacy section off; hosted activation follows `docs/release/assistant-access-activation.md`, one owner-authorized gate at a time.
@@ -12,7 +16,16 @@ All notable changes to L’Ayalga are documented in this file.
 
 ### Changed
 
-- Updated the AWS SDK clients 3.1173.0 to 3.1175.0 and the ADOT distro 0.14.0 to 0.15.0. The AgentCore bundle changes, so the next release deploys it.
+- Updated the AWS SDK clients 3.1173.0 to 3.1175.0 and the ADOT distro 0.14.0 to 0.15.0.
+- A failed queued agent run logs its error name, the name of its cause and, for a session error, only the field path. A lost lease logs as `LeaseLostError`. No message text reaches the log.
+
+### Fixed
+
+- A signed-in guest can sign out from the email verification page. The page hid its origin from the browser's form requests, so sign-out answered 403 and the guest stayed signed in.
+
+### Security
+
+- The runtime database check judges the host that the database driver actually connects to. A `host` parameter in `DATABASE_URL` could make an owner credential on a remote server pass as a local one.
 
 ## [2.5.3] - 2026-11-25
 
