@@ -1,6 +1,7 @@
 import { clickAndWaitForPost } from "./helpers/async-actions";
 import { randomUUID } from "node:crypto";
 import { expect } from "@playwright/test";
+import en from "../../messages/en.json" with { type: "json" };
 import { SystemClock } from "../../src/core/clock";
 import {
   loadLiveGuestContact,
@@ -129,4 +130,15 @@ test("reminder return keeps original bearer access and explicit opt-out revokes 
     "data-status",
     "reconfirm_pending",
   );
+});
+
+test("a signed-in guest can sign out from the email verification page", async ({
+  page,
+  context,
+  requester,
+}) => {
+  await requester.signIn(context);
+  await page.goto("/en/guest/verify?invalid=1");
+  await page.getByRole("button", { name: en.Brand.signOut }).click();
+  await expect(page).toHaveURL(/\/en\/sign-in$/);
 });
