@@ -66,7 +66,10 @@ describe("PostgresStorage", () => {
       await owner.write("snapshot", new Uint8Array([1]));
       await expect(
         stale.write("snapshot", new Uint8Array([2])),
-      ).rejects.toThrow("Agent run is no longer active");
+      ).rejects.toMatchObject({
+        name: "LeaseLostError",
+        message: expect.stringContaining("Agent run is no longer active"),
+      });
       await expect(stale.delete("snapshot")).rejects.toThrow(
         "Agent run is no longer active",
       );

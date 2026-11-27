@@ -37,7 +37,7 @@ export class LocalAgentClient implements AgentClient {
         executeQueuedAgentRun(result.runId, deps).catch((error: unknown) => {
           console.error("[AGENT_QUEUE_AFTER_FAILED]", {
             runId: result.runId,
-            errorName: error instanceof Error ? error.name : "UnknownError",
+            ...describeFailure(error),
           });
         }),
       );
@@ -51,4 +51,26 @@ export class LocalAgentClient implements AgentClient {
       await localRuntimeDeps(payload, { executionRuntime: "local" }),
     );
   }
+}
+
+/** A Strands session message starts with the restored field, for example `field=<a.b> | …`. */
+const SESSION_FIELD =
+  /^field=<([A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*){0,7})>/;
+
+/**
+ * Names only, as elsewhere. The Strands SDK does not export `SessionError`,
+ * and any code can use that name, so only a field path that matches the SDK's
+ * pattern is kept from its message; no free text reaches the log.
+ */
+function describeFailure(error: unknown) {
+  if (!(error instanceof Error)) return { errorName: "UnknownError" };
+  const field =
+    error.name === "SessionError"
+      ? SESSION_FIELD.exec(error.message)?.[1]
+      : undefined;
+  return {
+    errorName: error.name,
+    ...(error.cause instanceof Error ? { causeName: error.cause.name } : {}),
+    ...(field ? { field } : {}),
+  };
 }

@@ -60,11 +60,18 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          version: 2.116.0
+          version: 3.3.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Reserve the Supabase ports
+        # 54620-54629 are in the runner's range for temporary ports.
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54620-54629
       - name: Start Supabase
+        id: supabase
         run: supabase start
+      - name: Show what holds the Supabase ports
+        if: ${{ failure() && steps.supabase.outcome == 'failure' }}
+        run: sudo ss -tanp 'sport >= 54620 and sport <= 54629'
       - name: Run integration tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54622/postgres
@@ -97,13 +104,20 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          version: 2.116.0
+          version: 3.3.0
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install acceptance browsers
         run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Reserve the Supabase ports
+        # 54620-54629 are in the runner's range for temporary ports.
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54620-54629
       - name: Start Supabase
+        id: supabase
         run: supabase start
+      - name: Show what holds the Supabase ports
+        if: ${{ failure() && steps.supabase.outcome == 'failure' }}
+        run: sudo ss -tanp 'sport >= 54620 and sport <= 54629'
       - name: Export local Supabase public settings
         shell: bash
         run: |
@@ -117,7 +131,7 @@ jobs:
       - name: Run browser tests
         run: pnpm run test:e2e
       - name: Upload acceptance traces
-        if: failure()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: acceptance-test-results

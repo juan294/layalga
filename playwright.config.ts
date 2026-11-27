@@ -22,11 +22,15 @@ const e2eEnv = {
   AGENT_RUNTIME: "local",
   MODEL: "scripted",
   SCHEDULER: "none",
+  ASSISTANT_ACCESS: "on",
+  // Keeps the pages that tests/e2e/global-setup.ts compiles (next.config.ts).
+  E2E_KEEP_COMPILED_PAGES: "1",
 };
 Object.assign(process.env, e2eEnv);
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -34,7 +38,8 @@ export default defineConfig({
   workers: 1,
   use: {
     baseURL: e2eBaseUrl,
-    trace: "on-first-retry",
+    // CI keeps the trace of a failed first attempt, also when a retry passes.
+    trace: process.env.CI ? "retain-on-first-failure" : "on-first-retry",
   },
   projects: [
     {

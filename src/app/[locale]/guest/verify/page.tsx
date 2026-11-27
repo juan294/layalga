@@ -9,7 +9,9 @@ import { confirmGuestEmail } from "../email-actions";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  // The capability in the query must not reach another site. "no-referrer"
+  // would also hide the origin from the sign-out form, which then gets 403.
+  referrer: "same-origin",
 };
 
 export default async function VerifyGuestEmailPage({

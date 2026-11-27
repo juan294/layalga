@@ -41,6 +41,20 @@ describe("runtime database credentials", () => {
     ).not.toThrow();
   });
 
+  it("judges the host that postgres.js connects to, not the URL host", () => {
+    // A host query parameter replaces the URL host in postgres.js.
+    expect(() =>
+      validateRuntimeDatabaseUrl(
+        "postgresql://postgres:secret@127.0.0.1:5432/postgres?host=db.example.test",
+      ),
+    ).toThrow("dedicated non-owner role");
+    expect(() =>
+      validateRuntimeDatabaseUrl(
+        "postgresql://postgres:postgres@127.0.0.1:54622/postgres?host=localhost",
+      ),
+    ).not.toThrow();
+  });
+
   it("rejects non-PostgreSQL URLs", () => {
     expect(() =>
       validateRuntimeDatabaseUrl("https://layalga_web:secret@example.test"),

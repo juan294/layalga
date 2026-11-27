@@ -51,23 +51,33 @@ describe("LocalAgentClient", () => {
     mocks.runAgentTask.mockResolvedValue(completed);
 
     await expect(new LocalAgentClient().run(task)).resolves.toBe(completed);
-    expect(mocks.runtimeDeps).toHaveBeenCalledWith(task, { executionRuntime: "local" });
+    expect(mocks.runtimeDeps).toHaveBeenCalledWith(task, {
+      executionRuntime: "local",
+    });
     expect(mocks.runAgentTask).toHaveBeenCalledWith(task, deps);
   });
 
   it("opportunistically executes a queued result after the response", async () => {
     mocks.enqueueAgentTask.mockResolvedValue(result);
-    mocks.executeQueuedAgentRun.mockResolvedValue({ ...result, status: "completed" });
+    mocks.executeQueuedAgentRun.mockResolvedValue({
+      ...result,
+      status: "completed",
+    });
 
     await expect(new LocalAgentClient().enqueue(task)).resolves.toBe(result);
     await Promise.resolve();
     expect(mocks.after).toHaveBeenCalledTimes(1);
-    expect(mocks.executeQueuedAgentRun).toHaveBeenCalledWith(result.runId, deps);
+    expect(mocks.executeQueuedAgentRun).toHaveBeenCalledWith(
+      result.runId,
+      deps,
+    );
   });
 
   it("logs a failed opportunistic execution without changing the queued result", async () => {
     mocks.enqueueAgentTask.mockResolvedValue(result);
-    mocks.executeQueuedAgentRun.mockRejectedValue(new Error("execution failed"));
+    mocks.executeQueuedAgentRun.mockRejectedValue(
+      new Error("execution failed"),
+    );
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
@@ -77,6 +87,51 @@ describe("LocalAgentClient", () => {
         runId: result.runId,
         errorName: "Error",
       });
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("logs the cause and only the field path of a session error", async () => {
+    const session = new Error(
+      "field=<pendingToolExecution.completedToolResults> | completed tool results must be an object",
+      { cause: new TypeError("private detail") },
+    );
+    session.name = "SessionError";
+    const other = new Error("private detail", { cause: "not an error" });
+    // Any code can use the name, so free text never reaches the log.
+    const freeText = new Error("Thanks! We will arrive after lunch.");
+    freeText.name = "SessionError";
+    const spoofed = new Error("field=<Ana García> | private detail");
+    spoofed.name = "SessionError";
+    mocks.enqueueAgentTask.mockResolvedValue(result);
+    mocks.executeQueuedAgentRun
+      .mockRejectedValueOnce(session)
+      .mockRejectedValueOnce(other)
+      .mockRejectedValueOnce(freeText)
+      .mockRejectedValueOnce(spoofed);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      for (let call = 0; call < 4; call += 1)
+        await new LocalAgentClient().enqueue(task);
+      await Promise.resolve();
+      expect(error).toHaveBeenNthCalledWith(1, "[AGENT_QUEUE_AFTER_FAILED]", {
+        runId: result.runId,
+        errorName: "SessionError",
+        causeName: "TypeError",
+        field: "pendingToolExecution.completedToolResults",
+      });
+      expect(error).toHaveBeenNthCalledWith(2, "[AGENT_QUEUE_AFTER_FAILED]", {
+        runId: result.runId,
+        errorName: "Error",
+      });
+      for (const call of [3, 4])
+        expect(error).toHaveBeenNthCalledWith(
+          call,
+          "[AGENT_QUEUE_AFTER_FAILED]",
+          { runId: result.runId, errorName: "SessionError" },
+        );
     } finally {
       error.mockRestore();
     }
@@ -97,8 +152,12 @@ describe("LocalAgentClient", () => {
     const completed = { ...result, status: "completed" } as RunResult;
     mocks.executeQueuedAgentRun.mockResolvedValue(completed);
 
-    await expect(new LocalAgentClient().executeQueued("run-1", task)).resolves.toBe(completed);
-    expect(mocks.runtimeDeps).toHaveBeenCalledWith(task, { executionRuntime: "local" });
+    await expect(
+      new LocalAgentClient().executeQueued("run-1", task),
+    ).resolves.toBe(completed);
+    expect(mocks.runtimeDeps).toHaveBeenCalledWith(task, {
+      executionRuntime: "local",
+    });
     expect(mocks.executeQueuedAgentRun).toHaveBeenCalledWith("run-1", deps);
   });
 });

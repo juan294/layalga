@@ -17,7 +17,7 @@ vi.mock("../email-actions", () => ({ confirmGuestEmail: vi.fn() }));
 vi.mock("@/components/guest/guest-action-button", () => ({
   GuestActionButton: ({ label }: { label: string }) => <button>{label}</button>,
 }));
-import VerifyGuestEmailPage from "./page";
+import VerifyGuestEmailPage, { metadata } from "./page";
 
 describe("verification GET review", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -48,5 +48,15 @@ describe("verification GET review", () => {
     );
     expect(html).toContain("invalidLinkTitle");
     expect(html).not.toContain('name="capability"');
+  });
+});
+
+describe("verification page metadata", () => {
+  // "no-referrer" hid the origin from the sign-out form, which then got 403.
+  it("keeps the capability out of other sites and search engines", () => {
+    expect(metadata).toMatchObject({
+      robots: { index: false, follow: false },
+      referrer: "same-origin",
+    });
   });
 });

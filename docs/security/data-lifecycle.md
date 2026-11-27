@@ -20,6 +20,7 @@ Supabase Cron calls `private.apply_data_retention()` daily at 03:17 UTC.
 | Guest email outbox and attempt receipts                 | 90 days after outbox creation                                                                                                                                                | Delete outbox; attempt receipts cascade                                         |
 | Guest reminder contacts                                 | Last contact update older than 180 days; invitation cancelled, access expired over 180 days ago, or a stay ended over 180 days ago; no noncancelled recent or unbounded stay | Delete contact and dependent delivery records                                   |
 | Cron execution detail                                   | 30 days                                                                                                                                                                      | Delete execution detail                                                         |
+| Connected-assistant request windows                     | 2 days after the window starts; a window that a request is counting is skipped until the next run                                                                            | Delete the row                                                                  |
 
 Prompt/session cleanup preserves running or interrupted work, unresolved decisions and the sessions/jobs those states need. Retention applies to every household. The contract migration of the second real-use release ([drop demo schema](../../supabase/migrations/20261015084815_drop_demo_schema.sql)) removed the former demo-home exemption from the retention function together with the `homes.demo` column. The guest-contact/outbox retention uses the explicit rules above. See migrations [guest notes](../../supabase/migrations/20260905000300_guest_notes.sql), [guest delivery](../../supabase/migrations/20260905000500_guest_delivery.sql) and [attempt receipts](../../supabase/migrations/20260905000600_guest_delivery_attempts.sql).
 
@@ -63,6 +64,7 @@ Room data has separate disclosure levels:
 | Guest invitation            | Guest label, floor label, sleeping arrangement, capacities, overflow arrangement when relevant, and availability for that invitation's search |
 | Guest visit record          | Guest-visible labels for that guest's own assigned rooms                                                                                      |
 | Agent and WebMCP read tools | Bounded, non-private fields only; database-derived text is marked as untrusted                                                                |
+| Connected assistant (MCP)   | Listed household names and handles, guest room terms under answer-local labels, dates and the guest's own request and visit status            |
 | Calendar feed               | Guest-visible room labels and guest count only                                                                                                |
 
 For guest-initiated stays, the website and its browser tools require a verified Google session before looking up a household or showing availability. A host chooses whether signed-in guests can find the household by name. The requester’s account controls access to their request history and receipts. Private invitation links authorize their own invitation flow.
@@ -76,6 +78,36 @@ A private room block uses the same room and date exclusion constraint as a guest
 The Strands coordinator can prepare a bounded room-action proposal from a host request. It cannot apply the proposal. A host-authenticated Server Action reloads the proposal, verifies its home scope and current room state, and applies it once. This keeps natural-language assistance separate from write authority.
 
 WebMCP follows the same rule. Page tools can read bounded visible state or prepare a visible form. They do not accept home, host, invitation, or database authority in their schemas, and they do not submit a booking, block, opening, or closure. The person reviews and submits through the normal application control.
+
+## Connected assistants
+
+The read-only assistant channel ([guest booking channels](../architecture/guest-booking-channels.md#remote-assistant-channel)) is off until hosted activation: `ASSISTANT_ACCESS` defaults to `none`. This section describes the boundary that applies after activation.
+
+### What an assistant vendor receives
+
+Tool answers contain only listed household display names and handles, website links, check-in and checkout dates, guest room terms (guest label, floor label, sleeping and overflow arrangements, standard and maximum capacity) under labels such as `r1`, and the signed-in guest's own requests with household name, dates, request status and visit status (`src/mcp/projections.ts:18`). They contain no room references, internal room names, private notes, notes or requests, email address, user ID, request ID or another guest's request. The endpoint test scans every answer for these values (`src/mcp/endpoint.integration.test.ts`). The `[MCP_REQUEST]` log line records the assistant, the Origin as a class (`absent`, `own`, `claude`, `chatgpt` or `other`), the protocol version only when the endpoint serves it, a known method name, a known tool name, the outcome, the time and the time of the Auth `/user` read, never a token, an account, a header value or an argument value.
+
+The sign-in service is outside this boundary (accepted limit 1 of `2026-11-25-read-only-mcp.md`). A client access token can call Supabase Auth `GET /auth/v1/user` and `/auth/v1/oauth/userinfo`, which return the account's email, identities and metadata. The access token hook blanks `email` and `phone` and removes `user_metadata`, `app_metadata` and `amr` from the token itself (`supabase/migrations/20261125000100_assistant_access.sql:90`), but a vendor that calls Auth directly can read those fields until the grant ends. The consent page and the privacy notice say this in plain words.
+
+### Stored state
+
+| Data                                                                                                                                                        | Where                                                                                    | Lifetime                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Allowed clients: client ID, assistant name, one exact `https` callback, `enabled` (default `false`)                                                         | `public.assistant_clients` (`supabase/migrations/20261125000100_assistant_access.sql:4`) | Until an operator removes the row. No runtime role can insert, update or delete it                                                     |
+| Request counts: one minute and one 24-hour window per account and client, and one minute window per client. The subject holds the user ID and the client ID | `public.assistant_request_windows` (`:14`)                                               | Deleted by the daily retention run two days after the window starts (`:114`)                                                           |
+| Grants and sessions of a connection                                                                                                                         | `auth.oauth_consents` and `auth.sessions`, held by Supabase Auth                         | Until the guest disconnects on the **Connected assistants** page, an operator deletes the client's sessions, or the account is deleted |
+
+The application keeps no copy of an assistant's access or refresh token and no identity cache. Disconnect revokes the grant at Auth, and the next call fails at `/user`. Web sign-out does not disconnect an assistant.
+
+### Pilot household
+
+The assistant pilot (gate G6 of the [activation runbook](../release/assistant-access-activation.md#g6-claude-pilot)) uses one synthetic published household that `pnpm run pilot:household` creates in production (`scripts/pilot-household.ts`). It holds a home named `Pilot household <id>`, three synthetic rooms, one host row with no sign-in account and a published listing. The command writes no person's name or email, and nobody can confirm a request on it. It never reads or writes the real household. Like every published household, its listing is visible to any signed-in Google account that searches a matching name, such as "pilot" or "house", for as long as it exists. Such a person can send it a stay request. That request stores the sender's email, dates and text, nobody answers it, and removal deletes it without telling the sender.
+
+It exists from the start of G6 until the pilot ends, and at most 14 days: the command's record file carries that `removeBy` date. The owner removes it by id with `pilot:household remove`, also in the G6 rollback; there is no automatic removal. Removal deletes only the home with that id and its `Pilot household <id>` name, and the cascade removes its rooms, host row, listing and every stay request sent to it, from the pilot guest or anyone else. The removal output counts those requests (`removedStayRequests`). The pilot guest's own Google account is not part of the household and stays. Each production run of the command needs owner authorization.
+
+### The `/user` limit
+
+Every accepted call reads Auth `GET /user` with a 3-second limit (`src/lib/auth/assistant-bearer.ts:49`). A revoked grant, a deleted or banned user, or an unverifiable token is a 401; a timeout or an Auth fault is a 503 with `Retry-After`, and the connection stays. The rate count runs before this call, so a valid token cannot send Auth more than the account and client limits allow.
 
 ## Calendar feed capabilities
 
@@ -113,4 +145,4 @@ Amazon Bedrock AgentCore Runtime exports OpenTelemetry spans through ADOT for No
 
 Telegram is not an implemented notification or booking channel. It needs an explicit account-to-person binding, consent, replay protection, and a safe way to move from a message to visible confirmation.
 
-A remote MCP server is also not implemented. Browser WebMCP uses the authority of the page that a person already opened. A remote MCP service would need OAuth resource and audience binding, PKCE where applicable, token revocation, rate limits, and the same host or invitation checks as the web application. Direct Google Calendar or iCloud writes and two-way synchronization need a separate authorization and conflict model.
+The read-only remote MCP server is described under [connected assistants](#connected-assistants). It is off until activation. Direct Google Calendar or iCloud writes and two-way synchronization need a separate authorization and conflict model.

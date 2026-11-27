@@ -1,6 +1,11 @@
+import {
+  AuthApiError,
+  AuthRetryableFetchError,
+  AuthUnknownError,
+} from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
-import { getSessionUser } from "./session-user";
+import { getSessionUser, lookUpSessionUser } from "./session-user";
 
 const user = { id: "user-1" };
 const client = (verified: unknown, claims: Record<string, unknown> | null) =>
@@ -52,5 +57,54 @@ describe("web session user", () => {
         client(null, { sub: "user-1", aud: "authenticated" }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("web session lookup", () => {
+  const failing = (userError: unknown, claimsError?: unknown) =>
+    ({
+      auth: {
+        getUser: async () =>
+          claimsError
+            ? { data: { user }, error: null }
+            : { data: { user: null }, error: userError },
+        getClaims: async () => ({ data: null, error: claimsError ?? null }),
+      },
+    }) as never;
+
+  it("tells a signed-in user from a missing session", async () => {
+    expect(
+      await lookUpSessionUser(
+        client(user, { sub: "user-1", aud: "authenticated" }),
+      ),
+    ).toEqual({ status: "signed_in", user });
+    expect(
+      await lookUpSessionUser(
+        client(user, { sub: "user-1", aud: "authenticated", client_id: "c" }),
+      ),
+    ).toEqual({ status: "signed_out" });
+    expect(
+      await lookUpSessionUser(
+        failing(new AuthApiError("gone", 403, "session_not_found")),
+      ),
+    ).toEqual({ status: "signed_out" });
+  });
+
+  it.each([
+    ["cannot be reached", new AuthRetryableFetchError("fetch failed", 0)],
+    ["fails", new AuthRetryableFetchError("unavailable", 503)],
+    [
+      "is hidden behind a gateway page",
+      new AuthUnknownError("not JSON", new SyntaxError("<html>")),
+    ],
+    ["is busy", new AuthApiError("slow down", 429, "over_request_rate_limit")],
+  ])("does not call a guest signed out when Auth %s", async (_, error) => {
+    expect(await lookUpSessionUser(failing(error))).toEqual({
+      status: "unavailable",
+    });
+    expect(await lookUpSessionUser(failing(null, error))).toEqual({
+      status: "unavailable",
+    });
+    expect(await getSessionUser(failing(error))).toBeNull();
   });
 });

@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  ASSISTANT_AUDIENCE,
+  assistantEndpoint,
+} from "@/core/assistant-access/audience";
+
 type Environment = Readonly<Record<string, string | undefined>>;
 
 const agentRuntimeSchema = z.enum(["local", "agentcore"]);
@@ -7,6 +12,7 @@ const modelSchema = z.enum(["scripted", "bedrock"]);
 const schedulerSchema = z.enum(["none", "eventbridge"]);
 const emailSchema = z.enum(["none", "ses"]);
 const memorySchema = z.enum(["none", "agentcore"]);
+const assistantAccessSchema = z.enum(["none", "on"]);
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).optional(),
@@ -33,6 +39,7 @@ const rawEnvironmentSchema = z.object({
   SES_REGION: z.string().optional(),
   MEMORY: z.string().optional(),
   MEMORY_ID: z.string().optional(),
+  ASSISTANT_ACCESS: z.string().optional(),
 });
 
 export interface ServerEnvironment {
@@ -49,6 +56,7 @@ export interface ServerEnvironment {
   scheduler: z.infer<typeof schedulerSchema>;
   email: z.infer<typeof emailSchema>;
   memory: z.infer<typeof memorySchema>;
+  assistantAccess: z.infer<typeof assistantAccessSchema>;
   appUrl: string;
   agentcoreRuntimeArn?: string;
   bedrockModelId?: string;
@@ -112,6 +120,13 @@ export function parseServerEnvironment(
   // returning-guest memory is an optional recall feature, not a mode the web
   // app or agent process must opt into.
   const memory = parseMode(memorySchema, raw.MEMORY, "none", "MEMORY");
+  // Connected assistants stay off until an operator opts in, in every contract.
+  const assistantAccess = parseMode(
+    assistantAccessSchema,
+    raw.ASSISTANT_ACCESS,
+    "none",
+    "ASSISTANT_ACCESS",
+  );
   const appUrl = requiredValue(
     raw.APP_URL,
     production ? undefined : "http://localhost:3008",
@@ -181,6 +196,7 @@ export function parseServerEnvironment(
     scheduler,
     email,
     memory,
+    assistantAccess,
     appUrl,
     agentcoreRuntimeArn: raw.AGENTCORE_RUNTIME_ARN,
     bedrockModelId: raw.BEDROCK_MODEL_ID,
@@ -191,6 +207,16 @@ export function parseServerEnvironment(
     sesRegion: raw.SES_REGION,
     memoryId: raw.MEMORY_ID,
   };
+}
+
+/**
+ * Reads one switch, so a page does not depend on the rest of the environment.
+ * Any other value keeps assistants off.
+ */
+export function assistantAccessOn(
+  environment: Environment = process.env,
+): boolean {
+  return environment.ASSISTANT_ACCESS === "on";
 }
 
 export function serverEnvironmentReadiness(
@@ -270,6 +296,13 @@ export function serverEnvironmentReadiness(
     "none",
     false,
   );
+  const assistantAccess = mode(
+    "ASSISTANT_ACCESS",
+    values.ASSISTANT_ACCESS,
+    assistantAccessSchema.options,
+    "none",
+    false,
+  );
   const appUrl =
     values.APP_URL ?? (production ? undefined : "http://localhost:3008");
   if (!appUrl) add("APP_URL", "missing");
@@ -277,6 +310,13 @@ export function serverEnvironmentReadiness(
     !z.url().safeParse(appUrl).success ||
     (production && !appUrl.startsWith("https://"))
   ) {
+    add("APP_URL", "invalid");
+  } else if (
+    productionWebContract &&
+    assistantAccess === "on" &&
+    assistantEndpoint(appUrl) !== ASSISTANT_AUDIENCE
+  ) {
+    // Tokens carry one fixed audience, so the published resource must equal it.
     add("APP_URL", "invalid");
   }
   const require = (key: keyof typeof values, minimum = 1) => {

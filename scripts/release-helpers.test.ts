@@ -4,7 +4,40 @@ import {
   normalizeBaseUrl,
   parseReleaseCliOptions,
   safeErrorMessage,
+  databaseNamesProject,
+  isLoopbackDatabase,
 } from "./release-helpers";
+
+describe("database targets", () => {
+  it("reads the host that the client connects to, not only the URL host", () => {
+    const local = "postgresql://u:p@127.0.0.1:55922/postgres";
+    expect(isLoopbackDatabase(local)).toBe(true);
+    expect(isLoopbackDatabase("postgresql://u:p@[::1]:5432/postgres")).toBe(
+      true,
+    );
+    expect(isLoopbackDatabase(`${local}?host=remote.example.invalid`)).toBe(
+      false,
+    );
+    expect(
+      isLoopbackDatabase("postgresql://u:p@127.0.0.1,remote.example.invalid/x"),
+    ).toBe(false);
+  });
+
+  it("names a project only when every connected host belongs to it", () => {
+    const pooler =
+      "postgresql://layalga_web.prodref:p@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+    expect(databaseNamesProject(pooler, "prodref")).toBe(true);
+    expect(
+      databaseNamesProject(
+        "postgresql://layalga_web:p@db.prodref.supabase.co:5432/postgres",
+        "prodref",
+      ),
+    ).toBe(true);
+    expect(
+      databaseNamesProject(`${pooler}?host=remote.example.invalid`, "prodref"),
+    ).toBe(false);
+  });
+});
 
 describe("normalizeBaseUrl", () => {
   it("removes trailing slashes from an HTTP origin", () => {

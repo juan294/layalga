@@ -138,6 +138,7 @@
   "Privacy": {
     "title": "Privacidad",
     "updated": "Última actualización: 21 de noviembre de 2026.",
+    "updatedAssistants": "Última actualización: 26 de noviembre de 2026.",
     "intro": "L’Ayalga te ayuda a organizar una estancia con una familia. Puedes iniciar sesión con Google para buscar una casa publicada o usar una invitación privada. Este aviso explica qué guarda la aplicación y quién puede verlo.",
     "signInTitle": "Inicio de sesión con Google",
     "signInBody": "Cuando inicias sesión con Google, L’Ayalga recibe tu nombre, tu dirección de correo y tu foto de perfil. Usa tu correo para identificarte como anfitrión, como huésped que busca o solicita una estancia o como huésped que ha vinculado una invitación a esta cuenta. También lo usa para enviar a los anfitriones avisos sobre su casa y, si un huésped los pide, recordatorios de su visita. No lee tu correo, tus contactos ni ningún otro dato de Google.",
@@ -145,6 +146,9 @@
     "householdBody": "La aplicación guarda lo que anfitriones y huéspedes introducen para organizar una visita: la invitación, las fechas, el número de personas, la elección de habitaciones, las notas y las solicitudes de aprobación. Si decides recibir recordatorios por correo, también guarda esa dirección y tu consentimiento. Puedes desactivar los recordatorios cuando quieras.",
     "assistantTitle": "El coordinador",
     "assistantBody": "Un coordinador de IA que funciona en Amazon Bedrock lee el texto de invitaciones y solicitudes para proponer fechas y habitaciones. Las reservas solo cambian según las reglas de la aplicación, y los cambios delicados necesitan la aprobación de un anfitrión. Para ayudar en visitas futuras, recuerda preferencias prácticas de cada familia, como sus costumbres de llegada, necesidades de habitación, mascotas y notas de accesibilidad. Los anfitriones pueden ver estas notas y borrarlas para cualquier familia. En la conversación para solicitar una estancia, la aplicación extrae las palabras relacionadas con fechas, duración y número de huéspedes. Si utiliza un modelo para interpretarlas, solo envía esos datos filtrados a Amazon Bedrock. La búsqueda de la casa, la selección de habitaciones y la consulta del estado se realizan en la aplicación. Tu correo, tu solicitud privada y la agenda de los anfitriones quedan fuera de los datos que recibe el modelo.",
+    "connectedAssistantsTitle": "Asistentes conectados",
+    "connectedAssistantsBody": "Puedes conectar a tu cuenta un asistente de IA, como Claude. Así puede buscar casas publicadas, comparar fechas y habitaciones y consultar el estado de tus propias solicitudes de estancia. No puede enviar, cambiar ni retirar una solicitud. Inicias sesión con Google y apruebas cada asistente en una página de L’Ayalga; una cuenta de anfitrión no puede conectar ninguno. Las respuestas que L’Ayalga da a un asistente contienen nombres de casas, fechas, condiciones de las habitaciones y el estado de las solicitudes, nunca tus notas, tus peticiones especiales ni tu dirección de correo. La empresa que gestiona el asistente, por ejemplo Anthropic en el caso de Claude, recibe estas respuestas. Mientras un asistente esté conectado, esa empresa también puede consultar tu nombre, tu correo y tu foto en el servicio de inicio de sesión. L’Ayalga no puede impedirlo. Cerrar sesión en L’Ayalga no desconecta un asistente: desconéctalo en la página de abajo. Para limitar la frecuencia con la que un asistente puede preguntar, L’Ayalga cuenta sus solicitudes para cada cuenta y borra esos recuentos a los dos días.",
+    "connectedAssistantsLink": "Ver y desconectar tus asistentes",
     "servicesTitle": "Servicios que usa la aplicación",
     "servicesBody": "Supabase guarda los datos y gestiona el inicio de sesión, Vercel aloja el sitio web y Amazon Web Services ejecuta el coordinador y envía los correos. Google proporciona el inicio de sesión. L’Ayalga no vende datos, no muestra anuncios ni usa cookies de seguimiento. Solo usa las cookies necesarias para el inicio de sesión, el acceso de huéspedes y tu idioma.",
     "retentionTitle": "Cuánto tiempo se guardan los datos",
@@ -750,5 +754,109 @@
     "not_found": "Esta solicitud no está disponible para esta casa.",
     "decidedBy": "Decisión registrada por {name}.",
     "reopen": "Volver a abrir la solicitud"
+  },
+  "Assistants": {
+    "navigation": "Asistentes conectados",
+    "consentTitle": "Conectar un asistente",
+    "noScript": "Para iniciar sesión y dar permiso hace falta JavaScript. Actívalo y vuelve a cargar la página, o usa el enlace de invitación de tu anfitrión.",
+    "authFailed": "No se ha completado el inicio de sesión. Vuelve a intentarlo con tu cuenta de Google.",
+    "account": "Cuenta de Google",
+    "signIn": "Continuar con Google",
+    "useAnother": "Usar otra cuenta",
+    "continue": "Continuar",
+    "checking": "Comprobando…",
+    "allow": "Permitir",
+    "deny": "No permitir",
+    "answering": "Enviando tu respuesta…",
+    "assistant": "Asistente",
+    "answersGoTo": "Las respuestas van a",
+    "canRead": "Puede consultar",
+    "readHouseholds": "Las casas publicadas",
+    "readDates": "Las fechas disponibles",
+    "readRooms": "Las habitaciones y sus condiciones",
+    "readStatus": "El estado de las solicitudes de esta cuenta",
+    "cannot": "No puede",
+    "cannotSend": "Enviar, cambiar ni retirar una solicitud",
+    "alsoAsks": "También pide",
+    "scope": {
+      "email": "Tu dirección de correo",
+      "profile": "Tu nombre y tu foto",
+      "phone": "Tu número de teléfono",
+      "other": "Otro permiso, llamado «{scope}»"
+    },
+    "vendorReads": "{vendor} recibe estas respuestas. A través del servicio de inicio de sesión, {vendor} también podría consultar el nombre, el correo y la foto de tu cuenta.",
+    "signOutKeeps": "Cerrar sesión en L’Ayalga no desconecta {assistant}.",
+    "manage": "Ver los asistentes conectados",
+    "findStay": "Buscar una estancia",
+    "retry": "Volver a intentar",
+    "goTo": "Ir a {assistant}",
+    "returnTo": "Volver a {assistant}",
+    "states": {
+      "start": {
+        "title": "Comprueba primero tu cuenta",
+        "body": "Continúa solo si acabas de empezar esto en tu asistente. Si alguien te ha enviado este enlace, cierra esta página."
+      },
+      "review": {
+        "title": "{assistant} pide conectarse a tu cuenta"
+      },
+      "continue": {
+        "title": "Ya habías conectado {assistant}",
+        "body": "Sigue el enlace solo si acabas de empezar esto en tu asistente. Si alguien te ha traído aquí, cierra esta página."
+      },
+      "redirect": {
+        "title": "Volviendo a {assistant}",
+        "body": "Si esta página sigue abierta, usa el enlace."
+      },
+      "off": {
+        "title": "Las conexiones con asistentes están desactivadas",
+        "body": "Ahora ningún asistente puede conectarse a L’Ayalga."
+      },
+      "invalid": {
+        "title": "Este enlace no está completo",
+        "body": "Abre de nuevo el enlace desde tu asistente."
+      },
+      "sign_in": {
+        "title": "Inicia sesión para continuar",
+        "body": "Inicia sesión con la cuenta de Google que quieras usar. Iniciar sesión no conecta nada por sí solo."
+      },
+      "host": {
+        "title": "Una cuenta de anfitrión no puede conectar un asistente",
+        "body": "Usa una cuenta de Google que no sea de un anfitrión."
+      },
+      "not_allowed": {
+        "title": "Este asistente no puede conectarse",
+        "body": "L’Ayalga no reconoce este asistente, o está desactivado. Puedes buscar una estancia en este sitio web."
+      },
+      "ended": {
+        "title": "Esta petición ya no es válida",
+        "body": "Vuelve a tu asistente y conéctalo de nuevo."
+      },
+      "unavailable": {
+        "title": "Este paso no ha terminado",
+        "body": "Vuelve a intentarlo dentro de un minuto."
+      }
+    },
+    "list": {
+      "intro": "Un asistente conectado puede consultar las casas publicadas, las fechas, las habitaciones y el estado de tus solicitudes. No puede enviar, cambiar ni retirar una solicitud.",
+      "signInHelp": "Inicia sesión con la cuenta de Google que conectaste.",
+      "empty": "No hay ningún asistente conectado a esta cuenta.",
+      "unrecognized": "no reconocido",
+      "connectedOn": "Conectado el",
+      "disconnect": "Desconectar",
+      "disconnectNamed": "Desconectar {assistant}",
+      "disconnecting": "Desconectando…",
+      "disconnected": "Desconectado: {assistant}.",
+      "failed": "No se ha desconectado: {assistant}. Vuelve a intentarlo.",
+      "gone": "Ese asistente no está conectado a esta cuenta.",
+      "off": "Ahora los asistentes no pueden usar estas conexiones y la lista no está disponible. No tienes que hacer nada.",
+      "unavailable": "No se ha podido cargar la lista.",
+      "notesTitle": "Conviene saber",
+      "noteAtOnce": "La desconexión es inmediata.",
+      "noteSignOut": "Cerrar sesión en L’Ayalga no desconecta un asistente.",
+      "noteStale": "Si el asistente sigue mostrando una conexión, quita L’Ayalga allí y vuelve a añadirla.",
+      "noteClaudeCode": "Claude Code no es compatible.",
+      "unconfirmed": "No hemos podido confirmar la desconexión de {assistant}. Comprueba la lista y vuelve a intentarlo."
+    },
+    "accountChanged": "La cuenta con la que has iniciado sesión ha cambiado. Compruébala antes de continuar."
   }
 }

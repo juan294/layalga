@@ -4,6 +4,29 @@ All notable changes to L’Ayalga are documented in this file.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-27
+
+Read-only access for connected assistants, shipped switched off, plus two fixes. One migration: `20261125000100_assistant_access.sql`. The AgentCore bundle changes, so this release deploys it: it gets the dependency updates, the database host check and the `LeaseLostError` name.
+
+### Added
+
+- Read-only access for connected assistants, switched off. A guest can connect Claude to read listed households, dates, room terms and the status of their own requests through `/api/mcp`, after Google sign-in and approval on an L’Ayalga consent page. The assistant cannot send, change or withdraw anything. Guests see and disconnect assistants on a new **Connected assistants** page. Migration `20261125000100_assistant_access.sql` adds the client allowlist, request counts and an access token hook. It also lets `supabase_auth_admin` read the columns of `hosts` and `host_identity_claims` that the hook needs, through grants and RLS policies, and replaces `private.apply_data_retention`, whose output gains `deletedAssistantWindows`. `ASSISTANT_ACCESS` defaults to `none`, which keeps consent, the endpoint, the header link and the privacy section off. The **Connected assistants** page stays reachable, so a guest can always disconnect, and the consent page says that connections are off. Any value other than `none` or `on` (for example `off`) stops the web app from starting. Hosted activation follows `docs/release/assistant-access-activation.md`, one owner-authorized gate at a time.
+- The new `[MCP_REQUEST]` log line records the Origin as a class, the protocol version when the endpoint serves it, and the time of the Auth `/user` read (`userMs`), for pilot checks P2 and P4. It records no header or body text.
+- `pnpm run pilot:household -- create|remove` creates the synthetic published household of the assistant pilot and removes it by id (gate G6). It runs only with an explicit target and acknowledgement, keeps a record file as its marker, and never touches the real household.
+
+### Changed
+
+- Updated the AWS SDK clients 3.1173.0 to 3.1175.0 and the ADOT distro 0.14.0 to 0.15.0. The web app adds `@modelcontextprotocol/server` 2.3.0 and `jose` 6.2.10 for the endpoint.
+- With `AGENT_RUNTIME=local`, a failed queued agent run logs its error name, the name of its cause and, for a session error, only the field path; production uses `agentcore` and does not get these fields. On every runtime, a lost lease logs as `LeaseLostError`. No message text reaches the log.
+
+### Fixed
+
+- A signed-in guest can sign out from the email verification page. The page hid its origin from the browser's form requests, so sign-out answered 403 and the guest stayed signed in.
+
+### Security
+
+- The runtime database check judges the host that the database driver actually connects to. A `host` parameter in `DATABASE_URL` could make an owner credential on a remote server pass as a local one.
+
 ## [2.5.3] - 2026-11-25
 
 A sign-in security release for the web app. It has no migrations.

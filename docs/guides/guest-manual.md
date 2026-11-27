@@ -10,7 +10,32 @@ Choose the exact dates and rooms. Read any overflow arrangement before accepting
 
 After you send your first request, **My stay requests** appears. Open it with the same Google account to see the reply, even in a new browser session. You can also ask “Did the hosts confirm?” in the conversation to find your private receipt. You can withdraw while the request is pending. A host approval completes the booking immediately. Your receipt then opens the booked visit and its change, reconfirmation and cancellation controls. If the host declines or the selected rooms change, you can search again.
 
-Once you have signed in, a browser agent that supports WebMCP can help find a published home, check availability and prepare the selection while the page is open. Review the visible details and use the confirmation control to send a request prepared by that agent. Independently connecting from ChatGPT requires a separate remote integration.
+Once you have signed in, a browser agent that supports WebMCP can help find a published home, check availability and prepare the selection while the page is open. Review the visible details and use the confirmation control to send a request prepared by that agent. To ask from an assistant outside the browser, see the next section.
+
+## Connect an assistant
+
+This feature is not available yet. It stays switched off until the household's operator turns it on, and the steps below describe how it works after that. Claude comes first; ChatGPT follows later.
+
+### Connect
+
+1. In Claude, add L’Ayalga as a connector. Claude opens an L’Ayalga page.
+2. Choose **Continue with Google** if you are not signed in. Check the account that the page shows. If it is the wrong one, choose **Use another account**.
+3. Choose **Continue** only if you just started this connection yourself. If somebody sent you the link, close the page.
+4. Read who asks and where the answers go, for example `claude.ai`. Choose **Allow**, or **Do not allow** to refuse. If your browser does not return to Claude, use the **Return to Claude** link.
+
+If you reload the page or change its language after you choose **Allow**, it shows **This request has ended**. The connection request is used up at that point. Go back to Claude and connect again.
+
+A host account cannot connect an assistant. Use a Google account that does not belong to a host.
+
+### What the assistant can see
+
+The assistant can read listed households, available dates, rooms and their terms, and the status of your own requests. It cannot send, change or withdraw a request; you do that on the website. Links in its answers have no language in them, and the website opens in your browser's language.
+
+The answers do not contain your notes, your special requests, your email address or another guest's requests. The sign-in service is different: through it, the assistant's company (Anthropic for Claude) could also read your account's name, email address and picture while the connection exists. Connect only if you accept this.
+
+### Disconnect
+
+Open **Connected assistants** from the page header and choose **Disconnect** next to the assistant. It takes effect at once. Signing out of L’Ayalga does not disconnect an assistant, so disconnect it first if you want it to stop. If the assistant still shows a connection, or cannot connect again on its own, remove L’Ayalga in the assistant and add it again.
 
 ## 1. Open your invitation
 

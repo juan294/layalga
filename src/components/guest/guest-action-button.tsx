@@ -3,11 +3,14 @@
 import { useFormStatus } from "react-dom";
 
 export function GuestActionButton({
+  ariaLabel,
   className,
   label,
   pendingLabel,
   testId,
 }: {
+  /** Tells apart buttons that share a visible label; it must contain that label. */
+  ariaLabel?: string;
   className: string;
   label: string;
   pendingLabel: string;
@@ -18,6 +21,7 @@ export function GuestActionButton({
   return (
     <button
       aria-disabled={pending}
+      aria-label={pending ? undefined : ariaLabel}
       className={className}
       data-testid={testId}
       disabled={pending}

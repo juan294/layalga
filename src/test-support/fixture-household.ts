@@ -1,4 +1,4 @@
-import type { Sql } from "postgres";
+import type { Sql, TransactionSql } from "postgres";
 
 import { issueLinkToken } from "@/core/booking/invitations";
 
@@ -191,41 +191,17 @@ export async function createFixtureHousehold(
 
   try {
     const built = await sql.begin(async (transaction) => {
-      const [home] = await transaction<{ id: string }[]>`
-        insert into public.homes (
-          name, timezone, pets_together_allowed, max_families_with_children
-        ) values (${options.label}, 'Europe/Madrid', false, 1)
-        returning id
-      `;
-      const homeId = home!.id;
-
-      const roomIds: string[] = [];
-      for (const [index, room] of rooms.entries()) {
-        const [row] = await transaction<{ id: string }[]>`
-          insert into public.rooms (
-            home_id, name, beds, guest_label, floor_label,
-            sleeping_arrangement, overflow_arrangement, maximum_capacity,
-            inventory_state, overflow_policy, display_order
-          ) values (
-            ${homeId}, ${room.name}, ${room.beds}, ${room.guestLabel},
-            ${room.floorLabel}, ${room.sleepingArrangement},
-            ${room.overflowArrangement}, ${room.maximumCapacity},
-            ${room.inventoryState}, ${room.overflowPolicy}, ${index + 1}
-          )
-          returning id
-        `;
-        roomIds.push(row!.id);
-      }
-
-      const hostIds: string[] = [];
-      for (let number = 1; number <= hostCount; number += 1) {
-        const [host] = await transaction<{ id: string }[]>`
-          insert into public.hosts (home_id, display_name, locale)
-          values (${homeId}, ${`Host ${number}`}, 'en')
-          returning id
-        `;
-        hostIds.push(host!.id);
-      }
+      const { homeId, roomIds, hostIds } = await insertFixtureHome(
+        transaction,
+        {
+          label: options.label,
+          rooms,
+          hostNames: Array.from(
+            { length: hostCount },
+            (_, index) => `Host ${index + 1}`,
+          ),
+        },
+      );
 
       const guests: FixtureGuest[] = [];
       for (const [index, party] of parties.entries()) {
@@ -286,6 +262,66 @@ export async function createFixtureHousehold(
       cause: error,
     });
   }
+}
+
+/**
+ * Writes a home with its rooms and hosts inside the caller's transaction.
+ * Hosts get no Auth user, so nobody can sign in as them. `homeId` lets a
+ * caller record the id before the row exists.
+ */
+export async function insertFixtureHome(
+  transaction: TransactionSql,
+  {
+    label,
+    homeId,
+    rooms = FIXTURE_ROOMS,
+    hostNames,
+  }: {
+    label: string;
+    homeId?: string;
+    rooms?: readonly FixtureRoom[];
+    hostNames: readonly string[];
+  },
+): Promise<{ homeId: string; roomIds: string[]; hostIds: string[] }> {
+  const [home] = await transaction<{ id: string }[]>`
+    insert into public.homes (
+      id, name, timezone, pets_together_allowed, max_families_with_children
+    ) values (
+      coalesce(${homeId ?? null}::uuid, gen_random_uuid()), ${label},
+      'Europe/Madrid', false, 1
+    )
+    returning id
+  `;
+  const id = home!.id;
+
+  const roomIds: string[] = [];
+  for (const [index, room] of rooms.entries()) {
+    const [row] = await transaction<{ id: string }[]>`
+      insert into public.rooms (
+        home_id, name, beds, guest_label, floor_label,
+        sleeping_arrangement, overflow_arrangement, maximum_capacity,
+        inventory_state, overflow_policy, display_order
+      ) values (
+        ${id}, ${room.name}, ${room.beds}, ${room.guestLabel},
+        ${room.floorLabel}, ${room.sleepingArrangement},
+        ${room.overflowArrangement}, ${room.maximumCapacity},
+        ${room.inventoryState}, ${room.overflowPolicy}, ${index + 1}
+      )
+      returning id
+    `;
+    roomIds.push(row!.id);
+  }
+
+  const hostIds: string[] = [];
+  for (const name of hostNames) {
+    const [host] = await transaction<{ id: string }[]>`
+      insert into public.hosts (home_id, display_name, locale)
+      values (${id}, ${name}, 'en')
+      returning id
+    `;
+    hostIds.push(host!.id);
+  }
+  return { homeId: id, roomIds, hostIds };
 }
 
 /**

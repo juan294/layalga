@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import nextConfig, { buildSecurityHeaders } from "./next.config";
+import nextConfig, {
+  buildSecurityHeaders,
+  developmentPageRetention,
+} from "./next.config";
 
 describe("content security policy", () => {
   test("keeps the browser defense-in-depth baseline", () => {
@@ -41,6 +44,9 @@ test("omits capability-bearing requests from development request logs and keeps 
     "/api/runs/run?token=sample-bearer",
     "/en/guest/verify?capability=verification",
     "/es/guest/return?capability=email",
+    "/oauth/consent?authorization_id=pending",
+    "/es/oauth/consent?authorization_id=pending&auth=failed",
+    "/en/oauth/consent?auth=failed&authorization_id=pending",
   ])
     expect(matches(path), path).toBe(true);
   for (const path of [
@@ -49,6 +55,18 @@ test("omits capability-bearing requests from development request logs and keeps 
     "/es/runs/run/status?returnTo=%2Fes",
     "/api/runs/run",
     "/en/guest/verify?invalid=1",
+    "/en/oauth/consent",
   ])
     expect(matches(path), path).toBe(false);
+});
+
+test("keeps compiled pages in memory only when the browser tests ask for it", () => {
+  expect(developmentPageRetention({})).toBeUndefined();
+  expect(
+    developmentPageRetention({ E2E_KEEP_COMPILED_PAGES: "0" }),
+  ).toBeUndefined();
+  const kept = developmentPageRetention({ E2E_KEEP_COMPILED_PAGES: "1" });
+  // next dev drops a page after 60 s without use and keeps at most 5.
+  expect(kept?.maxInactiveAge).toBeGreaterThanOrEqual(60 * 60 * 1000);
+  expect(kept?.pagesBufferLength).toBeGreaterThanOrEqual(100);
 });

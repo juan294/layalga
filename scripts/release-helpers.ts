@@ -2,6 +2,13 @@ import { pathToFileURL } from "node:url";
 
 import type { Sql } from "postgres";
 
+import {
+  connectionTarget,
+  isLoopbackDatabase,
+} from "../src/core/db/connection-target";
+
+export { connectionTarget, isLoopbackDatabase };
+
 export type ProbeTarget = "local" | "production";
 
 export interface ReleaseCliOptions {
@@ -100,6 +107,24 @@ export function parseReleaseCliOptions(
     target,
     cleanupOnly,
   };
+}
+
+/**
+ * Whether a connection names the Supabase project `projectRef`: as the user
+ * `<role>.<ref>` on Supabase pooler hosts, or the direct host
+ * `db.<ref>.supabase.co`.
+ */
+export function databaseNamesProject(
+  databaseUrl: string,
+  projectRef: string,
+): boolean {
+  const { hosts, user } = connectionTarget(databaseUrl);
+  if (!hosts.length) return false;
+  return (
+    (user.endsWith(`.${projectRef}`) &&
+      hosts.every((host) => host.endsWith(".pooler.supabase.com"))) ||
+    hosts.every((host) => host === `db.${projectRef}.supabase.co`)
+  );
 }
 
 export async function responseJson<T>(

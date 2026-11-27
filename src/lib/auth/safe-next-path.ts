@@ -18,6 +18,32 @@ export function isRequesterPath(value: string): boolean {
   );
 }
 
+/** The ID that Auth gives one assistant request. */
+export function isAuthorizationId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(value);
+}
+
+export function assistantConsentPath(
+  locale: string,
+  authorizationId: string,
+): string {
+  return `/${locale}/oauth/consent?authorization_id=${authorizationId}`;
+}
+
+/** A guest returns to the consent page of one assistant request. */
+export function isAssistantConsentPath(value: string): boolean {
+  const id = value.slice(assistantConsentPath("en", "").length);
+  return (
+    isAuthorizationId(id) &&
+    ["en", "es"].some((locale) => value === assistantConsentPath(locale, id))
+  );
+}
+
+/** The list of connected assistants. */
+export function isAssistantsPath(value: string): boolean {
+  return /^\/(en|es)\/assistants$/.test(value);
+}
+
 export function staySearchKeys(hasHandle: boolean): readonly string[] {
   return hasHandle
     ? ["from", "to", "nights", "adults", "children", "pets"]
