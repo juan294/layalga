@@ -10,6 +10,7 @@ import {
 } from "@/core/memory/orphans";
 
 import {
+  databaseNamesProject,
   isDirectExecution,
   requiredEnvironment,
   safeErrorMessage,
@@ -64,16 +65,8 @@ export function assertApplyTarget(
   { apply, projectRef }: { apply: boolean; projectRef?: string },
 ): void {
   if (!apply) return;
-  const url = new URL(requiredEnvironment("DATABASE_URL", env));
-  const user = decodeURIComponent(url.username);
-  if (
-    !projectRef ||
-    !(
-      (user.endsWith(`.${projectRef}`) &&
-        url.hostname.endsWith(".pooler.supabase.com")) ||
-      url.hostname === `db.${projectRef}.supabase.co`
-    )
-  ) {
+  const databaseUrl = requiredEnvironment("DATABASE_URL", env);
+  if (!projectRef || !databaseNamesProject(databaseUrl, projectRef)) {
     throw new Error(
       `DATABASE_URL does not name Supabase project ${projectRef ?? "(none)"}; refusing to delete.`,
     );

@@ -205,15 +205,54 @@ describe("resolveAssistant with a scripted Auth answer", () => {
     const fetchUser = vi.fn(async (url: unknown, init?: RequestInit) =>
       answer(String(url), init ?? {}),
     );
+    const onUserCheck = vi.fn<(ms: number) => void>();
     const result = await resolveAssistant(`Bearer ${token}`, {
       database: web.db,
       clock,
       supabase: { url: local.url, key: "publishable" },
       jwks,
       fetch: fetchUser as typeof fetch,
+      onUserCheck,
     });
-    return { result, fetchUser, token };
+    return { result, fetchUser, token, onUserCheck };
   }
+
+  const slowly = <T>(ms: number, value: () => T) =>
+    new Promise<void>((done) => setTimeout(done, ms)).then(value);
+
+  it.each<[string, () => Response]>([
+    ["an accepted account", () => Response.json(user())],
+    [
+      "an ended connection",
+      () => Response.json({ error_code: "session_not_found" }, { status: 403 }),
+    ],
+    [
+      "a failed read",
+      () => {
+        throw new TypeError("fetch failed");
+      },
+    ],
+  ])(
+    "reports the duration of the Auth read once, after %s",
+    async (_name, answer) => {
+      const { onUserCheck, fetchUser } = await scripted(() =>
+        slowly(40, answer),
+      );
+      expect(fetchUser).toHaveBeenCalledTimes(1);
+      expect(onUserCheck).toHaveBeenCalledTimes(1);
+      const [ms] = onUserCheck.mock.calls[0]!;
+      expect(ms).toBeGreaterThanOrEqual(39);
+      expect(ms).toBeLessThan(3_000);
+    },
+  );
+
+  it("reports no Auth time when the request ends before Auth", async () => {
+    const refused = await scripted(() => Response.json(user()), {
+      client: randomUUID(),
+    });
+    expect(refused.result).toEqual({ status: "refused" });
+    expect(refused.onUserCheck).not.toHaveBeenCalled();
+  });
 
   it("asks Auth with the publishable key and the token, and follows no redirect", async () => {
     const { result, fetchUser, token } = await scripted(() =>

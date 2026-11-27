@@ -36,7 +36,7 @@ auth_admin() {
   key="$(mgmt "https://api.supabase.com/v1/projects/${PROJECT_REF}/api-keys?reveal=true" | jq -r 'map(select(.type == "secret"))[0].api_key')" || return 1
   curl -sS --fail-with-body -H @<(printf 'apikey: %s\nAuthorization: Bearer %s\n' "$key" "$key") "$@"
 }
-require_uuid() { [[ "$1" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "not a client ID: '$1'" >&2; return 1; }; }
+require_uuid() { [[ "$1" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "not an ID: '$1'" >&2; return 1; }; }
 ask_client_id() { read -r -p 'Claude client ID from the G4 record: ' CLAUDE_CLIENT_ID && require_uuid "$CLAUDE_CLIENT_ID"; }
 ask_deployment() {
   vercel inspect layalga.thecreativetoken.com --scope thecreativetoken
@@ -364,31 +364,50 @@ ask_deployment && vercel redeploy "$current" --target production --scope thecrea
 
 ## G6: Claude pilot
 
-Entry condition, open: the pilot needs a synthetic published household that lasts for the pilot, and no command in the repository creates one in production. `scripts/release-probes.ts` deletes its fixture households at the end of its run. The owner decides, before G6, how the pilot household is created and removed without touching the real household, and that command is reviewed like code. G6 does not start without it.
+Entry: G5 passed. The pilot uses a synthetic published household that `pnpm run pilot:household` creates in production and removes at the end, by id (`scripts/pilot-household.ts`, plan addendum `2026-11-26-mcp-pilot-prep.md`). It writes one home named `Pilot household <id>`, three synthetic rooms (two available), one host row `Pilot host` with no sign-in account, and a published listing `Pilot household <first six characters of the id>`. It never reads or writes the real household. Nobody can confirm a stay request on it, so a request that the pilot guest sends stays pending. Like every published household, its listing is visible to any signed-in Google account that searches a matching name, such as "pilot" or "house", for as long as it exists. Such a person can send it a stay request. That request stores the sender's email, dates and text, nobody answers it, and removal deletes it without telling the sender. Keep the household only as long as the pilot needs it. The guest's dedicated Google account is the owner's choice and is not created by the command.
 
-Action: enable the row. Use a dedicated Google account that is no host and has no prepared host email. In Claude, add a custom connector with URL `https://layalga.thecreativetoken.com/api/mcp` and the client ID from G4.
+Each production run of the command needs its own owner authorization that names G6 and the action (create or remove). It connects with the production `DATABASE_URL` of the non-owner web runtime login `layalga_web` (the Vercel production value, also held as the `PROD_DATABASE_URL` environment secret), never the database owner URL. It refuses a connection whose host or user, as the database client reads them, does not name `$PROJECT_REF`, and any user other than `layalga_web`. It keeps its record in `$SQL_DIR/pilot`; removal refuses any id without a record there, so keep that folder until the pilot household is removed. Define the helper after the session setup:
 
 ```bash
-ask_client_id \
-  && sql "update public.assistant_clients set enabled = true where client_id = '$CLAUDE_CLIENT_ID'" \
-  && sql --file "$SQL_DIR/g4-readback.sql"
+pilot_household() {
+  local url
+  read -rs -p 'Production DATABASE_URL of the web runtime role: ' url && echo
+  [[ -n "$url" ]] || { echo 'no database URL' >&2; return 1; }
+  DATABASE_URL="$url" pnpm run pilot:household -- "$@" --target production --project-ref "$PROJECT_REF" --records "$SQL_DIR/pilot"
+}
 ```
+
+Action:
+
+1. Create the pilot household. Record `homeId`, `displayName` and `removeBy` from the output in the release notes; the rollback reads the id with `ask_pilot_home`. The command refuses to create a second household while the record of the first is not removed.
+
+   ```bash
+   pilot_household create --acknowledge 'WRITE PILOT HOUSEHOLD'
+   ```
+
+2. Enable the row. Use a dedicated Google account that is no host and has no prepared host email. In Claude, add a custom connector with URL `https://layalga.thecreativetoken.com/api/mcp` and the client ID from G4.
+
+   ```bash
+   ask_client_id \
+     && sql "update public.assistant_clients set enabled = true where client_id = '$CLAUDE_CLIENT_ID'" \
+     && sql --file "$SQL_DIR/g4-readback.sql"
+   ```
 
 The readback must show the Claude row with `enabled` true. An unknown client ID changes no row and raises no error, so the readback is the proof.
 
-Proof, in this order. P6 first: a failure stops the pilot.
+Proof, in this order. P6 first: a failure stops the pilot. P2 and P4 read the `[MCP_REQUEST]` log lines in Vercel; every value there comes from a fixed set or is a number, never caller text (`src/mcp/server.ts`).
 
-| Check                | What to record                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P6 connection mix-up | Open the consent link of another Claude account's connection attempt in the pilot account's browser and finish it. Claude must reject the return.                                                                                                                                                                                                                                      |
-| P1 connect           | The connector connects with the registered client ID and no secret.                                                                                                                                                                                                                                                                                                                    |
-| P2 headers           | Whether Claude's calls pass the Origin check. `[MCP_REQUEST]` log lines in Vercel show `outcome: "origin"` for a refused Origin; a successful call means that the header was absent, `https://claude.ai` or our own origin. The log does not record the exact Origin value or the protocol version (`src/mcp/server.ts`), so these two values are not observable without a log change. |
-| P3 recovery          | Disconnect on `$APP/en/assistants`, wait past the token lifetime, and record what Claude shows. Auth answers `refresh_token_not_found` without `invalid_grant`. The official MCP client 2.3.1 falls back to a new authorization (VERIFIED in the local journey test, `tests/e2e/assistant-access.spec.ts`); Claude's reaction is UNVERIFIED.                                           |
-| P4 latency           | 50 tool calls: p50 and p95 of the `ms` field of `[MCP_REQUEST]`. It is the whole request, including the `/user` check; it does not separate `/user`.                                                                                                                                                                                                                                   |
-| Tools                | `find_households`, `search_stays` and `read_request_status` answer for the synthetic household. Inspect each answer field by field: only household name, page link, dates, room terms and request status.                                                                                                                                                                              |
-| Disconnect           | The connection is listed on `$APP/en/assistants` and disconnects; the next call fails.                                                                                                                                                                                                                                                                                                 |
+| Check                | What to record                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P6 connection mix-up | Open the consent link of another Claude account's connection attempt in the pilot account's browser and finish it. Claude must reject the return.                                                                                                                                                                                                                                                                                                               |
+| P1 connect           | The connector connects with the registered client ID and no secret.                                                                                                                                                                                                                                                                                                                                                                                             |
+| P2 headers           | The `origin` field of Claude's calls: `absent`, `own` or `claude` passed the Origin check; `other` with outcome `origin` is a refused Origin. The `protocol` field: the `MCP-Protocol-Version` header when the endpoint serves that version (`2026-07-28`, or one of the SDK's revisions from `2024-10-07` to `2025-11-25`), `absent` when the call sent none (a 2025-era `initialize` sends none), and `other` for a version that the endpoint does not serve. |
+| P3 recovery          | Disconnect on `$APP/en/assistants`, wait past the token lifetime, and record what Claude shows. Auth answers `refresh_token_not_found` without `invalid_grant`. The official MCP client 2.3.1 falls back to a new authorization (VERIFIED in the local journey test, `tests/e2e/assistant-access.spec.ts`); Claude's reaction is UNVERIFIED.                                                                                                                    |
+| P4 latency           | 50 tool calls: p50 and p95 of `userMs`, the whole milliseconds of the Auth `/user` read, and of `ms`, the whole request. A line has `userMs` only when the request reached `/user`: a refusal before Auth or a rate limit has none.                                                                                                                                                                                                                             |
+| Tools                | `find_households`, `search_stays` and `read_request_status` answer for the pilot household (its `displayName`). Inspect each answer field by field: only household name, page link, dates, room terms and request status.                                                                                                                                                                                                                                       |
+| Disconnect           | The connection is listed on `$APP/en/assistants` and disconnects; the next call fails.                                                                                                                                                                                                                                                                                                                                                                          |
 
-Rollback: `enabled = false` (immediate), then the G5 rollback; remove the pilot household with the command decided at the entry condition.
+Rollback, and the end of the pilot: `enabled = false` (immediate), then the G5 rollback, then remove the pilot household. Remove it by its `removeBy` date (14 days after creation) at the latest, also when the pilot succeeds.
 
 ```bash
 ask_client_id \
@@ -396,7 +415,14 @@ ask_client_id \
   && sql --file "$SQL_DIR/g4-readback.sql"
 ```
 
-The readback must show the Claude row with `enabled` false.
+The readback must show the Claude row with `enabled` false. After the G5 rollback:
+
+```bash
+ask_pilot_home() { read -r -p 'Pilot household ID from the G6 record: ' PILOT_HOME_ID && require_uuid "$PILOT_HOME_ID"; }
+ask_pilot_home && pilot_household remove --acknowledge 'REMOVE PILOT HOUSEHOLD' --home "$PILOT_HOME_ID"
+```
+
+The output must show `status` `removed` and `removedHousehold` true. `removedStayRequests` counts the requests deleted with it; a count above the pilot guest's own requests means that other people found the listing, which the release notes record. A second run refuses, because the record says `removed`. Stay requests on the pilot household are removed with it; the pilot guest's Google account stays.
 
 ## G7: ChatGPT
 
@@ -425,4 +451,5 @@ Rollback of the web app alone: a version before this release has no `/api/mcp`, 
 - `src/core/assistant-access/activation-runbook.test.ts` pins the setting names, the PATCH bodies and their order, the hook URI, the consent path, the registration value, the callback, the audience, the explicit project on every SQL command and the handling of the secret key.
 - The SQL of G0, G1 and G4 and the helpers `auth_admin` (with the local key source), `require_uuid` and `open_consent` ran on a disposable local stack (CLI 3.3.0, Auth v2.198.0) on 2026-11-26, as the local `postgres` role. Results are recorded in the Phase 4 section of `2026-11-25-read-only-mcp-notes.md`. A local run cannot show hosted roles; G1 step 5 reads them on the hosted project.
 - The admin API calls of G4, the registration refusal of G3 and journey steps 1 to 9 ran against the same local stack in `tests/e2e/assistant-access.spec.ts`.
+- `scripts/pilot-household.integration.test.ts` creates the pilot household on a local stack with the rights of the web runtime, finds and searches it with the assistant tools, sends a pending request, removes it and finds the real household's rows unchanged. `scripts/pilot-household.test.ts` pins the target, acknowledgement and record refusals, each before any database connection. The G6 helper is not run here: it needs the production database.
 - No command in this runbook was run against the hosted project.

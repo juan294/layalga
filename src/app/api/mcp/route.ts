@@ -12,11 +12,12 @@ function liveDeps(): McpDeps {
   const supabase = supabasePublicEnv();
   return {
     appUrl,
-    resolve: (authorization) =>
+    resolve: (authorization, onUserCheck) =>
       resolveAssistant(authorization, {
         database: getDatabaseConnection().db,
         clock: new SystemClock(),
         supabase,
+        onUserCheck,
       }),
   };
 }

@@ -168,7 +168,7 @@ describe("authentication", () => {
       const response = await serve(post(rpc(method)));
       expect(response.status).toBe(401);
       expect(response.headers.get("www-authenticate")).toBe(CHALLENGE);
-      expect(resolve).toHaveBeenCalledWith(null);
+      expect(resolve).toHaveBeenCalledWith(null, expect.any(Function));
     },
   );
 
@@ -181,7 +181,7 @@ describe("authentication", () => {
     expect(response.headers.get("www-authenticate")).toBe(
       `${CHALLENGE}, error="invalid_token", error_description="The access token is not valid. Connect again."`,
     );
-    expect(resolve).toHaveBeenCalledWith("Bearer a.b.c");
+    expect(resolve).toHaveBeenCalledWith("Bearer a.b.c", expect.any(Function));
   });
 
   it("answers an outage with 503 and Retry-After", async () => {
@@ -300,6 +300,113 @@ describe("dispatch", () => {
       ]);
     },
   );
+
+  it.each([
+    [undefined, "absent"],
+    [APP, "own"],
+    ["https://claude.ai", "claude"],
+    ["https://chatgpt.com", "chatgpt"],
+  ])("logs the Origin %s as the class %s", async (origin, logged) => {
+    await serve(post(rpc("tools/list"), origin ? { origin } : {}));
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ origin: logged, outcome: "ok" }),
+    ]);
+  });
+
+  it("still logs one line when the configured APP_URL is not a URL", async () => {
+    const broken = { appUrl: "not a url", resolve };
+    resolve.mockResolvedValue({ status: "refused" });
+    await serveMcp(
+      post(rpc("tools/list"), { origin: "https://claude.ai" }),
+      broken,
+    ).catch(() => undefined);
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ origin: "claude", method: "tools/list" }),
+    ]);
+  });
+
+  it("logs a refused Origin as other, with outcome origin", async () => {
+    await serve(post(rpc("tools/list"), { origin: "https://evil.example" }));
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ origin: "other", outcome: "origin" }),
+    ]);
+  });
+
+  it.each([
+    ...[
+      "2026-07-28",
+      "2025-11-25",
+      "2025-06-18",
+      "2025-03-26",
+      "2024-11-05",
+    ].map((version) => [version, version]),
+    ["1999-01-01", "other"],
+    ["2026-07-28x", "other"],
+  ])("logs the protocol header %j as %s", async (version, logged) => {
+    resolve.mockResolvedValue({ status: "refused" });
+    await serve(post(rpc("tools/list"), { "mcp-protocol-version": version }));
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ protocol: logged }),
+    ]);
+  });
+
+  it("logs a missing protocol header as absent", async () => {
+    resolve.mockResolvedValue({ status: "refused" });
+    const request = post(rpc("initialize"));
+    request.headers.delete("mcp-protocol-version");
+    await serve(request);
+    expect(loggedLines()).toEqual([
+      expect.objectContaining({ protocol: "absent" }),
+    ]);
+  });
+
+  it("logs the Auth time in whole milliseconds only when the resolver read Auth", async () => {
+    resolve.mockImplementationOnce(async (_authorization, onUserCheck) => {
+      onUserCheck(41.6);
+      return ok;
+    });
+    await serve(post(rpc("tools/list")));
+    await serve(post(rpc("tools/list")));
+    const [timed, untimed] = loggedLines();
+    expect(timed).toMatchObject({ userMs: 42, ms: expect.any(Number) });
+    expect(untimed).not.toHaveProperty("userMs");
+    expect(untimed).toHaveProperty("ms");
+  });
+
+  it("logs none of the caller's header or body text", async () => {
+    resolve.mockResolvedValue({ status: "refused" });
+    await serve(
+      post(rpc("tools/list"), {
+        origin: "https://origin-canary.example",
+        "mcp-protocol-version": "version-canary",
+      }),
+    );
+    resolve.mockResolvedValue(ok);
+    await serve(
+      post(
+        rpc("tools/call", {
+          name: "tool-canary",
+          arguments: { name: "argument-canary" },
+        }),
+        {
+          "mcp-protocol-version": "2026-07-28-canary",
+          authorization: "Bearer token-canary.a.b",
+        },
+      ),
+    );
+    await serve(post(rpc("method-canary")));
+    expect(loggedLines()).toHaveLength(3);
+    const logged = JSON.stringify([
+      ...vi.mocked(console.info).mock.calls,
+      ...vi.mocked(console.error).mock.calls,
+    ]);
+    expect(logged).not.toMatch(/canary/i);
+    for (const line of loggedLines())
+      for (const value of Object.values(line))
+        expect(
+          typeof value === "number" || /^[\w/.-]+$/.test(String(value)),
+        ).toBe(true);
+  });
 
   it("logs one line for each request, without values", async () => {
     await serve(

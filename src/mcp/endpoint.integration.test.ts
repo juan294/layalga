@@ -271,6 +271,30 @@ afterAll(async () => {
 
 describe("official client", { timeout: 60_000 }, () => {
   it.each(ERAS)(
+    "logs the %s era, the Origin class and the Auth time on the route",
+    async (version, mode) => {
+      const { header } = await connected();
+      const client = await mcpClient(header, mode);
+      const from = logs.length;
+      await client.listTools();
+      await client.close();
+      const lines = logs
+        .slice(from)
+        .filter(([tag]) => tag === "[MCP_REQUEST]")
+        .map(([, entry]) => entry as Record<string, unknown>);
+      expect(lines).toContainEqual(
+        expect.objectContaining({
+          method: "tools/list",
+          outcome: "ok",
+          origin: "absent",
+          protocol: version,
+          userMs: expect.any(Number),
+        }),
+      );
+    },
+  );
+
+  it.each(ERAS)(
     "discovers the server and calls each tool in the %s era",
     async (version, mode) => {
       const home = await household();

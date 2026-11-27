@@ -21,6 +21,7 @@ import {
   fixtureStay,
   removeFixtureHousehold,
 } from "../src/test-support/fixture-household";
+import { isLoopbackDatabase, requiredEnvironment } from "./release-helpers";
 import type { ProbeContext } from "./release-probes";
 
 function fixtureIdentity(runId: string) {
@@ -31,9 +32,7 @@ function fixtureIdentity(runId: string) {
 }
 
 export function localProbeDatabase() {
-  return ["127.0.0.1", "localhost", "[::1]"].includes(
-    new URL(process.env.DATABASE_URL!).hostname,
-  );
+  return isLoopbackDatabase(requiredEnvironment("DATABASE_URL"));
 }
 
 export async function removeSelfServiceFixture(sql: Sql, runId: string) {
