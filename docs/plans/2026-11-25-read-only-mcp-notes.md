@@ -152,7 +152,7 @@ Not run: any hosted read, a real Google or Claude sign-in, the production server
 
 ### Found outside the phase
 
-INFERRED: `src/app/[locale]/guest/verify/page.tsx` also sets `no-referrer`, so its sign-out button should fail in the same way. Not changed here.
+`src/app/[locale]/guest/verify/page.tsx` also set `no-referrer`, so its sign-out button got 403. Reproduced with a browser test and fixed with `same-origin` in `dd44b3a` (2026-11-27). Strix noted that the capability now reaches this site's own requests in `Referer`; accepted, as on the consent page.
 
 ### Handoff
 
