@@ -1,6 +1,7 @@
 import postgres from "postgres";
 
 import { createDatabase } from "@/core/db/client";
+import { isLoopbackDatabase } from "@/core/db/connection-target";
 
 function isLocal(value: string) {
   return ["127.0.0.1", "localhost", "[::1]"].includes(new URL(value).hostname);
@@ -15,7 +16,7 @@ export function localSupabase() {
   const databaseUrl =
     process.env.DATABASE_URL ??
     "postgresql://postgres:postgres@127.0.0.1:54622/postgres";
-  if (!isLocal(url) || !isLocal(databaseUrl))
+  if (!isLocal(url) || !isLoopbackDatabase(databaseUrl))
     throw new Error("These fixtures require local Supabase");
   // The default Auth and the default database belong to one stack.
   if (
