@@ -81,7 +81,7 @@ During research, describe what exists and do not implement improvements.
 - Run verification specified by the command, plan, or `CLAUDE.md`.
 - Keep verification sequential unless the workflow explicitly permits parallel work.
 - Use the documented `develop`/`main` topology: PRs target `develop`, releases promote `develop` to `main`, and implementation stays off both.
-- Do not create a GitHub repository, push, deploy, change DNS, publish, tag, or release without separate authorization.
+- Do not create a GitHub repository, push, deploy, change DNS or publish without separate authorization. An authorized release includes its tag and GitHub Release after the production gate passes (owner decision 2026-11-28).
 
 <!-- BEGIN:nextjs-agent-rules -->
 

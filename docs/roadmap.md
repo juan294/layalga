@@ -30,7 +30,7 @@ The [real-use launch plan](plans/2026-10-15-real-use-launch.md) has six phases. 
 - Expand the existing bounded WebMCP progressive enhancement. The current implementation registers narrow host and guest tools only when the browser exposes `document.modelContext`; the larger agent-facing product direction remains future work.
 - Run the archived [participant protocol](archive/hackathon/participant-protocol.md) with willing hosts and guests. Record baseline effort, task completion and confusion before making human time-saving or adoption claims.
 - Redraw the draw.io architecture view, which still shows the removed demo guide and clock (the Mermaid sources are current).
-- Activate the read-only connected-assistant channel. v2.6.0 released it switched off: `ASSISTANT_ACCESS` is unset, and the hosted access token hook and OAuth server stay off. Gates G0 and G1 of the [activation runbook](release/assistant-access-activation.md) passed on 2026-11-27; G2 to G7 remain, and each gate needs its own owner authorization. The plan is `plans/2026-11-25-read-only-mcp.md`.
+- Activate the read-only connected-assistant channel. v2.6.0 released it switched off: `ASSISTANT_ACCESS` is unset, and the hosted access token hook and OAuth server stay off. Gates G0 and G1 of the [activation runbook](release/assistant-access-activation.md) passed on 2026-11-27, and G2 (access token hook on) passed on 2026-11-28; G3 to G7 remain, and each gate needs its own owner authorization. The plan is `plans/2026-11-25-read-only-mcp.md`.
 
 ## Deliberately deferred
 

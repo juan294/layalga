@@ -207,14 +207,18 @@ assistant_settings
 Proof:
 
 1. Within five minutes, the owner signs in with Google in a new private window, and a guest account that is no host signs in.
-2. The Auth logs show no hook error. Read them with the query below or in the dashboard (Logs, Auth). The log query uses the Logflare dialect of the Supabase log explorer and was not run for this runbook (UNVERIFIED); if it fails, use the dashboard.
+2. The Auth logs show no hook error, and each new sign-in shows `Hook ran successfully` before `Login`. The Management API no longer serves this query: `analytics/endpoints/logs.all` answers 410, and its replacement `analytics/endpoints/logs` returned no Auth lines on 2026-11-28 (VERIFIED). Run the query below through the Supabase connector's `query_logs` tool (project `hyyrnpyidipkuhakeiyb`, `iso_timestamp_start` at the change), or read the dashboard (Logs, Auth). It is VERIFIED on 2026-11-28 through the connector:
 
-   ```bash
-   mgmt -G "https://api.supabase.com/v1/projects/${PROJECT_REF}/analytics/endpoints/logs.all" \
-     --data-urlencode "iso_timestamp_start=$(date -u -v-15M +%Y-%m-%dT%H:%M:%SZ)" \
-     --data-urlencode "sql=select timestamp, event_message from auth_logs where regexp_contains(event_message, 'hook') order by timestamp desc limit 50" \
-     | jq '.result'
+   ```sql
+   select timestamp, log_attributes['msg'] as msg, log_attributes['error'] as error
+   from logs
+   where source = 'auth_logs'
+     and (positionCaseInsensitive(log_attributes['msg'], 'hook') > 0 or log_attributes['error'] != '')
+   order by timestamp desc
+   limit 60
    ```
+
+   A `400: State has already been used` line next to a successful `Login` is a duplicate sign-in callback, not a hook error.
 
 3. Watch for 70 minutes, past one token lifetime (`jwt_exp` 3600). Then load `$APP/en/stays` in the session opened before the change: it must still show the account, which proves that its refresh passed the hook. Read the logs again.
 
